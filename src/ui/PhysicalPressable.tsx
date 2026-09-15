@@ -1,6 +1,7 @@
 import React, { type ReactNode } from 'react';
 import {
   Pressable,
+  StyleSheet,
   type PressableProps,
   type StyleProp,
   type ViewStyle
@@ -16,7 +17,10 @@ import { motion } from './interactionPhysics';
 
 type Props = Omit<PressableProps, 'style' | 'children'> & {
   children: ReactNode;
+  /** Layout and positioning of the animated physical surface. */
   style?: StyleProp<ViewStyle>;
+  /** Layout of the interactive content inside that surface. */
+  contentStyle?: StyleProp<ViewStyle>;
   strong?: boolean;
   hapticEvent?: HapticEvent | 'none';
 };
@@ -24,6 +28,7 @@ type Props = Omit<PressableProps, 'style' | 'children'> & {
 export default function PhysicalPressable({
   children,
   style,
+  contentStyle,
   strong = false,
   disabled = false,
   hapticEvent = 'button',
@@ -32,11 +37,10 @@ export default function PhysicalPressable({
   ...pressableProps
 }: Props) {
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(disabled ? motion.opacity.disabled : 1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: opacity.value
+    opacity: disabled ? motion.opacity.disabled : 1
   }));
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = (event) => {
@@ -61,10 +65,18 @@ export default function PhysicalPressable({
         disabled={disabled}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={{ minWidth: motion.touch.minimumTarget, minHeight: motion.touch.minimumTarget }}
+        style={[styles.hitTarget, contentStyle]}
       >
         {children}
       </Pressable>
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  hitTarget: {
+    flex: 1,
+    minWidth: motion.touch.minimumTarget,
+    minHeight: motion.touch.minimumTarget
+  }
+});
