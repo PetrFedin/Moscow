@@ -151,7 +151,7 @@ export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end', zIndex: 50 },
+  overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end', zIndex: 50 },
   sheet: { maxHeight: '90%', backgroundColor: '#111419', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: '#373b42', padding: 18, paddingBottom: 24 },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   titleCopy: { flex: 1 },
