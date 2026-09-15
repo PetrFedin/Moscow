@@ -14,8 +14,7 @@ import {
   isQuest
 } from '@reactvision/react-viro';
 import type { RomanovEra } from '../../spatial/romanov-hotspots';
-
-type TrustMode = 'documented' | 'public';
+import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack';
 
 type Props = {
   onClose: () => void;
@@ -27,20 +26,9 @@ type SceneProps = {
   sceneNavigator?: {
     viroAppProps?: {
       era?: RomanovEra;
-      trustMode?: TrustMode;
+      trustMode?: RomanovTrustMode;
     };
   };
-};
-
-const modelSources: Record<RomanovEra, Record<TrustMode, number>> = {
-  '1857': {
-    documented: require('../../../assets/models/romanov-1857-documented-v1.glb'),
-    public: require('../../../assets/models/romanov-1857-public-v1.glb')
-  },
-  '1859': {
-    documented: require('../../../assets/models/romanov-1859-documented-v1.glb'),
-    public: require('../../../assets/models/romanov-1859-public-v1.glb')
-  }
 };
 
 const eraLabels: Record<RomanovEra, { year: string; title: string }> = {
@@ -78,7 +66,7 @@ function RomanovInspectionScene({ sceneNavigator }: SceneProps) {
       <ViroNode position={[0, -4.4, 0]} rotation={[0, yaw, 0]} scale={[scale, scale, scale]}>
         <Viro3DObject
           key={`${era}-${trustMode}`}
-          source={modelSources[era][trustMode]}
+          source={getRomanovModelSource(era, trustMode)}
           type="GLB"
           onRotate={onRotate}
           onPinch={onPinch}
@@ -99,7 +87,7 @@ const RomanovInspectionSceneFactory = RomanovInspectionScene as unknown as () =>
 
 export default function HistoricalModelViewer({ onClose, onBackToArchive, onOpenSpatial }: Props) {
   const [era, setEra] = useState<RomanovEra>('1859');
-  const [trustMode, setTrustMode] = useState<TrustMode>('public');
+  const [trustMode, setTrustMode] = useState<RomanovTrustMode>('public');
 
   return (
     <View style={styles.root}>
