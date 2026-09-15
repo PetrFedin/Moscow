@@ -6,6 +6,7 @@ export type RomanovHotspot = {
   era: RomanovEra | 'both';
   position: [number, number, number];
   evidence: EvidenceStatus;
+  sourceIds: string[];
   titleRu: string;
   titleEn: string;
   storyRu: string;
@@ -18,6 +19,7 @@ export const romanovHotspots: RomanovHotspot[] = [
     era: 'both',
     position: [0, -4.25, 2.25],
     evidence: 'documented',
+    sourceIds: ['shm-history', 'mos-archaeology', 'mos-plans'],
     titleRu: 'Каменное ядро палат',
     titleEn: 'Stone core of the chambers',
     storyRu: 'Нижние каменные объёмы относятся к наиболее устойчивой части памятника. Именно сохранённая историческая ткань позволяет использовать современный фасад как опорную геометрию для сравнения эпох.',
@@ -28,6 +30,7 @@ export const romanovHotspots: RomanovHotspot[] = [
     era: '1857',
     position: [0, -4.22, 6.1],
     evidence: 'documented',
+    sourceIds: ['timm-1857', 'shm-history'],
     titleRu: 'Фасад до реставрации',
     titleEn: 'Facade before restoration',
     storyRu: 'Изображение 1857 года фиксирует Палаты до масштабной реставрации середины XIX века. В приложении это отдельное пространственное состояние, а не декоративный фильтр поверх современной модели.',
@@ -38,6 +41,7 @@ export const romanovHotspots: RomanovHotspot[] = [
     era: '1859',
     position: [0, -4.22, 6.35],
     evidence: 'reconstructed',
+    sourceIds: ['shm-history', 'shm-1859-graphic', 'naidenov-46'],
     titleRu: 'Белокаменное оформление окон',
     titleEn: 'White-stone window treatment',
     storyRu: 'После начала реставрации под руководством Фёдора Рихтера фасад получил выразительное историзирующее оформление. Его точные размеры ещё должны быть сверены с обмерной документацией, поэтому слой отмечен как исследовательская реконструкция.',
@@ -48,6 +52,7 @@ export const romanovHotspots: RomanovHotspot[] = [
     era: '1859',
     position: [0, -3.72, 9.45],
     evidence: 'reconstructed',
+    sourceIds: ['shm-history', 'naidenov-46'],
     titleRu: 'Верхний деревянный терем',
     titleEn: 'Upper timber terem',
     storyRu: 'Верхний деревянный объём является одним из главных визуальных отличий восстановленного облика Палат. Ранние фотографии после реставрации помогают контролировать силуэт, но финальная геометрия должна пройти экспертную и полевую проверку.',
@@ -58,6 +63,7 @@ export const romanovHotspots: RomanovHotspot[] = [
     era: '1859',
     position: [-7.15, -3.95, 4.3],
     evidence: 'reconstructed',
+    sourceIds: ['shm-1859-graphic', 'naidenov-46', 'mos-plans'],
     titleRu: 'Крыльцо и парадная лестница',
     titleEn: 'Porch and ceremonial stair',
     storyRu: 'Наружное крыльцо и лестница формируют главный сценарий подхода к палатам. В production candidate их положение и масса восстановлены исследовательски, а точные ступени, пролёты и профиль арки входят в обязательный список полевого уточнения.',
