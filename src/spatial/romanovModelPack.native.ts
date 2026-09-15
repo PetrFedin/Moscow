@@ -46,7 +46,7 @@ export const romanovModelPack: RomanovModelVariant[] = [
     trustMode: 'documented',
     source: require('../../assets/models/romanov-1859-documented-v1.glb'),
     version: 1,
-    sourceIds: ['naidenov-46', 'shm-romanov'],
+    sourceIds: ['naidenov-46', 'shm-history'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   },
   {
@@ -55,7 +55,7 @@ export const romanovModelPack: RomanovModelVariant[] = [
     trustMode: 'public',
     source: require('../../assets/models/romanov-1859-public-v1.glb'),
     version: 1,
-    sourceIds: ['naidenov-46', 'shm-romanov'],
+    sourceIds: ['naidenov-46', 'shm-history'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   }
 ];
