@@ -3,7 +3,7 @@
     "name": "Москва во времени",
     "slug": "moscow-in-time",
     "scheme": "moscowintime",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "plugins": [
@@ -17,6 +17,23 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Геопозиция нужна, чтобы показывать исторические места рядом с вами и следующий объект прогулки."
+        }
+      ],
+      [
+        "expo-yandex-mapkit",
+        {
+          "flavor": "full",
+          "version": "4.42.0",
+          "locationWhenInUsePermission": "Геопозиция нужна для карты, мест рядом и пешеходных исторических маршрутов."
+        }
+      ],
+      [
+        "@reactvision/react-viro",
+        {
+          "provider": "none",
+          "android": {
+            "xRMode": "AR"
+          }
         }
       ]
     ],
