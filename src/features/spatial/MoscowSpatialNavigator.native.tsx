@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   Viro3DObject,
@@ -10,10 +10,20 @@ import {
   ViroPortal,
   ViroPortalScene,
   ViroScene,
+  ViroSphere,
   ViroText,
   ViroXRSceneNavigator,
   isQuest
 } from '@reactvision/react-viro';
+import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
+import { detectLanguage } from '../../i18n';
+import {
+  evidenceLabels,
+  getRomanovHotspots,
+  romanovHotspots,
+  type RomanovEra,
+  type RomanovHotspot
+} from '../../spatial/romanov-hotspots';
 import {
   defaultRomanovCalibration,
   isCalibrationProfile,
@@ -24,8 +34,6 @@ const CALIBRATION_STORAGE_KEY = 'moscow:p0:romanov-calibration:v1';
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const calibrationEnabled = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_CALIBRATION === '1';
 const externalModelUrl = process.env.EXPO_PUBLIC_ROMANOV_GLB_URL;
-
-type RomanovEra = '1857' | '1859';
 
 const bundledModelSources: Record<RomanovEra, number> = {
   '1857': require('../../../assets/models/romanov-1857-production-candidate-v1.glb'),
@@ -50,6 +58,7 @@ type SceneProps = {
     viroAppProps?: {
       calibration?: CalibrationProfile;
       romanovEra?: RomanovEra;
+      onHotspot?: (id: string) => void;
     };
   };
 };
@@ -84,10 +93,12 @@ function RomanovPortal() {
 function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const romanovEra = sceneNavigator?.viroAppProps?.romanovEra ?? '1859';
+  const onHotspot = sceneNavigator?.viroAppProps?.onHotspot;
   const selectedSource = externalModelUrl && romanovEra === '1859'
     ? { uri: externalModelUrl }
     : bundledModelSources[romanovEra];
   const era = eraLabels[romanovEra];
+  const hotspots = getRomanovHotspots(romanovEra);
 
   const content = (
     <>
@@ -104,6 +115,23 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
           scale={[0.24, 0.24, 0.24]}
           style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
         />
+        {hotspots.map((hotspot, index) => (
+          <ViroNode key={`${romanovEra}-${hotspot.id}`} position={hotspot.position}>
+            <ViroSphere
+              radius={0.24}
+              widthSegmentCount={12}
+              heightSegmentCount={12}
+              onClick={() => onHotspot?.(hotspot.id)}
+            />
+            <ViroText
+              text={String(index + 1)}
+              position={[0, 0.05, -0.26]}
+              scale={[0.11, 0.11, 0.11]}
+              onClick={() => onHotspot?.(hotspot.id)}
+              style={{ fontSize: 20, color: '#17130d', textAlign: 'center' }}
+            />
+          </ViroNode>
+        ))}
       </ViroNode>
       <RomanovPortal />
     </>
@@ -147,10 +175,17 @@ function CalibrationSlider({ label, value, minimumValue, maximumValue, step, onV
 }
 
 export default function MoscowSpatialNavigator() {
+  const language = detectLanguage();
   const [calibration, setCalibration] = useState<CalibrationProfile>(defaultRomanovCalibration);
   const [romanovEra, setRomanovEra] = useState<RomanovEra>('1859');
   const [panelOpen, setPanelOpen] = useState(false);
+  const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  const activeHotspot = useMemo<RomanovHotspot | null>(
+    () => romanovHotspots.find((item) => item.id === activeHotspotId) ?? null,
+    [activeHotspotId]
+  );
 
   useEffect(() => {
     Promise.all([
@@ -165,11 +200,38 @@ export default function MoscowSpatialNavigator() {
         if (rawEra === '1857' || rawEra === '1859') setRomanovEra(rawEra);
       })
       .catch(() => undefined);
+
+    return () => {
+      stopTextGuide().catch(() => undefined);
+    };
   }, []);
 
   const selectEra = (era: RomanovEra) => {
     setRomanovEra(era);
+    setActiveHotspotId(null);
+    stopTextGuide().catch(() => undefined);
     AsyncStorage.setItem(ERA_STORAGE_KEY, era).catch(() => undefined);
+  };
+
+  const activateHotspot = (id: string) => {
+    const hotspot = romanovHotspots.find((item) => item.id === id);
+    if (!hotspot) return;
+    setActiveHotspotId(id);
+    const story = language === 'ru' ? hotspot.storyRu : hotspot.storyEn;
+    playTextGuide(story, language === 'ru' ? 'ru-RU' : 'en-US');
+  };
+
+  const replayHotspot = () => {
+    if (!activeHotspot) return;
+    playTextGuide(
+      language === 'ru' ? activeHotspot.storyRu : activeHotspot.storyEn,
+      language === 'ru' ? 'ru-RU' : 'en-US'
+    );
+  };
+
+  const closeHotspot = () => {
+    setActiveHotspotId(null);
+    stopTextGuide().catch(() => undefined);
   };
 
   const setTranslation = (axis: 0 | 1 | 2, value: number) => {
@@ -205,12 +267,13 @@ export default function MoscowSpatialNavigator() {
   };
 
   const era = eraLabels[romanovEra];
+  const evidence = evidenceLabels[language];
 
   return (
     <View style={styles.root}>
       <ViroXRSceneNavigator
         initialScene={{ scene: RomanovSpatialSceneFactory }}
-        viroAppProps={{ calibration, romanovEra }}
+        viroAppProps={{ calibration, romanovEra, onHotspot: activateHotspot }}
         pbrEnabled
         hdrEnabled
         shadowsEnabled
@@ -236,12 +299,26 @@ export default function MoscowSpatialNavigator() {
               ))}
             </View>
             <Text style={styles.eraTitle}>{era.title}</Text>
-            <Text style={styles.eraEvidence}>{era.evidence}</Text>
+            <Text style={styles.eraEvidence}>{era.evidence} · нажмите номер на модели</Text>
           </View>
+
+          {activeHotspot && !panelOpen && (
+            <View style={styles.hotspotPanel}>
+              <View style={styles.hotspotTop}>
+                <View style={styles.hotspotCopy}>
+                  <Text style={styles.hotspotEvidence}>{evidence[activeHotspot.evidence]}</Text>
+                  <Text style={styles.hotspotTitle}>{language === 'ru' ? activeHotspot.titleRu : activeHotspot.titleEn}</Text>
+                </View>
+                <Pressable style={styles.hotspotClose} onPress={closeHotspot}><Text style={styles.hotspotCloseText}>×</Text></Pressable>
+              </View>
+              <Text style={styles.hotspotStory}>{language === 'ru' ? activeHotspot.storyRu : activeHotspot.storyEn}</Text>
+              <Pressable style={styles.audioReplay} onPress={replayHotspot}><Text style={styles.audioReplayText}>▶ {language === 'ru' ? 'Слушать ещё раз' : 'Replay audio'}</Text></Pressable>
+            </View>
+          )}
 
           {calibrationEnabled && (
             <>
-              <Pressable style={styles.calibrationToggle} onPress={() => setPanelOpen((current) => !current)}>
+              <Pressable style={styles.calibrationToggle} onPress={() => { setPanelOpen((current) => !current); closeHotspot(); }}>
                 <Text style={styles.calibrationToggleText}>{panelOpen ? 'Закрыть калибровку' : 'Калибровка AR'}</Text>
               </Pressable>
 
@@ -276,15 +353,8 @@ export default function MoscowSpatialNavigator() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
   eraPanel: {
-    position: 'absolute',
-    top: 66,
-    left: 14,
-    right: 14,
-    borderRadius: 20,
-    backgroundColor: 'rgba(12,14,17,0.88)',
-    borderWidth: 1,
-    borderColor: '#4c463a',
-    padding: 13
+    position: 'absolute', top: 66, left: 14, right: 14, borderRadius: 20,
+    backgroundColor: 'rgba(12,14,17,0.88)', borderWidth: 1, borderColor: '#4c463a', padding: 13
   },
   eraKicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.5, fontWeight: '900' },
   eraButtons: { flexDirection: 'row', gap: 8, marginTop: 9 },
@@ -295,27 +365,27 @@ const styles = StyleSheet.create({
   eraTitle: { color: '#fff8ea', fontSize: 15, fontWeight: '900', marginTop: 9 },
   eraEvidence: { color: '#a7abb1', fontSize: 10, marginTop: 3 },
   calibrationToggle: {
-    position: 'absolute',
-    top: 196,
-    left: 18,
-    borderRadius: 16,
-    backgroundColor: 'rgba(12,14,17,0.88)',
-    borderWidth: 1,
-    borderColor: '#806f52',
-    paddingHorizontal: 14,
-    paddingVertical: 11
+    position: 'absolute', top: 196, left: 18, borderRadius: 16,
+    backgroundColor: 'rgba(12,14,17,0.88)', borderWidth: 1, borderColor: '#806f52',
+    paddingHorizontal: 14, paddingVertical: 11
   },
   calibrationToggleText: { color: '#f0d39b', fontSize: 12, fontWeight: '900' },
+  hotspotPanel: {
+    position: 'absolute', left: 14, right: 14, bottom: 26, borderRadius: 22,
+    backgroundColor: 'rgba(15,18,22,0.97)', borderWidth: 1, borderColor: '#5b5141', padding: 17
+  },
+  hotspotTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  hotspotCopy: { flex: 1 },
+  hotspotEvidence: { color: '#d7bb84', fontSize: 9, letterSpacing: 1.1, fontWeight: '900' },
+  hotspotTitle: { color: '#fff8ea', fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 5 },
+  hotspotStory: { color: '#c5c7cc', fontSize: 13, lineHeight: 19, marginTop: 10 },
+  hotspotClose: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: '#454951', alignItems: 'center', justifyContent: 'center' },
+  hotspotCloseText: { color: '#ddd', fontSize: 21, lineHeight: 22 },
+  audioReplay: { marginTop: 12, minHeight: 42, borderRadius: 13, backgroundColor: '#27231c', alignItems: 'center', justifyContent: 'center' },
+  audioReplayText: { color: '#e8c98c', fontSize: 12, fontWeight: '900' },
   panel: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 24,
-    borderRadius: 22,
-    backgroundColor: 'rgba(15,18,22,0.96)',
-    borderWidth: 1,
-    borderColor: '#555048',
-    padding: 17
+    position: 'absolute', left: 14, right: 14, bottom: 24, borderRadius: 22,
+    backgroundColor: 'rgba(15,18,22,0.96)', borderWidth: 1, borderColor: '#555048', padding: 17
   },
   panelKicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
   panelTitle: { color: '#fff8ea', fontSize: 20, fontWeight: '900', marginTop: 5 },
