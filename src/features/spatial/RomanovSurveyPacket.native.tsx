@@ -59,7 +59,7 @@ export default function RomanovSurveyPacket({ onClose }: Props) {
       .catch(() => undefined);
   }, []);
 
-  const selectedControl = romanovControlPoints[selectedIndex];
+  const selectedControl = romanovControlPoints[selectedIndex] ?? romanovControlPoints[0]!;
   const selectedPoint = packet.points.find((point) => point.controlPointId === selectedControl.id);
   const gate = useMemo(() => summarizeRomanovSurvey(packet), [packet]);
 
@@ -222,7 +222,7 @@ export default function RomanovSurveyPacket({ onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { position: 'absolute', inset: 0 as never, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end', zIndex: 60 },
+  overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'flex-end', zIndex: 60 },
   sheet: { maxHeight: '96%', backgroundColor: '#111419', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: '#3a3f47', padding: 18, paddingBottom: 22 },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   titleCopy: { flex: 1 },
