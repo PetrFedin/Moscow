@@ -19,7 +19,10 @@ export type RomanovPersistentAnchor = {
   hostedAt: string;
   hostedByDeviceLabel: string;
   resolvedAt?: string;
+  resolvedByDeviceLabel?: string;
+  resolveSessionId?: string;
   verifiedAt?: string;
+  verifiedByDeviceLabel?: string;
   retiredAt?: string;
   notes?: string;
 };
@@ -32,6 +35,14 @@ export type PersistentAnchorReadiness = {
   readyToHost: boolean;
   blockers: string[];
 };
+
+const normalizeDeviceLabel = (value?: string) => value?.trim().toLowerCase() ?? '';
+
+export function isIndependentAnchorResolve(anchor: RomanovPersistentAnchor) {
+  const hosted = normalizeDeviceLabel(anchor.hostedByDeviceLabel);
+  const resolved = normalizeDeviceLabel(anchor.resolvedByDeviceLabel);
+  return Boolean(hosted && resolved && hosted !== resolved && anchor.resolvedAt);
+}
 
 export function getPersistentAnchorReadiness(input: {
   sessions: RomanovFieldSession[];
@@ -71,6 +82,7 @@ export function createPersistentAnchorRecord(input: {
   notes?: string;
 }): RomanovPersistentAnchor {
   if (!input.providerAnchorId.trim()) throw new Error('providerAnchorId is required');
+  if (!input.hostedByDeviceLabel.trim()) throw new Error('hostedByDeviceLabel is required');
   if (!input.calibration.verifiedAt) throw new Error('calibration must be verified before hosting a persistent anchor');
 
   const hostedAt = new Date().toISOString();
@@ -88,14 +100,38 @@ export function createPersistentAnchorRecord(input: {
   };
 }
 
-export function markAnchorResolved(anchor: RomanovPersistentAnchor): RomanovPersistentAnchor {
+export function markAnchorResolved(
+  anchor: RomanovPersistentAnchor,
+  input: { resolvedByDeviceLabel: string; resolveSessionId?: string }
+): RomanovPersistentAnchor {
   if (anchor.state === 'retired') throw new Error('retired anchor cannot be resolved');
-  return { ...anchor, state: 'resolved', resolvedAt: new Date().toISOString() };
+  if (!input.resolvedByDeviceLabel.trim()) throw new Error('resolvedByDeviceLabel is required');
+
+  return {
+    ...anchor,
+    state: 'resolved',
+    resolvedAt: new Date().toISOString(),
+    resolvedByDeviceLabel: input.resolvedByDeviceLabel.trim(),
+    resolveSessionId: input.resolveSessionId?.trim() || undefined
+  };
 }
 
-export function markAnchorVerified(anchor: RomanovPersistentAnchor): RomanovPersistentAnchor {
+export function markAnchorVerified(
+  anchor: RomanovPersistentAnchor,
+  input: { verifiedByDeviceLabel: string }
+): RomanovPersistentAnchor {
   if (anchor.state !== 'resolved') throw new Error('anchor must be resolved before verification');
-  return { ...anchor, state: 'verified', verifiedAt: new Date().toISOString() };
+  if (!input.verifiedByDeviceLabel.trim()) throw new Error('verifiedByDeviceLabel is required');
+  if (!isIndependentAnchorResolve(anchor)) {
+    throw new Error('anchor verification requires a resolve on a device different from the hosting device');
+  }
+
+  return {
+    ...anchor,
+    state: 'verified',
+    verifiedAt: new Date().toISOString(),
+    verifiedByDeviceLabel: input.verifiedByDeviceLabel.trim()
+  };
 }
 
 export function retireAnchor(anchor: RomanovPersistentAnchor, notes?: string): RomanovPersistentAnchor {
