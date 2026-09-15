@@ -14,7 +14,7 @@ export const capabilities: Capability[] = [
     title: 'Интерактивная карта Москвы',
     provider: 'Yandex MapKit',
     status: 'needs-key',
-    note: 'Нативная карта, маркеры, GeoJSON, поиск, панорамы и пешеходные маршруты. Нужен ключ владельца проекта.'
+    note: 'Нативная карта, маркеры, GeoJSON, поиск, панорамы и пешеходные маршруты. Нужен отдельный MapKit API key владельца проекта.'
   },
   {
     id: 'historical-tiles',
@@ -42,14 +42,14 @@ export const capabilities: Capability[] = [
     title: 'AR и 3D · Палаты Романовых',
     provider: 'ViroReact / ARKit / ARCore',
     status: 'field-test',
-    note: 'Две локальные GLB-эпохи 1857 и 1859/1883 уже собраны и подключены. Требуются обмеры, полевое совмещение и измерение ошибки.'
+    note: 'Две локальные GLB-эпохи 1857 и 1859/1883 уже собраны и подключены. Требуются измеренные 5 фасадных точек, полевое совмещение и residual-тест 5/10/15 м.'
   },
   {
     id: 'persistent-anchor',
     title: 'Точная повторяемая привязка сцены',
-    provider: 'ReactVision visual cloud anchor / ARCore provider',
+    provider: 'Viro Cloud Anchors / ARCore provider',
     status: 'field-test',
-    note: 'GPS-якоря недостаточны для точного фасада. Persistent anchor выбираем после manual field-test на Варварке.'
+    note: 'Отдельный gate от карты: сначала complete field matrix минимум на 2 iOS + 2 Android, затем provider credentials и независимый host/resolve тест. MapKit key сам по себе persistent anchor не включает.'
   },
   {
     id: 'vr',
