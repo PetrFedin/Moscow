@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import {
   ViroAmbientLight,
   ViroARScene,
+  ViroScene,
   ViroText,
   ViroXRSceneNavigator,
   isQuest
@@ -21,12 +22,7 @@ function SpatialProbeScene() {
     </>
   );
 
-  if (isQuest) {
-    const { ViroScene } = require('@reactvision/react-viro');
-    return <ViroScene>{content}</ViroScene>;
-  }
-
-  return <ViroARScene>{content}</ViroARScene>;
+  return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene>{content}</ViroARScene>;
 }
 
 export default function MoscowSpatialNavigator() {
@@ -35,6 +31,10 @@ export default function MoscowSpatialNavigator() {
       <ViroXRSceneNavigator
         provider="none"
         initialScene={{ scene: SpatialProbeScene }}
+        pbrEnabled
+        hdrEnabled
+        shadowsEnabled
+        multisamplingEnabled
         style={StyleSheet.absoluteFill}
       />
     </View>
