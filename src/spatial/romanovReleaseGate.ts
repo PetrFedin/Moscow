@@ -3,7 +3,10 @@ import {
   summarizeFieldMatrix,
   type RomanovFieldSession
 } from './fieldVerification';
-import type { RomanovPersistentAnchor } from './persistentAnchor';
+import {
+  isIndependentAnchorResolve,
+  type RomanovPersistentAnchor
+} from './persistentAnchor';
 import {
   summarizeRomanovSurvey,
   type RomanovSurveyPacket
@@ -65,8 +68,8 @@ export function summarizeRomanovReleaseGate(input: {
   const persistentAnchorVerified = anchorsForCurrentCalibration.some((anchor) => anchor.state === 'verified');
   const independentAnchorResolveVerified = anchorsForCurrentCalibration.some((anchor) =>
     anchor.state === 'verified'
-    && Boolean(anchor.resolvedAt)
     && Boolean(anchor.verifiedAt)
+    && isIndependentAnchorResolve(anchor)
   );
 
   const blockers: string[] = [];
