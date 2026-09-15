@@ -17,6 +17,7 @@ import {
 } from '@reactvision/react-viro';
 import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
 import RomanovFieldTest from './RomanovFieldTest.native';
+import RomanovSurveyPacket from './RomanovSurveyPacket.native';
 import { detectLanguage } from '../../i18n';
 import {
   evidenceLabels,
@@ -204,6 +205,7 @@ export default function MoscowSpatialNavigator() {
   const [trustMode, setTrustMode] = useState<TrustMode>('public');
   const [panelOpen, setPanelOpen] = useState(false);
   const [fieldTestOpen, setFieldTestOpen] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
 
@@ -374,6 +376,9 @@ export default function MoscowSpatialNavigator() {
                     <Pressable style={styles.primaryButton} onPress={saveCalibration}><Text style={styles.primaryButtonText}>Сохранить</Text></Pressable>
                     <Pressable style={styles.secondaryButton} onPress={resetCalibration}><Text style={styles.secondaryButtonText}>Сбросить</Text></Pressable>
                   </View>
+                  <Pressable style={styles.fieldButton} onPress={() => { setPanelOpen(false); setSurveyOpen(true); }}>
+                    <Text style={styles.fieldButtonText}>Обмерный пакет · 5 точек</Text>
+                  </Pressable>
                   <Pressable style={styles.fieldButton} onPress={() => { setPanelOpen(false); setFieldTestOpen(true); }}>
                     <Text style={styles.fieldButtonText}>Измерить ошибку · 5 / 10 / 15 м</Text>
                   </Pressable>
@@ -387,6 +392,7 @@ export default function MoscowSpatialNavigator() {
       )}
 
       {fieldTestOpen && !isQuest && <RomanovFieldTest calibration={calibration} era={romanovEra} onClose={() => setFieldTestOpen(false)} />}
+      {surveyOpen && !isQuest && <RomanovSurveyPacket onClose={() => setSurveyOpen(false)} />}
     </View>
   );
 }
