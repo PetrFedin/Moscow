@@ -29,7 +29,6 @@ export default function MoscowSpatialNavigator() {
   return (
     <View style={styles.root}>
       <ViroXRSceneNavigator
-        provider="none"
         initialScene={{ scene: SpatialProbeScene }}
         pbrEnabled
         hdrEnabled
