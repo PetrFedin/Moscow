@@ -16,6 +16,7 @@ import {
   isQuest
 } from '@reactvision/react-viro';
 import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
+import RomanovFieldTest from './RomanovFieldTest.native';
 import { detectLanguage } from '../../i18n';
 import {
   evidenceLabels,
@@ -140,8 +141,6 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene>{content}</ViroARScene>;
 }
 
-// Viro passes sceneNavigator/viroAppProps at runtime, while the XR navigator's
-// public TypeScript definition currently declares a zero-argument scene factory.
 const RomanovSpatialSceneFactory = RomanovSpatialScene as unknown as () => React.JSX.Element;
 
 type CalibrationSliderProps = {
@@ -179,6 +178,7 @@ export default function MoscowSpatialNavigator() {
   const [calibration, setCalibration] = useState<CalibrationProfile>(defaultRomanovCalibration);
   const [romanovEra, setRomanovEra] = useState<RomanovEra>('1859');
   const [panelOpen, setPanelOpen] = useState(false);
+  const [fieldTestOpen, setFieldTestOpen] = useState(false);
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
 
@@ -338,6 +338,9 @@ export default function MoscowSpatialNavigator() {
                     <Pressable style={styles.primaryButton} onPress={saveCalibration}><Text style={styles.primaryButtonText}>Сохранить</Text></Pressable>
                     <Pressable style={styles.secondaryButton} onPress={resetCalibration}><Text style={styles.secondaryButtonText}>Сбросить</Text></Pressable>
                   </View>
+                  <Pressable style={styles.fieldButton} onPress={() => { setPanelOpen(false); setFieldTestOpen(true); }}>
+                    <Text style={styles.fieldButtonText}>Измерить ошибку · 5 / 10 / 15 м</Text>
+                  </Pressable>
                   {saveState === 'saved' && <Text style={styles.savedText}>Профиль сохранён на устройстве</Text>}
                   {saveState === 'error' && <Text style={styles.errorText}>Не удалось сохранить профиль</Text>}
                 </View>
@@ -345,6 +348,10 @@ export default function MoscowSpatialNavigator() {
             </>
           )}
         </View>
+      )}
+
+      {fieldTestOpen && !isQuest && (
+        <RomanovFieldTest calibration={calibration} era={romanovEra} onClose={() => setFieldTestOpen(false)} />
       )}
     </View>
   );
@@ -399,6 +406,8 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#17130d', fontSize: 12, fontWeight: '900' },
   secondaryButton: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: '#4d5158', paddingVertical: 12, alignItems: 'center' },
   secondaryButtonText: { color: '#d7d7d9', fontSize: 12, fontWeight: '800' },
+  fieldButton: { minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: '#806f52', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  fieldButtonText: { color: '#e8c98c', fontSize: 11, fontWeight: '900' },
   savedText: { color: '#9ed0a7', fontSize: 10, marginTop: 8 },
   errorText: { color: '#e89b94', fontSize: 10, marginTop: 8 }
 });
