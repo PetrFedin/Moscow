@@ -1,0 +1,19 @@
+{
+  "id": "romanov-chambers-1857",
+  "placeId": "romanov-chambers",
+  "epoch": "1857",
+  "modelAsset": "assets/models/romanov-chambers-1857.glb",
+  "modelStatus": "missing",
+  "anchorStrategy": "manual-first",
+  "latitude": 55.75193,
+  "longitude": 37.62845,
+  "headingDeg": 0,
+  "pitchDeg": 0,
+  "scale": 1,
+  "translation": [0, 0, 0],
+  "rotationEulerDeg": [0, 0, 0],
+  "hotspots": [
+    { "id": "facade-change", "evidence": "documented", "audioKey": "romanov.facade" },
+    { "id": "restoration-layer", "evidence": "reconstructed", "audioKey": "romanov.restoration" }
+  ]
+}
