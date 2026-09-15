@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -16,7 +16,10 @@ import {
   ROMANOV_FIELD_DISTANCES,
   ROMANOV_FIELD_MAX_TARGET_CM,
   ROMANOV_FIELD_MEAN_TARGET_CM,
+  ROMANOV_REQUIRED_ANDROID_DEVICES,
+  ROMANOV_REQUIRED_IOS_DEVICES,
   sessionToTsv,
+  summarizeFieldMatrix,
   summarizeResiduals,
   type FieldDistanceMeters,
   type RomanovFieldSession
@@ -25,6 +28,7 @@ import type { RomanovEra } from '../../spatial/romanov-hotspots';
 import { romanovControlPoints } from '../../spatial/romanovControlPoints';
 
 const FIELD_STORAGE_KEY = 'moscow:p0:romanov-field-sessions:v1';
+const DEVICE_LABEL_STORAGE_KEY = 'moscow:p0:romanov-device-label:v1';
 
 type Props = {
   calibration: CalibrationProfile;
@@ -40,8 +44,25 @@ const makeEmptyValues = () => romanovControlPoints.reduce<Record<string, string>
 export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
   const [distance, setDistance] = useState<FieldDistanceMeters>(5);
   const [values, setValues] = useState<Record<string, string>>(() => makeEmptyValues());
+  const [deviceLabel, setDeviceLabel] = useState('');
+  const [sessions, setSessions] = useState<RomanovFieldSession[]>([]);
   const [savedSession, setSavedSession] = useState<RomanovFieldSession | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(FIELD_STORAGE_KEY),
+      AsyncStorage.getItem(DEVICE_LABEL_STORAGE_KEY)
+    ])
+      .then(([rawSessions, rawDeviceLabel]) => {
+        if (rawSessions) {
+          const parsed = JSON.parse(rawSessions) as RomanovFieldSession[];
+          if (Array.isArray(parsed)) setSessions(parsed);
+        }
+        if (rawDeviceLabel) setDeviceLabel(rawDeviceLabel);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const observations = useMemo(() => romanovControlPoints.flatMap((point) => {
     const normalized = values[point.id]?.replace(',', '.').trim();
@@ -52,26 +73,37 @@ export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
   }), [values]);
 
   const summary = summarizeResiduals(observations);
+  const matrix = useMemo(() => summarizeFieldMatrix(sessions), [sessions]);
   const complete = observations.length === romanovControlPoints.length;
 
   const save = async () => {
+    if (!deviceLabel.trim()) {
+      setSaveError('Укажите конкретное устройство, например iPhone 16 Pro #1.');
+      return;
+    }
     if (!complete) {
       setSaveError('Заполните ошибку для всех пяти контрольных точек.');
       return;
     }
+
     const session = createFieldSession({
       era,
       viewingDistanceMeters: distance,
       calibration,
       devicePlatform: Platform.OS,
       deviceVersion: String(Platform.Version),
+      deviceLabel: deviceLabel.trim(),
+      appBuild: process.env.EXPO_PUBLIC_BUILD_ID ?? 'local',
       observations
     });
 
     try {
-      const raw = await AsyncStorage.getItem(FIELD_STORAGE_KEY);
-      const existing = raw ? JSON.parse(raw) as RomanovFieldSession[] : [];
-      await AsyncStorage.setItem(FIELD_STORAGE_KEY, JSON.stringify([...existing, session]));
+      const next = [...sessions, session];
+      await Promise.all([
+        AsyncStorage.setItem(FIELD_STORAGE_KEY, JSON.stringify(next)),
+        AsyncStorage.setItem(DEVICE_LABEL_STORAGE_KEY, deviceLabel.trim())
+      ]);
+      setSessions(next);
       setSavedSession(session);
       setSaveError(null);
     } catch {
@@ -99,6 +131,16 @@ export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
         </View>
 
         <Text style={styles.body}>Для выбранной дистанции оцените остаточную ошибку между моделью и реальным фасадом в каждой устойчивой контрольной точке. Не подгоняйте значения под целевой порог.</Text>
+
+        <Text style={styles.fieldLabel}>ФИЗИЧЕСКОЕ УСТРОЙСТВО</Text>
+        <TextInput
+          value={deviceLabel}
+          onChangeText={(value) => { setDeviceLabel(value); setSaveError(null); }}
+          placeholder={Platform.OS === 'ios' ? 'iPhone 16 Pro #1' : 'Android device #1'}
+          placeholderTextColor="#6f747d"
+          style={styles.deviceInput}
+          autoCapitalize="sentences"
+        />
 
         <View style={styles.distanceRow}>
           {ROMANOV_FIELD_DISTANCES.map((item) => (
@@ -142,6 +184,13 @@ export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
           <Text style={styles.verdictText}>{!complete ? `Заполнено ${observations.length} из ${romanovControlPoints.length}` : summary.passed ? 'PASS · внутренний P0-порог выполнен' : 'RECALIBRATE · порог не выполнен'}</Text>
         </View>
 
+        <View style={[styles.matrixCard, matrix.eligibleForPersistentAnchor && styles.matrixCardReady]}>
+          <Text style={styles.matrixKicker}>CROSS-DEVICE GATE</Text>
+          <Text style={styles.matrixTitle}>{matrix.eligibleForPersistentAnchor ? 'ГОТОВО К PERSISTENT ANCHOR' : 'PERSISTENT ANCHOR ЗАБЛОКИРОВАН'}</Text>
+          <Text style={styles.matrixText}>iPhone/iOS: {matrix.iosCompleteDevices}/{ROMANOV_REQUIRED_IOS_DEVICES} · Android: {matrix.androidCompleteDevices}/{ROMANOV_REQUIRED_ANDROID_DEVICES}</Text>
+          <Text style={styles.matrixText}>Для каждого устройства нужны PASS на 5 / 10 / 15 м. Всего сохранено сессий: {matrix.sessions}.</Text>
+        </View>
+
         {saveError && <Text style={styles.error}>{saveError}</Text>}
         <Pressable style={styles.primary} onPress={save}><Text style={styles.primaryText}>Сохранить измерение {distance} м</Text></Pressable>
         {savedSession && <Pressable style={styles.secondary} onPress={share}><Text style={styles.secondaryText}>Экспортировать TSV-отчёт</Text></Pressable>}
@@ -152,7 +201,7 @@ export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
 
 const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end', zIndex: 50 },
-  sheet: { maxHeight: '90%', backgroundColor: '#111419', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: '#373b42', padding: 18, paddingBottom: 24 },
+  sheet: { maxHeight: '94%', backgroundColor: '#111419', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: '#373b42', padding: 18, paddingBottom: 24 },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   titleCopy: { flex: 1 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.5, fontWeight: '900' },
@@ -160,12 +209,14 @@ const styles = StyleSheet.create({
   close: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#454950', alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#ddd', fontSize: 23, lineHeight: 24 },
   body: { color: '#aeb1b8', fontSize: 12, lineHeight: 17, marginTop: 10 },
+  fieldLabel: { color: '#7f848d', fontSize: 8, letterSpacing: 1.3, fontWeight: '900', marginTop: 14, marginBottom: 6 },
+  deviceInput: { minHeight: 44, borderRadius: 13, borderWidth: 1, borderColor: '#42474f', backgroundColor: '#191d22', paddingHorizontal: 12, color: '#fff4df', fontSize: 12, fontWeight: '800' },
   distanceRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   distance: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#454950', alignItems: 'center', justifyContent: 'center' },
   distanceActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
   distanceText: { color: '#c4c7cc', fontWeight: '900' },
   distanceTextActive: { color: '#17130d' },
-  list: { marginTop: 12, maxHeight: 280 },
+  list: { marginTop: 12, maxHeight: 235 },
   listContent: { paddingBottom: 4 },
   pointRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#30343a' },
   pointNumber: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#272b31', alignItems: 'center', justifyContent: 'center' },
@@ -183,6 +234,11 @@ const styles = StyleSheet.create({
   verdictPass: { backgroundColor: '#193120' },
   verdictFail: { backgroundColor: '#3a201f' },
   verdictText: { color: '#dedfe2', fontSize: 10, fontWeight: '900' },
+  matrixCard: { marginTop: 10, borderRadius: 14, borderWidth: 1, borderColor: '#4a4033', backgroundColor: '#191510', padding: 11 },
+  matrixCardReady: { borderColor: '#426d4b', backgroundColor: '#122017' },
+  matrixKicker: { color: '#a7895b', fontSize: 8, letterSpacing: 1.2, fontWeight: '900' },
+  matrixTitle: { color: '#e5c98f', fontSize: 11, fontWeight: '900', marginTop: 3 },
+  matrixText: { color: '#95999f', fontSize: 9, lineHeight: 13, marginTop: 4 },
   error: { color: '#e99d95', fontSize: 10, marginTop: 8 },
   primary: { minHeight: 46, borderRadius: 14, backgroundColor: '#d7bb84', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   primaryText: { color: '#17130d', fontSize: 12, fontWeight: '900' },
