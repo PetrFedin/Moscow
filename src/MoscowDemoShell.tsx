@@ -4,10 +4,11 @@ import { Modal, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from
 import MoscowApp from './MoscowApp';
 import { places } from './data/places';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
+import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import { detectLanguage } from './i18n';
 
-type DemoStage = null | 'lens' | 'spatial';
+type DemoStage = null | 'lens' | 'model' | 'spatial';
 
 export default function MoscowDemoShell() {
   const [stage, setStage] = useState<DemoStage>(null);
@@ -51,9 +52,19 @@ export default function MoscowDemoShell() {
               place={romanov}
               language={language}
               onClose={() => setStage(null)}
-              onOpenSpatial={() => setStage('spatial')}
+              onOpenSpatial={() => setStage('model')}
             />
           )}
+        </View>
+      </Modal>
+
+      <Modal visible={stage === 'model'} animationType="fade" onRequestClose={() => setStage(null)}>
+        <View style={styles.modalRoot}>
+          <HistoricalModelViewer
+            onClose={() => setStage(null)}
+            onBackToArchive={() => setStage('lens')}
+            onOpenSpatial={() => setStage('spatial')}
+          />
         </View>
       </Modal>
 
@@ -64,8 +75,8 @@ export default function MoscowDemoShell() {
             <Pressable style={styles.close} onPress={() => setStage(null)} accessibilityLabel="Закрыть demo">
               <Text style={styles.closeText}>×</Text>
             </Pressable>
-            <Pressable style={styles.backToArchive} onPress={() => setStage('lens')}>
-              <Text style={styles.backText}>← архив 1857</Text>
+            <Pressable style={styles.backToModel} onPress={() => setStage('model')}>
+              <Text style={styles.backText}>← 3D-модель</Text>
             </Pressable>
           </SafeAreaView>
         </View>
@@ -104,6 +115,6 @@ const styles = StyleSheet.create({
   closeLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, padding: 16 },
   close: { position: 'absolute', top: 16, right: 16, width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(8,10,12,0.86)', alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#fff8ea', fontSize: 27, lineHeight: 29 },
-  backToArchive: { position: 'absolute', left: 16, bottom: 24, minHeight: 42, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  backToModel: { position: 'absolute', left: 16, bottom: 24, minHeight: 42, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   backText: { color: '#e5c78d', fontSize: 10, fontWeight: '900' }
 });
