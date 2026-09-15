@@ -1,0 +1,6 @@
+control_point_id	label_ru	purpose	model_x_m	model_y_m	model_z_m	latitude_wgs84	longitude_wgs84	altitude_m	method	horizontal_accuracy_cm	vertical_accuracy_cm	measured_at	measured_by	status	evidence_ref	notes
+main-volume-left-corner	Левый угол основного каменного объёма	alignment												pending		Не заполнять приблизительными координатами
+main-volume-right-corner	Правый угол основного каменного объёма	alignment												pending		Парная точка для масштаба и горизонтального поворота
+stable-window-opening	Стабильный оконный проём фасада	alignment												pending		Точный проём выбрать только после сверки с фасадом
+plinth-reference-line	Линия цоколя / подклета	quality-check												pending		Контроль вертикального положения
+roof-reference-edge	Устойчивый край кровли	quality-check												pending		Не использовать временные элементы или растительность
