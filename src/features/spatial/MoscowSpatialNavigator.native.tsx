@@ -93,6 +93,10 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene>{content}</ViroARScene>;
 }
 
+// Viro passes sceneNavigator/viroAppProps at runtime, but the XR navigator's public
+// TypeScript definition currently declares a zero-argument scene factory.
+const RomanovSpatialSceneFactory = RomanovSpatialScene as unknown as () => React.JSX.Element;
+
 type CalibrationSliderProps = {
   label: string;
   value: number;
@@ -173,7 +177,7 @@ export default function MoscowSpatialNavigator() {
   return (
     <View style={styles.root}>
       <ViroXRSceneNavigator
-        initialScene={{ scene: RomanovSpatialScene }}
+        initialScene={{ scene: RomanovSpatialSceneFactory }}
         viroAppProps={{ calibration }}
         pbrEnabled
         hdrEnabled
