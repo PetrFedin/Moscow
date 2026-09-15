@@ -99,6 +99,8 @@ export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFi
   const completeDevices: RomanovDeviceVerification[] = [];
   for (const [deviceKey, deviceSessions] of grouped) {
     const first = deviceSessions[0];
+    if (!first) continue;
+
     const distancesPassed = ROMANOV_FIELD_DISTANCES.filter((distance) =>
       deviceSessions.some((session) => session.viewingDistanceMeters === distance && session.passed)
     );
