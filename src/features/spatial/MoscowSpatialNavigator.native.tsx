@@ -21,13 +21,35 @@ import {
 } from '../../spatial/calibration';
 
 const CALIBRATION_STORAGE_KEY = 'moscow:p0:romanov-calibration:v1';
-const modelUrl = process.env.EXPO_PUBLIC_ROMANOV_GLB_URL;
+const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const calibrationEnabled = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_CALIBRATION === '1';
+const externalModelUrl = process.env.EXPO_PUBLIC_ROMANOV_GLB_URL;
+
+type RomanovEra = '1857' | '1859';
+
+const bundledModelSources: Record<RomanovEra, number> = {
+  '1857': require('../../../assets/models/romanov-1857-production-candidate-v1.glb'),
+  '1859': require('../../../assets/models/romanov-1859-production-candidate-v1.glb')
+};
+
+const eraLabels: Record<RomanovEra, { year: string; title: string; evidence: string }> = {
+  '1857': {
+    year: '1857',
+    title: 'До реставрации',
+    evidence: 'Архивное состояние · documented + hypothesis'
+  },
+  '1859': {
+    year: '1859 / 1883',
+    title: 'Реставрация Рихтера',
+    evidence: 'Documented + reconstructed + hypothesis'
+  }
+};
 
 type SceneProps = {
   sceneNavigator?: {
     viroAppProps?: {
       calibration?: CalibrationProfile;
+      romanovEra?: RomanovEra;
     };
   };
 };
@@ -50,7 +72,7 @@ function RomanovPortal() {
         style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
       />
       <ViroText
-        text="Production-интерьер появится после исторической реконструкции"
+        text="Production-интерьер появится после отдельной проверки интерьеров"
         position={[0, -0.15, -3]}
         scale={[0.13, 0.13, 0.13]}
         style={{ fontSize: 15, color: '#d5d0c6', textAlign: 'center' }}
@@ -61,31 +83,28 @@ function RomanovPortal() {
 
 function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
+  const romanovEra = sceneNavigator?.viroAppProps?.romanovEra ?? '1859';
+  const selectedSource = externalModelUrl && romanovEra === '1859'
+    ? { uri: externalModelUrl }
+    : bundledModelSources[romanovEra];
+  const era = eraLabels[romanovEra];
+
   const content = (
     <>
       <ViroAmbientLight color="#ffffff" intensity={650} />
-      {modelUrl ? (
-        <ViroNode
-          position={calibration.translation}
-          rotation={calibration.rotationEulerDeg}
-          scale={[calibration.scale, calibration.scale, calibration.scale]}
-        >
-          <Viro3DObject source={{ uri: modelUrl }} type="GLB" />
-          <ViroText
-            text={isQuest ? 'Палаты Романовых · VR' : 'Палаты Романовых · AR'}
-            position={[0, 2.8, 0]}
-            scale={[0.22, 0.22, 0.22]}
-            style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
-          />
-        </ViroNode>
-      ) : (
+      <ViroNode
+        position={calibration.translation}
+        rotation={calibration.rotationEulerDeg}
+        scale={[calibration.scale, calibration.scale, calibration.scale]}
+      >
+        <Viro3DObject key={romanovEra} source={selectedSource} type="GLB" />
         <ViroText
-          text="ROMANOV GLB · ОЖИДАЕТ МОДЕЛЬ"
-          position={[0, 0, -2.2]}
-          scale={[0.25, 0.25, 0.25]}
+          text={`${era.year} · ${isQuest ? 'VR' : 'AR'}`}
+          position={[0, 14.2, 0]}
+          scale={[0.24, 0.24, 0.24]}
           style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
         />
-      )}
+      </ViroNode>
       <RomanovPortal />
     </>
   );
@@ -93,8 +112,8 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene>{content}</ViroARScene>;
 }
 
-// Viro passes sceneNavigator/viroAppProps at runtime, but the XR navigator's public
-// TypeScript definition currently declares a zero-argument scene factory.
+// Viro passes sceneNavigator/viroAppProps at runtime, while the XR navigator's
+// public TypeScript definition currently declares a zero-argument scene factory.
 const RomanovSpatialSceneFactory = RomanovSpatialScene as unknown as () => React.JSX.Element;
 
 type CalibrationSliderProps = {
@@ -129,18 +148,29 @@ function CalibrationSlider({ label, value, minimumValue, maximumValue, step, onV
 
 export default function MoscowSpatialNavigator() {
   const [calibration, setCalibration] = useState<CalibrationProfile>(defaultRomanovCalibration);
+  const [romanovEra, setRomanovEra] = useState<RomanovEra>('1859');
   const [panelOpen, setPanelOpen] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
 
   useEffect(() => {
-    AsyncStorage.getItem(CALIBRATION_STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const parsed: unknown = JSON.parse(raw);
-        if (isCalibrationProfile(parsed)) setCalibration(parsed);
+    Promise.all([
+      AsyncStorage.getItem(CALIBRATION_STORAGE_KEY),
+      AsyncStorage.getItem(ERA_STORAGE_KEY)
+    ])
+      .then(([rawCalibration, rawEra]) => {
+        if (rawCalibration) {
+          const parsed: unknown = JSON.parse(rawCalibration);
+          if (isCalibrationProfile(parsed)) setCalibration(parsed);
+        }
+        if (rawEra === '1857' || rawEra === '1859') setRomanovEra(rawEra);
       })
       .catch(() => undefined);
   }, []);
+
+  const selectEra = (era: RomanovEra) => {
+    setRomanovEra(era);
+    AsyncStorage.setItem(ERA_STORAGE_KEY, era).catch(() => undefined);
+  };
 
   const setTranslation = (axis: 0 | 1 | 2, value: number) => {
     setCalibration((current) => {
@@ -174,11 +204,13 @@ export default function MoscowSpatialNavigator() {
     await AsyncStorage.removeItem(CALIBRATION_STORAGE_KEY).catch(() => undefined);
   };
 
+  const era = eraLabels[romanovEra];
+
   return (
     <View style={styles.root}>
       <ViroXRSceneNavigator
         initialScene={{ scene: RomanovSpatialSceneFactory }}
-        viroAppProps={{ calibration }}
+        viroAppProps={{ calibration, romanovEra }}
         pbrEnabled
         hdrEnabled
         shadowsEnabled
@@ -186,31 +218,54 @@ export default function MoscowSpatialNavigator() {
         style={StyleSheet.absoluteFill}
       />
 
-      {calibrationEnabled && !isQuest && (
+      {!isQuest && (
         <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          <Pressable style={styles.calibrationToggle} onPress={() => setPanelOpen((current) => !current)}>
-            <Text style={styles.calibrationToggleText}>{panelOpen ? 'Закрыть калибровку' : 'Калибровка AR'}</Text>
-          </Pressable>
-
-          {panelOpen && (
-            <View style={styles.panel}>
-              <Text style={styles.panelKicker}>P0 · MANUAL ALIGNMENT</Text>
-              <Text style={styles.panelTitle}>Совместите модель с фасадом</Text>
-              <Text style={styles.panelBody}>Настройте позицию, поворот и масштаб по устойчивым архитектурным ориентирам. Профиль сохраняется только на этом устройстве.</Text>
-
-              <CalibrationSlider label="X · вправо / влево" value={calibration.translation[0]} minimumValue={-10} maximumValue={10} step={0.05} onValueChange={(value) => setTranslation(0, value)} />
-              <CalibrationSlider label="Y · выше / ниже" value={calibration.translation[1]} minimumValue={-8} maximumValue={8} step={0.05} onValueChange={(value) => setTranslation(1, value)} />
-              <CalibrationSlider label="Z · ближе / дальше" value={calibration.translation[2]} minimumValue={-20} maximumValue={-1} step={0.05} onValueChange={(value) => setTranslation(2, value)} />
-              <CalibrationSlider label="Yaw · поворот" value={calibration.rotationEulerDeg[1]} minimumValue={-180} maximumValue={180} step={1} onValueChange={setYaw} />
-              <CalibrationSlider label="Scale · масштаб" value={calibration.scale} minimumValue={0.25} maximumValue={3} step={0.01} onValueChange={(value) => { setCalibration((current) => ({ ...current, scale: value })); setSaveState('idle'); }} />
-
-              <View style={styles.actionRow}>
-                <Pressable style={styles.primaryButton} onPress={saveCalibration}><Text style={styles.primaryButtonText}>Сохранить</Text></Pressable>
-                <Pressable style={styles.secondaryButton} onPress={resetCalibration}><Text style={styles.secondaryButtonText}>Сбросить</Text></Pressable>
-              </View>
-              {saveState === 'saved' && <Text style={styles.savedText}>Профиль сохранён на устройстве</Text>}
-              {saveState === 'error' && <Text style={styles.errorText}>Не удалось сохранить профиль</Text>}
+          <View style={styles.eraPanel}>
+            <Text style={styles.eraKicker}>3D TIME MACHINE</Text>
+            <View style={styles.eraButtons}>
+              {(['1857', '1859'] as RomanovEra[]).map((item) => (
+                <Pressable
+                  key={item}
+                  onPress={() => selectEra(item)}
+                  style={[styles.eraButton, romanovEra === item && styles.eraButtonActive]}
+                >
+                  <Text style={[styles.eraButtonText, romanovEra === item && styles.eraButtonTextActive]}>
+                    {eraLabels[item].year}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
+            <Text style={styles.eraTitle}>{era.title}</Text>
+            <Text style={styles.eraEvidence}>{era.evidence}</Text>
+          </View>
+
+          {calibrationEnabled && (
+            <>
+              <Pressable style={styles.calibrationToggle} onPress={() => setPanelOpen((current) => !current)}>
+                <Text style={styles.calibrationToggleText}>{panelOpen ? 'Закрыть калибровку' : 'Калибровка AR'}</Text>
+              </Pressable>
+
+              {panelOpen && (
+                <View style={styles.panel}>
+                  <Text style={styles.panelKicker}>P0 · MANUAL ALIGNMENT</Text>
+                  <Text style={styles.panelTitle}>Совместите модель с фасадом</Text>
+                  <Text style={styles.panelBody}>Настройте позицию, поворот и масштаб по устойчивым архитектурным ориентирам. Один профиль используется для обеих эпох.</Text>
+
+                  <CalibrationSlider label="X · вправо / влево" value={calibration.translation[0]} minimumValue={-10} maximumValue={10} step={0.05} onValueChange={(value) => setTranslation(0, value)} />
+                  <CalibrationSlider label="Y · выше / ниже" value={calibration.translation[1]} minimumValue={-8} maximumValue={8} step={0.05} onValueChange={(value) => setTranslation(1, value)} />
+                  <CalibrationSlider label="Z · ближе / дальше" value={calibration.translation[2]} minimumValue={-20} maximumValue={-1} step={0.05} onValueChange={(value) => setTranslation(2, value)} />
+                  <CalibrationSlider label="Yaw · поворот" value={calibration.rotationEulerDeg[1]} minimumValue={-180} maximumValue={180} step={1} onValueChange={setYaw} />
+                  <CalibrationSlider label="Scale · масштаб" value={calibration.scale} minimumValue={0.25} maximumValue={3} step={0.01} onValueChange={(value) => { setCalibration((current) => ({ ...current, scale: value })); setSaveState('idle'); }} />
+
+                  <View style={styles.actionRow}>
+                    <Pressable style={styles.primaryButton} onPress={saveCalibration}><Text style={styles.primaryButtonText}>Сохранить</Text></Pressable>
+                    <Pressable style={styles.secondaryButton} onPress={resetCalibration}><Text style={styles.secondaryButtonText}>Сбросить</Text></Pressable>
+                  </View>
+                  {saveState === 'saved' && <Text style={styles.savedText}>Профиль сохранён на устройстве</Text>}
+                  {saveState === 'error' && <Text style={styles.errorText}>Не удалось сохранить профиль</Text>}
+                </View>
+              )}
+            </>
           )}
         </View>
       )}
@@ -220,9 +275,28 @@ export default function MoscowSpatialNavigator() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
+  eraPanel: {
+    position: 'absolute',
+    top: 66,
+    left: 14,
+    right: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(12,14,17,0.88)',
+    borderWidth: 1,
+    borderColor: '#4c463a',
+    padding: 13
+  },
+  eraKicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.5, fontWeight: '900' },
+  eraButtons: { flexDirection: 'row', gap: 8, marginTop: 9 },
+  eraButton: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#4a4d53', alignItems: 'center', justifyContent: 'center' },
+  eraButtonActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
+  eraButtonText: { color: '#ddd5c8', fontSize: 12, fontWeight: '900' },
+  eraButtonTextActive: { color: '#17130d' },
+  eraTitle: { color: '#fff8ea', fontSize: 15, fontWeight: '900', marginTop: 9 },
+  eraEvidence: { color: '#a7abb1', fontSize: 10, marginTop: 3 },
   calibrationToggle: {
     position: 'absolute',
-    top: 72,
+    top: 196,
     left: 18,
     borderRadius: 16,
     backgroundColor: 'rgba(12,14,17,0.88)',
