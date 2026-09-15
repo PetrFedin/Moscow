@@ -1,0 +1,199 @@
+import React, { useRef, useState } from 'react';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import {
+  Viro3DObject,
+  Viro3DSceneNavigator,
+  ViroAmbientLight,
+  ViroDirectionalLight,
+  ViroNode,
+  ViroOrbitCamera,
+  ViroPinchStateTypes,
+  ViroRotateStateTypes,
+  ViroScene,
+  ViroText,
+  isQuest
+} from '@reactvision/react-viro';
+import type { RomanovEra } from '../../spatial/romanov-hotspots';
+
+type TrustMode = 'documented' | 'public';
+
+type Props = {
+  onClose: () => void;
+  onBackToArchive: () => void;
+  onOpenSpatial: () => void;
+};
+
+type SceneProps = {
+  sceneNavigator?: {
+    viroAppProps?: {
+      era?: RomanovEra;
+      trustMode?: TrustMode;
+    };
+  };
+};
+
+const modelSources: Record<RomanovEra, Record<TrustMode, number>> = {
+  '1857': {
+    documented: require('../../../assets/models/romanov-1857-documented-v1.glb'),
+    public: require('../../../assets/models/romanov-1857-public-v1.glb')
+  },
+  '1859': {
+    documented: require('../../../assets/models/romanov-1859-documented-v1.glb'),
+    public: require('../../../assets/models/romanov-1859-public-v1.glb')
+  }
+};
+
+const eraLabels: Record<RomanovEra, { year: string; title: string }> = {
+  '1857': { year: '1857', title: 'До реставрации' },
+  '1859': { year: '1859 / 1883', title: 'После реставрации Рихтера' }
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+function RomanovInspectionScene({ sceneNavigator }: SceneProps) {
+  const era = sceneNavigator?.viroAppProps?.era ?? '1859';
+  const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
+  const [yaw, setYaw] = useState(-12);
+  const [scale, setScale] = useState(0.78);
+  const rotateBase = useRef(yaw);
+  const pinchBase = useRef(scale);
+
+  const onRotate = (state: number, factor: number) => {
+    if (state === ViroRotateStateTypes.ROTATE_START) rotateBase.current = yaw;
+    setYaw(rotateBase.current + factor);
+  };
+
+  const onPinch = (state: number, factor: number) => {
+    if (state === ViroPinchStateTypes.PINCH_START) pinchBase.current = scale;
+    setScale(clamp(pinchBase.current * factor, 0.42, 1.55));
+  };
+
+  return (
+    <ViroScene>
+      <ViroAmbientLight color="#fff3db" intensity={520} />
+      <ViroDirectionalLight color="#fff2d3" direction={[-0.4, -1, -0.2]} intensity={650} castsShadow />
+      <ViroDirectionalLight color="#9eb8d4" direction={[0.7, -0.2, 0.8]} intensity={240} />
+      <ViroOrbitCamera active position={[0, 8.5, 34]} focalPoint={[0, 6.2, 0]} fieldOfView={48} />
+
+      <ViroNode position={[0, -4.4, 0]} rotation={[0, yaw, 0]} scale={[scale, scale, scale]}>
+        <Viro3DObject
+          key={`${era}-${trustMode}`}
+          source={modelSources[era][trustMode]}
+          type="GLB"
+          onRotate={onRotate}
+          onPinch={onPinch}
+        />
+      </ViroNode>
+
+      <ViroText
+        text={`${eraLabels[era].year} · ${trustMode === 'documented' ? 'DOCUMENTED' : 'PUBLIC RESEARCH'}`}
+        position={[0, 14.5, -1]}
+        scale={[0.28, 0.28, 0.28]}
+        style={{ fontSize: 17, color: '#f0d39b', textAlign: 'center' }}
+      />
+    </ViroScene>
+  );
+}
+
+const RomanovInspectionSceneFactory = RomanovInspectionScene as unknown as () => React.JSX.Element;
+
+export default function HistoricalModelViewer({ onClose, onBackToArchive, onOpenSpatial }: Props) {
+  const [era, setEra] = useState<RomanovEra>('1859');
+  const [trustMode, setTrustMode] = useState<TrustMode>('public');
+
+  return (
+    <View style={styles.root}>
+      <Viro3DSceneNavigator
+        initialScene={{ scene: RomanovInspectionSceneFactory as never }}
+        viroAppProps={{ era, trustMode }}
+        debug={false}
+        onExitViro={onClose}
+        hdrEnabled
+        pbrEnabled
+        bloomEnabled
+        shadowsEnabled
+        multisamplingEnabled
+        style={StyleSheet.absoluteFill}
+      />
+
+      <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.kicker}>3D MODEL · ONE ASSET PIPELINE</Text>
+            <Text style={styles.title}>Палаты бояр Романовых</Text>
+            <Text style={styles.subtitle}>Одна GLB-модель используется здесь, в AR на телефоне и в VR на Quest.</Text>
+          </View>
+          <Pressable style={styles.close} onPress={onClose} accessibilityLabel="Закрыть 3D просмотр">
+            <Text style={styles.closeText}>×</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.controls}>
+          <Text style={styles.controlLabel}>ЭПОХА</Text>
+          <View style={styles.row}>
+            {(['1857', '1859'] as RomanovEra[]).map((item) => (
+              <Pressable key={item} onPress={() => setEra(item)} style={[styles.choice, era === item && styles.choiceActive]}>
+                <Text style={[styles.choiceYear, era === item && styles.choiceYearActive]}>{eraLabels[item].year}</Text>
+                <Text style={styles.choiceSub}>{eraLabels[item].title}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.controlLabel}>ДОСТОВЕРНОСТЬ</Text>
+          <View style={styles.row}>
+            <Pressable onPress={() => setTrustMode('documented')} style={[styles.trust, trustMode === 'documented' && styles.trustActive]}>
+              <Text style={[styles.trustText, trustMode === 'documented' && styles.trustTextActive]}>Только факты</Text>
+            </Pressable>
+            <Pressable onPress={() => setTrustMode('public')} style={[styles.trust, trustMode === 'public' && styles.trustActive]}>
+              <Text style={[styles.trustText, trustMode === 'public' && styles.trustTextActive]}>+ реконструкция</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.bottom}>
+          <Text style={styles.gesture}>Двумя пальцами: вращение · pinch: масштаб</Text>
+          <Text style={styles.modeNote}>{isQuest ? 'Quest обнаружен: следующий режим откроет VR-сцену.' : 'Телефон: следующий режим откроет AR и полевую привязку.'}</Text>
+          <View style={styles.actions}>
+            <Pressable style={styles.secondary} onPress={onBackToArchive}>
+              <Text style={styles.secondaryText}>← Архив 1857</Text>
+            </Pressable>
+            <Pressable style={styles.primary} onPress={onOpenSpatial}>
+              <Text style={styles.primaryText}>{isQuest ? 'Открыть VR на Quest' : 'Открыть AR на месте'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#07090c' },
+  header: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', gap: 10, padding: 14 },
+  headerCopy: { flex: 1, borderRadius: 18, backgroundColor: 'rgba(8,10,13,0.88)', borderWidth: 1, borderColor: '#323740', padding: 13 },
+  kicker: { color: '#b99b69', fontSize: 8, letterSpacing: 1.3, fontWeight: '900' },
+  title: { color: '#fff8ea', fontSize: 19, fontWeight: '900', marginTop: 4 },
+  subtitle: { color: '#969ba4', fontSize: 9.5, lineHeight: 14, marginTop: 4 },
+  close: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(8,10,13,0.9)', borderWidth: 1, borderColor: '#3d4249', alignItems: 'center', justifyContent: 'center' },
+  closeText: { color: '#fff8ea', fontSize: 25, lineHeight: 27 },
+  controls: { position: 'absolute', top: 126, left: 14, right: 14, borderRadius: 18, backgroundColor: 'rgba(8,10,13,0.86)', borderWidth: 1, borderColor: '#30343a', padding: 11 },
+  controlLabel: { color: '#767b84', fontSize: 7.5, letterSpacing: 1.2, fontWeight: '900', marginBottom: 5 },
+  row: { flexDirection: 'row', gap: 7, marginBottom: 8 },
+  choice: { flex: 1, minHeight: 43, borderRadius: 11, borderWidth: 1, borderColor: '#3b4047', paddingHorizontal: 10, justifyContent: 'center' },
+  choiceActive: { borderColor: '#c5a56d', backgroundColor: '#211b13' },
+  choiceYear: { color: '#cacdd2', fontSize: 10.5, fontWeight: '900' },
+  choiceYearActive: { color: '#f0d39b' },
+  choiceSub: { color: '#777c84', fontSize: 7.5, marginTop: 2 },
+  trust: { flex: 1, minHeight: 36, borderRadius: 11, borderWidth: 1, borderColor: '#3b4047', alignItems: 'center', justifyContent: 'center' },
+  trustActive: { borderColor: '#8f7854', backgroundColor: '#211b13' },
+  trustText: { color: '#989da5', fontSize: 9, fontWeight: '900' },
+  trustTextActive: { color: '#e8c98c' },
+  bottom: { position: 'absolute', left: 14, right: 14, bottom: 18, borderRadius: 20, backgroundColor: 'rgba(8,10,13,0.92)', borderWidth: 1, borderColor: '#363b43', padding: 13 },
+  gesture: { color: '#e2d2b4', fontSize: 10, fontWeight: '800' },
+  modeNote: { color: '#838891', fontSize: 9, lineHeight: 13, marginTop: 4 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  secondary: { flex: 1, minHeight: 43, borderRadius: 13, borderWidth: 1, borderColor: '#494e55', alignItems: 'center', justifyContent: 'center' },
+  secondaryText: { color: '#c8b995', fontSize: 9.5, fontWeight: '900' },
+  primary: { flex: 1.35, minHeight: 43, borderRadius: 13, backgroundColor: '#d7bb84', alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: '#17130d', fontSize: 10, fontWeight: '900' }
+});
