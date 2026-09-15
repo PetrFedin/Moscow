@@ -14,7 +14,7 @@ import {
   isQuest
 } from '@reactvision/react-viro';
 import type { RomanovEra } from '../../spatial/romanov-hotspots';
-import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack';
+import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack.native';
 
 type Props = {
   onClose: () => void;
