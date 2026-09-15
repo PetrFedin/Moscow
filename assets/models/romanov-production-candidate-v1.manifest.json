@@ -1,0 +1,79 @@
+{
+  "model_pack": "Romanov Chambers production candidate v1",
+  "status": "research reconstruction; not field-certified",
+  "units": "meters",
+  "source_basis": [
+    {
+      "type": "official museum history",
+      "url": "https://shm.ru/kollektsii-i-muzeynyy-kompleks/museum_history/palaty-romanovykh/history/"
+    },
+    {
+      "type": "1859 architectural graphic",
+      "url": "https://catalog.shm.ru/entity/OBJECT/6323005"
+    },
+    {
+      "type": "1857 pre-restoration image",
+      "url": "https://commons.wikimedia.org/wiki/File:Палаты_бояр_Романовых._1857.jpg"
+    },
+    {
+      "type": "official Moscow architectural-archaeological documentation",
+      "url": "https://www.mos.ru/upload/documents/files/614/Romanovperd2_6str3.pdf"
+    },
+    {
+      "type": "official Moscow floor-plan material",
+      "url": "https://www.mos.ru/upload/documents/files/8873/25082020_16-31-570_20_Emelyanov_AA_Rojdestvenskaya_SA.pdf"
+    }
+  ],
+  "confidence_policy": {
+    "documented": "visible in archival/current evidence or confirmed by official museum/restoration documentation; exact dimensions still require survey",
+    "reconstructed": "associated with the Richter restoration / inferred from early post-restoration imagery; exact proportions provisional",
+    "hypothesis": "placeholder massing pending survey; hidden from public historical mode until resolved"
+  },
+  "field_gate": [
+    "verify global width/depth/height against official measured drawing or field measurement",
+    "survey at least five stable facade control points",
+    "replace hypothesis side mass with measured geometry",
+    "validate window spacing and porch/stair dimensions",
+    "record AR alignment error at 5m, 10m and 15m viewing distance"
+  ],
+  "outputs": {
+    "1857": {
+      "glb": "assets/models/romanov-1857-production-candidate-v1.glb",
+      "glb_bytes": 22036,
+      "gltf": "assets/models/romanov-1857-production-candidate-v1.gltf",
+      "gltf_bytes": 23317,
+      "bounds": [
+        [
+          -9.7,
+          -4.0,
+          0.0
+        ],
+        [
+          6.5,
+          4.0,
+          9.25
+        ]
+      ],
+      "geometry_nodes": 36
+    },
+    "1859": {
+      "glb": "assets/models/romanov-1859-production-candidate-v1.glb",
+      "glb_bytes": 81748,
+      "gltf": "assets/models/romanov-1859-production-candidate-v1.gltf",
+      "gltf_bytes": 87885,
+      "bounds": [
+        [
+          -10.5,
+          -4.25,
+          0.0
+        ],
+        [
+          8.2,
+          3.8,
+          12.975
+        ]
+      ],
+      "geometry_nodes": 128
+    }
+  }
+}
