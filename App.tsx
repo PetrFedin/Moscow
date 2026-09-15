@@ -1,3 +1,3 @@
-import MoscowApp from './src/MoscowApp';
+import MoscowDemoShell from './src/MoscowDemoShell';
 
-export default MoscowApp;
+export default MoscowDemoShell;
