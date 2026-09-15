@@ -1,8 +1,9 @@
 import '@google/model-viewer';
 import { Asset } from 'expo-asset';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { romanovHotspots, type RomanovEra } from '../../spatial/romanov-hotspots';
+import { romanovSources } from '../../spatial/romanov-sources';
 
 type TrustMode = 'documented' | 'public';
 
@@ -101,16 +102,27 @@ export default function MoscowSpatialNavigatorWeb() {
       <View style={styles.hotspotSection}>
         <Text style={styles.sectionTitle}>Точки истории в выбранной сцене</Text>
         <Text style={styles.sectionBody}>В нативном AR эти точки нажимаются прямо на модели и запускают аудио. В preview они показаны как доказательная карта сцены.</Text>
-        {hotspots.map((hotspot, index) => (
-          <View key={hotspot.id} style={styles.hotspotCard}>
-            <View style={styles.hotspotNumber}><Text style={styles.hotspotNumberText}>{index + 1}</Text></View>
-            <View style={styles.hotspotCopy}>
-              <Text style={styles.hotspotTitle}>{hotspot.titleRu}</Text>
-              <Text style={styles.hotspotEvidence}>{hotspot.evidence === 'documented' ? 'Подтверждено источником' : hotspot.evidence === 'reconstructed' ? 'Исследовательская реконструкция' : 'Гипотеза'}</Text>
-              <Text style={styles.hotspotStory}>{hotspot.storyRu}</Text>
+        {hotspots.map((hotspot, index) => {
+          const sources = hotspot.sourceIds.map((id) => romanovSources.find((source) => source.id === id)).filter(Boolean);
+          return (
+            <View key={hotspot.id} style={styles.hotspotCard}>
+              <View style={styles.hotspotNumber}><Text style={styles.hotspotNumberText}>{index + 1}</Text></View>
+              <View style={styles.hotspotCopy}>
+                <Text style={styles.hotspotTitle}>{hotspot.titleRu}</Text>
+                <Text style={styles.hotspotEvidence}>{hotspot.evidence === 'documented' ? 'Подтверждено источником' : hotspot.evidence === 'reconstructed' ? 'Исследовательская реконструкция' : 'Гипотеза'}</Text>
+                <Text style={styles.hotspotStory}>{hotspot.storyRu}</Text>
+                <Text style={styles.sourceKicker}>ИСТОЧНИКИ</Text>
+                <View style={styles.sourceWrap}>
+                  {sources.map((source) => source && (
+                    <Pressable key={source.id} onPress={() => Linking.openURL(source.sourcePage)} style={styles.sourceChip}>
+                      <Text style={styles.sourceChipText}>{source.titleRu} ↗</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       <View style={styles.nativeNote}>
@@ -153,6 +165,10 @@ const styles = StyleSheet.create({
   hotspotTitle: { color: '#ebe7de', fontSize: 14, fontWeight: '900' },
   hotspotEvidence: { color: '#b99b69', fontSize: 9, fontWeight: '900', marginTop: 3 },
   hotspotStory: { color: '#969aa2', fontSize: 11, lineHeight: 16, marginTop: 7 },
+  sourceKicker: { color: '#777c84', fontSize: 8, letterSpacing: 1.2, fontWeight: '900', marginTop: 10 },
+  sourceWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 5 },
+  sourceChip: { borderRadius: 10, borderWidth: 1, borderColor: '#3b4047', backgroundColor: '#161a1f', paddingHorizontal: 8, paddingVertical: 6 },
+  sourceChipText: { color: '#c7b58f', fontSize: 9, fontWeight: '700' },
   nativeNote: { maxWidth: 760, width: '100%', alignSelf: 'center', marginTop: 24, borderRadius: 18, borderWidth: 1, borderColor: '#443c31', backgroundColor: '#17130f', padding: 15 },
   nativeTitle: { color: '#e7c98f', fontSize: 13, fontWeight: '900' },
   nativeBody: { color: '#9d9486', fontSize: 10, lineHeight: 16, marginTop: 5 }
