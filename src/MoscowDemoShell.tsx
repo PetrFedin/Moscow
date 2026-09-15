@@ -1,12 +1,13 @@
 import { useCameraPermissions } from 'expo-camera';
 import React, { useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MoscowApp from './MoscowApp';
 import { places } from './data/places';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import { detectLanguage } from './i18n';
+import PhysicalPressable from './ui/PhysicalPressable';
 
 type DemoStage = null | 'lens' | 'model' | 'spatial';
 
@@ -31,10 +32,12 @@ export default function MoscowDemoShell() {
       <MoscowApp />
 
       {demoEnabled && (
-        <Pressable
+        <PhysicalPressable
           accessibilityRole="button"
           accessibilityLabel="Открыть демонстрационный сценарий Палат Романовых"
           style={styles.demoButton}
+          contentStyle={styles.demoButtonContent}
+          strong
           onPress={openDemo}
         >
           <Text style={styles.demoStar}>✦</Text>
@@ -42,7 +45,7 @@ export default function MoscowDemoShell() {
             <Text style={styles.demoKicker}>WOW</Text>
             <Text style={styles.demoText}>DEMO</Text>
           </View>
-        </Pressable>
+        </PhysicalPressable>
       )}
 
       <Modal visible={stage === 'lens'} animationType="slide" onRequestClose={() => setStage(null)}>
@@ -72,12 +75,21 @@ export default function MoscowDemoShell() {
         <View style={styles.modalRoot}>
           <MoscowSpatialNavigator />
           <SafeAreaView pointerEvents="box-none" style={styles.closeLayer}>
-            <Pressable style={styles.close} onPress={() => setStage(null)} accessibilityLabel="Закрыть demo">
+            <PhysicalPressable
+              style={styles.close}
+              contentStyle={styles.centerContent}
+              onPress={() => setStage(null)}
+              accessibilityLabel="Закрыть demo"
+            >
               <Text style={styles.closeText}>×</Text>
-            </Pressable>
-            <Pressable style={styles.backToModel} onPress={() => setStage('model')}>
+            </PhysicalPressable>
+            <PhysicalPressable
+              style={styles.backToModel}
+              contentStyle={styles.centerContent}
+              onPress={() => setStage('model')}
+            >
               <Text style={styles.backText}>← 3D-модель</Text>
-            </Pressable>
+            </PhysicalPressable>
           </SafeAreaView>
         </View>
       </Modal>
@@ -97,24 +109,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#d7bb84',
     borderWidth: 1,
     borderColor: '#f0d39b',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
     shadowColor: '#000',
     shadowOpacity: 0.32,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
     elevation: 8
   },
+  demoButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12
+  },
   demoStar: { color: '#17130d', fontSize: 20, fontWeight: '900' },
   demoKicker: { color: '#69552f', fontSize: 7, letterSpacing: 1.1, fontWeight: '900' },
   demoText: { color: '#17130d', fontSize: 11, fontWeight: '900', marginTop: 1 },
   modalRoot: { flex: 1, backgroundColor: '#050607' },
   closeLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, padding: 16 },
-  close: { position: 'absolute', top: 16, right: 16, width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(8,10,12,0.86)', alignItems: 'center', justifyContent: 'center' },
+  close: { position: 'absolute', top: 16, right: 16, width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(8,10,12,0.86)' },
+  centerContent: { alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#fff8ea', fontSize: 27, lineHeight: 29 },
-  backToModel: { position: 'absolute', left: 16, bottom: 24, minHeight: 42, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  backToModel: { position: 'absolute', left: 16, bottom: 24, minHeight: 44, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14 },
   backText: { color: '#e5c78d', fontSize: 10, fontWeight: '900' }
 });
