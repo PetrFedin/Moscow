@@ -33,24 +33,46 @@ import {
 
 const CALIBRATION_STORAGE_KEY = 'moscow:p0:romanov-calibration:v1';
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
+const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 const calibrationEnabled = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_CALIBRATION === '1';
 const externalModelUrl = process.env.EXPO_PUBLIC_ROMANOV_GLB_URL;
 
-const bundledModelSources: Record<RomanovEra, number> = {
-  '1857': require('../../../assets/models/romanov-1857-production-candidate-v1.glb'),
-  '1859': require('../../../assets/models/romanov-1859-production-candidate-v1.glb')
+type TrustMode = 'documented' | 'public';
+
+const bundledModelSources: Record<RomanovEra, Record<TrustMode, number>> = {
+  '1857': {
+    documented: require('../../../assets/models/romanov-1857-documented-v1.glb'),
+    public: require('../../../assets/models/romanov-1857-public-v1.glb')
+  },
+  '1859': {
+    documented: require('../../../assets/models/romanov-1859-documented-v1.glb'),
+    public: require('../../../assets/models/romanov-1859-public-v1.glb')
+  }
 };
 
 const eraLabels: Record<RomanovEra, { year: string; title: string; evidence: string }> = {
   '1857': {
     year: '1857',
     title: 'До реставрации',
-    evidence: 'Архивное состояние · documented + hypothesis'
+    evidence: 'Архивное состояние'
   },
   '1859': {
     year: '1859 / 1883',
     title: 'Реставрация Рихтера',
-    evidence: 'Documented + reconstructed + hypothesis'
+    evidence: 'Ранняя фотофиксация восстановленного состояния'
+  }
+};
+
+const trustLabels: Record<TrustMode, { short: string; title: string; note: string }> = {
+  documented: {
+    short: 'Только факты',
+    title: 'Подтверждённая геометрия',
+    note: 'Показываются только элементы слоя documented.'
+  },
+  public: {
+    short: '+ реконструкция',
+    title: 'Публичная исследовательская реконструкция',
+    note: 'Documented + reconstructed. Hypothesis-геометрия физически исключена из GLB.'
   }
 };
 
@@ -59,6 +81,7 @@ type SceneProps = {
     viroAppProps?: {
       calibration?: CalibrationProfile;
       romanovEra?: RomanovEra;
+      trustMode?: TrustMode;
       onHotspot?: (id: string) => void;
     };
   };
@@ -94,12 +117,13 @@ function RomanovPortal() {
 function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const romanovEra = sceneNavigator?.viroAppProps?.romanovEra ?? '1859';
+  const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
   const onHotspot = sceneNavigator?.viroAppProps?.onHotspot;
-  const selectedSource = externalModelUrl && romanovEra === '1859'
+  const selectedSource = externalModelUrl && romanovEra === '1859' && trustMode === 'public'
     ? { uri: externalModelUrl }
-    : bundledModelSources[romanovEra];
+    : bundledModelSources[romanovEra][trustMode];
   const era = eraLabels[romanovEra];
-  const hotspots = getRomanovHotspots(romanovEra);
+  const hotspots = getRomanovHotspots(romanovEra).filter((hotspot) => trustMode === 'public' || hotspot.evidence === 'documented');
 
   const content = (
     <>
@@ -109,15 +133,15 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
         rotation={calibration.rotationEulerDeg}
         scale={[calibration.scale, calibration.scale, calibration.scale]}
       >
-        <Viro3DObject key={romanovEra} source={selectedSource} type="GLB" />
+        <Viro3DObject key={`${romanovEra}-${trustMode}`} source={selectedSource} type="GLB" />
         <ViroText
-          text={`${era.year} · ${isQuest ? 'VR' : 'AR'}`}
+          text={`${era.year} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'} · ${isQuest ? 'VR' : 'AR'}`}
           position={[0, 14.2, 0]}
           scale={[0.24, 0.24, 0.24]}
           style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
         />
         {hotspots.map((hotspot, index) => (
-          <ViroNode key={`${romanovEra}-${hotspot.id}`} position={hotspot.position}>
+          <ViroNode key={`${romanovEra}-${trustMode}-${hotspot.id}`} position={hotspot.position}>
             <ViroSphere
               radius={0.24}
               widthSegmentCount={12}
@@ -177,6 +201,7 @@ export default function MoscowSpatialNavigator() {
   const language = detectLanguage();
   const [calibration, setCalibration] = useState<CalibrationProfile>(defaultRomanovCalibration);
   const [romanovEra, setRomanovEra] = useState<RomanovEra>('1859');
+  const [trustMode, setTrustMode] = useState<TrustMode>('public');
   const [panelOpen, setPanelOpen] = useState(false);
   const [fieldTestOpen, setFieldTestOpen] = useState(false);
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
@@ -190,14 +215,16 @@ export default function MoscowSpatialNavigator() {
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(CALIBRATION_STORAGE_KEY),
-      AsyncStorage.getItem(ERA_STORAGE_KEY)
+      AsyncStorage.getItem(ERA_STORAGE_KEY),
+      AsyncStorage.getItem(TRUST_STORAGE_KEY)
     ])
-      .then(([rawCalibration, rawEra]) => {
+      .then(([rawCalibration, rawEra, rawTrust]) => {
         if (rawCalibration) {
           const parsed: unknown = JSON.parse(rawCalibration);
           if (isCalibrationProfile(parsed)) setCalibration(parsed);
         }
         if (rawEra === '1857' || rawEra === '1859') setRomanovEra(rawEra);
+        if (rawTrust === 'documented' || rawTrust === 'public') setTrustMode(rawTrust);
       })
       .catch(() => undefined);
 
@@ -211,6 +238,13 @@ export default function MoscowSpatialNavigator() {
     setActiveHotspotId(null);
     stopTextGuide().catch(() => undefined);
     AsyncStorage.setItem(ERA_STORAGE_KEY, era).catch(() => undefined);
+  };
+
+  const selectTrustMode = (mode: TrustMode) => {
+    setTrustMode(mode);
+    setActiveHotspotId(null);
+    stopTextGuide().catch(() => undefined);
+    AsyncStorage.setItem(TRUST_STORAGE_KEY, mode).catch(() => undefined);
   };
 
   const activateHotspot = (id: string) => {
@@ -268,12 +302,13 @@ export default function MoscowSpatialNavigator() {
 
   const era = eraLabels[romanovEra];
   const evidence = evidenceLabels[language];
+  const trust = trustLabels[trustMode];
 
   return (
     <View style={styles.root}>
       <ViroXRSceneNavigator
         initialScene={{ scene: RomanovSpatialSceneFactory }}
-        viroAppProps={{ calibration, romanovEra, onHotspot: activateHotspot }}
+        viroAppProps={{ calibration, romanovEra, trustMode, onHotspot: activateHotspot }}
         pbrEnabled
         hdrEnabled
         shadowsEnabled
@@ -287,19 +322,22 @@ export default function MoscowSpatialNavigator() {
             <Text style={styles.eraKicker}>3D TIME MACHINE</Text>
             <View style={styles.eraButtons}>
               {(['1857', '1859'] as RomanovEra[]).map((item) => (
-                <Pressable
-                  key={item}
-                  onPress={() => selectEra(item)}
-                  style={[styles.eraButton, romanovEra === item && styles.eraButtonActive]}
-                >
-                  <Text style={[styles.eraButtonText, romanovEra === item && styles.eraButtonTextActive]}>
-                    {eraLabels[item].year}
-                  </Text>
+                <Pressable key={item} onPress={() => selectEra(item)} style={[styles.eraButton, romanovEra === item && styles.eraButtonActive]}>
+                  <Text style={[styles.eraButtonText, romanovEra === item && styles.eraButtonTextActive]}>{eraLabels[item].year}</Text>
                 </Pressable>
               ))}
             </View>
             <Text style={styles.eraTitle}>{era.title}</Text>
-            <Text style={styles.eraEvidence}>{era.evidence} · нажмите номер на модели</Text>
+            <Text style={styles.eraEvidence}>{era.evidence}</Text>
+            <Text style={styles.trustKicker}>РЕЖИМ ДОВЕРИЯ</Text>
+            <View style={styles.trustButtons}>
+              {(['documented', 'public'] as TrustMode[]).map((item) => (
+                <Pressable key={item} onPress={() => selectTrustMode(item)} style={[styles.trustButton, trustMode === item && styles.trustButtonActive]}>
+                  <Text style={[styles.trustButtonText, trustMode === item && styles.trustButtonTextActive]}>{trustLabels[item].short}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.trustNote}>{trust.title} · {trust.note}</Text>
           </View>
 
           {activeHotspot && !panelOpen && (
@@ -326,14 +364,12 @@ export default function MoscowSpatialNavigator() {
                 <View style={styles.panel}>
                   <Text style={styles.panelKicker}>P0 · MANUAL ALIGNMENT</Text>
                   <Text style={styles.panelTitle}>Совместите модель с фасадом</Text>
-                  <Text style={styles.panelBody}>Настройте позицию, поворот и масштаб по устойчивым архитектурным ориентирам. Один профиль используется для обеих эпох.</Text>
-
+                  <Text style={styles.panelBody}>Настройте позицию, поворот и масштаб по устойчивым архитектурным ориентирам. Один профиль используется для обеих эпох и обоих режимов доверия.</Text>
                   <CalibrationSlider label="X · вправо / влево" value={calibration.translation[0]} minimumValue={-10} maximumValue={10} step={0.05} onValueChange={(value) => setTranslation(0, value)} />
                   <CalibrationSlider label="Y · выше / ниже" value={calibration.translation[1]} minimumValue={-8} maximumValue={8} step={0.05} onValueChange={(value) => setTranslation(1, value)} />
                   <CalibrationSlider label="Z · ближе / дальше" value={calibration.translation[2]} minimumValue={-20} maximumValue={-1} step={0.05} onValueChange={(value) => setTranslation(2, value)} />
                   <CalibrationSlider label="Yaw · поворот" value={calibration.rotationEulerDeg[1]} minimumValue={-180} maximumValue={180} step={1} onValueChange={setYaw} />
                   <CalibrationSlider label="Scale · масштаб" value={calibration.scale} minimumValue={0.25} maximumValue={3} step={0.01} onValueChange={(value) => { setCalibration((current) => ({ ...current, scale: value })); setSaveState('idle'); }} />
-
                   <View style={styles.actionRow}>
                     <Pressable style={styles.primaryButton} onPress={saveCalibration}><Text style={styles.primaryButtonText}>Сохранить</Text></Pressable>
                     <Pressable style={styles.secondaryButton} onPress={resetCalibration}><Text style={styles.secondaryButtonText}>Сбросить</Text></Pressable>
@@ -350,37 +386,32 @@ export default function MoscowSpatialNavigator() {
         </View>
       )}
 
-      {fieldTestOpen && !isQuest && (
-        <RomanovFieldTest calibration={calibration} era={romanovEra} onClose={() => setFieldTestOpen(false)} />
-      )}
+      {fieldTestOpen && !isQuest && <RomanovFieldTest calibration={calibration} era={romanovEra} onClose={() => setFieldTestOpen(false)} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
-  eraPanel: {
-    position: 'absolute', top: 66, left: 14, right: 14, borderRadius: 20,
-    backgroundColor: 'rgba(12,14,17,0.88)', borderWidth: 1, borderColor: '#4c463a', padding: 13
-  },
+  eraPanel: { position: 'absolute', top: 54, left: 14, right: 14, borderRadius: 20, backgroundColor: 'rgba(12,14,17,0.90)', borderWidth: 1, borderColor: '#4c463a', padding: 13 },
   eraKicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.5, fontWeight: '900' },
-  eraButtons: { flexDirection: 'row', gap: 8, marginTop: 9 },
-  eraButton: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#4a4d53', alignItems: 'center', justifyContent: 'center' },
+  eraButtons: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  eraButton: { flex: 1, minHeight: 36, borderRadius: 12, borderWidth: 1, borderColor: '#4a4d53', alignItems: 'center', justifyContent: 'center' },
   eraButtonActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
-  eraButtonText: { color: '#ddd5c8', fontSize: 12, fontWeight: '900' },
+  eraButtonText: { color: '#ddd5c8', fontSize: 11, fontWeight: '900' },
   eraButtonTextActive: { color: '#17130d' },
-  eraTitle: { color: '#fff8ea', fontSize: 15, fontWeight: '900', marginTop: 9 },
-  eraEvidence: { color: '#a7abb1', fontSize: 10, marginTop: 3 },
-  calibrationToggle: {
-    position: 'absolute', top: 196, left: 18, borderRadius: 16,
-    backgroundColor: 'rgba(12,14,17,0.88)', borderWidth: 1, borderColor: '#806f52',
-    paddingHorizontal: 14, paddingVertical: 11
-  },
+  eraTitle: { color: '#fff8ea', fontSize: 14, fontWeight: '900', marginTop: 8 },
+  eraEvidence: { color: '#a7abb1', fontSize: 9, marginTop: 2 },
+  trustKicker: { color: '#8f949b', fontSize: 8, letterSpacing: 1.2, fontWeight: '900', marginTop: 9 },
+  trustButtons: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  trustButton: { flex: 1, minHeight: 34, borderRadius: 11, borderWidth: 1, borderColor: '#454951', alignItems: 'center', justifyContent: 'center' },
+  trustButtonActive: { backgroundColor: '#262119', borderColor: '#9d845b' },
+  trustButtonText: { color: '#a7abb2', fontSize: 10, fontWeight: '900' },
+  trustButtonTextActive: { color: '#e8c98c' },
+  trustNote: { color: '#777c84', fontSize: 8.5, lineHeight: 12, marginTop: 6 },
+  calibrationToggle: { position: 'absolute', top: 272, left: 18, borderRadius: 16, backgroundColor: 'rgba(12,14,17,0.88)', borderWidth: 1, borderColor: '#806f52', paddingHorizontal: 14, paddingVertical: 11 },
   calibrationToggleText: { color: '#f0d39b', fontSize: 12, fontWeight: '900' },
-  hotspotPanel: {
-    position: 'absolute', left: 14, right: 14, bottom: 26, borderRadius: 22,
-    backgroundColor: 'rgba(15,18,22,0.97)', borderWidth: 1, borderColor: '#5b5141', padding: 17
-  },
+  hotspotPanel: { position: 'absolute', left: 14, right: 14, bottom: 26, borderRadius: 22, backgroundColor: 'rgba(15,18,22,0.97)', borderWidth: 1, borderColor: '#5b5141', padding: 17 },
   hotspotTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   hotspotCopy: { flex: 1 },
   hotspotEvidence: { color: '#d7bb84', fontSize: 9, letterSpacing: 1.1, fontWeight: '900' },
@@ -390,10 +421,7 @@ const styles = StyleSheet.create({
   hotspotCloseText: { color: '#ddd', fontSize: 21, lineHeight: 22 },
   audioReplay: { marginTop: 12, minHeight: 42, borderRadius: 13, backgroundColor: '#27231c', alignItems: 'center', justifyContent: 'center' },
   audioReplayText: { color: '#e8c98c', fontSize: 12, fontWeight: '900' },
-  panel: {
-    position: 'absolute', left: 14, right: 14, bottom: 24, borderRadius: 22,
-    backgroundColor: 'rgba(15,18,22,0.96)', borderWidth: 1, borderColor: '#555048', padding: 17
-  },
+  panel: { position: 'absolute', left: 14, right: 14, bottom: 24, borderRadius: 22, backgroundColor: 'rgba(15,18,22,0.96)', borderWidth: 1, borderColor: '#555048', padding: 17 },
   panelKicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
   panelTitle: { color: '#fff8ea', fontSize: 20, fontWeight: '900', marginTop: 5 },
   panelBody: { color: '#adb0b6', fontSize: 12, lineHeight: 17, marginTop: 7, marginBottom: 8 },
