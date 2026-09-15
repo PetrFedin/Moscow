@@ -2,6 +2,7 @@ import type { CalibrationProfile } from './calibration';
 import type { RomanovEra } from './romanov-hotspots';
 
 export type FieldDistanceMeters = 5 | 10 | 15;
+export type FieldPlatform = 'ios' | 'android' | string;
 
 export type ControlPointResidual = {
   controlPointId: string;
@@ -14,16 +15,39 @@ export type RomanovFieldSession = {
   era: RomanovEra;
   viewingDistanceMeters: FieldDistanceMeters;
   calibration: CalibrationProfile;
-  devicePlatform: string;
+  devicePlatform: FieldPlatform;
   deviceVersion: string;
+  /** Human-readable physical device label, e.g. "iPhone 16 Pro #1" or "Pixel 10 Pro #1". */
+  deviceLabel?: string;
+  appBuild?: string;
   observations: ControlPointResidual[];
   meanResidualCm: number;
   maxResidualCm: number;
   passed: boolean;
 };
 
+export type RomanovDeviceVerification = {
+  deviceKey: string;
+  deviceLabel: string;
+  platform: FieldPlatform;
+  distancesPassed: FieldDistanceMeters[];
+  completeDistanceMatrix: boolean;
+};
+
+export type RomanovFieldMatrixSummary = {
+  sessions: number;
+  passedSessions: number;
+  completeDevices: RomanovDeviceVerification[];
+  iosCompleteDevices: number;
+  androidCompleteDevices: number;
+  crossPlatformReady: boolean;
+  eligibleForPersistentAnchor: boolean;
+};
+
 export const ROMANOV_FIELD_DISTANCES: FieldDistanceMeters[] = [5, 10, 15];
 export const ROMANOV_FIELD_REQUIRED_POINTS = 5;
+export const ROMANOV_REQUIRED_IOS_DEVICES = 2;
+export const ROMANOV_REQUIRED_ANDROID_DEVICES = 2;
 
 // Pilot acceptance target. It is an internal MVP quality gate, not a claim about
 // ARKit/ARCore accuracy in all conditions.
@@ -56,13 +80,81 @@ export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capt
   };
 }
 
+function normalizedDeviceKey(session: RomanovFieldSession) {
+  const label = session.deviceLabel?.trim();
+  return `${session.devicePlatform}:${label || session.deviceVersion}`.toLowerCase();
+}
+
+export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFieldMatrixSummary {
+  const passedSessions = sessions.filter((session) => session.passed);
+  const grouped = new Map<string, RomanovFieldSession[]>();
+
+  for (const session of passedSessions) {
+    const key = normalizedDeviceKey(session);
+    const current = grouped.get(key) ?? [];
+    current.push(session);
+    grouped.set(key, current);
+  }
+
+  const completeDevices: RomanovDeviceVerification[] = [];
+  for (const [deviceKey, deviceSessions] of grouped) {
+    const first = deviceSessions[0];
+    const distancesPassed = ROMANOV_FIELD_DISTANCES.filter((distance) =>
+      deviceSessions.some((session) => session.viewingDistanceMeters === distance && session.passed)
+    );
+    const completeDistanceMatrix = distancesPassed.length === ROMANOV_FIELD_DISTANCES.length;
+    if (!completeDistanceMatrix) continue;
+
+    completeDevices.push({
+      deviceKey,
+      deviceLabel: first.deviceLabel?.trim() || `${first.devicePlatform} ${first.deviceVersion}`,
+      platform: first.devicePlatform,
+      distancesPassed,
+      completeDistanceMatrix
+    });
+  }
+
+  const iosCompleteDevices = completeDevices.filter((device) => device.platform === 'ios').length;
+  const androidCompleteDevices = completeDevices.filter((device) => device.platform === 'android').length;
+  const crossPlatformReady = iosCompleteDevices >= ROMANOV_REQUIRED_IOS_DEVICES
+    && androidCompleteDevices >= ROMANOV_REQUIRED_ANDROID_DEVICES;
+
+  return {
+    sessions: sessions.length,
+    passedSessions: passedSessions.length,
+    completeDevices,
+    iosCompleteDevices,
+    androidCompleteDevices,
+    crossPlatformReady,
+    eligibleForPersistentAnchor: crossPlatformReady
+  };
+}
+
 export function sessionToTsv(session: RomanovFieldSession) {
-  const header = ['session_id', 'captured_at', 'era', 'distance_m', 'control_point', 'residual_cm', 'mean_cm', 'max_cm', 'passed'];
+  const header = [
+    'session_id',
+    'captured_at',
+    'era',
+    'distance_m',
+    'device_platform',
+    'device_version',
+    'device_label',
+    'app_build',
+    'control_point',
+    'residual_cm',
+    'mean_cm',
+    'max_cm',
+    'passed'
+  ];
   const rows = session.observations.map((item) => [
     session.id,
     session.capturedAt,
     session.era,
     String(session.viewingDistanceMeters),
+    session.devicePlatform,
+    session.deviceVersion,
+    session.deviceLabel ?? '',
+    session.appBuild ?? '',
     item.controlPointId,
     item.residualCm.toFixed(1),
     session.meanResidualCm.toFixed(1),
