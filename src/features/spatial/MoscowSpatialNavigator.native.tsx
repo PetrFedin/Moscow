@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   Viro3DObject,
   ViroAmbientLight,
@@ -13,7 +13,8 @@ import {
   ViroSphere,
   ViroText,
   ViroXRSceneNavigator,
-  isQuest
+  isQuest,
+  type ViroARHitTestResult
 } from '@reactvision/react-viro';
 import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
 import RomanovFieldTest from './RomanovFieldTest.native';
@@ -39,6 +40,40 @@ const calibrationEnabled = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_CALIBRATION
 const externalModelUrl = process.env.EXPO_PUBLIC_ROMANOV_GLB_URL;
 
 type TrustMode = 'documented' | 'public';
+type AnchorCaptureState = 'idle' | 'capturing' | 'captured' | 'error';
+
+type LocalAnchorCandidate = {
+  anchorId: string;
+  nodeId: string;
+  hitType: ViroARHitTestResult['type'];
+  position: [number, number, number];
+  rotation: [number, number, number];
+  capturedAt: string;
+};
+
+const HIT_TEST_PRIORITY: ViroARHitTestResult['type'][] = [
+  'DepthPoint',
+  'ExistingPlaneUsingExtent',
+  'ExistingPlane',
+  'FeaturePoint'
+];
+
+function isUsablePoint(value?: number[] | null): value is [number, number, number] {
+  return Boolean(
+    Array.isArray(value)
+    && value.length >= 3
+    && value.slice(0, 3).every(Number.isFinite)
+    && !(value[0] === 0 && value[1] === 0 && value[2] === 0)
+  );
+}
+
+function pickBestHit(results: ViroARHitTestResult[]) {
+  for (const type of HIT_TEST_PRIORITY) {
+    const match = results.find((result) => result.type === type && isUsablePoint(result.transform?.position));
+    if (match) return match;
+  }
+  return null;
+}
 
 const bundledModelSources: Record<RomanovEra, Record<TrustMode, number>> = {
   '1857': {
@@ -84,6 +119,9 @@ type SceneProps = {
       romanovEra?: RomanovEra;
       trustMode?: TrustMode;
       onHotspot?: (id: string) => void;
+      anchorCaptureRequestId?: number;
+      onLocalAnchorCandidate?: (candidate: LocalAnchorCandidate) => void;
+      onLocalAnchorError?: (message: string) => void;
     };
   };
 };
@@ -116,15 +154,70 @@ function RomanovPortal() {
 }
 
 function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
+  const arSceneRef = useRef<ViroARScene | null>(null);
+  const lastAnchorCaptureRequest = useRef(0);
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const romanovEra = sceneNavigator?.viroAppProps?.romanovEra ?? '1859';
   const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
   const onHotspot = sceneNavigator?.viroAppProps?.onHotspot;
+  const anchorCaptureRequestId = sceneNavigator?.viroAppProps?.anchorCaptureRequestId ?? 0;
+  const onLocalAnchorCandidate = sceneNavigator?.viroAppProps?.onLocalAnchorCandidate;
+  const onLocalAnchorError = sceneNavigator?.viroAppProps?.onLocalAnchorError;
   const selectedSource = externalModelUrl && romanovEra === '1859' && trustMode === 'public'
     ? { uri: externalModelUrl }
     : bundledModelSources[romanovEra][trustMode];
   const era = eraLabels[romanovEra];
   const hotspots = getRomanovHotspots(romanovEra).filter((hotspot) => trustMode === 'public' || hotspot.evidence === 'documented');
+
+  useEffect(() => {
+    if (isQuest || anchorCaptureRequestId <= 0 || anchorCaptureRequestId === lastAnchorCaptureRequest.current) return;
+    lastAnchorCaptureRequest.current = anchorCaptureRequestId;
+    let cancelled = false;
+
+    const capture = async () => {
+      const scene = arSceneRef.current;
+      if (!scene) {
+        onLocalAnchorError?.('AR scene ещё не готова. Повторите после стабилизации tracking.');
+        return;
+      }
+
+      const { width, height } = Dimensions.get('window');
+      const results = await scene.performARHitTestWithPoint(width / 2, height / 2) as ViroARHitTestResult[];
+      if (cancelled) return;
+      const hit = pickBestHit(Array.isArray(results) ? results : []);
+      if (!hit) {
+        onLocalAnchorError?.('В центре экрана нет устойчивой поверхности. Наведите прицел на фасад и повторите.');
+        return;
+      }
+
+      const nodeRef = await scene.createAnchoredNode(hit);
+      if (cancelled) return;
+      if (!nodeRef?.anchorId) {
+        onLocalAnchorError?.('Viro не вернул anchorId для выбранной поверхности.');
+        return;
+      }
+
+      const position = nodeRef.transform?.position ?? hit.transform.position;
+      const rotation = nodeRef.transform?.rotation ?? hit.transform.rotation;
+      onLocalAnchorCandidate?.({
+        anchorId: nodeRef.anchorId,
+        nodeId: nodeRef.nodeId,
+        hitType: hit.type,
+        position: [position[0], position[1], position[2]],
+        rotation: [rotation[0], rotation[1], rotation[2]],
+        capturedAt: new Date().toISOString()
+      });
+    };
+
+    capture().catch((error) => {
+      if (cancelled) return;
+      onLocalAnchorError?.(error instanceof Error ? error.message : 'Не удалось создать локальный AR anchor.');
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [anchorCaptureRequestId, onLocalAnchorCandidate, onLocalAnchorError]);
 
   const content = (
     <>
@@ -163,7 +256,7 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
     </>
   );
 
-  return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene>{content}</ViroARScene>;
+  return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene ref={arSceneRef}>{content}</ViroARScene>;
 }
 
 const RomanovSpatialSceneFactory = RomanovSpatialScene as unknown as () => React.JSX.Element;
@@ -208,6 +301,10 @@ export default function MoscowSpatialNavigator() {
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [anchorCaptureRequestId, setAnchorCaptureRequestId] = useState(0);
+  const [anchorCaptureState, setAnchorCaptureState] = useState<AnchorCaptureState>('idle');
+  const [localAnchorCandidate, setLocalAnchorCandidate] = useState<LocalAnchorCandidate | null>(null);
+  const [anchorCaptureError, setAnchorCaptureError] = useState<string | null>(null);
 
   const activeHotspot = useMemo<RomanovHotspot | null>(
     () => romanovHotspots.find((item) => item.id === activeHotspotId) ?? null,
@@ -299,7 +396,28 @@ export default function MoscowSpatialNavigator() {
   const resetCalibration = async () => {
     setCalibration(defaultRomanovCalibration);
     setSaveState('idle');
+    setLocalAnchorCandidate(null);
+    setAnchorCaptureState('idle');
     await AsyncStorage.removeItem(CALIBRATION_STORAGE_KEY).catch(() => undefined);
+  };
+
+  const requestLocalAnchor = () => {
+    setLocalAnchorCandidate(null);
+    setAnchorCaptureError(null);
+    setAnchorCaptureState('capturing');
+    setAnchorCaptureRequestId((current) => current + 1);
+  };
+
+  const handleLocalAnchorCandidate = (candidate: LocalAnchorCandidate) => {
+    setLocalAnchorCandidate(candidate);
+    setAnchorCaptureState('captured');
+    setAnchorCaptureError(null);
+  };
+
+  const handleLocalAnchorError = (message: string) => {
+    setLocalAnchorCandidate(null);
+    setAnchorCaptureState('error');
+    setAnchorCaptureError(message);
   };
 
   const era = eraLabels[romanovEra];
@@ -310,7 +428,15 @@ export default function MoscowSpatialNavigator() {
     <View style={styles.root}>
       <ViroXRSceneNavigator
         initialScene={{ scene: RomanovSpatialSceneFactory }}
-        viroAppProps={{ calibration, romanovEra, trustMode, onHotspot: activateHotspot }}
+        viroAppProps={{
+          calibration,
+          romanovEra,
+          trustMode,
+          onHotspot: activateHotspot,
+          anchorCaptureRequestId,
+          onLocalAnchorCandidate: handleLocalAnchorCandidate,
+          onLocalAnchorError: handleLocalAnchorError
+        }}
         pbrEnabled
         hdrEnabled
         shadowsEnabled
@@ -376,6 +502,17 @@ export default function MoscowSpatialNavigator() {
                     <Pressable style={styles.primaryButton} onPress={saveCalibration}><Text style={styles.primaryButtonText}>Сохранить</Text></Pressable>
                     <Pressable style={styles.secondaryButton} onPress={resetCalibration}><Text style={styles.secondaryButtonText}>Сбросить</Text></Pressable>
                   </View>
+                  <View style={styles.anchorCard}>
+                    <Text style={styles.anchorKicker}>LOCAL ANCHOR · SESSION ONLY</Text>
+                    <Text style={styles.anchorBody}>Наведите центр экрана на устойчивую поверхность фасада. Созданный anchorId нужен для будущего cloud-hosting, но сам по себе не является persistent anchor.</Text>
+                    <Pressable style={styles.anchorButton} onPress={requestLocalAnchor}>
+                      <Text style={styles.anchorButtonText}>{anchorCaptureState === 'capturing' ? 'Ищем поверхность…' : 'Создать anchor по центру'}</Text>
+                    </Pressable>
+                    {localAnchorCandidate && (
+                      <Text style={styles.anchorSuccess}>✓ {localAnchorCandidate.hitType} · {localAnchorCandidate.anchorId.slice(0, 18)}…</Text>
+                    )}
+                    {anchorCaptureError && <Text style={styles.errorText}>{anchorCaptureError}</Text>}
+                  </View>
                   <Pressable style={styles.fieldButton} onPress={() => { setPanelOpen(false); setSurveyOpen(true); }}>
                     <Text style={styles.fieldButtonText}>Обмерный пакет · 5 точек</Text>
                   </Pressable>
@@ -440,6 +577,12 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#17130d', fontSize: 12, fontWeight: '900' },
   secondaryButton: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: '#4d5158', paddingVertical: 12, alignItems: 'center' },
   secondaryButtonText: { color: '#d7d7d9', fontSize: 12, fontWeight: '800' },
+  anchorCard: { marginTop: 10, borderRadius: 14, borderWidth: 1, borderColor: '#3e5363', backgroundColor: '#111b22', padding: 10 },
+  anchorKicker: { color: '#87abc3', fontSize: 8, letterSpacing: 1.1, fontWeight: '900' },
+  anchorBody: { color: '#909aa2', fontSize: 9, lineHeight: 13, marginTop: 4 },
+  anchorButton: { minHeight: 39, borderRadius: 11, borderWidth: 1, borderColor: '#66859a', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  anchorButtonText: { color: '#b7d4e7', fontSize: 10, fontWeight: '900' },
+  anchorSuccess: { color: '#91c79d', fontSize: 9, marginTop: 7, fontWeight: '800' },
   fieldButton: { minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: '#806f52', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   fieldButtonText: { color: '#e8c98c', fontSize: 11, fontWeight: '900' },
   savedText: { color: '#9ed0a7', fontSize: 10, marginTop: 8 },
