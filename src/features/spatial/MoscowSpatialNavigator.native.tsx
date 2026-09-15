@@ -7,6 +7,8 @@ import {
   ViroAmbientLight,
   ViroARScene,
   ViroNode,
+  ViroPortal,
+  ViroPortalScene,
   ViroScene,
   ViroText,
   ViroXRSceneNavigator,
@@ -29,6 +31,33 @@ type SceneProps = {
     };
   };
 };
+
+function RomanovPortal() {
+  return (
+    <ViroPortalScene passable position={[2.5, 0, -4]}>
+      <ViroPortal position={[0, 0, 0]}>
+        <Viro3DObject
+          source={require('../../../assets/models/romanov-portal-frame.obj')}
+          resources={[require('../../../assets/models/romanov-portal-frame.mtl')]}
+          type="OBJ"
+        />
+      </ViroPortal>
+      <ViroAmbientLight color="#d7c6a2" intensity={520} />
+      <ViroText
+        text="ПОРТАЛ · ИСТОРИЧЕСКАЯ СЦЕНА"
+        position={[0, 0.3, -3]}
+        scale={[0.24, 0.24, 0.24]}
+        style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
+      />
+      <ViroText
+        text="Production-интерьер появится после исторической реконструкции"
+        position={[0, -0.15, -3]}
+        scale={[0.13, 0.13, 0.13]}
+        style={{ fontSize: 15, color: '#d5d0c6', textAlign: 'center' }}
+      />
+    </ViroPortalScene>
+  );
+}
 
 function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
@@ -57,6 +86,7 @@ function RomanovSpatialScene({ sceneNavigator }: SceneProps) {
           style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
         />
       )}
+      <RomanovPortal />
     </>
   );
 
