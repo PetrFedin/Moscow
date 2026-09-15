@@ -2,9 +2,24 @@
   "expo": {
     "name": "Москва во времени",
     "slug": "moscow-in-time",
-    "version": "0.1.0",
+    "scheme": "moscowintime",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Камера нужна для режима «Линза времени»: совмещения исторического изображения с современным видом."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Геопозиция нужна, чтобы показывать исторические места рядом с вами и следующий объект прогулки."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.moscowintime.app"
