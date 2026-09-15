@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Москва во времени",
+    "slug": "moscow-in-time",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.moscowintime.app"
+    },
+    "android": {
+      "package": "com.moscowintime.app"
+    }
+  }
+}
