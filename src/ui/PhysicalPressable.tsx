@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { haptic, type HapticEvent } from './haptics';
 import { motion } from './interactionPhysics';
+import useReducedMotion from './useReducedMotion';
 
 type Props = Omit<PressableProps, 'style' | 'children'> & {
   children: ReactNode;
@@ -36,25 +37,38 @@ export default function PhysicalPressable({
   onPressOut,
   ...pressableProps
 }: Props) {
+  const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
+  const feedbackOpacity = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: disabled ? motion.opacity.disabled : 1
+    opacity: disabled ? motion.opacity.disabled : feedbackOpacity.value
   }));
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = (event) => {
     cancelAnimation(scale);
-    scale.value = withTiming(strong ? motion.scale.strongPress : motion.scale.press, {
-      duration: motion.duration.instant
-    });
+    cancelAnimation(feedbackOpacity);
+
+    if (reducedMotion) {
+      scale.value = 1;
+      feedbackOpacity.value = withTiming(0.86, { duration: motion.duration.instant });
+    } else {
+      scale.value = withTiming(strong ? motion.scale.strongPress : motion.scale.press, {
+        duration: motion.duration.instant
+      });
+      feedbackOpacity.value = 1;
+    }
+
     if (hapticEvent !== 'none') void haptic(hapticEvent);
     onPressIn?.(event);
   };
 
   const handlePressOut: NonNullable<PressableProps['onPressOut']> = (event) => {
     cancelAnimation(scale);
-    scale.value = withTiming(1, { duration: motion.duration.fast });
+    cancelAnimation(feedbackOpacity);
+    scale.value = withTiming(1, { duration: reducedMotion ? 0 : motion.duration.fast });
+    feedbackOpacity.value = withTiming(1, { duration: motion.duration.fast });
     onPressOut?.(event);
   };
 
