@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - scripts/build_romanov_production_candidate_v1.py
+      - scripts/build_romanov_trust_variants.py
       - requirements-3d.txt
       - .github/workflows/build-romanov-models.yml
 
@@ -22,6 +23,7 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements-3d.txt
       - run: python scripts/build_romanov_production_candidate_v1.py
+      - run: python scripts/build_romanov_trust_variants.py
       - name: Commit generated model pack
         run: |
           git config user.name "github-actions[bot]"
@@ -30,6 +32,10 @@ jobs:
           git add assets/models/romanov-1857-production-candidate-v1.gltf
           git add assets/models/romanov-1859-production-candidate-v1.glb
           git add assets/models/romanov-1859-production-candidate-v1.gltf
+          git add assets/models/romanov-1857-documented-v1.glb
+          git add assets/models/romanov-1857-public-v1.glb
+          git add assets/models/romanov-1859-documented-v1.glb
+          git add assets/models/romanov-1859-public-v1.glb
           git add assets/models/romanov-production-candidate-v1.manifest.json
           if git diff --cached --quiet; then
             echo "Generated models unchanged"
