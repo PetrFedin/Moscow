@@ -14,7 +14,7 @@ export const capabilities: Capability[] = [
     title: 'Интерактивная карта Москвы',
     provider: 'Yandex MapKit',
     status: 'needs-key',
-    note: 'Нативная карта, маркеры, GeoJSON, поиск, панорамы и пешеходные маршруты.'
+    note: 'Нативная карта, маркеры, GeoJSON, поиск, панорамы и пешеходные маршруты. Нужен ключ владельца проекта.'
   },
   {
     id: 'historical-tiles',
@@ -39,24 +39,24 @@ export const capabilities: Capability[] = [
   },
   {
     id: 'ar',
-    title: 'AR и 3D',
+    title: 'AR и 3D · Палаты Романовых',
     provider: 'ViroReact / ARKit / ARCore',
-    status: 'needs-asset',
-    note: 'Runtime подключён; нужна первая оптимизированная GLB-сцена и калибровка.'
+    status: 'field-test',
+    note: 'Две локальные GLB-эпохи 1857 и 1859/1883 уже собраны и подключены. Требуются обмеры, полевое совмещение и измерение ошибки.'
   },
   {
     id: 'persistent-anchor',
     title: 'Точная повторяемая привязка сцены',
     provider: 'ReactVision visual cloud anchor / ARCore provider',
     status: 'field-test',
-    note: 'GPS-якоря недостаточны для точного фасада. Выбор делаем после полевых испытаний.'
+    note: 'GPS-якоря недостаточны для точного фасада. Persistent anchor выбираем после manual field-test на Варварке.'
   },
   {
     id: 'vr',
     title: 'Иммерсивный VR-эпизод',
     provider: 'ViroReact / Meta Quest OpenXR',
-    status: 'needs-asset',
-    note: 'Поддерживается той же TypeScript-сценой; Quest build включается после получения Meta App ID.'
+    status: 'field-test',
+    note: 'Тот же model pack и portal runtime уже подготовлены; нужны Quest build, Meta App ID и устройство для проверки.'
   },
   {
     id: 'localization',
@@ -68,7 +68,7 @@ export const capabilities: Capability[] = [
 ];
 
 export const statusLabels: Record<CapabilityStatus, string> = {
-  ready: 'Готово к разработке',
+  ready: 'Готово',
   'needs-key': 'Нужен ключ',
   'needs-asset': 'Нужен контент/ассет',
   'field-test': 'Нужен полевой тест',
