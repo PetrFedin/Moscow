@@ -132,7 +132,7 @@ export default function HistoricalModelViewer({
             <Text style={styles.title}>Палаты бояр Романовых</Text>
             <Text style={styles.subtitle}>Текущая эпоха и режим доверия сохраняются при переходе в AR/VR и обратно.</Text>
           </View>
-          <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose} accessibilityLabel="Закрыть 3D просмотр">
+          <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose} accessibilityLabel="3D · Закрыть просмотр">
             <Text style={styles.closeText}>×</Text>
           </PhysicalPressable>
         </View>
@@ -146,6 +146,7 @@ export default function HistoricalModelViewer({
                 style={[styles.choice, era === item && styles.choiceActive]}
                 contentStyle={styles.choiceContent}
                 hapticEvent="epoch-snap"
+                accessibilityLabel={`3D · Эпоха · ${eraLabels[item].year} · ${eraLabels[item].title}`}
                 onPress={() => selectEra(item)}
               >
                 <Text style={[styles.choiceYear, era === item && styles.choiceYearActive]}>{eraLabels[item].year}</Text>
@@ -159,6 +160,7 @@ export default function HistoricalModelViewer({
             <PhysicalPressable
               style={[styles.trust, trustMode === 'documented' && styles.trustActive]}
               contentStyle={styles.center}
+              accessibilityLabel="3D · Только факты"
               onPress={() => selectTrust('documented')}
             >
               <Text style={[styles.trustText, trustMode === 'documented' && styles.trustTextActive]}>Только факты</Text>
@@ -166,6 +168,7 @@ export default function HistoricalModelViewer({
             <PhysicalPressable
               style={[styles.trust, trustMode === 'public' && styles.trustActive]}
               contentStyle={styles.center}
+              accessibilityLabel="3D · Реконструкция"
               onPress={() => selectTrust('public')}
             >
               <Text style={[styles.trustText, trustMode === 'public' && styles.trustTextActive]}>+ реконструкция</Text>
@@ -177,10 +180,17 @@ export default function HistoricalModelViewer({
           <Text style={styles.gesture}>Прямое управление: rotate · pinch · переходы прерываемы</Text>
           <Text style={styles.modeNote}>{isQuest ? 'Quest обнаружен: следующий режим продолжит эту же эпоху в VR.' : 'Телефон: следующий режим продолжит эту же эпоху в AR.'}</Text>
           <View style={styles.actions}>
-            <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onBackToArchive}>
+            <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={onBackToArchive}>
               <Text style={styles.secondaryText}>← Архив</Text>
             </PhysicalPressable>
-            <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" onPress={onOpenSpatial}>
+            <PhysicalPressable
+              style={styles.primary}
+              contentStyle={styles.center}
+              strong
+              hapticEvent="spatial-enter"
+              accessibilityLabel={isQuest ? '3D · Открыть VR на Quest' : '3D · Открыть AR на месте'}
+              onPress={onOpenSpatial}
+            >
               <Text style={styles.primaryText}>{isQuest ? 'Открыть VR на Quest' : 'Открыть AR на месте'}</Text>
             </PhysicalPressable>
           </View>
