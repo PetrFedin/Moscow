@@ -20,7 +20,35 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
   await page.getByText('Карта', { exact: true }).last().click();
   await expect(page.getByText('PREVIEW КАРТЫ', { exact: true })).toBeVisible();
   await expect(page.getByText('Варварка — Зарядье', { exact: true })).toBeVisible();
-  await expect(page.getByText('Тяните карточку пальцем: свернуть · preview · раскрыть')).toBeVisible();
+  const sheetHint = page.getByText('Тяните карточку пальцем: свернуть · preview · раскрыть');
+  await expect(sheetHint).toBeVisible();
+
+  // PhysicalSheet must actually drag and snap, not merely look like a sheet.
+  const previewBox = await sheetHint.boundingBox();
+  expect(previewBox).not.toBeNull();
+  if (previewBox) {
+    await page.mouse.move(previewBox.x + previewBox.width / 2, previewBox.y + previewBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(previewBox.x + previewBox.width / 2, previewBox.y - 220, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(450);
+
+    const expandedBox = await sheetHint.boundingBox();
+    expect(expandedBox).not.toBeNull();
+    if (expandedBox) {
+      expect(expandedBox.y).toBeLessThan(previewBox.y - 120);
+
+      await page.mouse.move(expandedBox.x + expandedBox.width / 2, expandedBox.y + expandedBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(expandedBox.x + expandedBox.width / 2, expandedBox.y + 215, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(450);
+
+      const returnedBox = await sheetHint.boundingBox();
+      expect(returnedBox).not.toBeNull();
+      if (returnedBox) expect(Math.abs(returnedBox.y - previewBox.y)).toBeLessThan(45);
+    }
+  }
 
   // Change place from the map and verify the physical sheet follows that selection.
   await page.getByText('Старый Английский двор', { exact: true }).first().click();
