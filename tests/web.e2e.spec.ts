@@ -15,9 +15,11 @@ test('resident journey: map → story → time → 3D → spatial → interrupti
   await expect(page.getByText('MOSCOW · TIME')).toBeVisible();
   await ensureRussian(page);
 
-  // Map is a real product surface, not a detached demo.
+  // Map is a real product surface, not a detached demo. Browser intentionally shows
+  // the route preview instead of pretending to be native Yandex MapKit.
   await page.getByText('Карта', { exact: true }).last().click();
-  await expect(page.getByText('МАРШРУТ НА КАРТЕ')).toBeVisible();
+  await expect(page.getByText('PREVIEW КАРТЫ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Варварка — Зарядье', { exact: true })).toBeVisible();
   await expect(page.getByText('Тяните карточку пальцем: свернуть · preview · раскрыть')).toBeVisible();
 
   // Change place from the map and verify the physical sheet follows that selection.
