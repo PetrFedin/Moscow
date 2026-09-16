@@ -58,7 +58,7 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
 
   // Return to the Romanov object through the normal discovery list.
   await page.getByText('Палаты бояр Романовых', { exact: true }).first().click();
-  await expect(page.getByText('МАШИНА ВРЕМЕНИ')).toBeVisible();
+  await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
 
   // The real TimeMachineSlider must be mounted in the story flow.
   const timeSlider = page.locator('[aria-label="Выберите историческую эпоху"]');
