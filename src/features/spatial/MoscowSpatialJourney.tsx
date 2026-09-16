@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import PortalTransitionControl from '../../ui/PortalTransitionControl';
 
 type RomanovEra = '1857' | '1859';
 type TrustMode = 'documented' | 'public';
@@ -58,9 +59,17 @@ export default function MoscowSpatialJourneyFallback({
             <Text style={styles.demoText}>Показывается только сценарий перехода. Это не field-verified spatial scene.</Text>
           </View>
         )}
+        <View style={styles.portalControl}>
+          <PortalTransitionControl
+            label="Потяните → DEMO portal preview"
+            committedLabel="DEMO PORTAL READY · NOT VERIFIED"
+            committed={demoPortal}
+            onCommit={() => setDemoPortal(true)}
+          />
+        </View>
         <View style={styles.actions}>
           {onBackToModel && <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onBackToModel}><Text style={styles.secondaryText}>← 3D-модель</Text></PhysicalPressable>}
-          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" onPress={() => setDemoPortal((current) => !current)}><Text style={styles.primaryText}>{demoPortal ? 'Закрыть demo portal' : 'Portal · DEMO preview'}</Text></PhysicalPressable>
+          <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={() => setDemoPortal(false)} disabled={!demoPortal}><Text style={styles.secondaryText}>Сбросить portal preview</Text></PhysicalPressable>
         </View>
         {onClose && <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose}><Text style={styles.closeText}>Закрыть</Text></PhysicalPressable>}
       </View>
@@ -84,12 +93,11 @@ const styles = StyleSheet.create({
   demoCard: { borderRadius: 16, borderWidth: 1, borderColor: '#806b4a', backgroundColor: '#211b13', padding: 12, marginTop: 14 },
   demoKicker: { color: '#e0bd79', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
   demoText: { color: '#cbbd9f', fontSize: 10, lineHeight: 15, marginTop: 4 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  portalControl: { marginTop: 16 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   secondary: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: '#464d55' },
-  secondaryText: { color: '#cdbb97', fontSize: 10, fontWeight: '900' },
-  primary: { flex: 1.4, minHeight: 46, borderRadius: 14, backgroundColor: '#d7bb84' },
-  primaryText: { color: '#17130d', fontSize: 10, fontWeight: '900' },
+  secondaryText: { color: '#cdbb97', fontSize: 10, fontWeight: '900', textAlign: 'center' },
   close: { minHeight: 44, borderRadius: 13, marginTop: 8 },
   closeText: { color: '#7f858d', fontSize: 9, fontWeight: '900' }
 });
