@@ -57,7 +57,7 @@ export function eraFromTimeIndex(index: number): RomanovEra {
 }
 
 export function canEnterPortal(stage: SpatialStage) {
-  return stage === 'verified' || stage === 'portal-preview';
+  return stage === 'portal-preview';
 }
 
 export function reduceExperience(state: ExperienceState, event: ExperienceEvent): ExperienceState {
