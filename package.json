@@ -42,6 +42,7 @@
     "three": "0.183.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
     "@types/react": "~19.2.0",
     "serve": "^14.2.4",
     "typescript": "~6.0.3"
