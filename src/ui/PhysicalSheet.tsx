@@ -20,12 +20,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-const stateFromIndex = (index: number): StableSheetState => {
-  'worklet';
-  if (index <= 0) return 'collapsed';
-  if (index === 1) return 'preview';
-  return 'expanded';
-};
+type SnapPoint = { state: StableSheetState; y: number };
 
 export default function PhysicalSheet({
   children,
@@ -34,11 +29,11 @@ export default function PhysicalSheet({
   onStateChange,
   style
 }: Props) {
-  const ordered = [
-    snapPositions.collapsed,
-    snapPositions.preview,
-    snapPositions.expanded
-  ].sort((a, b) => a - b);
+  const ordered: SnapPoint[] = [
+    { state: 'collapsed', y: snapPositions.collapsed },
+    { state: 'preview', y: snapPositions.preview },
+    { state: 'expanded', y: snapPositions.expanded }
+  ].sort((a, b) => a.y - b.y);
 
   const translateY = useSharedValue(snapPositions[initialState]);
   const gestureStartY = useSharedValue(translateY.value);
@@ -55,8 +50,8 @@ export default function PhysicalSheet({
     })
     .onUpdate((event) => {
       const raw = gestureStartY.value + event.translationY;
-      const min = ordered[0] ?? 0;
-      const max = ordered[2] ?? min;
+      const min = ordered[0]?.y ?? 0;
+      const max = ordered[2]?.y ?? min;
 
       if (raw < min) {
         const overshoot = min - raw;
@@ -78,39 +73,38 @@ export default function PhysicalSheet({
         return;
       }
 
-      // 1:1 direct manipulation while the finger is within the valid range.
+      // Direct manipulation: while inside the valid range, the surface follows the finger 1:1.
       translateY.value = raw;
     })
     .onEnd((event) => {
-      const p0 = ordered[0] ?? 0;
-      const p1 = ordered[1] ?? p0;
-      const p2 = ordered[2] ?? p1;
       const current = translateY.value;
-
       let nearestIndex = 0;
-      let nearestDistance = Math.abs(current - p0);
-      const d1 = Math.abs(current - p1);
-      const d2 = Math.abs(current - p2);
-      if (d1 < nearestDistance) {
-        nearestIndex = 1;
-        nearestDistance = d1;
+      let nearestDistance = Math.abs(current - (ordered[0]?.y ?? current));
+
+      for (let index = 1; index < ordered.length; index += 1) {
+        const distance = Math.abs(current - ordered[index].y);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = index;
+        }
       }
-      if (d2 < nearestDistance) nearestIndex = 2;
 
       if (Math.abs(event.velocityY) >= motion.sheet.velocityCommit) {
         const direction = event.velocityY > 0 ? 1 : -1;
-        nearestIndex = Math.max(0, Math.min(2, nearestIndex + direction));
+        nearestIndex = Math.max(0, Math.min(ordered.length - 1, nearestIndex + direction));
       }
 
-      const target = nearestIndex === 0 ? p0 : nearestIndex === 1 ? p1 : p2;
-      translateY.value = withSpring(target, {
+      const target = ordered[nearestIndex] ?? ordered[0];
+      if (!target) return;
+
+      translateY.value = withSpring(target.y, {
         damping: motion.spring.firm.damping,
         stiffness: motion.spring.firm.stiffness,
         mass: motion.spring.firm.mass,
         overshootClamping: true
       });
 
-      if (onStateChange) runOnJS(onStateChange)(stateFromIndex(nearestIndex));
+      if (onStateChange) runOnJS(onStateChange)(target.state);
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
