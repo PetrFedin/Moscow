@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   Viro3DObject,
@@ -27,13 +27,13 @@ import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/roma
 import { summarizeRomanovReleaseGate } from '../../spatial/romanovReleaseGate';
 import {
   createEmptyRomanovSurveyPacket,
-  type RomanovSurveyPacket
+  type RomanovSurveyPacket as RomanovSurveyPacketData
 } from '../../spatial/romanovSurvey';
 import type { SpatialStage } from '../../e2e/experienceContract';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { haptic } from '../../ui/haptics';
 import RomanovFieldTest from './RomanovFieldTest.native';
-import RomanovSurveyPacket from './RomanovSurveyPacket.native';
+import RomanovSurveyPacketScreen from './RomanovSurveyPacket.native';
 
 const CALIBRATION_KEY = 'moscow:p0:romanov-calibration:v1';
 const SURVEY_KEY = 'moscow:p0:romanov-survey-packet:v1';
@@ -264,7 +264,7 @@ export default function MoscowSpatialJourney({
       AsyncStorage.getItem(FIELD_KEY),
       AsyncStorage.getItem(ANCHOR_KEY)
     ]);
-    const survey: RomanovSurveyPacket = rawSurvey ? JSON.parse(rawSurvey) : createEmptyRomanovSurveyPacket();
+    const survey: RomanovSurveyPacketData = rawSurvey ? JSON.parse(rawSurvey) : createEmptyRomanovSurveyPacket();
     const sessions: RomanovFieldSession[] = rawSessions ? JSON.parse(rawSessions) : [];
     const anchors: RomanovPersistentAnchor[] = rawAnchors ? JSON.parse(rawAnchors) : [];
     const gate = summarizeRomanovReleaseGate({ calibration: nextCalibration, survey, sessions, anchors });
@@ -467,7 +467,7 @@ export default function MoscowSpatialJourney({
       )}
 
       {fieldOpen && !isQuest && <RomanovFieldTest calibration={calibration} era={era} onClose={() => { setFieldOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
-      {surveyOpen && !isQuest && <RomanovSurveyPacket onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
+      {surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
     </View>
   );
 }
