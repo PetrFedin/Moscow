@@ -18,6 +18,7 @@ type Props = {
   initialState?: StableSheetState;
   onStateChange?: (state: StableSheetState) => void;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 };
 
 type SnapPoint = { state: StableSheetState; y: number };
@@ -27,7 +28,8 @@ export default function PhysicalSheet({
   snapPositions,
   initialState = 'preview',
   onStateChange,
-  style
+  style,
+  testID
 }: Props) {
   const points: SnapPoint[] = [
     { state: 'collapsed', y: snapPositions.collapsed },
@@ -115,7 +117,7 @@ export default function PhysicalSheet({
 
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.surface, animatedStyle, style]}>
+      <Animated.View testID={testID} style={[styles.surface, animatedStyle, style]}>
         {children}
       </Animated.View>
     </GestureDetector>
