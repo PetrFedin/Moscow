@@ -21,7 +21,6 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
   const sheetHint = page.getByText('Тяните карточку пальцем: свернуть · preview · раскрыть');
   await expect(sheetHint).toBeVisible();
 
-  // PhysicalSheet must actually drag and snap, not merely look like a sheet.
   const previewBox = await sheetHint.boundingBox();
   expect(previewBox).not.toBeNull();
   if (previewBox) {
@@ -35,7 +34,6 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
     expect(expandedBox).not.toBeNull();
     if (expandedBox) {
       expect(expandedBox.y).toBeLessThan(previewBox.y - 120);
-
       await page.mouse.move(expandedBox.x + expandedBox.width / 2, expandedBox.y + expandedBox.height / 2);
       await page.mouse.down();
       await page.mouse.move(expandedBox.x + expandedBox.width / 2, expandedBox.y + 215, { steps: 8 });
@@ -63,7 +61,6 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
     await page.mouse.click(timeBox.x + timeBox.width * 0.52, timeBox.y + timeBox.height / 2);
   }
 
-  // Archive lens state survives Archive → 3D → Back exactly.
   await page.getByText('Линза времени', { exact: true }).click();
   await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
   const opacitySlider = page.getByTestId('archive-opacity');
@@ -84,7 +81,6 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
   await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
   await expect(opacityValue).toHaveText(rememberedOpacity ?? '');
 
-  // Re-enter 3D and operate the modal itself through its accessibility contract.
   await page.getByText('Открыть 3D-машину времени', { exact: true }).click();
   await expect(page.getByText('Одна историческая модель — несколько режимов')).toBeVisible();
   await page.getByLabel('3D · Эпоха · 1859 / 1883 · после реставрации').click();
@@ -95,10 +91,9 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
   await expect(page.getByText('SEARCHING', { exact: true })).toBeVisible();
   await expect(page.getByText('DEMO PORTAL · NOT VERIFIED')).toHaveCount(0);
 
-  // Portal transition is interruptible before commit.
   const portalTrack = page.locator('[aria-label="Потяните → DEMO portal preview"]');
   await expect(portalTrack).toHaveCount(1);
-  const handle = page.getByText('→', { exact: true });
+  const handle = portalTrack.getByText('→', { exact: true });
   const trackBox = await portalTrack.boundingBox();
   const handleBox = await handle.boundingBox();
   expect(trackBox).not.toBeNull();
