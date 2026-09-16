@@ -32,6 +32,8 @@ type PersistedState = {
   visitedIds: string[];
   routeStep: number;
   language: AppLanguage;
+  lensOpacity: number;
+  lensVisible: boolean;
 };
 
 const STORAGE_KEY = 'moscow:v4:experience';
@@ -85,6 +87,8 @@ export default function MoscowExperienceApp() {
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
   const [trustMode, setTrustMode] = useState<TrustMode>('public');
+  const [lensOpacity, setLensOpacity] = useState(0.52);
+  const [lensVisible, setLensVisible] = useState(true);
   const [mapSheetState, setMapSheetState] = useState<StableSheetState>('preview');
   const [modal, setModal] = useState<ModalMode>(null);
 
@@ -114,6 +118,10 @@ export default function MoscowExperienceApp() {
         if (Array.isArray(parsed.visitedIds)) setVisitedIds(parsed.visitedIds);
         if (Number.isFinite(parsed.routeStep)) setRouteStep(Math.max(0, Math.min(pilotRoute.stopIds.length - 1, parsed.routeStep ?? 0)));
         if (parsed.language === 'ru' || parsed.language === 'en') setLanguage(parsed.language);
+        if (typeof parsed.lensOpacity === 'number' && Number.isFinite(parsed.lensOpacity)) {
+          setLensOpacity(Math.max(0, Math.min(0.92, parsed.lensOpacity)));
+        }
+        if (typeof parsed.lensVisible === 'boolean') setLensVisible(parsed.lensVisible);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -121,9 +129,9 @@ export default function MoscowExperienceApp() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const payload: PersistedState = { savedIds, visitedIds, routeStep, language };
+    const payload: PersistedState = { savedIds, visitedIds, routeStep, language, lensOpacity, lensVisible };
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [hydrated, language, routeStep, savedIds, visitedIds]);
+  }, [hydrated, language, lensOpacity, lensVisible, routeStep, savedIds, visitedIds]);
 
   useEffect(() => {
     setTimeValue(0);
@@ -409,6 +417,9 @@ export default function MoscowExperienceApp() {
           <ArchiveTimeLens
             place={selected as Place}
             language={language}
+            initialOpacity={lensOpacity}
+            initialVisible={lensVisible}
+            onStateChange={(state) => { setLensOpacity(state.opacity); setLensVisible(state.visible); }}
             onClose={() => setModal(null)}
             onOpenSpatial={() => setModal('model')}
           />
@@ -518,6 +529,6 @@ const styles = StyleSheet.create({
   navText: { color: '#7d828a', fontSize: 9, fontWeight: '900', textAlign: 'center' },
   navTextActive: { color: '#e9cb91' },
   spatialRoot: { flex: 1, backgroundColor: '#000' },
-  back3d: { position: 'absolute', left: 16, bottom: 22, minWidth: 116, height: 46, borderRadius: 15, backgroundColor: 'rgba(12,14,17,0.92)', borderWidth: 1, borderColor: '#695a42' },
-  back3dText: { color: '#e7c98e', fontSize: 10, fontWeight: '900' }
+  back3d: { position: 'absolute', left: 16, bottom: 24, minHeight: 44, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14 },
+  back3dText: { color: '#e5c78d', fontSize: 10, fontWeight: '900' }
 });
