@@ -5,6 +5,7 @@ export type HapticEvent =
   | 'button'
   | 'epoch-snap'
   | 'route-stop'
+  | 'spatial-enter'
   | 'anchor-created'
   | 'anchor-verified'
   | 'field-warning'
@@ -24,6 +25,7 @@ export async function haptic(event: HapticEvent) {
         await Haptics.selectionAsync();
         return;
       case 'route-stop':
+      case 'spatial-enter':
       case 'anchor-created':
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         return;
