@@ -8,7 +8,12 @@ import Animated, {
   useSharedValue,
   withSpring
 } from 'react-native-reanimated';
-import { motion, type StableSheetState } from './interactionPhysics';
+import {
+  motion,
+  resolveSnapPoint,
+  type SnapPoint,
+  type StableSheetState
+} from './interactionPhysics';
 
 type SnapPositions = Record<StableSheetState, number>;
 
@@ -21,8 +26,6 @@ type Props = {
   testID?: string;
 };
 
-type SnapPoint = { state: StableSheetState; y: number };
-
 export default function PhysicalSheet({
   children,
   snapPositions,
@@ -32,11 +35,11 @@ export default function PhysicalSheet({
   testID
 }: Props) {
   const points: SnapPoint[] = [
-    { state: 'collapsed', y: snapPositions.collapsed },
-    { state: 'preview', y: snapPositions.preview },
-    { state: 'expanded', y: snapPositions.expanded }
+    { state: 'collapsed', position: snapPositions.collapsed },
+    { state: 'preview', position: snapPositions.preview },
+    { state: 'expanded', position: snapPositions.expanded }
   ];
-  const ordered = points.sort((a, b) => a.y - b.y);
+  const ordered = [...points].sort((a, b) => a.position - b.position);
 
   const translateY = useSharedValue(snapPositions[initialState]);
   const gestureStartY = useSharedValue(translateY.value);
@@ -53,8 +56,8 @@ export default function PhysicalSheet({
     })
     .onUpdate((event) => {
       const raw = gestureStartY.value + event.translationY;
-      const min = ordered[0]?.y ?? 0;
-      const max = ordered[2]?.y ?? min;
+      const min = ordered[0]?.position ?? 0;
+      const max = ordered[2]?.position ?? min;
 
       if (raw < min) {
         const overshoot = min - raw;
@@ -79,29 +82,14 @@ export default function PhysicalSheet({
       translateY.value = raw;
     })
     .onEnd((event) => {
-      const current = translateY.value;
-      let nearestIndex = 0;
-      let nearestDistance = Math.abs(current - (ordered[0]?.y ?? current));
+      const target = resolveSnapPoint(
+        translateY.value,
+        event.velocityY,
+        points,
+        gestureStartY.value
+      );
 
-      for (let index = 1; index < ordered.length; index += 1) {
-        const point = ordered[index];
-        if (!point) continue;
-        const distance = Math.abs(current - point.y);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestIndex = index;
-        }
-      }
-
-      if (Math.abs(event.velocityY) >= motion.sheet.velocityCommit) {
-        const direction = event.velocityY > 0 ? 1 : -1;
-        nearestIndex = Math.max(0, Math.min(ordered.length - 1, nearestIndex + direction));
-      }
-
-      const target = ordered[nearestIndex] ?? ordered[0];
-      if (!target) return;
-
-      translateY.value = withSpring(target.y, {
+      translateY.value = withSpring(target.position, {
         damping: motion.spring.firm.damping,
         stiffness: motion.spring.firm.stiffness,
         mass: motion.spring.firm.mass,
