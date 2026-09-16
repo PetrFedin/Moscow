@@ -29,11 +29,12 @@ export default function PhysicalSheet({
   onStateChange,
   style
 }: Props) {
-  const ordered: SnapPoint[] = [
+  const points: SnapPoint[] = [
     { state: 'collapsed', y: snapPositions.collapsed },
     { state: 'preview', y: snapPositions.preview },
     { state: 'expanded', y: snapPositions.expanded }
-  ].sort((a, b) => a.y - b.y);
+  ];
+  const ordered = points.sort((a, b) => a.y - b.y);
 
   const translateY = useSharedValue(snapPositions[initialState]);
   const gestureStartY = useSharedValue(translateY.value);
@@ -73,7 +74,6 @@ export default function PhysicalSheet({
         return;
       }
 
-      // Direct manipulation: while inside the valid range, the surface follows the finger 1:1.
       translateY.value = raw;
     })
     .onEnd((event) => {
@@ -82,7 +82,9 @@ export default function PhysicalSheet({
       let nearestDistance = Math.abs(current - (ordered[0]?.y ?? current));
 
       for (let index = 1; index < ordered.length; index += 1) {
-        const distance = Math.abs(current - ordered[index].y);
+        const point = ordered[index];
+        if (!point) continue;
+        const distance = Math.abs(current - point.y);
         if (distance < nearestDistance) {
           nearestDistance = distance;
           nearestIndex = index;
