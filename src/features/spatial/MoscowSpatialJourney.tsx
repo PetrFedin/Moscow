@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
+type RomanovEra = '1857' | '1859';
+type TrustMode = 'documented' | 'public';
+
 type Props = {
-  initialEra?: '1857' | '1859';
-  initialTrustMode?: 'documented' | 'public';
+  initialEra?: RomanovEra;
+  initialTrustMode?: TrustMode;
   onBackToModel?: () => void;
   onClose?: () => void;
 };
 
+const ERA_KEY = 'moscow:p0:romanov-era:v1';
+const TRUST_KEY = 'moscow:p0:romanov-trust-mode:v1';
 const stages = ['SEARCHING', 'CANDIDATE', 'ANCHORED', 'CALIBRATED', 'VERIFIED'];
 
 export default function MoscowSpatialJourneyFallback({
@@ -18,13 +24,25 @@ export default function MoscowSpatialJourneyFallback({
   onClose
 }: Props) {
   const [demoPortal, setDemoPortal] = useState(false);
+  const [era, setEra] = useState<RomanovEra>(initialEra);
+  const [trustMode, setTrustMode] = useState<TrustMode>(initialTrustMode);
+
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(ERA_KEY),
+      AsyncStorage.getItem(TRUST_KEY)
+    ]).then(([storedEra, storedTrust]) => {
+      if (storedEra === '1857' || storedEra === '1859') setEra(storedEra);
+      if (storedTrust === 'documented' || storedTrust === 'public') setTrustMode(storedTrust);
+    }).catch(() => undefined);
+  }, []);
 
   return (
     <View style={styles.root}>
       <View style={styles.card}>
         <Text style={styles.kicker}>SPATIAL STATE · PREVIEW</Text>
         <Text style={styles.title}>AR runtime проверяется только в нативной сборке</Text>
-        <Text style={styles.body}>Выбрано: {initialEra === '1857' ? '1857' : '1859 / 1883'} · {initialTrustMode === 'documented' ? 'только факты' : '+ реконструкция'}.</Text>
+        <Text style={styles.body}>Выбрано: {era === '1857' ? '1857' : '1859 / 1883'} · {trustMode === 'documented' ? 'только факты' : '+ реконструкция'}.</Text>
         <View style={styles.rail}>
           {stages.map((stage, index) => (
             <View key={stage} style={styles.railItem}>
