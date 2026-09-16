@@ -27,3 +27,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/ > /tmp/moscow-index.html
           test -s /tmp/moscow-index.html
           kill $PID
+      - name: Install Chromium for browser E2E
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E journey
+        run: npm run test:e2e-web
