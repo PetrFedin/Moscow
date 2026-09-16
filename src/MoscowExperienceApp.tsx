@@ -40,28 +40,28 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 const copy = {
   ru: {
-    discover: 'Открыть', map: 'Карта', walk: 'Прогулка', saved: 'Моя Москва',
+    discover: 'Открыть', map: 'Карта', walk: 'Прогулка', savedTab: 'Моя Москва',
     cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
     hero: 'Москва раскрывается прямо вокруг вас',
     heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
     start: 'Начать Варварку · 45 мин',
     places: 'Места пилота', story: 'ИСТОРИЯ МЕСТА', time: 'МАШИНА ВРЕМЕНИ',
     today: 'Сегодня', facts: 'ЧТО ИСКАТЬ ГЛАЗАМИ', sources: 'ИСТОЧНИКИ',
-    open3d: 'Открыть 3D', lens: 'Линза времени', save: 'Сохранить', saved: 'Сохранено',
+    open3d: 'Открыть 3D', lens: 'Линза времени', save: 'Сохранить', savedAction: 'Сохранено',
     onlyFacts: 'Только факты', research: '+ реконструкция',
     mapHint: 'Тяните карточку пальцем: свернуть · preview · раскрыть',
     openStory: 'Открыть историю', next: 'Открыто · дальше', finish: 'Завершить прогулку',
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
   },
   en: {
-    discover: 'Discover', map: 'Map', walk: 'Walk', saved: 'My Moscow',
+    discover: 'Discover', map: 'Map', walk: 'Walk', savedTab: 'My Moscow',
     cityTime: 'THE CITY AS A TIME MACHINE',
     hero: 'Moscow reveals itself around you',
     heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
     start: 'Start Varvarka · 45 min',
     places: 'Pilot places', story: 'PLACE STORY', time: 'TIME MACHINE',
     today: 'Today', facts: 'WHAT TO LOOK FOR', sources: 'SOURCES',
-    open3d: 'Open 3D', lens: 'Time Lens', save: 'Save', saved: 'Saved',
+    open3d: 'Open 3D', lens: 'Time Lens', save: 'Save', savedAction: 'Saved',
     onlyFacts: 'Facts only', research: '+ reconstruction',
     mapHint: 'Drag the card: collapsed · preview · expanded',
     openStory: 'Open story', next: 'Discovered · next', finish: 'Finish walk',
@@ -89,6 +89,12 @@ export default function MoscowExperienceApp() {
   const [modal, setModal] = useState<ModalMode>(null);
 
   const ui = copy[language];
+  const tabLabels: Record<Tab, string> = {
+    discover: ui.discover,
+    map: ui.map,
+    walk: ui.walk,
+    saved: ui.savedTab
+  };
   const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
   const selected = useMemo(
     () => localizedPlaces.find((place) => place.id === selectedId) ?? localizedPlaces[0],
@@ -171,7 +177,7 @@ export default function MoscowExperienceApp() {
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.brand}>MOSCOW · TIME</Text>
-          <Text style={styles.headerTitle}>{ui[tab]}</Text>
+          <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
         </View>
         <PhysicalPressable
           style={styles.language}
@@ -189,7 +195,7 @@ export default function MoscowExperienceApp() {
             <MoscowMap selectedId={selectedId} onSelect={selectPlace} />
             {selected && (
               <PhysicalSheet
-                key={`${selected.id}-${mapSheetState === 'preview' ? 'p' : 's'}`}
+                key={selected.id}
                 snapPositions={{ expanded: 72, preview: 292, collapsed: 430 }}
                 initialState={mapSheetState}
                 onStateChange={setMapSheetState}
@@ -203,7 +209,7 @@ export default function MoscowExperienceApp() {
                   <Text style={styles.sheetStory} numberOfLines={mapSheetState === 'expanded' ? undefined : 2}>{selected.shortStory}</Text>
                   <View style={styles.sheetActions}>
                     <PhysicalPressable style={styles.smallSecondary} contentStyle={styles.center} onPress={() => toggleSaved(selected.id)}>
-                      <Text style={styles.smallSecondaryText}>{savedIds.includes(selected.id) ? ui.saved : ui.save}</Text>
+                      <Text style={styles.smallSecondaryText}>{savedIds.includes(selected.id) ? ui.savedAction : ui.save}</Text>
                     </PhysicalPressable>
                     <PhysicalPressable
                       style={styles.smallPrimary}
@@ -373,7 +379,7 @@ export default function MoscowExperienceApp() {
 
           {tab === 'saved' && (
             <>
-              <Text style={styles.sectionTitle}>{ui.saved}</Text>
+              <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
               {savedIds.length === 0 ? (
                 <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
@@ -393,7 +399,7 @@ export default function MoscowExperienceApp() {
       <View style={styles.nav}>
         {(['discover', 'map', 'walk', 'saved'] as Tab[]).map((item) => (
           <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
-            <Text style={[styles.navText, tab === item && styles.navTextActive]}>{ui[item]}</Text>
+            <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
           </PhysicalPressable>
         ))}
       </View>
