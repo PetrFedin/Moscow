@@ -59,6 +59,24 @@ test('portal cannot be entered before field verification', () => {
   assert.equal(blocked.spatialStage, 'calibrated');
 });
 
+test('verified state still requires explicit portal preview before entry', () => {
+  let state = reduceExperience(initialExperienceState, { type: 'OPEN_SPATIAL' });
+  state = reduceExperience(state, { type: 'SURFACE_CANDIDATE_FOUND' });
+  state = reduceExperience(state, { type: 'ANCHOR_CREATED' });
+  state = reduceExperience(state, { type: 'CALIBRATION_SAVED' });
+  state = reduceExperience(state, { type: 'FIELD_VERIFIED' });
+
+  const directEntry = reduceExperience(state, { type: 'ENTER_PORTAL' });
+  assert.equal(directEntry.portalEntered, false);
+  assert.equal(directEntry.spatialStage, 'verified');
+
+  const preview = reduceExperience(state, { type: 'OPEN_PORTAL_PREVIEW' });
+  assert.equal(preview.spatialStage, 'portal-preview');
+  const committed = reduceExperience(preview, { type: 'ENTER_PORTAL' });
+  assert.equal(committed.portalEntered, true);
+  assert.equal(committed.spatialStage, 'portal-entered');
+});
+
 test('invalid AR state jumps are ignored', () => {
   let state = reduceExperience(initialExperienceState, { type: 'OPEN_SPATIAL' });
   state = reduceExperience(state, { type: 'FIELD_VERIFIED' });
