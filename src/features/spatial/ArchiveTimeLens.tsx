@@ -5,18 +5,43 @@ import type { Place } from '../../data/places';
 import type { AppLanguage } from '../../i18n';
 import { romanovSources } from '../../spatial/romanov-sources';
 
+type LensState = { opacity: number; visible: boolean };
+
 type Props = {
   place: Place;
   language: AppLanguage;
+  initialOpacity?: number;
+  initialVisible?: boolean;
+  onStateChange?: (state: LensState) => void;
   onClose: () => void;
   onOpenSpatial: () => void;
 };
 
-export default function ArchiveTimeLensFallback({ place, language, onClose, onOpenSpatial }: Props) {
-  const [opacity, setOpacity] = useState(0.72);
+const clampOpacity = (value: number) => Math.max(0, Math.min(0.92, value));
+
+export default function ArchiveTimeLensFallback({
+  place,
+  language,
+  initialOpacity = 0.52,
+  initialVisible = true,
+  onStateChange,
+  onClose,
+  onOpenSpatial
+}: Props) {
+  const [opacity, setOpacity] = useState(() => clampOpacity(initialOpacity));
+  const [archiveVisible, setArchiveVisible] = useState(initialVisible);
   const isRomanov = place.id === 'romanov-chambers';
   const archive = useMemo(() => romanovSources.find((source) => source.id === 'timm-1857'), []);
   const ru = language === 'ru';
+  const effectiveOpacity = archiveVisible ? opacity : 0;
+
+  const updateOpacity = (value: number) => {
+    const nextOpacity = clampOpacity(value);
+    const nextVisible = nextOpacity > 0.01;
+    setOpacity(nextOpacity);
+    setArchiveVisible(nextVisible);
+    onStateChange?.({ opacity: nextOpacity, visible: nextVisible });
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -26,12 +51,12 @@ export default function ArchiveTimeLensFallback({ place, language, onClose, onOp
           <Text style={styles.title}>{place.title}</Text>
           <Text style={styles.subtitle}>{ru ? 'Живая камера работает в нативной iOS/Android сборке.' : 'Live camera is available in the native iOS/Android build.'}</Text>
         </View>
-        <Pressable style={styles.close} onPress={onClose}><Text style={styles.closeText}>×</Text></Pressable>
+        <Pressable style={styles.close} onPress={onClose} accessibilityLabel={ru ? 'Закрыть линзу времени' : 'Close time lens'}><Text style={styles.closeText}>×</Text></Pressable>
       </View>
 
       {isRomanov && archive?.mediaUrl ? (
         <View style={styles.archiveCard}>
-          <Image source={{ uri: archive.mediaUrl }} style={[styles.archiveImage, { opacity }]} resizeMode="contain" />
+          <Image source={{ uri: archive.mediaUrl }} style={[styles.archiveImage, { opacity: effectiveOpacity }]} resizeMode="contain" />
           <View style={styles.info}>
             <View style={styles.infoCopy}>
               <Text style={styles.sourceKicker}>PUBLIC DOMAIN · {archive.year}</Text>
@@ -41,10 +66,22 @@ export default function ArchiveTimeLensFallback({ place, language, onClose, onOp
             <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(archive.sourcePage)}><Text style={styles.sourceButtonText}>{ru ? 'Источник ↗' : 'Source ↗'}</Text></Pressable>
           </View>
           <View style={styles.sliderRow}>
-            <Text style={styles.sliderLabel}>{ru ? 'Слабее' : 'Less'}</Text>
-            <Slider style={styles.slider} minimumValue={0.12} maximumValue={1} value={opacity} onValueChange={setOpacity} minimumTrackTintColor="#d7bb84" maximumTrackTintColor="#43474e" thumbTintColor="#f0d39b" />
+            <Text style={styles.sliderLabel}>{ru ? 'Сейчас' : 'Now'}</Text>
+            <Slider
+              testID="archive-opacity"
+              accessibilityLabel={ru ? 'Прозрачность архивного слоя' : 'Archive layer opacity'}
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={0.92}
+              value={effectiveOpacity}
+              onValueChange={updateOpacity}
+              minimumTrackTintColor="#d7bb84"
+              maximumTrackTintColor="#43474e"
+              thumbTintColor="#f0d39b"
+            />
             <Text style={styles.sliderLabel}>1857</Text>
           </View>
+          <Text testID="archive-opacity-value" style={styles.opacityValue}>{ru ? 'Архив' : 'Archive'} · {Math.round(effectiveOpacity * 100)}%</Text>
           <Pressable style={styles.primary} onPress={onOpenSpatial}><Text style={styles.primaryText}>{ru ? 'Открыть 3D-машину времени' : 'Open the 3D time machine'}</Text></Pressable>
         </View>
       ) : (
@@ -75,6 +112,7 @@ const styles = StyleSheet.create({
   sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 13 },
   slider: { flex: 1 },
   sliderLabel: { color: '#92969e', fontSize: 9, fontWeight: '800' },
+  opacityValue: { color: '#d5c29d', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 3 },
   primary: { minHeight: 46, borderRadius: 14, backgroundColor: '#d7bb84', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   primaryText: { color: '#17130d', fontSize: 11, fontWeight: '900' },
   empty: { borderRadius: 20, borderWidth: 1, borderColor: '#30343a', backgroundColor: '#111418', padding: 20, marginTop: 20 },
