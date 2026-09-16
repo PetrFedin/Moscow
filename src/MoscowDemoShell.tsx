@@ -1,7 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCameraPermissions } from 'expo-camera';
 import React, { useMemo, useState } from 'react';
 import { Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import MoscowApp from './MoscowApp';
+import MoscowExperienceApp from './MoscowExperienceApp';
 import { places } from './data/places';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -10,9 +11,16 @@ import { detectLanguage } from './i18n';
 import PhysicalPressable from './ui/PhysicalPressable';
 
 type DemoStage = null | 'lens' | 'model' | 'spatial';
+type DemoEra = '1857' | '1859';
+type DemoTrust = 'documented' | 'public';
+
+const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
+const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 export default function MoscowDemoShell() {
   const [stage, setStage] = useState<DemoStage>(null);
+  const [demoEra, setDemoEra] = useState<DemoEra>('1857');
+  const [demoTrust, setDemoTrust] = useState<DemoTrust>('public');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const language = detectLanguage();
   const romanov = useMemo(() => places.find((place) => place.id === 'romanov-chambers'), []);
@@ -27,9 +35,17 @@ export default function MoscowDemoShell() {
     setStage('lens');
   };
 
+  const openSpatial = async () => {
+    await Promise.all([
+      AsyncStorage.setItem(ERA_STORAGE_KEY, demoEra),
+      AsyncStorage.setItem(TRUST_STORAGE_KEY, demoTrust)
+    ]).catch(() => undefined);
+    setStage('spatial');
+  };
+
   return (
     <View style={styles.root}>
-      <MoscowApp />
+      <MoscowExperienceApp />
 
       {demoEnabled && (
         <PhysicalPressable
@@ -48,7 +64,7 @@ export default function MoscowDemoShell() {
         </PhysicalPressable>
       )}
 
-      <Modal visible={stage === 'lens'} animationType="slide" onRequestClose={() => setStage(null)}>
+      <Modal visible={stage === 'lens'} animationType="fade" onRequestClose={() => setStage(null)}>
         <View style={styles.modalRoot}>
           {romanov && (
             <ArchiveTimeLens
@@ -64,16 +80,19 @@ export default function MoscowDemoShell() {
       <Modal visible={stage === 'model'} animationType="fade" onRequestClose={() => setStage(null)}>
         <View style={styles.modalRoot}>
           <HistoricalModelViewer
+            initialEra={demoEra}
+            initialTrustMode={demoTrust}
+            onStateChange={(state) => { setDemoEra(state.era); setDemoTrust(state.trustMode); }}
             onClose={() => setStage(null)}
             onBackToArchive={() => setStage('lens')}
-            onOpenSpatial={() => setStage('spatial')}
+            onOpenSpatial={openSpatial}
           />
         </View>
       </Modal>
 
-      <Modal visible={stage === 'spatial'} animationType="fade" onRequestClose={() => setStage(null)}>
+      <Modal visible={stage === 'spatial'} animationType="fade" onRequestClose={() => setStage('model')}>
         <View style={styles.modalRoot}>
-          <MoscowSpatialNavigator />
+          <MoscowSpatialNavigator key={`${demoEra}-${demoTrust}`} />
           <SafeAreaView pointerEvents="box-none" style={styles.closeLayer}>
             <PhysicalPressable
               style={styles.close}
