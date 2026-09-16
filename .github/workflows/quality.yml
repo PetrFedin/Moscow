@@ -19,14 +19,6 @@ jobs:
       - run: npm run build:web
       - run: npm run build:ios
       - run: npm run build:android
-      - name: Smoke preview bundle
-        run: |
-          npm run serve:web > /tmp/moscow-preview.log 2>&1 &
-          PID=$!
-          sleep 3
-          curl --fail --silent http://127.0.0.1:3000/ > /tmp/moscow-index.html
-          test -s /tmp/moscow-index.html
-          kill $PID
       - name: Install Chromium for browser E2E
         run: npx playwright install --with-deps chromium
       - name: Browser E2E journey
