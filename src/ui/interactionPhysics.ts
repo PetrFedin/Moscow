@@ -67,29 +67,59 @@ export type SnapPoint = {
   position: number;
 };
 
+function nearestSnapIndex(position: number, ordered: readonly SnapPoint[]) {
+  let bestIndex = 0;
+  let bestDistance = Math.abs((ordered[0]?.position ?? position) - position);
+
+  for (let index = 1; index < ordered.length; index += 1) {
+    const point = ordered[index];
+    if (!point) continue;
+    const distance = Math.abs(point.position - position);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+}
+
 /**
- * Resolve a draggable sheet/card to a stable state using both current position
- * and release velocity. Positive velocity means moving toward larger positions.
+ * Resolve a draggable sheet/card to a stable state using current position,
+ * release velocity and the position where this gesture began.
+ *
+ * A high-velocity release may commit the adjacent state from the gesture start,
+ * but it must not add an extra snap after the pointer has already reached the
+ * next state. If the pointer itself traversed multiple states, its actual
+ * nearest state remains authoritative.
  */
 export function resolveSnapPoint(
   currentPosition: number,
   velocity: number,
-  points: readonly SnapPoint[]
+  points: readonly SnapPoint[],
+  gestureStartPosition = currentPosition
 ): SnapPoint {
   if (points.length === 0) {
     throw new Error('At least one snap point is required');
   }
 
   const ordered = [...points].sort((a, b) => a.position - b.position);
-  const nearest = ordered.reduce((best, point) =>
-    Math.abs(point.position - currentPosition) < Math.abs(best.position - currentPosition) ? point : best
-  );
+  const nearestIndex = nearestSnapIndex(currentPosition, ordered);
+  const nearest = ordered[nearestIndex] ?? ordered[0]!;
 
   if (Math.abs(velocity) < motion.sheet.velocityCommit) return nearest;
 
   const direction = velocity > 0 ? 1 : -1;
-  const nearestIndex = ordered.findIndex((point) => point.state === nearest.state);
-  const targetIndex = Math.max(0, Math.min(ordered.length - 1, nearestIndex + direction));
+  const startIndex = nearestSnapIndex(gestureStartPosition, ordered);
+  const adjacentFromStart = Math.max(0, Math.min(ordered.length - 1, startIndex + direction));
+
+  let targetIndex: number;
+  if (direction > 0) {
+    targetIndex = nearestIndex > startIndex ? nearestIndex : adjacentFromStart;
+  } else {
+    targetIndex = nearestIndex < startIndex ? nearestIndex : adjacentFromStart;
+  }
+
   return ordered[targetIndex] ?? nearest;
 }
 
