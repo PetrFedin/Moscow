@@ -6,19 +6,49 @@ import type { Place } from '../../data/places';
 import type { AppLanguage } from '../../i18n';
 import { romanovSources } from '../../spatial/romanov-sources';
 
+type LensState = { opacity: number; visible: boolean };
+
 type Props = {
   place: Place;
   language: AppLanguage;
+  initialOpacity?: number;
+  initialVisible?: boolean;
+  onStateChange?: (state: LensState) => void;
   onClose: () => void;
   onOpenSpatial: () => void;
 };
 
-export default function ArchiveTimeLens({ place, language, onClose, onOpenSpatial }: Props) {
-  const [opacity, setOpacity] = useState(0.52);
-  const [archiveVisible, setArchiveVisible] = useState(true);
+const clampOpacity = (value: number) => Math.max(0, Math.min(0.92, value));
+
+export default function ArchiveTimeLens({
+  place,
+  language,
+  initialOpacity = 0.52,
+  initialVisible = true,
+  onStateChange,
+  onClose,
+  onOpenSpatial
+}: Props) {
+  const [opacity, setOpacity] = useState(() => clampOpacity(initialOpacity));
+  const [archiveVisible, setArchiveVisible] = useState(initialVisible);
   const isRomanov = place.id === 'romanov-chambers';
   const archive = useMemo(() => romanovSources.find((source) => source.id === 'timm-1857'), []);
   const ru = language === 'ru';
+  const effectiveOpacity = archiveVisible ? opacity : 0;
+
+  const updateOpacity = (value: number) => {
+    const nextOpacity = clampOpacity(value);
+    const nextVisible = nextOpacity > 0.01;
+    setOpacity(nextOpacity);
+    setArchiveVisible(nextVisible);
+    onStateChange?.({ opacity: nextOpacity, visible: nextVisible });
+  };
+
+  const toggleArchive = () => {
+    const nextVisible = !archiveVisible;
+    setArchiveVisible(nextVisible);
+    onStateChange?.({ opacity, visible: nextVisible });
+  };
 
   return (
     <View style={styles.root}>
@@ -75,20 +105,23 @@ export default function ArchiveTimeLens({ place, language, onClose, onOpenSpatia
               <View style={styles.sliderRow}>
                 <Text style={styles.sliderLabel}>{ru ? 'Сейчас' : 'Now'}</Text>
                 <Slider
+                  testID="archive-opacity"
+                  accessibilityLabel={ru ? 'Прозрачность архивного слоя' : 'Archive layer opacity'}
                   style={styles.slider}
                   minimumValue={0}
                   maximumValue={0.92}
-                  value={archiveVisible ? opacity : 0}
-                  onValueChange={(value) => { setOpacity(value); setArchiveVisible(value > 0.01); }}
+                  value={effectiveOpacity}
+                  onValueChange={updateOpacity}
                   minimumTrackTintColor="#d7bb84"
                   maximumTrackTintColor="#4b4f56"
                   thumbTintColor="#f0d39b"
                 />
                 <Text style={styles.sliderLabel}>1857</Text>
               </View>
+              <Text testID="archive-opacity-value" style={styles.opacityValue}>{ru ? 'Архив' : 'Archive'} · {Math.round(effectiveOpacity * 100)}%</Text>
 
               <View style={styles.actionRow}>
-                <Pressable style={styles.secondaryButton} onPress={() => setArchiveVisible((current) => !current)}>
+                <Pressable style={styles.secondaryButton} onPress={toggleArchive}>
                   <Text style={styles.secondaryText}>{archiveVisible ? (ru ? 'Скрыть архив' : 'Hide archive') : (ru ? 'Показать архив' : 'Show archive')}</Text>
                 </Pressable>
                 <Pressable style={styles.secondaryButton} onPress={() => Linking.openURL(archive.sourcePage)}>
@@ -147,6 +180,7 @@ const styles = StyleSheet.create({
   sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   slider: { flex: 1 },
   sliderLabel: { color: '#c7c9cd', fontSize: 9, fontWeight: '800' },
+  opacityValue: { color: '#d5c29d', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 3 },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 9 },
   secondaryButton: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#454950', alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: '#cbb995', fontSize: 9, fontWeight: '900' },
