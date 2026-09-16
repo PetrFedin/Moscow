@@ -49,17 +49,34 @@ export default function HistoricalModelViewerFallback({
         <Text style={styles.controlLabel}>ЭПОХА</Text>
         <View style={styles.row}>
           {(['1857', '1859'] as RomanovEra[]).map((item) => (
-            <PhysicalPressable key={item} style={[styles.choice, era === item && styles.choiceActive]} contentStyle={styles.center} hapticEvent="epoch-snap" onPress={() => selectEra(item)}>
+            <PhysicalPressable
+              key={item}
+              style={[styles.choice, era === item && styles.choiceActive]}
+              contentStyle={styles.center}
+              hapticEvent="epoch-snap"
+              accessibilityLabel={`3D · Эпоха · ${eraLabel[item]}`}
+              onPress={() => selectEra(item)}
+            >
               <Text style={[styles.choiceText, era === item && styles.choiceTextActive]}>{eraLabel[item]}</Text>
             </PhysicalPressable>
           ))}
         </View>
         <Text style={styles.controlLabel}>ДОСТОВЕРНОСТЬ</Text>
         <View style={styles.row}>
-          <PhysicalPressable style={[styles.choice, trustMode === 'documented' && styles.choiceActive]} contentStyle={styles.center} onPress={() => selectTrust('documented')}>
+          <PhysicalPressable
+            style={[styles.choice, trustMode === 'documented' && styles.choiceActive]}
+            contentStyle={styles.center}
+            accessibilityLabel="3D · Только факты"
+            onPress={() => selectTrust('documented')}
+          >
             <Text style={[styles.choiceText, trustMode === 'documented' && styles.choiceTextActive]}>Только факты</Text>
           </PhysicalPressable>
-          <PhysicalPressable style={[styles.choice, trustMode === 'public' && styles.choiceActive]} contentStyle={styles.center} onPress={() => selectTrust('public')}>
+          <PhysicalPressable
+            style={[styles.choice, trustMode === 'public' && styles.choiceActive]}
+            contentStyle={styles.center}
+            accessibilityLabel="3D · Реконструкция"
+            onPress={() => selectTrust('public')}
+          >
             <Text style={[styles.choiceText, trustMode === 'public' && styles.choiceTextActive]}>+ реконструкция</Text>
           </PhysicalPressable>
         </View>
@@ -74,10 +91,16 @@ export default function HistoricalModelViewerFallback({
         ))}
       </View>
       <View style={styles.actions}>
-        <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onBackToArchive}><Text style={styles.secondaryText}>← Архив</Text></PhysicalPressable>
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" onPress={onOpenSpatial}><Text style={styles.primaryText}>Открыть spatial mode</Text></PhysicalPressable>
+        <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={onBackToArchive}>
+          <Text style={styles.secondaryText}>← Архив</Text>
+        </PhysicalPressable>
+        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" accessibilityLabel="3D · Открыть spatial mode" onPress={onOpenSpatial}>
+          <Text style={styles.primaryText}>Открыть spatial mode</Text>
+        </PhysicalPressable>
       </View>
-      <PhysicalPressable style={styles.closeButton} contentStyle={styles.center} onPress={onClose}><Text style={styles.close}>Закрыть</Text></PhysicalPressable>
+      <PhysicalPressable style={styles.closeButton} contentStyle={styles.center} accessibilityLabel="3D · Закрыть" onPress={onClose}>
+        <Text style={styles.close}>Закрыть</Text>
+      </PhysicalPressable>
     </ScrollView>
   );
 }
