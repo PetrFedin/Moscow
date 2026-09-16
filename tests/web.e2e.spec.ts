@@ -10,7 +10,7 @@ async function ensureRussian(page: import('@playwright/test').Page) {
   await expect(page.getByText('Открыть', { exact: true }).first()).toBeVisible();
 }
 
-test('resident journey: map → story → time → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
+test('resident journey: map → story → time → lens → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('MOSCOW · TIME')).toBeVisible();
   await ensureRussian(page);
@@ -40,7 +40,30 @@ test('resident journey: map → story → time → 3D → spatial → interrupti
     await page.mouse.click(timeBox.x + timeBox.width * 0.52, timeBox.y + timeBox.height / 2);
   }
 
-  await page.getByText('Открыть 3D', { exact: true }).click();
+  // Archive lens is part of the same journey state. Change opacity, enter 3D, return,
+  // and require the exact same displayed opacity rather than the component default.
+  await page.getByText('Линза времени', { exact: true }).click();
+  await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
+  const opacitySlider = page.getByTestId('archive-opacity');
+  await expect(opacitySlider).toBeVisible();
+  const opacityBox = await opacitySlider.boundingBox();
+  if (opacityBox) {
+    await page.mouse.click(opacityBox.x + opacityBox.width * 0.31, opacityBox.y + opacityBox.height / 2);
+  }
+  const opacityValue = page.getByTestId('archive-opacity-value');
+  await expect(opacityValue).toBeVisible();
+  const rememberedOpacity = await opacityValue.textContent();
+  expect(rememberedOpacity).not.toBeNull();
+  expect(rememberedOpacity).not.toBe('Архив · 52%');
+
+  await page.getByText('Открыть 3D-машину времени', { exact: true }).click();
+  await expect(page.getByText('Одна историческая модель — несколько режимов')).toBeVisible();
+  await page.getByText('← Архив', { exact: true }).click();
+  await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
+  await expect(opacityValue).toHaveText(rememberedOpacity ?? '');
+
+  // Re-enter 3D from the restored lens state and continue the spatial journey.
+  await page.getByText('Открыть 3D-машину времени', { exact: true }).click();
   await expect(page.getByText('Одна историческая модель — несколько режимов')).toBeVisible();
 
   await page.getByText('1859 / 1883 · после реставрации', { exact: true }).click();
