@@ -31,6 +31,7 @@ import {
 } from '../../spatial/romanovSurvey';
 import type { SpatialStage } from '../../e2e/experienceContract';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
 import RomanovFieldTest from './RomanovFieldTest.native';
 import RomanovSurveyPacketScreen from './RomanovSurveyPacket.native';
@@ -354,15 +355,20 @@ export default function MoscowSpatialJourney({
     setPortalVisible(true);
     if (verified) {
       setStage('portal-preview');
-      setStatusMessage('Verified portal готов к входу.');
+      setStatusMessage('Verified portal готов к физическому проходу.');
     } else {
       setStatusMessage('DEMO PREVIEW: портал показан без статуса verified.');
     }
-    void haptic('spatial-enter');
   };
 
   const currentEraLabel = era === '1857' ? '1857' : '1859 / 1883';
   const productionVerified = stage === 'verified' || stage === 'portal-preview' || stage === 'portal-entered';
+  const portalLocked = !productionVerified && !demoPreview;
+  const portalLabel = productionVerified
+    ? 'Потяните → открыть VERIFIED portal'
+    : demoPreview
+      ? 'Потяните → DEMO portal preview'
+      : 'Portal locked · нужен field verification';
 
   return (
     <View style={styles.root}>
@@ -435,9 +441,15 @@ export default function MoscowSpatialJourney({
             <View style={styles.actionRow}>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setFieldOpen(true)}><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
-              <PhysicalPressable style={styles.portalButton} contentStyle={styles.center} strong hapticEvent="spatial-enter" onPress={openPortal}>
-                <Text style={styles.portalText}>{productionVerified ? 'Открыть портал' : demoPreview ? 'Portal · DEMO' : 'Portal · locked'}</Text>
-              </PhysicalPressable>
+            </View>
+            <View style={styles.portalTransition}>
+              <PortalTransitionControl
+                label={portalLabel}
+                committedLabel={productionVerified ? 'VERIFIED PORTAL READY' : 'DEMO PORTAL READY'}
+                disabled={portalLocked}
+                committed={portalVisible}
+                onCommit={() => { void openPortal(); }}
+              />
             </View>
             {onBackToModel && (
               <PhysicalPressable style={styles.backButton} contentStyle={styles.center} hapticEvent="none" onPress={onBackToModel}>
@@ -498,10 +510,9 @@ const styles = StyleSheet.create({
   secondary: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: 1, borderColor: '#4b525b', backgroundColor: '#15191e' },
   secondaryText: { color: '#d9c59e', fontSize: 10, fontWeight: '900', textAlign: 'center' },
   disabled: { opacity: 0.35 },
-  toolButton: { flex: 0.75, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#45505a' },
+  toolButton: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#45505a' },
   toolText: { color: '#9ea6ae', fontSize: 8.5, fontWeight: '900' },
-  portalButton: { flex: 1.35, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#9a8057', backgroundColor: '#211b13' },
-  portalText: { color: '#e8c98c', fontSize: 9, fontWeight: '900' },
+  portalTransition: { marginTop: 9 },
   backButton: { minHeight: 40, borderRadius: 12, marginTop: 7 },
   backText: { color: '#858b93', fontSize: 9, fontWeight: '900' },
   calibrationPanel: { position: 'absolute', left: 12, right: 12, top: 208, bottom: 150, borderRadius: 20, borderWidth: 1, borderColor: '#5b5243', backgroundColor: 'rgba(13,16,19,0.98)', padding: 14 },
