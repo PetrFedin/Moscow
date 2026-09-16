@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -35,10 +35,10 @@ export default function PortalTransitionControl({
   const startX = useSharedValue(0);
   const maxTravel = Math.max(0, width - HANDLE - PADDING * 2);
 
-  const commit = () => {
+  const commit = useCallback(() => {
     void haptic('spatial-enter');
     onCommit();
-  };
+  }, [onCommit]);
 
   const gesture = useMemo(() => Gesture.Pan()
     .enabled(!disabled && !committed && maxTravel > 0)
@@ -69,7 +69,7 @@ export default function PortalTransitionControl({
         mass: motion.spring.firm.mass,
         overshootClamping: true
       });
-    }), [committed, disabled, maxTravel]);
+    }), [commit, committed, disabled, maxTravel, startX, x]);
 
   const handleStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: committed ? maxTravel : x.value }]
