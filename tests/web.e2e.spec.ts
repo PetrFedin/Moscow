@@ -10,7 +10,7 @@ async function ensureRussian(page: import('@playwright/test').Page) {
   await expect(page.getByText('Открыть', { exact: true }).first()).toBeVisible();
 }
 
-test('resident journey: map → story → time → lens → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
+test('resident journey: two objects → time → lens → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('MOSCOW · TIME')).toBeVisible();
   await ensureRussian(page);
@@ -46,11 +46,30 @@ test('resident journey: map → story → time → lens → 3D → spatial → i
     }
   }
 
+  // Second object must use the same story/time interaction language without borrowing Romanov assets.
   await page.getByText('Старый Английский двор', { exact: true }).first().click();
   await expect(page.getByText('Открыть историю', { exact: true })).toBeVisible();
   await page.getByText('Открыть историю', { exact: true }).click();
   await expect(page.getByText('Старый Английский двор', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
+  await expect(page.getByText('1556', { exact: true }).first()).toBeVisible();
 
+  const englishTimeSlider = page.locator('[aria-label="Выберите историческую эпоху"]');
+  await expect(englishTimeSlider).toHaveCount(1);
+  const englishTimeBox = await englishTimeSlider.boundingBox();
+  if (englishTimeBox) {
+    await page.mouse.click(
+      englishTimeBox.x + englishTimeBox.width * 0.34,
+      englishTimeBox.y + englishTimeBox.height / 2
+    );
+  }
+  await expect(page.getByText('1960-е', { exact: true })).toBeVisible();
+  await expect(page.getByText('Исследовательская реконструкция', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Линза · готовится')).toBeDisabled();
+  await expect(page.getByLabel('3D · готовится')).toBeDisabled();
+  await expect(page.getByText('3D MODEL · ROMANOV', { exact: true })).toHaveCount(0);
+
+  // Romanov remains the current candidate spatial pipeline.
   await page.getByText('Палаты бояр Романовых', { exact: true }).first().click();
   await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
 
