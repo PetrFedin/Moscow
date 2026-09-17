@@ -17,6 +17,13 @@ import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import { detectLanguage, type AppLanguage } from './i18n';
+import {
+  canOpenArchiveLens,
+  canOpenModel3d,
+  canOpenSpatial,
+  getPlaceExperienceCapabilities,
+  modelEraFromTimeIndex
+} from './spatial/placeExperienceRegistry';
 import PhysicalPressable from './ui/PhysicalPressable';
 import PhysicalSheet from './ui/PhysicalSheet';
 import TimeMachineSlider from './ui/TimeMachineSlider';
@@ -37,6 +44,7 @@ type PersistedState = {
 };
 
 const STORAGE_KEY = 'moscow:v4:experience';
+const SPATIAL_PLACE_STORAGE_KEY = 'moscow:p0:spatial-place:v1';
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
@@ -51,6 +59,7 @@ const copy = {
     today: 'Сегодня', facts: 'ЧТО ИСКАТЬ ГЛАЗАМИ', sources: 'ИСТОЧНИКИ',
     open3d: 'Открыть 3D', lens: 'Линза времени', save: 'Сохранить', savedAction: 'Сохранено',
     onlyFacts: 'Только факты', research: '+ реконструкция',
+    lensPreparing: 'Линза · готовится', modelPreparing: '3D · готовится',
     mapHint: 'Тяните карточку пальцем: свернуть · preview · раскрыть',
     openStory: 'Открыть историю', next: 'Открыто · дальше', finish: 'Завершить прогулку',
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
@@ -65,6 +74,7 @@ const copy = {
     today: 'Today', facts: 'WHAT TO LOOK FOR', sources: 'SOURCES',
     open3d: 'Open 3D', lens: 'Time Lens', save: 'Save', savedAction: 'Saved',
     onlyFacts: 'Facts only', research: '+ reconstruction',
+    lensPreparing: 'Lens · preparing', modelPreparing: '3D · preparing',
     mapHint: 'Drag the card: collapsed · preview · expanded',
     openStory: 'Open story', next: 'Discovered · next', finish: 'Finish walk',
     noSaved: 'Nothing saved yet', back3d: '← 3D model', close: 'Close'
@@ -104,10 +114,13 @@ export default function MoscowExperienceApp() {
     () => localizedPlaces.find((place) => place.id === selectedId) ?? localizedPlaces[0],
     [localizedPlaces, selectedId]
   );
+  const selectedExperience = useMemo(() => getPlaceExperienceCapabilities(selectedId), [selectedId]);
   const routePlace = useMemo(
     () => localizedPlaces.find((place) => place.id === pilotRoute.stopIds[routeStep]),
     [localizedPlaces, routeStep]
   );
+  const archiveAvailable = Boolean(selected && canOpenArchiveLens(selected.id));
+  const modelAvailable = Boolean(selected && canOpenModel3d(selected.id));
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -135,7 +148,8 @@ export default function MoscowExperienceApp() {
 
   useEffect(() => {
     setTimeValue(0);
-    if (selectedId === 'romanov-chambers') setEra('1857');
+    const nextEra = modelEraFromTimeIndex(selectedId, 0);
+    if (nextEra) setEra(nextEra);
   }, [selectedId]);
 
   const selectPlace = (id: string) => {
@@ -149,28 +163,32 @@ export default function MoscowExperienceApp() {
 
   const onTimeChange = (value: number) => {
     setTimeValue(value);
-    if (selectedId === 'romanov-chambers') setEra(Math.round(value) <= 0 ? '1857' : '1859');
+    const nextEra = modelEraFromTimeIndex(selectedId, value);
+    if (nextEra) setEra(nextEra);
   };
 
   const prepareSpatial = async () => {
+    if (!canOpenSpatial(selectedId)) return false;
     await Promise.all([
+      AsyncStorage.setItem(SPATIAL_PLACE_STORAGE_KEY, selectedId),
       AsyncStorage.setItem(ERA_STORAGE_KEY, era),
       AsyncStorage.setItem(TRUST_STORAGE_KEY, trustMode)
     ]).catch(() => undefined);
+    return true;
   };
 
   const openSpatial = async () => {
-    await prepareSpatial();
+    if (!await prepareSpatial()) return;
     setModal('spatial');
   };
 
   const openModel = () => {
-    if (selectedId !== 'romanov-chambers') return;
+    if (!canOpenModel3d(selectedId)) return;
     setModal('model');
   };
 
   const openLens = () => {
-    if (!selected) return;
+    if (!selected || !canOpenArchiveLens(selected.id)) return;
     setModal('lens');
   };
 
@@ -277,7 +295,7 @@ export default function MoscowExperienceApp() {
                   </View>
                   <Text style={styles.storyBody}>{selected.shortStory}</Text>
 
-                  {selected.periods.length > 0 && (
+                  {selected.periods.length > 0 && selectedExperience.timeMachine === 'ready' && (
                     <View style={styles.timeCard}>
                       <View style={styles.timeTop}>
                         <Text style={styles.kicker}>{ui.time}</Text>
@@ -297,7 +315,7 @@ export default function MoscowExperienceApp() {
                       <Text style={styles.periodBody}>{todaySelected ? (language === 'ru' ? 'Современное состояние — точка сравнения с историческими слоями.' : 'The current state is the comparison point for historical layers.') : activePeriod?.summary}</Text>
                       {!todaySelected && activePeriod && <Text style={styles.evidence}>{evidenceLabel[language][activePeriod.confidence]}</Text>}
 
-                      {selected.id === 'romanov-chambers' && (
+                      {selectedExperience.modelEraMap && (
                         <View style={styles.trustRow}>
                           <PhysicalPressable
                             style={[styles.trustButton, trustMode === 'documented' && styles.trustButtonActive]}
@@ -327,18 +345,25 @@ export default function MoscowExperienceApp() {
                   ))}
 
                   <View style={styles.experienceActions}>
-                    <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={openLens}>
-                      <Text style={styles.secondaryText}>{ui.lens}</Text>
+                    <PhysicalPressable
+                      style={[styles.secondary, !archiveAvailable && styles.disabled]}
+                      contentStyle={styles.center}
+                      disabled={!archiveAvailable}
+                      accessibilityLabel={archiveAvailable ? ui.lens : ui.lensPreparing}
+                      onPress={openLens}
+                    >
+                      <Text style={styles.secondaryText}>{archiveAvailable ? ui.lens : ui.lensPreparing}</Text>
                     </PhysicalPressable>
                     <PhysicalPressable
-                      style={[styles.primary, selected.id !== 'romanov-chambers' && styles.disabled]}
+                      style={[styles.primary, !modelAvailable && styles.disabled]}
                       contentStyle={styles.center}
                       strong
                       hapticEvent="spatial-enter"
-                      disabled={selected.id !== 'romanov-chambers'}
+                      disabled={!modelAvailable}
+                      accessibilityLabel={modelAvailable ? ui.open3d : ui.modelPreparing}
                       onPress={openModel}
                     >
-                      <Text style={styles.primaryText}>{selected.id === 'romanov-chambers' ? ui.open3d : '3D · P1'}</Text>
+                      <Text style={styles.primaryText}>{modelAvailable ? ui.open3d : ui.modelPreparing}</Text>
                     </PhysicalPressable>
                   </View>
 
@@ -413,7 +438,7 @@ export default function MoscowExperienceApp() {
       </View>
 
       <Modal visible={modal === 'lens'} animationType="fade" onRequestClose={() => setModal(null)}>
-        {selected && (
+        {selected && archiveAvailable && (
           <ArchiveTimeLens
             place={selected as Place}
             language={language}
@@ -439,7 +464,7 @@ export default function MoscowExperienceApp() {
 
       <Modal visible={modal === 'spatial'} animationType="fade" onRequestClose={() => setModal('model')}>
         <View style={styles.spatialRoot}>
-          <MoscowSpatialNavigator key={`${era}-${trustMode}`} />
+          <MoscowSpatialNavigator key={`${selectedId}-${era}-${trustMode}`} />
           <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
             <PhysicalPressable style={styles.back3d} contentStyle={styles.center} hapticEvent="none" onPress={() => setModal('model')}>
               <Text style={styles.back3dText}>{ui.back3d}</Text>
