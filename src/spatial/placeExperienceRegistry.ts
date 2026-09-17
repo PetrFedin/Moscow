@@ -52,6 +52,10 @@ export function getPlaceExperienceCapabilities(placeId: string): PlaceExperience
   return registry[placeId] ?? { ...fallback, placeId };
 }
 
+export function canOpenArchiveLens(placeId: string) {
+  return getPlaceExperienceCapabilities(placeId).archiveLens === 'ready';
+}
+
 export function canOpenModel3d(placeId: string) {
   const capabilities = getPlaceExperienceCapabilities(placeId);
   return capabilities.model3d === 'ready' || capabilities.model3d === 'candidate';
