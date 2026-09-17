@@ -46,7 +46,7 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
     }
   }
 
-  // Second object must use the same story/time interaction language without borrowing Romanov assets.
+  // Second object uses the same Time Machine contract but cannot borrow Romanov assets.
   await page.getByText('Старый Английский двор', { exact: true }).first().click();
   await expect(page.getByText('Открыть историю', { exact: true })).toBeVisible();
   await page.getByText('Открыть историю', { exact: true }).click();
@@ -54,18 +54,13 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
   await expect(page.getByText('1556', { exact: true }).first()).toBeVisible();
 
-  // The community slider web implementation is responder-driven: prove the same direct drag a user performs.
-  const englishTimeSlider = page.locator('[aria-label="Выберите историческую эпоху"]');
+  // Browser preview intentionally uses a semantic HTML range control.
+  const englishTimeSlider = page.getByRole('slider', { name: 'Выберите историческую эпоху' });
   await expect(englishTimeSlider).toHaveCount(1);
-  const englishTimeBox = await englishTimeSlider.boundingBox();
-  expect(englishTimeBox).not.toBeNull();
-  if (englishTimeBox) {
-    const y = englishTimeBox.y + englishTimeBox.height / 2;
-    await page.mouse.move(englishTimeBox.x + 15, y);
-    await page.mouse.down();
-    await page.mouse.move(englishTimeBox.x + englishTimeBox.width * 0.34, y, { steps: 8 });
-    await page.mouse.up();
-  }
+  await expect(englishTimeSlider).toHaveAttribute('aria-valuenow', '0');
+  await englishTimeSlider.focus();
+  await englishTimeSlider.press('ArrowRight');
+  await expect(englishTimeSlider).toHaveAttribute('aria-valuenow', '1');
   await expect(page.getByText('1960-е', { exact: true })).toBeVisible();
   await expect(page.getByText('Исследовательская реконструкция', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Линза · готовится')).toBeDisabled();
@@ -76,16 +71,12 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await page.getByText('Палаты бояр Романовых', { exact: true }).first().click();
   await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
 
-  const timeSlider = page.locator('[aria-label="Выберите историческую эпоху"]');
+  const timeSlider = page.getByRole('slider', { name: 'Выберите историческую эпоху' });
   await expect(timeSlider).toHaveCount(1);
-  const timeBox = await timeSlider.boundingBox();
-  if (timeBox) {
-    const y = timeBox.y + timeBox.height / 2;
-    await page.mouse.move(timeBox.x + 15, y);
-    await page.mouse.down();
-    await page.mouse.move(timeBox.x + timeBox.width * 0.52, y, { steps: 8 });
-    await page.mouse.up();
-  }
+  await expect(timeSlider).toHaveAttribute('aria-valuenow', '0');
+  await timeSlider.focus();
+  await timeSlider.press('ArrowRight');
+  await expect(timeSlider).toHaveAttribute('aria-valuenow', '1');
 
   await page.getByText('Линза времени', { exact: true }).click();
   await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
