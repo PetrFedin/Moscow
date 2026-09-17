@@ -54,10 +54,18 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
   await expect(page.getByText('1556', { exact: true }).first()).toBeVisible();
 
+  // The community slider web implementation is responder-driven: prove the same direct drag a user performs.
   const englishTimeSlider = page.locator('[aria-label="Выберите историческую эпоху"]');
   await expect(englishTimeSlider).toHaveCount(1);
-  await englishTimeSlider.focus();
-  await englishTimeSlider.press('ArrowRight');
+  const englishTimeBox = await englishTimeSlider.boundingBox();
+  expect(englishTimeBox).not.toBeNull();
+  if (englishTimeBox) {
+    const y = englishTimeBox.y + englishTimeBox.height / 2;
+    await page.mouse.move(englishTimeBox.x + 15, y);
+    await page.mouse.down();
+    await page.mouse.move(englishTimeBox.x + englishTimeBox.width * 0.34, y, { steps: 8 });
+    await page.mouse.up();
+  }
   await expect(page.getByText('1960-е', { exact: true })).toBeVisible();
   await expect(page.getByText('Исследовательская реконструкция', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Линза · готовится')).toBeDisabled();
@@ -72,7 +80,11 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await expect(timeSlider).toHaveCount(1);
   const timeBox = await timeSlider.boundingBox();
   if (timeBox) {
-    await page.mouse.click(timeBox.x + timeBox.width * 0.52, timeBox.y + timeBox.height / 2);
+    const y = timeBox.y + timeBox.height / 2;
+    await page.mouse.move(timeBox.x + 15, y);
+    await page.mouse.down();
+    await page.mouse.move(timeBox.x + timeBox.width * 0.52, y, { steps: 8 });
+    await page.mouse.up();
   }
 
   await page.getByText('Линза времени', { exact: true }).click();
