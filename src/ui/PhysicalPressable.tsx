@@ -42,10 +42,11 @@ export default function PhysicalPressable({
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const feedbackOpacity = useSharedValue(1);
+  const isDisabled = disabled === true;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: disabled ? motion.opacity.disabled : feedbackOpacity.value
+    opacity: isDisabled ? motion.opacity.disabled : feedbackOpacity.value
   }));
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = (event) => {
@@ -79,8 +80,8 @@ export default function PhysicalPressable({
       <Pressable
         {...pressableProps}
         accessibilityRole={accessibilityRole}
-        accessibilityState={{ ...accessibilityState, disabled }}
-        disabled={disabled}
+        accessibilityState={{ ...accessibilityState, disabled: isDisabled }}
+        disabled={isDisabled}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={[styles.hitTarget, contentStyle]}
