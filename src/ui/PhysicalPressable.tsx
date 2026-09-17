@@ -35,6 +35,8 @@ export default function PhysicalPressable({
   hapticEvent = 'button',
   onPressIn,
   onPressOut,
+  accessibilityRole = 'button',
+  accessibilityState,
   ...pressableProps
 }: Props) {
   const reducedMotion = useReducedMotion();
@@ -76,6 +78,8 @@ export default function PhysicalPressable({
     <Animated.View style={[animatedStyle, style]}>
       <Pressable
         {...pressableProps}
+        accessibilityRole={accessibilityRole}
+        accessibilityState={{ ...accessibilityState, disabled }}
         disabled={disabled}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
