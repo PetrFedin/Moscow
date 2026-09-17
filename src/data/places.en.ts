@@ -33,12 +33,35 @@ export const placeEnglish: Record<string, Partial<Place>> = {
     title: 'Old English Court',
     subtitle: 'Moscow trade and international connections',
     district: 'Zaryadye',
-    shortStory: 'The second spatial scene of the pilot expands beyond architecture to trade, people, objects and everyday urban life.',
+    shortStory: 'The second spatial scene of the pilot links 16th–17th century trading Moscow and early Anglo-Russian relations with later alterations and the restoration that returned the monument to view.',
     tags: ['trade', 'Zaryadye', 'urban life'],
     highlights: [
-      'understand why an English trading court appeared here',
-      'connect the building with Moscow’s international trade',
-      'move from architectural history to the everyday life of the city'
+      'understand why an official English trading court appeared on Varvarka Street',
+      'separate documented building history from the restoration-based reconstruction of its earlier appearance',
+      'follow the transformation from trading court to modern museum'
+    ],
+    periods: [
+      {
+        id: 'english-court-1556',
+        label: 'English trading court',
+        year: '1556',
+        summary: 'After the Muscovy Company was established, English merchants received a court on Varvarka. It became an important site of early Anglo-Russian trade and diplomacy.',
+        confidence: 'documented'
+      },
+      {
+        id: 'english-court-1960s',
+        label: 'The monument rediscovered',
+        year: '1960s',
+        summary: 'Pyotr Baranovsky identified the old chambers beneath later alterations and secured their preservation. The early appearance seen today is therefore tied to scholarly restoration and is marked as reconstruction.',
+        confidence: 'reconstructed'
+      },
+      {
+        id: 'english-court-1994',
+        label: 'Museum opens',
+        year: '1994',
+        summary: 'A museum of Anglo-Russian relations opened in the restored chambers; Queen Elizabeth II took part in the opening ceremony.',
+        confidence: 'documented'
+      }
     ]
   },
   'varvarka-gates': {
