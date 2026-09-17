@@ -13,7 +13,7 @@
     "build:android": "expo export --platform android --output-dir dist-android",
     "serve:web": "serve dist -l ${PORT:-3000}",
     "typecheck": "tsc --noEmit",
-    "test:e2e-contract": "node --experimental-strip-types --test tests/experience.e2e.test.ts tests/interactionPhysics.test.ts",
+    "test:e2e-contract": "node --experimental-strip-types --test tests/experience.e2e.test.ts tests/interactionPhysics.test.ts tests/placeExperienceRegistry.test.ts",
     "test:e2e-web": "playwright test tests/web.e2e.spec.ts --project=chromium"
   },
   "dependencies": {
