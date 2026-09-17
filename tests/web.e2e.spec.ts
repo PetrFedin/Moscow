@@ -56,13 +56,8 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
 
   const englishTimeSlider = page.locator('[aria-label="Выберите историческую эпоху"]');
   await expect(englishTimeSlider).toHaveCount(1);
-  const englishTimeBox = await englishTimeSlider.boundingBox();
-  if (englishTimeBox) {
-    await page.mouse.click(
-      englishTimeBox.x + englishTimeBox.width * 0.34,
-      englishTimeBox.y + englishTimeBox.height / 2
-    );
-  }
+  await englishTimeSlider.focus();
+  await englishTimeSlider.press('ArrowRight');
   await expect(page.getByText('1960-е', { exact: true })).toBeVisible();
   await expect(page.getByText('Исследовательская реконструкция', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Линза · готовится')).toBeDisabled();
