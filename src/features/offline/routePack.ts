@@ -1,13 +1,16 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
+import {
+  assertRoutePackManifest,
+  type RoutePackManifest
+} from './routePackManifest';
 
-export type RoutePackManifest = {
-  routeId: string;
-  version: string;
-  downloadedAt: string;
-  locale: 'ru' | 'en';
-  files: Array<{ id: string; url: string; filename: string; kind: 'image' | 'audio' | 'model' | 'data' }>;
-};
+export type {
+  RoutePackAssetKind,
+  RoutePackBundledAsset,
+  RoutePackDownloadAsset,
+  RoutePackManifest
+} from './routePackManifest';
 
 const DB_NAME = 'moscow-offline.db';
 
@@ -26,19 +29,28 @@ async function openDb() {
   return db;
 }
 
-function packDirectory(routeId: string, locale: string) {
+function packDirectory(routeId: string, locale: string, create = true) {
   const directory = new Directory(Paths.document, 'route-packs', routeId, locale);
-  if (!directory.exists) directory.create({ intermediates: true });
+  if (create && !directory.exists) directory.create({ intermediates: true });
   return directory;
 }
 
 export async function downloadRoutePack(manifest: RoutePackManifest) {
+  assertRoutePackManifest(manifest);
   const directory = packDirectory(manifest.routeId, manifest.locale);
 
-  for (const asset of manifest.files) {
-    const target = new File(directory, asset.filename);
-    if (target.exists) target.delete();
-    await File.downloadFileAsync(asset.url, target, { idempotent: true });
+  try {
+    for (const asset of manifest.files) {
+      const target = new File(directory, asset.filename);
+      if (target.exists) target.delete();
+      await File.downloadFileAsync(asset.url, target, { idempotent: true });
+    }
+  } catch (error) {
+    for (const asset of manifest.files) {
+      const target = new File(directory, asset.filename);
+      if (target.exists) target.delete();
+    }
+    throw error;
   }
 
   const db = await openDb();
@@ -62,11 +74,38 @@ export async function getDownloadedRoutePack(routeId: string, locale: 'ru' | 'en
     routeId,
     locale
   );
-  return row ? (JSON.parse(row.manifest_json) as RoutePackManifest) : null;
+  if (!row) return null;
+  const manifest = JSON.parse(row.manifest_json) as RoutePackManifest;
+  return assertRoutePackManifest(manifest);
+}
+
+export async function getDownloadedRoutePackAssetUri(
+  routeId: string,
+  locale: 'ru' | 'en',
+  assetId: string
+) {
+  const manifest = await getDownloadedRoutePack(routeId, locale);
+  const asset = manifest?.files.find((item) => item.id === assetId);
+  if (!asset) return null;
+
+  const directory = packDirectory(routeId, locale, false);
+  if (!directory.exists) return null;
+  const target = new File(directory, asset.filename);
+  return target.exists ? target.uri : null;
+}
+
+export async function getDownloadedRoutePackAssetUriWithLocaleFallback(
+  routeId: string,
+  locale: 'ru' | 'en',
+  assetId: string
+) {
+  const preferred = await getDownloadedRoutePackAssetUri(routeId, locale, assetId);
+  if (preferred) return preferred;
+  return getDownloadedRoutePackAssetUri(routeId, locale === 'ru' ? 'en' : 'ru', assetId);
 }
 
 export async function removeRoutePack(routeId: string, locale: 'ru' | 'en') {
-  const directory = new Directory(Paths.document, 'route-packs', routeId, locale);
+  const directory = packDirectory(routeId, locale, false);
   if (directory.exists) directory.delete();
   const db = await openDb();
   await db.runAsync('DELETE FROM route_packs WHERE route_id = ? AND locale = ?', routeId, locale);
