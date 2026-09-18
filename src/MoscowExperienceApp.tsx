@@ -13,6 +13,7 @@ import {
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import MoscowMap from './features/map/MoscowMap';
+import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
@@ -391,6 +392,7 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.heroBody}>{pilotRoute.distanceKm} km · {pilotRoute.durationMinutes} min · {pilotRoute.stopIds.length} stops</Text>
                 <View style={styles.progress}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
               </View>
+              <OfflineRoutePackControl language={language} />
               {routePlace && (
                 <View style={styles.storyCard}>
                   <Text style={styles.kicker}>{language === 'ru' ? `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}` : `NOW · STOP ${routeStep + 1}`}</Text>
