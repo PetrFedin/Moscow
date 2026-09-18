@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   Viro3DObject,
   Viro3DSceneNavigator,
@@ -10,11 +10,13 @@ import {
   ViroPinchStateTypes,
   ViroRotateStateTypes,
   ViroScene,
+  ViroSphere,
   ViroText,
   isQuest
 } from '@reactvision/react-viro';
-import type { RomanovEra } from '../../spatial/romanov-hotspots';
+import { evidenceLabels, getRomanovHotspots, romanovHotspotToViroPosition, type RomanovEra } from '../../spatial/romanov-hotspots';
 import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack.native';
+import { getRomanovSourceById } from '../../spatial/romanov-sources';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
 type Props = {
@@ -31,6 +33,8 @@ type SceneProps = {
     viroAppProps?: {
       era?: RomanovEra;
       trustMode?: RomanovTrustMode;
+      selectedHotspotId?: string | null;
+      onHotspotPress?: (id: string) => void;
     };
   };
 };
@@ -45,6 +49,9 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 function RomanovInspectionScene({ sceneNavigator }: SceneProps) {
   const era = sceneNavigator?.viroAppProps?.era ?? '1859';
   const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
+  const selectedHotspotId = sceneNavigator?.viroAppProps?.selectedHotspotId ?? null;
+  const onHotspotPress = sceneNavigator?.viroAppProps?.onHotspotPress;
+  const hotspots = getRomanovHotspots(era, trustMode);
   const [yaw, setYaw] = useState(-12);
   const [scale, setScale] = useState(0.78);
   const rotateBase = useRef(yaw);
@@ -75,6 +82,26 @@ function RomanovInspectionScene({ sceneNavigator }: SceneProps) {
           onRotate={onRotate}
           onPinch={onPinch}
         />
+        {hotspots.map((hotspot, index) => {
+          const active = hotspot.id === selectedHotspotId;
+          const position = romanovHotspotToViroPosition(hotspot.position);
+          return (
+            <ViroNode key={hotspot.id} position={position}>
+              <ViroSphere
+                radius={active ? 0.24 : 0.18}
+                widthSegmentCount={12}
+                heightSegmentCount={8}
+                onClick={() => onHotspotPress?.(hotspot.id)}
+              />
+              <ViroText
+                text={String(index + 1).padStart(2, '0')}
+                position={[0, 0.42, 0]}
+                scale={[0.14, 0.14, 0.14]}
+                style={{ fontSize: 15, color: active ? '#fff0c9' : '#d7bb84', textAlign: 'center' }}
+              />
+            </ViroNode>
+          );
+        })}
       </ViroNode>
 
       <ViroText
@@ -99,14 +126,19 @@ export default function HistoricalModelViewer({
 }: Props) {
   const [era, setEra] = useState<RomanovEra>(initialEra);
   const [trustMode, setTrustMode] = useState<RomanovTrustMode>(initialTrustMode);
+  const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const hotspots = getRomanovHotspots(era, trustMode);
+  const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? hotspots[0] ?? null;
 
   const selectEra = (next: RomanovEra) => {
     setEra(next);
+    setSelectedHotspotId(null);
     onStateChange?.({ era: next, trustMode });
   };
 
   const selectTrust = (next: RomanovTrustMode) => {
     setTrustMode(next);
+    setSelectedHotspotId(null);
     onStateChange?.({ era, trustMode: next });
   };
 
@@ -114,7 +146,7 @@ export default function HistoricalModelViewer({
     <View style={styles.root}>
       <Viro3DSceneNavigator
         initialScene={{ scene: RomanovInspectionSceneFactory as never }}
-        viroAppProps={{ era, trustMode }}
+        viroAppProps={{ era, trustMode, selectedHotspotId: selectedHotspot?.id ?? null, onHotspotPress: setSelectedHotspotId }}
         debug={false}
         onExitViro={onClose}
         hdrEnabled
@@ -176,6 +208,51 @@ export default function HistoricalModelViewer({
           </View>
         </View>
 
+        <View style={styles.hotspotDock} pointerEvents="box-none">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hotspotScroller}>
+            {hotspots.map((hotspot, index) => {
+              const active = selectedHotspot?.id === hotspot.id;
+              return (
+                <PhysicalPressable
+                  key={hotspot.id}
+                  style={[styles.hotspotChip, active && styles.hotspotChipActive]}
+                  contentStyle={styles.hotspotChipContent}
+                  accessibilityLabel={`3D · Точка осмотра · ${hotspot.titleRu}`}
+                  onPress={() => setSelectedHotspotId(hotspot.id)}
+                >
+                  <Text style={[styles.hotspotChipIndex, active && styles.hotspotChipIndexActive]}>{String(index + 1).padStart(2, '0')}</Text>
+                  <Text style={[styles.hotspotChipText, active && styles.hotspotChipTextActive]} numberOfLines={1}>{hotspot.titleRu}</Text>
+                </PhysicalPressable>
+              );
+            })}
+          </ScrollView>
+
+          {selectedHotspot && (
+            <View style={styles.hotspotCard}>
+              <Text style={styles.hotspotEvidence}>{evidenceLabels.ru[selectedHotspot.evidence]}</Text>
+              <Text style={styles.hotspotTitle}>{selectedHotspot.titleRu}</Text>
+              <Text style={styles.hotspotStory} numberOfLines={4}>{selectedHotspot.storyRu}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sourceScroller}>
+                {selectedHotspot.sourceIds.map((sourceId) => {
+                  const source = getRomanovSourceById(sourceId);
+                  if (!source) return null;
+                  return (
+                    <PhysicalPressable
+                      key={source.id}
+                      style={styles.sourceChip}
+                      contentStyle={styles.sourceChipContent}
+                      accessibilityLabel={`Открыть источник · ${source.titleRu}`}
+                      onPress={() => Linking.openURL(source.sourcePage)}
+                    >
+                      <Text style={styles.sourceChipText} numberOfLines={1}>{source.titleRu} ↗</Text>
+                    </PhysicalPressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
         <View style={styles.bottom}>
           <Text style={styles.gesture}>Прямое управление: rotate · pinch · переходы прерываемы</Text>
           <Text style={styles.modeNote}>{isQuest ? 'Quest обнаружен: следующий режим продолжит эту же эпоху в VR.' : 'Телефон: следующий режим продолжит эту же эпоху в AR.'}</Text>
@@ -223,6 +300,23 @@ const styles = StyleSheet.create({
   trustActive: { borderColor: '#8f7854', backgroundColor: '#211b13' },
   trustText: { color: '#989da5', fontSize: 9, fontWeight: '900' },
   trustTextActive: { color: '#e8c98c' },
+  hotspotDock: { position: 'absolute', left: 14, right: 14, top: 318 },
+  hotspotScroller: { gap: 7, paddingRight: 18 },
+  hotspotChip: { maxWidth: 210, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#40464e', backgroundColor: 'rgba(10,13,16,0.9)' },
+  hotspotChipActive: { borderColor: '#b99b69', backgroundColor: 'rgba(33,27,19,0.94)' },
+  hotspotChipContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7 },
+  hotspotChipIndex: { color: '#7a8088', fontSize: 8, fontWeight: '900', marginRight: 7 },
+  hotspotChipIndexActive: { color: '#e7c98f' },
+  hotspotChipText: { color: '#aeb3ba', fontSize: 9, fontWeight: '900', maxWidth: 158 },
+  hotspotChipTextActive: { color: '#fff3dc' },
+  hotspotCard: { marginTop: 8, borderRadius: 16, borderWidth: 1, borderColor: '#3c424a', backgroundColor: 'rgba(10,13,16,0.94)', padding: 11 },
+  hotspotEvidence: { color: '#8baa93', fontSize: 7.5, fontWeight: '900', letterSpacing: 0.6 },
+  hotspotTitle: { color: '#fff8ea', fontSize: 14, fontWeight: '900', marginTop: 3 },
+  hotspotStory: { color: '#a0a5ad', fontSize: 9.5, lineHeight: 14, marginTop: 4 },
+  sourceScroller: { gap: 6, paddingTop: 8, paddingRight: 10 },
+  sourceChip: { minHeight: 34, maxWidth: 220, borderRadius: 11, borderWidth: 1, borderColor: '#3f454d' },
+  sourceChipContent: { justifyContent: 'center', paddingHorizontal: 9 },
+  sourceChipText: { color: '#cfbc96', fontSize: 8.5, fontWeight: '800' },
   bottom: { position: 'absolute', left: 14, right: 14, bottom: 18, borderRadius: 20, backgroundColor: 'rgba(8,10,13,0.92)', borderWidth: 1, borderColor: '#363b43', padding: 13 },
   gesture: { color: '#e2d2b4', fontSize: 10, fontWeight: '800' },
   modeNote: { color: '#838891', fontSize: 9, lineHeight: 13, marginTop: 4 },
