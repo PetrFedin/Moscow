@@ -1,10 +1,12 @@
 import Slider from '@react-native-community/slider';
 import { CameraView } from 'expo-camera';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import type { Place } from '../../data/places';
+import { pilotRoute, type Place } from '../../data/places';
 import type { AppLanguage } from '../../i18n';
 import { romanovSources } from '../../spatial/romanov-sources';
+import { getDownloadedRoutePackAssetUriWithLocaleFallback } from '../offline/routePack';
+import { ROMANOV_ARCHIVE_1857_ASSET_ID } from '../offline/varvarkaRoutePack';
 
 type LensState = { opacity: number; visible: boolean };
 
@@ -31,10 +33,30 @@ export default function ArchiveTimeLens({
 }: Props) {
   const [opacity, setOpacity] = useState(() => clampOpacity(initialOpacity));
   const [archiveVisible, setArchiveVisible] = useState(initialVisible);
+  const [offlineArchiveUri, setOfflineArchiveUri] = useState<string | null>(null);
   const isRomanov = place.id === 'romanov-chambers';
   const archive = useMemo(() => romanovSources.find((source) => source.id === 'timm-1857'), []);
   const ru = language === 'ru';
   const effectiveOpacity = archiveVisible ? opacity : 0;
+  const archiveImageUri = offlineArchiveUri ?? archive?.mediaUrl;
+
+  useEffect(() => {
+    let active = true;
+    if (!isRomanov) {
+      setOfflineArchiveUri(null);
+      return () => { active = false; };
+    }
+    getDownloadedRoutePackAssetUriWithLocaleFallback(
+      pilotRoute.id,
+      language,
+      ROMANOV_ARCHIVE_1857_ASSET_ID
+    ).then((uri) => {
+      if (active) setOfflineArchiveUri(uri);
+    }).catch(() => {
+      if (active) setOfflineArchiveUri(null);
+    });
+    return () => { active = false; };
+  }, [isRomanov, language]);
 
   const updateOpacity = (value: number) => {
     const nextOpacity = clampOpacity(value);
@@ -54,10 +76,10 @@ export default function ArchiveTimeLens({
     <View style={styles.root}>
       <CameraView style={StyleSheet.absoluteFill} facing="back" />
 
-      {isRomanov && archiveVisible && archive?.mediaUrl && (
+      {isRomanov && archiveVisible && archiveImageUri && (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <Image
-            source={{ uri: archive.mediaUrl }}
+            source={{ uri: archiveImageUri }}
             style={[StyleSheet.absoluteFill, { opacity }]}
             resizeMode="cover"
           />
@@ -99,7 +121,9 @@ export default function ArchiveTimeLens({
                   <Text style={styles.sourceTitle}>{archive.titleRu}</Text>
                   <Text style={styles.sourceMeta}>{archive.author} · {archive.year}</Text>
                 </View>
-                <View style={styles.publicBadge}><Text style={styles.publicBadgeText}>PUBLIC DOMAIN</Text></View>
+                <View style={[styles.publicBadge, offlineArchiveUri && styles.offlineBadge]}>
+                  <Text style={styles.publicBadgeText}>{offlineArchiveUri ? 'OFFLINE PACK' : 'PUBLIC DOMAIN'}</Text>
+                </View>
               </View>
 
               <View style={styles.sliderRow}>
@@ -177,6 +201,7 @@ const styles = StyleSheet.create({
   sourceMeta: { color: '#8e9299', fontSize: 9, marginTop: 3 },
   publicBadge: { borderRadius: 8, borderWidth: 1, borderColor: '#4f7658', backgroundColor: '#17251b', paddingHorizontal: 7, paddingVertical: 5 },
   publicBadgeText: { color: '#abd1b2', fontSize: 7, fontWeight: '900' },
+  offlineBadge: { borderColor: '#8d744d', backgroundColor: '#241d13' },
   sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   slider: { flex: 1 },
   sliderLabel: { color: '#c7c9cd', fontSize: 9, fontWeight: '800' },
