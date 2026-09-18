@@ -114,7 +114,9 @@ export default function WalkCompanion({
     ? (language === 'ru' ? 'Ищем следующую точку…' : 'Finding the next stop…')
     : distance <= TRIGGER_RADIUS_METERS
       ? (language === 'ru' ? 'Вы у точки · рассказ запускается' : 'You are at the stop · audio starts')
-      : (language === 'ru' ? `До точки ≈ ${Math.round(distance)} м` : `About ${Math.round(distance)} m to the stop`);
+      : distance > 350
+        ? (language === 'ru' ? `До следующей точки ≈ ${Math.round(distance)} м · откройте карту` : `About ${Math.round(distance)} m to the next stop · open the map`)
+        : (language === 'ru' ? `До точки ≈ ${Math.round(distance)} м` : `About ${Math.round(distance)} m to the stop`);
 
   return (
     <View style={styles.card}>
