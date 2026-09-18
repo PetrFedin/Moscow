@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildRomanovHotspotNarration,
   getRomanovHotspotById,
   getRomanovHotspots,
   romanovHotspotToViroPosition
@@ -28,4 +29,21 @@ test('Romanov hotspot source-space coordinates map into Viro axes deterministica
 
 test('unknown Romanov hotspot fails closed', () => {
   assert.equal(getRomanovHotspotById('not-real'), null);
+});
+
+
+test('Romanov hotspot narration is derived from the same evidence/story contract', () => {
+  const hotspot = getRomanovHotspotById('masonry-core');
+  assert.ok(hotspot);
+
+  const ru = buildRomanovHotspotNarration(hotspot, 'ru');
+  const en = buildRomanovHotspotNarration(hotspot, 'en');
+
+  assert.match(ru, /Каменное ядро палат/);
+  assert.match(ru, /Подтверждено источником/);
+  assert.match(ru, /Нижние каменные объёмы/);
+
+  assert.match(en, /Stone core of the chambers/);
+  assert.match(en, /Documented evidence/);
+  assert.match(en, /lower masonry/i);
 });
