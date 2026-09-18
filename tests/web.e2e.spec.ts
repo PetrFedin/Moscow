@@ -103,8 +103,8 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
 
   // Hotspot audio is bound to the selected inspection point and must stop/reset on selection change.
   await page.getByLabel('3D · Слушать аудиогид точки').click();
-  await page.getByLabel('3D · Точка осмотра · Фасад до реставрации').click();
-  await expect(page.getByText('Фасад до реставрации', { exact: true }).last()).toBeVisible();
+  await page.getByLabel('3D · Точка осмотра · Белокаменное оформление окон').click();
+  await expect(page.getByText('Белокаменное оформление окон', { exact: true }).last()).toBeVisible();
   await expect(page.getByLabel('3D · Слушать аудиогид точки')).toBeVisible();
 
   await page.getByLabel('3D · Назад в архив').click();
