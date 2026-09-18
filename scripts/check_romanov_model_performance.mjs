@@ -117,7 +117,7 @@ for (const [era, filename] of Object.entries(candidateModels)) {
   if (!output) { errors.push(`manifest output missing for ${era}`); continue; }
   const report = inspectModel(filename);
   if (report.bytes !== output.glb_bytes) errors.push(`${filename}: actual bytes ${report.bytes} != manifest ${output.glb_bytes}`);
-  if (report.nodes !== output.geometry_nodes) errors.push(`${filename}: actual nodes ${report.nodes} != manifest geometry_nodes ${output.geometry_nodes}`);
+  if (report.meshes !== output.geometry_nodes) errors.push(`${filename}: actual meshes ${report.meshes} != manifest geometry_nodes ${output.geometry_nodes}`);
   if (!finiteBounds(output.bounds)) errors.push(`${era}: manifest bounds are invalid`);
   for (const failure of assertBudget(report)) errors.push(`${filename}: ${failure}`);
 }
