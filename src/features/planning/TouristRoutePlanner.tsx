@@ -11,6 +11,7 @@ import {
 
 type Props = {
   language: AppLanguage;
+  mustSeeIds: string[];
   onStart: (plan: TouristRoutePlan) => void;
 };
 
@@ -27,6 +28,7 @@ const labels = {
     minutes: 'мин',
     stops: 'мест',
     start: 'Начать маршрут',
+    savedHint: 'Сохранённые места считаем обязательными, если они помещаются во время.',
     interestLabels: {
       highlights: 'Главное',
       architecture: 'Архитектура',
@@ -43,6 +45,7 @@ const labels = {
     minutes: 'min',
     stops: 'stops',
     start: 'Start my route',
+    savedHint: 'Saved places are treated as must-sees when they fit the time budget.',
     interestLabels: {
       highlights: 'Highlights',
       architecture: 'Architecture',
@@ -52,17 +55,23 @@ const labels = {
   }
 } as const;
 
-export default function TouristRoutePlanner({ language, onStart }: Props) {
+export default function TouristRoutePlanner({ language, mustSeeIds, onStart }: Props) {
   const [budget, setBudget] = useState<TouristTimeBudget>(30);
   const [interest, setInterest] = useState<TouristInterest>('highlights');
   const copy = labels[language];
-  const plan = useMemo(() => buildTouristRoutePlan(budget, interest), [budget, interest]);
+  const plan = useMemo(
+    () => buildTouristRoutePlan(budget, interest, undefined, mustSeeIds),
+    [budget, interest, mustSeeIds]
+  );
 
   return (
     <View style={styles.card}>
       <Text style={styles.kicker}>{copy.kicker}</Text>
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.body}>{copy.body}</Text>
+      {mustSeeIds.length > 0 && (
+        <Text style={styles.savedHint}>★ {copy.savedHint}</Text>
+      )}
 
       <Text style={styles.label}>{copy.time}</Text>
       <View style={styles.chips}>
@@ -114,6 +123,7 @@ const styles = StyleSheet.create({
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
   title: { color: '#fff8ea', fontSize: 20, lineHeight: 25, fontWeight: '900', marginTop: 5 },
   body: { color: '#969ba3', fontSize: 11, lineHeight: 17, marginTop: 6 },
+  savedHint: { color: '#c7ae7c', fontSize: 9, lineHeight: 14, marginTop: 8 },
   label: { color: '#777d85', fontSize: 8, letterSpacing: 1.2, fontWeight: '900', marginTop: 14, marginBottom: 7 },
   chips: { flexDirection: 'row', gap: 7 },
   chip: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#3c4249' },
