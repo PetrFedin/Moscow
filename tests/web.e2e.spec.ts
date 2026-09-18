@@ -94,6 +94,12 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
 
   await page.getByText('Открыть 3D-машину времени', { exact: true }).click();
   await expect(page.getByText('Одна историческая модель — несколько режимов')).toBeVisible();
+
+  // 3D inspection is now its own interaction layer: hotspot → evidence → source.
+  await expect(page.getByText('ТОЧКИ ОСМОТРА', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('3D · Точка осмотра · Каменное ядро палат')).toBeVisible();
+  await expect(page.getByText('Подтверждено источником', { exact: true }).first()).toBeVisible();
+
   await page.getByLabel('3D · Назад в архив').click();
   await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
   await expect(opacityValue).toHaveText(rememberedOpacity ?? '');
