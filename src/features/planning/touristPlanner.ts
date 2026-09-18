@@ -26,9 +26,9 @@ function estimateMinutes(stopIds: string[], source: Place[] = places) {
   return content + walking;
 }
 
-function orderedCandidates(interest: TouristInterest) {
+function orderedCandidates(interest: TouristInterest, mustSeeIds: string[] = []) {
   const seen = new Set<string>();
-  const ordered = [...interestPriority[interest], ...pilotRoute.stopIds];
+  const ordered = [...mustSeeIds, ...interestPriority[interest], ...pilotRoute.stopIds];
   return ordered.filter((id) => {
     if (seen.has(id)) return false;
     seen.add(id);
@@ -39,10 +39,11 @@ function orderedCandidates(interest: TouristInterest) {
 export function buildTouristRoutePlan(
   budgetMinutes: TouristTimeBudget,
   interest: TouristInterest = 'highlights',
-  source: Place[] = places
+  source: Place[] = places,
+  mustSeeIds: string[] = []
 ): TouristRoutePlan {
   const validIds = new Set(source.map((place) => place.id));
-  const candidates = orderedCandidates(interest).filter((id) => validIds.has(id));
+  const candidates = orderedCandidates(interest, mustSeeIds).filter((id) => validIds.has(id));
   const stopIds: string[] = [];
 
   for (const id of candidates) {
