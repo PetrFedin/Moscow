@@ -1,0 +1,131 @@
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import type { AppLanguage } from '../../i18n';
+import PhysicalPressable from '../../ui/PhysicalPressable';
+import {
+  buildTouristRoutePlan,
+  type TouristInterest,
+  type TouristRoutePlan,
+  type TouristTimeBudget
+} from './touristPlanner';
+
+type Props = {
+  language: AppLanguage;
+  onStart: (plan: TouristRoutePlan) => void;
+};
+
+const budgets: TouristTimeBudget[] = [15, 30, 45];
+const interests: TouristInterest[] = ['highlights', 'architecture', 'trade', 'lost-city'];
+
+const labels = {
+  ru: {
+    kicker: 'ПРОГУЛКА ПОД МЕНЯ',
+    title: 'Сколько у вас времени и что интересно?',
+    body: 'Соберём короткий маршрут вместо обязательной прогулки по всем точкам.',
+    time: 'ВРЕМЯ',
+    interest: 'ИНТЕРЕС',
+    minutes: 'мин',
+    stops: 'мест',
+    start: 'Начать маршрут',
+    interestLabels: {
+      highlights: 'Главное',
+      architecture: 'Архитектура',
+      trade: 'Торговая Москва',
+      'lost-city': 'Исчезнувший город'
+    }
+  },
+  en: {
+    kicker: 'A WALK FOR ME',
+    title: 'How much time do you have?',
+    body: 'Build a compact route around your interests instead of following every stop.',
+    time: 'TIME',
+    interest: 'INTEREST',
+    minutes: 'min',
+    stops: 'stops',
+    start: 'Start my route',
+    interestLabels: {
+      highlights: 'Highlights',
+      architecture: 'Architecture',
+      trade: 'Trading Moscow',
+      'lost-city': 'Lost city'
+    }
+  }
+} as const;
+
+export default function TouristRoutePlanner({ language, onStart }: Props) {
+  const [budget, setBudget] = useState<TouristTimeBudget>(30);
+  const [interest, setInterest] = useState<TouristInterest>('highlights');
+  const copy = labels[language];
+  const plan = useMemo(() => buildTouristRoutePlan(budget, interest), [budget, interest]);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.kicker}>{copy.kicker}</Text>
+      <Text style={styles.title}>{copy.title}</Text>
+      <Text style={styles.body}>{copy.body}</Text>
+
+      <Text style={styles.label}>{copy.time}</Text>
+      <View style={styles.chips}>
+        {budgets.map((item) => (
+          <PhysicalPressable
+            key={item}
+            style={[styles.chip, budget === item && styles.chipActive]}
+            contentStyle={styles.center}
+            onPress={() => setBudget(item)}
+            accessibilityLabel={`${item} ${copy.minutes}`}
+          >
+            <Text style={[styles.chipText, budget === item && styles.chipTextActive]}>{item} {copy.minutes}</Text>
+          </PhysicalPressable>
+        ))}
+      </View>
+
+      <Text style={styles.label}>{copy.interest}</Text>
+      <View style={styles.interests}>
+        {interests.map((item) => (
+          <PhysicalPressable
+            key={item}
+            style={[styles.interest, interest === item && styles.interestActive]}
+            contentStyle={styles.center}
+            onPress={() => setInterest(item)}
+            accessibilityLabel={copy.interestLabels[item]}
+          >
+            <Text style={[styles.interestText, interest === item && styles.interestTextActive]}>{copy.interestLabels[item]}</Text>
+          </PhysicalPressable>
+        ))}
+      </View>
+
+      <PhysicalPressable
+        style={styles.primary}
+        contentStyle={styles.center}
+        strong
+        onPress={() => onStart(plan)}
+        accessibilityLabel={copy.start}
+      >
+        <Text style={styles.primaryText}>
+          {copy.start} · {plan.stopIds.length} {copy.stops} · {plan.estimatedMinutes} {copy.minutes}
+        </Text>
+      </PhysicalPressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: { borderRadius: 24, borderWidth: 1, borderColor: '#3a3f46', backgroundColor: '#111418', padding: 18, marginBottom: 22 },
+  kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
+  title: { color: '#fff8ea', fontSize: 20, lineHeight: 25, fontWeight: '900', marginTop: 5 },
+  body: { color: '#969ba3', fontSize: 11, lineHeight: 17, marginTop: 6 },
+  label: { color: '#777d85', fontSize: 8, letterSpacing: 1.2, fontWeight: '900', marginTop: 14, marginBottom: 7 },
+  chips: { flexDirection: 'row', gap: 7 },
+  chip: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#3c4249' },
+  chipActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
+  chipText: { color: '#aeb2b8', fontSize: 10, fontWeight: '900' },
+  chipTextActive: { color: '#17130d' },
+  interests: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  interest: { minHeight: 40, borderRadius: 13, borderWidth: 1, borderColor: '#3c4249', paddingHorizontal: 10 },
+  interestActive: { borderColor: '#9f855a', backgroundColor: '#211b13' },
+  interestText: { color: '#9ca1a8', fontSize: 9, fontWeight: '900' },
+  interestTextActive: { color: '#ebcc91' },
+  primary: { minHeight: 50, borderRadius: 15, backgroundColor: '#d7bb84', marginTop: 14 },
+  primaryText: { color: '#17130d', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 }
+});
