@@ -21,6 +21,8 @@ export type PersistedExperienceState = {
   trustMode: PersistedTrustMode;
   routeBudgetMinutes: TouristTimeBudget;
   routeInterest: TouristInterest;
+  missionDoneIds: string[];
+  walkAutoAudio: boolean;
 };
 
 export const EXPERIENCE_STORAGE_KEY = 'moscow:v4:experience';
@@ -41,12 +43,23 @@ const defaultState: PersistedExperienceState = {
   era: '1857',
   trustMode: 'public',
   routeBudgetMinutes: 45,
-  routeInterest: 'highlights'
+  routeInterest: 'highlights',
+  missionDoneIds: [],
+  walkAutoAudio: false
 };
 
 function stringArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string' && validPlaceIds.has(item));
+}
+
+function missionArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => {
+    if (typeof item !== 'string') return false;
+    const match = /^observation:([^:]+):v1$/.exec(item);
+    return Boolean(match?.[1] && validPlaceIds.has(match[1]));
+  });
 }
 
 function finiteNumber(value: unknown, fallback: number) {
@@ -100,6 +113,8 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
       ? input.trustMode
       : defaultState.trustMode,
     routeBudgetMinutes,
-    routeInterest
+    routeInterest,
+    missionDoneIds: missionArray(input.missionDoneIds),
+    walkAutoAudio: typeof input.walkAutoAudio === 'boolean' ? input.walkAutoAudio : defaultState.walkAutoAudio
   };
 }
