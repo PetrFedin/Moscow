@@ -17,6 +17,7 @@ import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import { detectLanguage, type AppLanguage } from './i18n';
+import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
 import {
   canOpenArchiveLens,
   canOpenModel3d,
@@ -29,21 +30,11 @@ import PhysicalSheet from './ui/PhysicalSheet';
 import TimeMachineSlider from './ui/TimeMachineSlider';
 import type { StableSheetState } from './ui/interactionPhysics';
 
-type Tab = 'discover' | 'map' | 'walk' | 'saved';
+type Tab = PersistedTab;
 type ModalMode = null | 'lens' | 'model' | 'spatial';
 type RomanovEra = '1857' | '1859';
 type TrustMode = 'documented' | 'public';
 
-type PersistedState = {
-  savedIds: string[];
-  visitedIds: string[];
-  routeStep: number;
-  language: AppLanguage;
-  lensOpacity: number;
-  lensVisible: boolean;
-};
-
-const STORAGE_KEY = 'moscow:v4:experience';
 const SPATIAL_PLACE_STORAGE_KEY = 'moscow:p0:spatial-place:v1';
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
@@ -123,18 +114,21 @@ export default function MoscowExperienceApp() {
   const modelAvailable = Boolean(selected && canOpenModel3d(selected.id));
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
+    AsyncStorage.getItem(EXPERIENCE_STORAGE_KEY)
       .then((raw) => {
         if (!raw) return;
-        const parsed = JSON.parse(raw) as Partial<PersistedState>;
-        if (Array.isArray(parsed.savedIds)) setSavedIds(parsed.savedIds);
-        if (Array.isArray(parsed.visitedIds)) setVisitedIds(parsed.visitedIds);
-        if (Number.isFinite(parsed.routeStep)) setRouteStep(Math.max(0, Math.min(pilotRoute.stopIds.length - 1, parsed.routeStep ?? 0)));
-        if (parsed.language === 'ru' || parsed.language === 'en') setLanguage(parsed.language);
-        if (typeof parsed.lensOpacity === 'number' && Number.isFinite(parsed.lensOpacity)) {
-          setLensOpacity(Math.max(0, Math.min(0.92, parsed.lensOpacity)));
-        }
-        if (typeof parsed.lensVisible === 'boolean') setLensVisible(parsed.lensVisible);
+        const parsed = normalizeExperienceSnapshot(JSON.parse(raw));
+        setSavedIds(parsed.savedIds);
+        setVisitedIds(parsed.visitedIds);
+        setRouteStep(parsed.routeStep);
+        setLanguage(parsed.language);
+        setLensOpacity(parsed.lensOpacity);
+        setLensVisible(parsed.lensVisible);
+        setSelectedId(parsed.selectedId);
+        setTab(parsed.tab);
+        setTimeValue(parsed.timeValue);
+        setEra(parsed.era);
+        setTrustMode(parsed.trustMode);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -142,17 +136,28 @@ export default function MoscowExperienceApp() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const payload: PersistedState = { savedIds, visitedIds, routeStep, language, lensOpacity, lensVisible };
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [hydrated, language, lensOpacity, lensVisible, routeStep, savedIds, visitedIds]);
-
-  useEffect(() => {
-    setTimeValue(0);
-    const nextEra = modelEraFromTimeIndex(selectedId, 0);
-    if (nextEra) setEra(nextEra);
-  }, [selectedId]);
+    const payload: PersistedExperienceState = {
+      savedIds,
+      visitedIds,
+      routeStep,
+      language,
+      lensOpacity,
+      lensVisible,
+      selectedId,
+      tab,
+      timeValue,
+      era,
+      trustMode
+    };
+    AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
+  }, [era, hydrated, language, lensOpacity, lensVisible, routeStep, savedIds, selectedId, tab, timeValue, trustMode, visitedIds]);
 
   const selectPlace = (id: string) => {
+    if (id !== selectedId) {
+      setTimeValue(0);
+      const nextEra = modelEraFromTimeIndex(id, 0);
+      if (nextEra) setEra(nextEra);
+    }
     setSelectedId(id);
     setMapSheetState('preview');
   };
