@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   Viro3DObject,
@@ -14,9 +14,10 @@ import {
   ViroText,
   isQuest
 } from '@reactvision/react-viro';
-import { evidenceLabels, getRomanovHotspots, romanovHotspotToViroPosition, type RomanovEra } from '../../spatial/romanov-hotspots';
+import { buildRomanovHotspotNarration, evidenceLabels, getRomanovHotspots, romanovHotspotToViroPosition, type RomanovEra } from '../../spatial/romanov-hotspots';
 import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack.native';
 import { getRomanovSourceById } from '../../spatial/romanov-sources';
+import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
 type Props = {
@@ -127,16 +128,47 @@ export default function HistoricalModelViewer({
   const [era, setEra] = useState<RomanovEra>(initialEra);
   const [trustMode, setTrustMode] = useState<RomanovTrustMode>(initialTrustMode);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [isHotspotSpeaking, setIsHotspotSpeaking] = useState(false);
   const hotspots = getRomanovHotspots(era, trustMode);
   const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? hotspots[0] ?? null;
 
+  const stopHotspotAudio = () => {
+    void stopTextGuide().catch(() => undefined);
+    setIsHotspotSpeaking(false);
+  };
+
+  useEffect(() => () => {
+    void stopTextGuide().catch(() => undefined);
+  }, []);
+
+  const selectHotspot = (id: string) => {
+    stopHotspotAudio();
+    setSelectedHotspotId(id);
+  };
+
+  const toggleHotspotAudio = () => {
+    if (!selectedHotspot) return;
+    if (isHotspotSpeaking) {
+      stopHotspotAudio();
+      return;
+    }
+    setIsHotspotSpeaking(true);
+    playTextGuide(
+      buildRomanovHotspotNarration(selectedHotspot, 'ru'),
+      'ru-RU',
+      () => setIsHotspotSpeaking(false)
+    );
+  };
+
   const selectEra = (next: RomanovEra) => {
+    stopHotspotAudio();
     setEra(next);
     setSelectedHotspotId(null);
     onStateChange?.({ era: next, trustMode });
   };
 
   const selectTrust = (next: RomanovTrustMode) => {
+    stopHotspotAudio();
     setTrustMode(next);
     setSelectedHotspotId(null);
     onStateChange?.({ era, trustMode: next });
@@ -146,7 +178,7 @@ export default function HistoricalModelViewer({
     <View style={styles.root}>
       <Viro3DSceneNavigator
         initialScene={{ scene: RomanovInspectionSceneFactory as never }}
-        viroAppProps={{ era, trustMode, selectedHotspotId: selectedHotspot?.id ?? null, onHotspotPress: setSelectedHotspotId }}
+        viroAppProps={{ era, trustMode, selectedHotspotId: selectedHotspot?.id ?? null, onHotspotPress: selectHotspot }}
         debug={false}
         onExitViro={onClose}
         hdrEnabled
@@ -164,7 +196,7 @@ export default function HistoricalModelViewer({
             <Text style={styles.title}>Палаты бояр Романовых</Text>
             <Text style={styles.subtitle}>Текущая эпоха и режим доверия сохраняются при переходе в AR/VR и обратно.</Text>
           </View>
-          <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose} accessibilityLabel="3D · Закрыть просмотр">
+          <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={() => { stopHotspotAudio(); onClose(); }} accessibilityLabel="3D · Закрыть просмотр">
             <Text style={styles.closeText}>×</Text>
           </PhysicalPressable>
         </View>
@@ -218,7 +250,7 @@ export default function HistoricalModelViewer({
                   style={[styles.hotspotChip, active && styles.hotspotChipActive]}
                   contentStyle={styles.hotspotChipContent}
                   accessibilityLabel={`3D · Точка осмотра · ${hotspot.titleRu}`}
-                  onPress={() => setSelectedHotspotId(hotspot.id)}
+                  onPress={() => selectHotspot(hotspot.id)}
                 >
                   <Text style={[styles.hotspotChipIndex, active && styles.hotspotChipIndexActive]}>{String(index + 1).padStart(2, '0')}</Text>
                   <Text style={[styles.hotspotChipText, active && styles.hotspotChipTextActive]} numberOfLines={1}>{hotspot.titleRu}</Text>
@@ -229,9 +261,23 @@ export default function HistoricalModelViewer({
 
           {selectedHotspot && (
             <View style={styles.hotspotCard}>
-              <Text style={styles.hotspotEvidence}>{evidenceLabels.ru[selectedHotspot.evidence]}</Text>
-              <Text style={styles.hotspotTitle}>{selectedHotspot.titleRu}</Text>
-              <Text style={styles.hotspotStory} numberOfLines={4}>{selectedHotspot.storyRu}</Text>
+              <View style={styles.hotspotCardTop}>
+                <View style={styles.hotspotCardCopy}>
+                  <Text style={styles.hotspotEvidence}>{evidenceLabels.ru[selectedHotspot.evidence]}</Text>
+                  <Text style={styles.hotspotTitle}>{selectedHotspot.titleRu}</Text>
+                  <Text style={styles.hotspotStory} numberOfLines={4}>{selectedHotspot.storyRu}</Text>
+                </View>
+                <PhysicalPressable
+                  style={[styles.audioGuideButton, isHotspotSpeaking && styles.audioGuideButtonActive]}
+                  contentStyle={styles.center}
+                  accessibilityLabel={isHotspotSpeaking ? '3D · Остановить аудиогид точки' : '3D · Слушать аудиогид точки'}
+                  onPress={toggleHotspotAudio}
+                >
+                  <Text style={[styles.audioGuideIcon, isHotspotSpeaking && styles.audioGuideIconActive]}>
+                    {isHotspotSpeaking ? '■' : '▶'}
+                  </Text>
+                </PhysicalPressable>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sourceScroller}>
                 {selectedHotspot.sourceIds.map((sourceId) => {
                   const source = getRomanovSourceById(sourceId);
@@ -257,7 +303,7 @@ export default function HistoricalModelViewer({
           <Text style={styles.gesture}>Прямое управление: rotate · pinch · переходы прерываемы</Text>
           <Text style={styles.modeNote}>{isQuest ? 'Quest обнаружен: следующий режим продолжит эту же эпоху в VR.' : 'Телефон: следующий режим продолжит эту же эпоху в AR.'}</Text>
           <View style={styles.actions}>
-            <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={onBackToArchive}>
+            <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={() => { stopHotspotAudio(); onBackToArchive(); }}>
               <Text style={styles.secondaryText}>← Архив</Text>
             </PhysicalPressable>
             <PhysicalPressable
@@ -266,7 +312,7 @@ export default function HistoricalModelViewer({
               strong
               hapticEvent="spatial-enter"
               accessibilityLabel={isQuest ? '3D · Открыть VR на Quest' : '3D · Открыть AR на месте'}
-              onPress={onOpenSpatial}
+              onPress={() => { stopHotspotAudio(); onOpenSpatial(); }}
             >
               <Text style={styles.primaryText}>{isQuest ? 'Открыть VR на Quest' : 'Открыть AR на месте'}</Text>
             </PhysicalPressable>
@@ -310,9 +356,15 @@ const styles = StyleSheet.create({
   hotspotChipText: { color: '#aeb3ba', fontSize: 9, fontWeight: '900', maxWidth: 158 },
   hotspotChipTextActive: { color: '#fff3dc' },
   hotspotCard: { marginTop: 8, borderRadius: 16, borderWidth: 1, borderColor: '#3c424a', backgroundColor: 'rgba(10,13,16,0.94)', padding: 11 },
+  hotspotCardTop: { flexDirection: 'row', gap: 9, alignItems: 'flex-start' },
+  hotspotCardCopy: { flex: 1, minWidth: 0 },
   hotspotEvidence: { color: '#8baa93', fontSize: 7.5, fontWeight: '900', letterSpacing: 0.6 },
   hotspotTitle: { color: '#fff8ea', fontSize: 14, fontWeight: '900', marginTop: 3 },
   hotspotStory: { color: '#a0a5ad', fontSize: 9.5, lineHeight: 14, marginTop: 4 },
+  audioGuideButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#6f6047', backgroundColor: '#211b13' },
+  audioGuideButtonActive: { borderColor: '#d7bb84', backgroundColor: '#d7bb84' },
+  audioGuideIcon: { color: '#e7c98f', fontSize: 14, fontWeight: '900' },
+  audioGuideIconActive: { color: '#17130d' },
   sourceScroller: { gap: 6, paddingTop: 8, paddingRight: 10 },
   sourceChip: { minHeight: 34, maxWidth: 220, borderRadius: 11, borderWidth: 1, borderColor: '#3f454d' },
   sourceChipContent: { justifyContent: 'center', paddingHorizontal: 9 },
