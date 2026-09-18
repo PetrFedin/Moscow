@@ -7,7 +7,7 @@ It fails CI when a Romanov GLB exceeds the agreed byte/scene-complexity budget, 
 For the two production-candidate files, CI additionally proves that:
 
 - actual byte size equals the production manifest;
-- actual node count equals the manifest geometry node count;
+- actual GLB mesh count equals the legacy manifest `geometry_nodes` value (`len(scene.geometry)` in the generator);
 - manifest units are meters;
 - manifest bounds are finite and ordered.
 
