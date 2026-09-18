@@ -27,6 +27,7 @@ test('experience persistence accepts old v4 snapshots without losing existing pr
   assert.equal(restored.trustMode, 'public');
   assert.equal(restored.routeBudgetMinutes, 45);
   assert.equal(restored.routeInterest, 'highlights');
+  assert.deepEqual(restored.routeStopIds, ['romanov-chambers', 'old-english-court', 'varvarka-gates']);
   assert.deepEqual(restored.missionDoneIds, ['observation:old-english-court:v1']);
   assert.equal(restored.walkAutoAudio, true);
 });
@@ -39,7 +40,8 @@ test('experience persistence restores selected place, time, era, trust and tab',
     trustMode: 'documented',
     tab: 'discover',
     routeBudgetMinutes: 30,
-    routeInterest: 'trade'
+    routeInterest: 'trade',
+    routeStopIds: ['old-english-court', 'romanov-chambers']
   });
 
   assert.equal(restored.selectedId, 'romanov-chambers');
@@ -49,6 +51,7 @@ test('experience persistence restores selected place, time, era, trust and tab',
   assert.equal(restored.tab, 'discover');
   assert.equal(restored.routeBudgetMinutes, 30);
   assert.equal(restored.routeInterest, 'trade');
+  assert.deepEqual(restored.routeStopIds, ['old-english-court', 'romanov-chambers']);
   assert.deepEqual(restored.missionDoneIds, []);
   assert.equal(restored.walkAutoAudio, false);
 });
