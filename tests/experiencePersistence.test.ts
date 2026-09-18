@@ -23,6 +23,8 @@ test('experience persistence accepts old v4 snapshots without losing existing pr
   assert.equal(restored.timeValue, 0);
   assert.equal(restored.era, '1857');
   assert.equal(restored.trustMode, 'public');
+  assert.equal(restored.routeBudgetMinutes, 45);
+  assert.equal(restored.routeInterest, 'highlights');
 });
 
 test('experience persistence restores selected place, time, era, trust and tab', () => {
@@ -31,7 +33,9 @@ test('experience persistence restores selected place, time, era, trust and tab',
     timeValue: 1,
     era: '1859',
     trustMode: 'documented',
-    tab: 'discover'
+    tab: 'discover',
+    routeBudgetMinutes: 30,
+    routeInterest: 'trade'
   });
 
   assert.equal(restored.selectedId, 'romanov-chambers');
@@ -39,6 +43,8 @@ test('experience persistence restores selected place, time, era, trust and tab',
   assert.equal(restored.era, '1859');
   assert.equal(restored.trustMode, 'documented');
   assert.equal(restored.tab, 'discover');
+  assert.equal(restored.routeBudgetMinutes, 30);
+  assert.equal(restored.routeInterest, 'trade');
 });
 
 test('experience persistence derives Romanov era from time when old snapshot has no era', () => {
@@ -69,4 +75,6 @@ test('experience persistence fails closed on corrupt fields and clamps numeric s
   assert.equal(restored.lensOpacity, 0.92);
   assert.equal(restored.language, 'ru');
   assert.equal(restored.trustMode, 'public');
+  assert.equal(restored.routeBudgetMinutes, 45);
+  assert.equal(restored.routeInterest, 'highlights');
 });

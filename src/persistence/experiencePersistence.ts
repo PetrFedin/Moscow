@@ -1,6 +1,7 @@
 import { pilotRoute, places } from '../data/places.ts';
 import type { AppLanguage } from '../i18n/index.ts';
 import { modelEraFromTimeIndex } from '../spatial/placeExperienceRegistry.ts';
+import { buildTouristRoutePlan, type TouristInterest, type TouristTimeBudget } from '../features/planning/touristPlanner.ts';
 
 export type PersistedTab = 'discover' | 'map' | 'walk' | 'saved';
 export type PersistedRomanovEra = '1857' | '1859';
@@ -18,6 +19,8 @@ export type PersistedExperienceState = {
   timeValue: number;
   era: PersistedRomanovEra;
   trustMode: PersistedTrustMode;
+  routeBudgetMinutes: TouristTimeBudget;
+  routeInterest: TouristInterest;
 };
 
 export const EXPERIENCE_STORAGE_KEY = 'moscow:v4:experience';
@@ -36,7 +39,9 @@ const defaultState: PersistedExperienceState = {
   tab: 'discover',
   timeValue: 0,
   era: '1857',
-  trustMode: 'public'
+  trustMode: 'public',
+  routeBudgetMinutes: 45,
+  routeInterest: 'highlights'
 };
 
 function stringArray(value: unknown) {
@@ -60,10 +65,20 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
   const timeValue = Math.max(0, Math.min(maxTime, Math.round(finiteNumber(input.timeValue, 0))));
   const fallbackEra = modelEraFromTimeIndex(selectedId, timeValue) ?? defaultState.era;
 
+  const routeBudgetMinutes: TouristTimeBudget = input.routeBudgetMinutes === 15 || input.routeBudgetMinutes === 30 || input.routeBudgetMinutes === 45
+    ? input.routeBudgetMinutes
+    : defaultState.routeBudgetMinutes;
+  const routeInterest: TouristInterest = input.routeInterest === 'highlights'
+    || input.routeInterest === 'architecture'
+    || input.routeInterest === 'trade'
+    || input.routeInterest === 'lost-city'
+    ? input.routeInterest
+    : defaultState.routeInterest;
+  const routePlan = buildTouristRoutePlan(routeBudgetMinutes, routeInterest);
   const routeStep = Math.max(
     0,
     Math.min(
-      pilotRoute.stopIds.length - 1,
+      Math.max(0, routePlan.stopIds.length - 1),
       Math.round(finiteNumber(input.routeStep, defaultState.routeStep))
     )
   );
@@ -83,6 +98,8 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     era: input.era === '1857' || input.era === '1859' ? input.era : fallbackEra,
     trustMode: input.trustMode === 'documented' || input.trustMode === 'public'
       ? input.trustMode
-      : defaultState.trustMode
+      : defaultState.trustMode,
+    routeBudgetMinutes,
+    routeInterest
   };
 }
