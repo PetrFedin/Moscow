@@ -80,3 +80,8 @@ export const romanovSources: RomanovSource[] = [
 export function getRomanovSourcesFor(support: RomanovSource['supports'][number]) {
   return romanovSources.filter((source) => source.supports.includes(support));
 }
+
+
+export function getRomanovSourceById(id: string) {
+  return romanovSources.find((source) => source.id === id) ?? null;
+}
