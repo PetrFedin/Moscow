@@ -71,8 +71,28 @@ export const romanovHotspots: RomanovHotspot[] = [
   }
 ];
 
-export function getRomanovHotspots(era: RomanovEra) {
-  return romanovHotspots.filter((hotspot) => hotspot.era === 'both' || hotspot.era === era);
+export type RomanovHotspotVisibilityMode = 'documented' | 'public';
+
+export function getRomanovHotspots(
+  era: RomanovEra,
+  visibility: RomanovHotspotVisibilityMode = 'public'
+) {
+  return romanovHotspots.filter((hotspot) => {
+    const matchesEra = hotspot.era === 'both' || hotspot.era === era;
+    const matchesEvidence = visibility === 'public' || hotspot.evidence === 'documented';
+    return matchesEra && matchesEvidence;
+  });
+}
+
+export function getRomanovHotspotById(id: string) {
+  return romanovHotspots.find((hotspot) => hotspot.id === id) ?? null;
+}
+
+export function romanovHotspotToViroPosition(
+  [x, sourceDepth, sourceHeight]: RomanovHotspot['position']
+): [number, number, number] {
+  // Research-model coordinates are x / depth / height; Viro is x / height / depth.
+  return [x, sourceHeight, sourceDepth];
 }
 
 export const evidenceLabels = {
