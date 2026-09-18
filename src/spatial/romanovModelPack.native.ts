@@ -1,8 +1,13 @@
 import type { ImageSourcePropType } from 'react-native';
 import type { RomanovEra } from './romanov-hotspots';
+import {
+  getRomanovModelCatalogEntry,
+  romanovModelCatalog,
+  type RomanovRuntimeMode,
+  type RomanovTrustMode
+} from './romanovModelCatalog';
 
-export type RomanovTrustMode = 'documented' | 'public';
-export type RomanovRuntimeMode = 'model3d' | 'ar' | 'vr';
+export type { RomanovRuntimeMode, RomanovTrustMode } from './romanovModelCatalog';
 
 export type RomanovModelVariant = {
   id: string;
@@ -14,54 +19,28 @@ export type RomanovModelVariant = {
   allowedRuntimeModes: RomanovRuntimeMode[];
 };
 
+const bundledSources: Record<string, ImageSourcePropType> = {
+  'romanov-1857-documented-v1': require('../../assets/models/romanov-1857-documented-v1.glb'),
+  'romanov-1857-public-v1': require('../../assets/models/romanov-1857-public-v1.glb'),
+  'romanov-1859-documented-v1': require('../../assets/models/romanov-1859-documented-v1.glb'),
+  'romanov-1859-public-v1': require('../../assets/models/romanov-1859-public-v1.glb')
+};
+
 /**
  * Authoritative native model pack for the Romanov pilot.
  *
- * A variant can be rendered by the inspection viewer, phone AR or Quest VR,
- * but the underlying GLB is selected here exactly once. This prevents runtime
- * surfaces from silently drifting to different historical model versions.
+ * Metadata lives in romanovModelCatalog.ts so offline readiness, tests and native
+ * rendering all refer to one catalog. Native-only require() calls stay here.
  */
-export const romanovModelPack: RomanovModelVariant[] = [
-  {
-    id: 'romanov-1857-documented-v1',
-    era: '1857',
-    trustMode: 'documented',
-    source: require('../../assets/models/romanov-1857-documented-v1.glb'),
-    version: 1,
-    sourceIds: ['timm-1857'],
-    allowedRuntimeModes: ['model3d', 'ar', 'vr']
-  },
-  {
-    id: 'romanov-1857-public-v1',
-    era: '1857',
-    trustMode: 'public',
-    source: require('../../assets/models/romanov-1857-public-v1.glb'),
-    version: 1,
-    sourceIds: ['timm-1857'],
-    allowedRuntimeModes: ['model3d', 'ar', 'vr']
-  },
-  {
-    id: 'romanov-1859-documented-v1',
-    era: '1859',
-    trustMode: 'documented',
-    source: require('../../assets/models/romanov-1859-documented-v1.glb'),
-    version: 1,
-    sourceIds: ['naidenov-46', 'shm-history'],
-    allowedRuntimeModes: ['model3d', 'ar', 'vr']
-  },
-  {
-    id: 'romanov-1859-public-v1',
-    era: '1859',
-    trustMode: 'public',
-    source: require('../../assets/models/romanov-1859-public-v1.glb'),
-    version: 1,
-    sourceIds: ['naidenov-46', 'shm-history'],
-    allowedRuntimeModes: ['model3d', 'ar', 'vr']
-  }
-];
+export const romanovModelPack: RomanovModelVariant[] = romanovModelCatalog.map((entry) => {
+  const source = bundledSources[entry.id];
+  if (!source) throw new Error(`Bundled Romanov GLB missing for catalog entry: ${entry.id}`);
+  return { ...entry, source };
+});
 
 export function getRomanovModelVariant(era: RomanovEra, trustMode: RomanovTrustMode): RomanovModelVariant {
-  const variant = romanovModelPack.find((item) => item.era === era && item.trustMode === trustMode);
+  const catalogEntry = getRomanovModelCatalogEntry(era, trustMode);
+  const variant = romanovModelPack.find((item) => item.id === catalogEntry.id);
   if (!variant) throw new Error(`Romanov model variant missing: ${era}/${trustMode}`);
   return variant;
 }
