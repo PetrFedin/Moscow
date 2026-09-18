@@ -92,7 +92,6 @@ function RomanovInspectionScene({ sceneNavigator }: SceneProps) {
                 widthSegmentCount={12}
                 heightSegmentCount={8}
                 onClick={() => onHotspotPress?.(hotspot.id)}
-                materials={[]}
               />
               <ViroText
                 text={String(index + 1).padStart(2, '0')}
@@ -147,7 +146,7 @@ export default function HistoricalModelViewer({
     <View style={styles.root}>
       <Viro3DSceneNavigator
         initialScene={{ scene: RomanovInspectionSceneFactory as never }}
-        viroAppProps={{ era, trustMode, selectedHotspotId, onHotspotPress: setSelectedHotspotId }}
+        viroAppProps={{ era, trustMode, selectedHotspotId: selectedHotspot?.id ?? null, onHotspotPress: setSelectedHotspotId }}
         debug={false}
         onExitViro={onClose}
         hdrEnabled
