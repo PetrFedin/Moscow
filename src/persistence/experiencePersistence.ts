@@ -21,6 +21,7 @@ export type PersistedExperienceState = {
   trustMode: PersistedTrustMode;
   routeBudgetMinutes: TouristTimeBudget;
   routeInterest: TouristInterest;
+  routeStopIds: string[];
   missionDoneIds: string[];
   walkAutoAudio: boolean;
 };
@@ -44,6 +45,7 @@ const defaultState: PersistedExperienceState = {
   trustMode: 'public',
   routeBudgetMinutes: 45,
   routeInterest: 'highlights',
+  routeStopIds: [...pilotRoute.stopIds],
   missionDoneIds: [],
   walkAutoAudio: false
 };
@@ -87,11 +89,14 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     || input.routeInterest === 'lost-city'
     ? input.routeInterest
     : defaultState.routeInterest;
-  const routePlan = buildTouristRoutePlan(routeBudgetMinutes, routeInterest);
+  const restoredRouteStopIds = stringArray(input.routeStopIds);
+  const routeStopIds = restoredRouteStopIds.length > 0
+    ? restoredRouteStopIds
+    : buildTouristRoutePlan(routeBudgetMinutes, routeInterest).stopIds;
   const routeStep = Math.max(
     0,
     Math.min(
-      Math.max(0, routePlan.stopIds.length - 1),
+      Math.max(0, routeStopIds.length - 1),
       Math.round(finiteNumber(input.routeStep, defaultState.routeStep))
     )
   );
@@ -114,6 +119,7 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
       : defaultState.trustMode,
     routeBudgetMinutes,
     routeInterest,
+    routeStopIds,
     missionDoneIds: missionArray(input.missionDoneIds),
     walkAutoAudio: typeof input.walkAutoAudio === 'boolean' ? input.walkAutoAudio : defaultState.walkAutoAudio
   };

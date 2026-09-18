@@ -15,7 +15,7 @@ import { pilotRoute, places, type Place } from './data/places';
 import MoscowMap from './features/map/MoscowMap';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
 import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
-import { buildTouristRoutePlan, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
+import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
@@ -90,6 +90,7 @@ export default function MoscowExperienceApp() {
   const [routeStep, setRouteStep] = useState(0);
   const [routeBudgetMinutes, setRouteBudgetMinutes] = useState<TouristTimeBudget>(45);
   const [routeInterest, setRouteInterest] = useState<TouristInterest>('highlights');
+  const [routeStopIds, setRouteStopIds] = useState<string[]>([...pilotRoute.stopIds]);
   const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -115,8 +116,13 @@ export default function MoscowExperienceApp() {
   );
   const selectedExperience = useMemo(() => getPlaceExperienceCapabilities(selectedId), [selectedId]);
   const activeRoutePlan = useMemo(
-    () => buildTouristRoutePlan(routeBudgetMinutes, routeInterest, localizedPlaces),
-    [localizedPlaces, routeBudgetMinutes, routeInterest]
+    () => ({
+      interest: routeInterest,
+      budgetMinutes: routeBudgetMinutes,
+      stopIds: routeStopIds,
+      estimatedMinutes: estimateTouristRouteMinutes(routeStopIds, localizedPlaces)
+    }),
+    [localizedPlaces, routeBudgetMinutes, routeInterest, routeStopIds]
   );
   const routePlace = useMemo(
     () => localizedPlaces.find((place) => place.id === activeRoutePlan.stopIds[routeStep]),
@@ -143,6 +149,7 @@ export default function MoscowExperienceApp() {
         setTrustMode(parsed.trustMode);
         setRouteBudgetMinutes(parsed.routeBudgetMinutes);
         setRouteInterest(parsed.routeInterest);
+        setRouteStopIds(parsed.routeStopIds);
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
       })
@@ -166,11 +173,12 @@ export default function MoscowExperienceApp() {
       trustMode,
       routeBudgetMinutes,
       routeInterest,
+      routeStopIds,
       missionDoneIds,
       walkAutoAudio
     };
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeInterest, routeStep, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -226,6 +234,7 @@ export default function MoscowExperienceApp() {
   const startTouristPlan = (plan: TouristRoutePlan) => {
     setRouteBudgetMinutes(plan.budgetMinutes);
     setRouteInterest(plan.interest);
+    setRouteStopIds(plan.stopIds);
     setRouteStep(0);
     setTab('walk');
   };
@@ -308,7 +317,7 @@ export default function MoscowExperienceApp() {
                 </PhysicalPressable>
               </View>
 
-              <TouristRoutePlanner language={language} onStart={startTouristPlan} />
+              <TouristRoutePlanner language={language} mustSeeIds={savedIds} onStart={startTouristPlan} />
 
               <Text style={styles.sectionTitle}>{ui.places}</Text>
               {localizedPlaces.map((place, index) => (
