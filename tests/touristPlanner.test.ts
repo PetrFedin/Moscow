@@ -28,3 +28,15 @@ test('45 minute highlights route preserves full pilot route', () => {
   assert.equal(plan.estimatedMinutes, estimateTouristRouteMinutes(plan.stopIds));
   assert.equal(plan.estimatedMinutes, 32);
 });
+
+
+test('saved must-see is prioritized without breaking the time budget', () => {
+  const plan = buildTouristRoutePlan(15, 'architecture', undefined, ['old-english-court']);
+  assert.deepEqual(plan.stopIds, ['old-english-court']);
+  assert.ok(plan.estimatedMinutes <= 15);
+});
+
+test('unknown and duplicate must-sees do not corrupt the plan', () => {
+  const plan = buildTouristRoutePlan(30, 'trade', undefined, ['missing', 'old-english-court', 'old-english-court']);
+  assert.deepEqual(plan.stopIds, ['old-english-court', 'romanov-chambers']);
+});
