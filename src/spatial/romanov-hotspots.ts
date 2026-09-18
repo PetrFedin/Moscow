@@ -95,6 +95,18 @@ export function romanovHotspotToViroPosition(
   return [x, sourceHeight, sourceDepth];
 }
 
+export type RomanovHotspotNarrationLanguage = 'ru' | 'en';
+
+export function buildRomanovHotspotNarration(
+  hotspot: RomanovHotspot,
+  language: RomanovHotspotNarrationLanguage = 'ru'
+) {
+  const labels = evidenceLabels[language];
+  const title = language === 'ru' ? hotspot.titleRu : hotspot.titleEn;
+  const story = language === 'ru' ? hotspot.storyRu : hotspot.storyEn;
+  return `${title}. ${labels[hotspot.evidence]}. ${story}`;
+}
+
 export const evidenceLabels = {
   ru: {
     documented: 'Подтверждено источником',

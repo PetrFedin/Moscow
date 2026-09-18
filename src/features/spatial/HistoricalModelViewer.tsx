@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { evidenceLabels, getRomanovHotspots } from '../../spatial/romanov-hotspots';
+import { buildRomanovHotspotNarration, evidenceLabels, getRomanovHotspots } from '../../spatial/romanov-hotspots';
 import { getRomanovSourceById } from '../../spatial/romanov-sources';
+import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
 type RomanovEra = '1857' | '1859';
@@ -32,15 +33,46 @@ export default function HistoricalModelViewerFallback({
   const [era, setEra] = useState<RomanovEra>(initialEra);
   const [trustMode, setTrustMode] = useState<TrustMode>(initialTrustMode);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(null);
+  const [isHotspotSpeaking, setIsHotspotSpeaking] = useState(false);
   const hotspots = getRomanovHotspots(era, trustMode);
   const selectedHotspot = hotspots.find((hotspot) => hotspot.id === selectedHotspotId) ?? hotspots[0] ?? null;
 
+  const stopHotspotAudio = () => {
+    void stopTextGuide().catch(() => undefined);
+    setIsHotspotSpeaking(false);
+  };
+
+  useEffect(() => () => {
+    void stopTextGuide().catch(() => undefined);
+  }, []);
+
+  const selectHotspot = (id: string) => {
+    stopHotspotAudio();
+    setSelectedHotspotId(id);
+  };
+
+  const toggleHotspotAudio = () => {
+    if (!selectedHotspot) return;
+    if (isHotspotSpeaking) {
+      stopHotspotAudio();
+      return;
+    }
+    setIsHotspotSpeaking(true);
+    playTextGuide(
+      buildRomanovHotspotNarration(selectedHotspot, 'ru'),
+      'ru-RU',
+      () => setIsHotspotSpeaking(false)
+    );
+  };
+
   const selectEra = (next: RomanovEra) => {
+    stopHotspotAudio();
     setEra(next);
     setSelectedHotspotId(null);
     onStateChange?.({ era: next, trustMode });
   };
   const selectTrust = (next: TrustMode) => {
+    stopHotspotAudio();
     setTrustMode(next);
     setSelectedHotspotId(null);
     onStateChange?.({ era, trustMode: next });
@@ -107,7 +139,7 @@ export default function HistoricalModelViewerFallback({
                 style={[styles.hotspotButton, active && styles.hotspotButtonActive]}
                 contentStyle={styles.hotspotButtonContent}
                 accessibilityLabel={`3D · Точка осмотра · ${hotspot.titleRu}`}
-                onPress={() => setSelectedHotspotId(hotspot.id)}
+                onPress={() => selectHotspot(hotspot.id)}
               >
                 <Text style={[styles.hotspotIndex, active && styles.hotspotIndexActive]}>{String(index + 1).padStart(2, '0')}</Text>
                 <View style={styles.hotspotButtonCopy}>
@@ -121,8 +153,22 @@ export default function HistoricalModelViewerFallback({
 
         {selectedHotspot && (
           <View style={styles.hotspotStory}>
-            <Text style={styles.hotspotStoryTitle}>{selectedHotspot.titleRu}</Text>
-            <Text style={styles.hotspotStoryBody}>{selectedHotspot.storyRu}</Text>
+            <View style={styles.hotspotStoryTop}>
+              <View style={styles.hotspotStoryCopy}>
+                <Text style={styles.hotspotStoryTitle}>{selectedHotspot.titleRu}</Text>
+                <Text style={styles.hotspotStoryBody}>{selectedHotspot.storyRu}</Text>
+              </View>
+              <PhysicalPressable
+                style={[styles.audioGuideButton, isHotspotSpeaking && styles.audioGuideButtonActive]}
+                contentStyle={styles.center}
+                accessibilityLabel={isHotspotSpeaking ? '3D · Остановить аудиогид точки' : '3D · Слушать аудиогид точки'}
+                onPress={toggleHotspotAudio}
+              >
+                <Text style={[styles.audioGuideIcon, isHotspotSpeaking && styles.audioGuideIconActive]}>
+                  {isHotspotSpeaking ? '■' : '▶'}
+                </Text>
+              </PhysicalPressable>
+            </View>
             <Text style={styles.hotspotSourcesLabel}>ИСТОЧНИКИ</Text>
             {selectedHotspot.sourceIds.map((sourceId) => {
               const source = getRomanovSourceById(sourceId);
@@ -153,14 +199,14 @@ export default function HistoricalModelViewerFallback({
         ))}
       </View>
       <View style={styles.actions}>
-        <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={onBackToArchive}>
+        <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={() => { stopHotspotAudio(); onBackToArchive(); }}>
           <Text style={styles.secondaryText}>← Архив</Text>
         </PhysicalPressable>
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" accessibilityLabel="3D · Открыть spatial mode" onPress={onOpenSpatial}>
+        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" accessibilityLabel="3D · Открыть spatial mode" onPress={() => { stopHotspotAudio(); onOpenSpatial(); }}>
           <Text style={styles.primaryText}>Открыть spatial mode</Text>
         </PhysicalPressable>
       </View>
-      <PhysicalPressable style={styles.closeButton} contentStyle={styles.center} accessibilityLabel="3D · Закрыть" onPress={onClose}>
+      <PhysicalPressable style={styles.closeButton} contentStyle={styles.center} accessibilityLabel="3D · Закрыть" onPress={() => { stopHotspotAudio(); onClose(); }}>
         <Text style={styles.close}>Закрыть</Text>
       </PhysicalPressable>
     </ScrollView>
@@ -196,8 +242,14 @@ const styles = StyleSheet.create({
   hotspotTitleActive: { color: '#fff3dc' },
   hotspotEvidence: { color: '#777d85', fontSize: 8, marginTop: 2 },
   hotspotStory: { borderRadius: 14, backgroundColor: '#14181d', padding: 12, marginTop: 10 },
+  hotspotStoryTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  hotspotStoryCopy: { flex: 1, minWidth: 0 },
   hotspotStoryTitle: { color: '#fff8ea', fontSize: 15, fontWeight: '900' },
   hotspotStoryBody: { color: '#9da3ab', fontSize: 10.5, lineHeight: 16, marginTop: 5 },
+  audioGuideButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: '#6f6047', backgroundColor: '#211b13' },
+  audioGuideButtonActive: { borderColor: '#d7bb84', backgroundColor: '#d7bb84' },
+  audioGuideIcon: { color: '#e7c98f', fontSize: 15, fontWeight: '900' },
+  audioGuideIconActive: { color: '#17130d' },
   hotspotSourcesLabel: { color: '#7c828a', fontSize: 7.5, letterSpacing: 1.1, fontWeight: '900', marginTop: 10, marginBottom: 3 },
   sourceRow: { minHeight: 40, borderTopWidth: 1, borderTopColor: '#2c3138' },
   sourceRowContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },

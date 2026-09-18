@@ -99,6 +99,13 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await expect(page.getByText('ТОЧКИ ОСМОТРА', { exact: true })).toBeVisible();
   await expect(page.getByLabel('3D · Точка осмотра · Каменное ядро палат')).toBeVisible();
   await expect(page.getByText('Подтверждено источником', { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel('3D · Слушать аудиогид точки')).toBeVisible();
+
+  // Hotspot audio is bound to the selected inspection point and must stop/reset on selection change.
+  await page.getByLabel('3D · Слушать аудиогид точки').click();
+  await page.getByLabel('3D · Точка осмотра · Белокаменное оформление окон').click();
+  await expect(page.getByText('Белокаменное оформление окон', { exact: true }).last()).toBeVisible();
+  await expect(page.getByLabel('3D · Слушать аудиогид точки')).toBeVisible();
 
   await page.getByLabel('3D · Назад в архив').click();
   await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
