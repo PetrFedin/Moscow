@@ -14,6 +14,8 @@ import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import MoscowMap from './features/map/MoscowMap';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
+import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
+import { buildTouristRoutePlan, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
@@ -85,6 +87,8 @@ export default function MoscowExperienceApp() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
   const [routeStep, setRouteStep] = useState(0);
+  const [routeBudgetMinutes, setRouteBudgetMinutes] = useState<TouristTimeBudget>(45);
+  const [routeInterest, setRouteInterest] = useState<TouristInterest>('highlights');
   const [hydrated, setHydrated] = useState(false);
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
@@ -107,9 +111,13 @@ export default function MoscowExperienceApp() {
     [localizedPlaces, selectedId]
   );
   const selectedExperience = useMemo(() => getPlaceExperienceCapabilities(selectedId), [selectedId]);
+  const activeRoutePlan = useMemo(
+    () => buildTouristRoutePlan(routeBudgetMinutes, routeInterest, localizedPlaces),
+    [localizedPlaces, routeBudgetMinutes, routeInterest]
+  );
   const routePlace = useMemo(
-    () => localizedPlaces.find((place) => place.id === pilotRoute.stopIds[routeStep]),
-    [localizedPlaces, routeStep]
+    () => localizedPlaces.find((place) => place.id === activeRoutePlan.stopIds[routeStep]),
+    [activeRoutePlan.stopIds, localizedPlaces, routeStep]
   );
   const archiveAvailable = Boolean(selected && canOpenArchiveLens(selected.id));
   const modelAvailable = Boolean(selected && canOpenModel3d(selected.id));
@@ -130,6 +138,8 @@ export default function MoscowExperienceApp() {
         setTimeValue(parsed.timeValue);
         setEra(parsed.era);
         setTrustMode(parsed.trustMode);
+        setRouteBudgetMinutes(parsed.routeBudgetMinutes);
+        setRouteInterest(parsed.routeInterest);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -148,10 +158,12 @@ export default function MoscowExperienceApp() {
       tab,
       timeValue,
       era,
-      trustMode
+      trustMode,
+      routeBudgetMinutes,
+      routeInterest
     };
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, routeStep, savedIds, selectedId, tab, timeValue, trustMode, visitedIds]);
+  }, [era, hydrated, language, lensOpacity, lensVisible, routeBudgetMinutes, routeInterest, routeStep, savedIds, selectedId, tab, timeValue, trustMode, visitedIds]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -201,7 +213,15 @@ export default function MoscowExperienceApp() {
   const roundedTime = selected ? Math.min(Math.round(timeValue), selected.periods.length) : 0;
   const todaySelected = Boolean(selected && roundedTime === selected.periods.length);
   const activePeriod = selected?.periods[roundedTime];
-  const progress = Math.round((visitedIds.length / pilotRoute.stopIds.length) * 100);
+  const completedRouteStops = activeRoutePlan.stopIds.filter((id) => visitedIds.includes(id)).length;
+  const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
+
+  const startTouristPlan = (plan: TouristRoutePlan) => {
+    setRouteBudgetMinutes(plan.budgetMinutes);
+    setRouteInterest(plan.interest);
+    setRouteStep(0);
+    setTab('walk');
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -269,6 +289,8 @@ export default function MoscowExperienceApp() {
                   <Text style={styles.primaryText}>{ui.start}</Text>
                 </PhysicalPressable>
               </View>
+
+              <TouristRoutePlanner language={language} onStart={startTouristPlan} />
 
               <Text style={styles.sectionTitle}>{ui.places}</Text>
               {localizedPlaces.map((place, index) => (
@@ -389,7 +411,9 @@ export default function MoscowExperienceApp() {
               <View style={styles.hero}>
                 <Text style={styles.kicker}>WALK · 01</Text>
                 <Text style={styles.heroTitle}>{language === 'ru' ? pilotRoute.title : 'Varvarka: a street that remembers several Moscows'}</Text>
-                <Text style={styles.heroBody}>{pilotRoute.distanceKm} km · {pilotRoute.durationMinutes} min · {pilotRoute.stopIds.length} stops</Text>
+                <Text style={styles.heroBody}>
+                  {activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {language === 'ru' ? 'ост.' : 'stops'} · {routeInterest === 'highlights' ? (language === 'ru' ? 'главное' : 'highlights') : routeInterest}
+                </Text>
                 <View style={styles.progress}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
               </View>
               <OfflineRoutePackControl language={language} />
@@ -404,10 +428,10 @@ export default function MoscowExperienceApp() {
                     strong
                     onPress={() => {
                       setVisitedIds((current) => current.includes(routePlace.id) ? current : [...current, routePlace.id]);
-                      if (routeStep < pilotRoute.stopIds.length - 1) setRouteStep((current) => current + 1);
+                      if (routeStep < activeRoutePlan.stopIds.length - 1) setRouteStep((current) => current + 1);
                     }}
                   >
-                    <Text style={styles.primaryText}>{routeStep === pilotRoute.stopIds.length - 1 ? ui.finish : ui.next}</Text>
+                    <Text style={styles.primaryText}>{routeStep === activeRoutePlan.stopIds.length - 1 ? ui.finish : ui.next}</Text>
                   </PhysicalPressable>
                   <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={() => { selectPlace(routePlace.id); setTab('discover'); }}>
                     <Text style={styles.secondaryText}>{ui.openStory}</Text>
