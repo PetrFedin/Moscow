@@ -10,7 +10,9 @@ test('experience persistence accepts old v4 snapshots without losing existing pr
     routeStep: 2,
     language: 'en',
     lensOpacity: 0.73,
-    lensVisible: false
+    lensVisible: false,
+    missionDoneIds: ['observation:old-english-court:v1', 'bad'],
+    walkAutoAudio: true
   });
 
   assert.deepEqual(restored.savedIds, ['romanov-chambers']);
@@ -25,6 +27,8 @@ test('experience persistence accepts old v4 snapshots without losing existing pr
   assert.equal(restored.trustMode, 'public');
   assert.equal(restored.routeBudgetMinutes, 45);
   assert.equal(restored.routeInterest, 'highlights');
+  assert.deepEqual(restored.missionDoneIds, ['observation:old-english-court:v1']);
+  assert.equal(restored.walkAutoAudio, true);
 });
 
 test('experience persistence restores selected place, time, era, trust and tab', () => {
@@ -45,6 +49,8 @@ test('experience persistence restores selected place, time, era, trust and tab',
   assert.equal(restored.tab, 'discover');
   assert.equal(restored.routeBudgetMinutes, 30);
   assert.equal(restored.routeInterest, 'trade');
+  assert.deepEqual(restored.missionDoneIds, []);
+  assert.equal(restored.walkAutoAudio, false);
 });
 
 test('experience persistence derives Romanov era from time when old snapshot has no era', () => {
