@@ -19,6 +19,7 @@ import { buildTouristRoutePlan, type TouristInterest, type TouristRoutePlan, typ
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
+import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, type AppLanguage } from './i18n';
 import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
 import {
@@ -89,6 +90,8 @@ export default function MoscowExperienceApp() {
   const [routeStep, setRouteStep] = useState(0);
   const [routeBudgetMinutes, setRouteBudgetMinutes] = useState<TouristTimeBudget>(45);
   const [routeInterest, setRouteInterest] = useState<TouristInterest>('highlights');
+  const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
+  const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
@@ -140,6 +143,8 @@ export default function MoscowExperienceApp() {
         setTrustMode(parsed.trustMode);
         setRouteBudgetMinutes(parsed.routeBudgetMinutes);
         setRouteInterest(parsed.routeInterest);
+        setMissionDoneIds(parsed.missionDoneIds);
+        setWalkAutoAudio(parsed.walkAutoAudio);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -160,10 +165,12 @@ export default function MoscowExperienceApp() {
       era,
       trustMode,
       routeBudgetMinutes,
-      routeInterest
+      routeInterest,
+      missionDoneIds,
+      walkAutoAudio
     };
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, routeBudgetMinutes, routeInterest, routeStep, savedIds, selectedId, tab, timeValue, trustMode, visitedIds]);
+  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeInterest, routeStep, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -221,6 +228,17 @@ export default function MoscowExperienceApp() {
     setRouteInterest(plan.interest);
     setRouteStep(0);
     setTab('walk');
+  };
+
+  const completeRouteStop = (placeId: string) => {
+    setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
+    if (routeStep < activeRoutePlan.stopIds.length - 1) {
+      setRouteStep((current) => current + 1);
+    }
+  };
+
+  const completeMission = (missionId: string) => {
+    setMissionDoneIds((current) => current.includes(missionId) ? current : [...current, missionId]);
   };
 
   return (
@@ -422,14 +440,21 @@ export default function MoscowExperienceApp() {
                   <Text style={styles.kicker}>{language === 'ru' ? `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}` : `NOW · STOP ${routeStep + 1}`}</Text>
                   <Text style={styles.storyTitle}>{routePlace.title}</Text>
                   <Text style={styles.storyBody}>{routePlace.shortStory}</Text>
+                  <WalkCompanion
+                    key={routePlace.id}
+                    place={routePlace}
+                    language={language}
+                    missionDone={missionDoneIds.includes(`observation:${routePlace.id}:v1`)}
+                    autoEnabled={walkAutoAudio}
+                    onAutoEnabledChange={setWalkAutoAudio}
+                    onMissionComplete={completeMission}
+                    onAutoStopCompleted={completeRouteStop}
+                  />
                   <PhysicalPressable
                     style={styles.primary}
                     contentStyle={styles.center}
                     strong
-                    onPress={() => {
-                      setVisitedIds((current) => current.includes(routePlace.id) ? current : [...current, routePlace.id]);
-                      if (routeStep < activeRoutePlan.stopIds.length - 1) setRouteStep((current) => current + 1);
-                    }}
+                    onPress={() => completeRouteStop(routePlace.id)}
                   >
                     <Text style={styles.primaryText}>{routeStep === activeRoutePlan.stopIds.length - 1 ? ui.finish : ui.next}</Text>
                   </PhysicalPressable>
@@ -444,6 +469,14 @@ export default function MoscowExperienceApp() {
           {tab === 'saved' && (
             <>
               <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
+              <View style={styles.myMoscowStats}>
+                <Text style={styles.kicker}>{language === 'ru' ? 'МОЯ ИСТОРИЯ МОСКВЫ' : 'MY MOSCOW HISTORY'}</Text>
+                <View style={styles.statsRow}>
+                  <View style={styles.stat}><Text style={styles.statValue}>{visitedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'мест открыто' : 'places seen'}</Text></View>
+                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'missions'}</Text></View>
+                  <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text></View>
+                </View>
+              </View>
               {savedIds.length === 0 ? (
                 <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
@@ -578,6 +611,11 @@ const styles = StyleSheet.create({
   smallPrimaryText: { color: '#17130d', fontSize: 10, fontWeight: '900' },
   progress: { height: 6, borderRadius: 3, backgroundColor: '#2f3339', overflow: 'hidden', marginTop: 16 },
   progressFill: { height: '100%', backgroundColor: '#d7bb84' },
+  myMoscowStats: { borderRadius: 20, borderWidth: 1, borderColor: '#343941', backgroundColor: '#111418', padding: 15, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  stat: { flex: 1, borderRadius: 14, backgroundColor: '#181b20', paddingVertical: 10, paddingHorizontal: 8 },
+  statValue: { color: '#e7c98f', fontSize: 20, fontWeight: '900' },
+  statLabel: { color: '#858b93', fontSize: 8, lineHeight: 11, marginTop: 2 },
   empty: { borderRadius: 20, borderWidth: 1, borderColor: '#30353b', backgroundColor: '#14171b', padding: 20 },
   emptyText: { color: '#999ea6', textAlign: 'center' },
   nav: { position: 'absolute', left: 10, right: 10, bottom: 8, minHeight: 67, borderRadius: 23, backgroundColor: 'rgba(18,21,25,0.97)', borderWidth: 1, borderColor: '#343941', flexDirection: 'row', padding: 6 },
