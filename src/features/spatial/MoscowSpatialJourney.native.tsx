@@ -5,6 +5,7 @@ import { Dimensions, PixelRatio, SafeAreaView, ScrollView, StyleSheet, Text, Vie
 import {
   Viro3DObject,
   ViroAmbientLight,
+  ViroARCloudAnchor,
   ViroARScene,
   ViroNode,
   ViroPortal,
@@ -14,7 +15,11 @@ import {
   ViroTrackingStateConstants,
   ViroXRSceneNavigator,
   isQuest,
-  type ViroARHitTestResult
+  locationToWorld,
+  parseLocationTransform,
+  type ViroARHitTestResult,
+  type ViroHostCloudAnchorResult,
+  type ViroLocalizedEvent
 } from '@reactvision/react-viro';
 import {
   buildRomanovMeasuredResidual,
@@ -30,7 +35,15 @@ import {
   type CalibrationProfile
 } from '../../spatial/calibration';
 import type { RomanovFieldSession } from '../../spatial/fieldVerification';
-import type { RomanovPersistentAnchor } from '../../spatial/persistentAnchor';
+import {
+  isIndependentAnchorResolve,
+  markAnchorHostLocalized,
+  markAnchorResolved,
+  markAnchorVerified,
+  type PersistentAnchorProvider,
+  type RomanovPersistentAnchor
+} from '../../spatial/persistentAnchor';
+import { getPersistentAnchorRuntimeConfig } from '../../spatial/persistentAnchorRuntime';
 import type { RomanovEra } from '../../spatial/romanov-hotspots';
 import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack.native';
 import { summarizeRomanovReleaseGate } from '../../spatial/romanovReleaseGate';
@@ -44,12 +57,15 @@ import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
 import RomanovFieldTest from './RomanovFieldTest.native';
+import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
 import RomanovSurveyPacketScreen from './RomanovSurveyPacket.native';
 
 const CALIBRATION_KEY = 'moscow:p0:romanov-calibration:v1';
 const SURVEY_KEY = 'moscow:p0:romanov-survey-packet:v1';
 const FIELD_KEY = 'moscow:p0:romanov-field-sessions:v1';
 const ANCHOR_KEY = 'moscow:p0:romanov-persistent-anchors:v1';
+const ACTIVE_ANCHOR_KEY = 'moscow:p0:romanov-active-persistent-anchor:v1';
+const DEVICE_LABEL_KEY = 'moscow:p0:romanov-device-label:v1';
 const ERA_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
@@ -71,6 +87,7 @@ type LocalAnchor = {
   anchorId: string;
   hitType: ViroARHitTestResult['type'];
   position: [number, number, number];
+  rotationEulerDeg: [number, number, number];
 };
 
 type AlignmentMeasurementRequest = {
@@ -86,6 +103,7 @@ type AlignmentMeasurementSample = {
 };
 
 type SceneProps = {
+  arSceneNavigator?: unknown;
   sceneNavigator?: {
     viroAppProps?: {
       calibration?: CalibrationProfile;
@@ -93,7 +111,10 @@ type SceneProps = {
       trustMode?: RomanovTrustMode;
       requestId?: number;
       portalVisible?: boolean;
+      activePersistentAnchor?: RomanovPersistentAnchor | null;
       measurementRequest?: AlignmentMeasurementRequest | null;
+      onPersistentLocalized?: (event: ViroLocalizedEvent) => void;
+      onPersistentLocalizeError?: (message: string) => void;
       onMeasurementSample?: (sample: AlignmentMeasurementSample) => void;
       onMeasurementError?: (requestId: number, message: string) => void;
       onCandidate?: (hitType: ViroARHitTestResult['type']) => void;
@@ -120,7 +141,7 @@ function pickHit(results: ViroARHitTestResult[]) {
 
 function PortalScene() {
   return (
-    <ViroPortalScene passable position={[2.6, 0, -4]}>
+    <ViroPortalScene passable position={[2.6, 0, 0]}>
       <ViroPortal position={[0, 0, 0]}>
         <Viro3DObject
           source={require('../../../assets/models/romanov-portal-frame.obj')}
@@ -145,7 +166,7 @@ function PortalScene() {
   );
 }
 
-function SpatialScene({ sceneNavigator }: SceneProps) {
+function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const arRef = useRef<ViroARScene | null>(null);
   const lastRequest = useRef(0);
   const lastMeasurementRequest = useRef(0);
@@ -155,6 +176,9 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
   const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
   const requestId = sceneNavigator?.viroAppProps?.requestId ?? 0;
   const portalVisible = sceneNavigator?.viroAppProps?.portalVisible ?? false;
+  const activePersistentAnchor = sceneNavigator?.viroAppProps?.activePersistentAnchor ?? null;
+  const onPersistentLocalized = sceneNavigator?.viroAppProps?.onPersistentLocalized;
+  const onPersistentLocalizeError = sceneNavigator?.viroAppProps?.onPersistentLocalizeError;
   const measurementRequest = sceneNavigator?.viroAppProps?.measurementRequest ?? null;
   const onMeasurementSample = sceneNavigator?.viroAppProps?.onMeasurementSample;
   const onMeasurementError = sceneNavigator?.viroAppProps?.onMeasurementError;
@@ -189,10 +213,12 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
         return;
       }
       const position = node.transform?.position ?? hit.transform.position;
+      const rotation = node.transform?.rotation ?? hit.transform.rotation ?? [0, 0, 0];
       onAnchored?.({
         anchorId: node.anchorId,
         hitType: hit.type,
-        position: [position[0], position[1], position[2]]
+        position: [position[0], position[1], position[2]],
+        rotationEulerDeg: [rotation[0] ?? 0, rotation[1] ?? 0, rotation[2] ?? 0]
       });
     };
 
@@ -265,23 +291,62 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
     return () => { cancelled = true; };
   }, [measurementRequest, onMeasurementError, onMeasurementSample]);
 
+  const modelContents = (
+    <>
+      <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
+      <ViroText
+        text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'}`}
+        position={[0, 14.2, 0]}
+        scale={[0.22, 0.22, 0.22]}
+        style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
+      />
+      {portalVisible && <PortalScene />}
+    </>
+  );
+
+  const unanchoredModel = (
+    <ViroNode
+      position={calibration.translation}
+      rotation={calibration.rotationEulerDeg}
+      scale={[calibration.scale, calibration.scale, calibration.scale]}
+    >
+      {modelContents}
+    </ViroNode>
+  );
+
+  const anchoredModel = activePersistentAnchor && !isQuest ? (
+    <ViroARCloudAnchor
+      cloudAnchorId={activePersistentAnchor.providerAnchorId}
+      arSceneNavigator={arSceneNavigator}
+      onLocalized={onPersistentLocalized}
+      onLocalizeError={(message) => onPersistentLocalizeError?.(message)}
+      placeholder={(
+        <ViroText
+          text="LOCALIZING PERSISTENT ANCHOR…"
+          position={[0, 0, -2]}
+          scale={[0.12, 0.12, 0.12]}
+          style={{ fontSize: 14, color: '#f0d39b', textAlign: 'center' }}
+        />
+      )}
+    >
+      <ViroNode
+        position={activePersistentAnchor.anchorFrameModelTransform.position}
+        rotation={activePersistentAnchor.anchorFrameModelTransform.rotationEulerDeg}
+        scale={[
+          activePersistentAnchor.anchorFrameModelTransform.scale,
+          activePersistentAnchor.anchorFrameModelTransform.scale,
+          activePersistentAnchor.anchorFrameModelTransform.scale
+        ]}
+      >
+        {modelContents}
+      </ViroNode>
+    </ViroARCloudAnchor>
+  ) : unanchoredModel;
+
   const content = (
     <>
       <ViroAmbientLight color="#ffffff" intensity={650} />
-      <ViroNode
-        position={calibration.translation}
-        rotation={calibration.rotationEulerDeg}
-        scale={[calibration.scale, calibration.scale, calibration.scale]}
-      >
-        <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
-        <ViroText
-          text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'}`}
-          position={[0, 14.2, 0]}
-          scale={[0.22, 0.22, 0.22]}
-          style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
-        />
-      </ViroNode>
-      {portalVisible && <PortalScene />}
+      {anchoredModel}
     </>
   );
 
