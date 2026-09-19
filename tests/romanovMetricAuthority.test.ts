@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
+  isRomanovVerifiedScaleAuthoritative,
   ROMANOV_METRIC_AUTHORITY,
   romanovResearchPointToViro
 } from '../src/spatial/romanovMetricAuthority.ts';
@@ -31,6 +32,9 @@ test('Romanov metric authority is explicit, metric and versioned', () => {
   assert.equal(ROMANOV_METRIC_AUTHORITY.scaleStatus, 'provisional-pending-survey');
   assert.equal(isCurrentRomanovMetricBinding(currentRomanovMetricBinding), true);
   assert.equal(isCurrentRomanovMetricBinding({ ...currentRomanovMetricBinding, modelPackVersion: 'old-pack' }), false);
+  assert.equal(isRomanovVerifiedScaleAuthoritative(1), true);
+  assert.equal(isRomanovVerifiedScaleAuthoritative(1.019), true);
+  assert.equal(isRomanovVerifiedScaleAuthoritative(1.05), false);
 });
 
 test('research coordinates map deterministically into Viro axes', () => {
