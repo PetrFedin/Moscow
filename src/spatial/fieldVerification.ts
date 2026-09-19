@@ -47,6 +47,7 @@ export type RomanovFieldMatrixSummary = {
   currentMetricSessions: number;
   staleMetricSessions: number;
   unmeasuredSessions: number;
+  staleCalibrationSessions: number;
   completeDevices: RomanovDeviceVerification[];
   iosCompleteDevices: number;
   androidCompleteDevices: number;
@@ -130,11 +131,18 @@ function normalizedDeviceKey(session: RomanovFieldSession) {
   return `${session.devicePlatform}:${label || session.deviceVersion}`.toLowerCase();
 }
 
-export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFieldMatrixSummary {
+export function summarizeFieldMatrix(
+  sessions: RomanovFieldSession[],
+  expectedCalibrationVersion?: number
+): RomanovFieldMatrixSummary {
   const currentMetricSessions = sessions.filter((session) => isCurrentRomanovMetricBinding(session.metricBinding));
   const staleMetricSessions = sessions.length - currentMetricSessions.length;
-  const evidenceSessions = currentMetricSessions.filter(sessionHasReleaseEvidence);
-  const unmeasuredSessions = currentMetricSessions.length - evidenceSessions.length;
+  const calibrationSessions = expectedCalibrationVersion === undefined
+    ? currentMetricSessions
+    : currentMetricSessions.filter((session) => session.calibration.version === expectedCalibrationVersion);
+  const staleCalibrationSessions = currentMetricSessions.length - calibrationSessions.length;
+  const evidenceSessions = calibrationSessions.filter(sessionHasReleaseEvidence);
+  const unmeasuredSessions = calibrationSessions.length - evidenceSessions.length;
   const passedSessions = evidenceSessions.filter((session) => session.passed);
   const grouped = new Map<string, RomanovFieldSession[]>();
 
@@ -177,6 +185,7 @@ export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFi
     currentMetricSessions: currentMetricSessions.length,
     staleMetricSessions,
     unmeasuredSessions,
+    staleCalibrationSessions,
     completeDevices,
     iosCompleteDevices,
     androidCompleteDevices,
