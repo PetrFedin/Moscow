@@ -21,7 +21,7 @@ test('nearby now builds a free walk from the tourist current position', async ({
   await page.getByLabel('Показать что рядом').click();
 
   await expect(page.getByText('Палаты бояр Романовых', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/^(0|1) м · новое$/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Палаты бояр Романовых 0 м/ })).toBeVisible();
 
   await page.getByLabel('Начать свободную прогулку').click();
   await expect(page.getByText('Прогулка', { exact: true }).first()).toBeVisible();
