@@ -4,6 +4,7 @@ import {
   type RomanovMeasuredControlPointResidual
 } from './alignmentResidual.ts';
 import type { RomanovEra } from './romanov-hotspots.ts';
+import { romanovControlPoints } from './romanovControlPoints.ts';
 import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
@@ -117,13 +118,20 @@ export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capt
 
 export function isFieldSessionEvidenceAuthoritative(session: RomanovFieldSession) {
   if (!session.surveyPacketId) return false;
-  if (session.observations.length < ROMANOV_FIELD_REQUIRED_POINTS) return false;
+  if (session.observations.length !== ROMANOV_FIELD_REQUIRED_POINTS) return false;
+
+  const expectedIds = new Set(romanovControlPoints.map((point) => point.id));
+  const observedIds = session.observations.map((item) => item.controlPointId);
+  if (new Set(observedIds).size !== ROMANOV_FIELD_REQUIRED_POINTS) return false;
+  if (observedIds.some((id) => !expectedIds.has(id))) return false;
+  if (session.observations.some((item) => item.evidence?.surveyPacketId !== session.surveyPacketId)) return false;
+
   return eligibleObservations(
     session.observations,
     session.calibration.version,
     session.viewingDistanceMeters,
     session.surveyPacketId
-  ).length >= ROMANOV_FIELD_REQUIRED_POINTS;
+  ).length === ROMANOV_FIELD_REQUIRED_POINTS;
 }
 
 function normalizedDeviceKey(session: RomanovFieldSession) {
