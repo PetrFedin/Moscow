@@ -1,9 +1,9 @@
-import { romanovControlPoints } from './romanovControlPoints';
+import { romanovControlPoints } from './romanovControlPoints.ts';
 import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
   type RomanovMetricBinding
-} from './romanovMetricAuthority';
+} from './romanovMetricAuthority.ts';
 
 export type SurveyMethod =
   | 'total-station'
