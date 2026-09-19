@@ -2,7 +2,7 @@ import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
   type RomanovMetricBinding
-} from './romanovMetricAuthority';
+} from './romanovMetricAuthority.ts';
 
 export type CalibrationProfile = {
   latitude: number;
