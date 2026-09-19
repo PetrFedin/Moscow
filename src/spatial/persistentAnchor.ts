@@ -1,4 +1,5 @@
 import type { CalibrationProfile } from './calibration';
+import { isCurrentRomanovMetricBinding } from './romanovMetricAuthority';
 import {
   summarizeFieldMatrix,
   type RomanovFieldMatrixSummary,
@@ -30,6 +31,7 @@ export type RomanovPersistentAnchor = {
 export type PersistentAnchorReadiness = {
   fieldMatrix: RomanovFieldMatrixSummary;
   calibrationVerified: boolean;
+  calibrationMetricCurrent: boolean;
   providerConfigured: boolean;
   provider: PersistentAnchorProvider;
   readyToHost: boolean;
@@ -52,6 +54,7 @@ export function getPersistentAnchorReadiness(input: {
 }): PersistentAnchorReadiness {
   const fieldMatrix = summarizeFieldMatrix(input.sessions);
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
+  const calibrationMetricCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
   const blockers: string[] = [];
 
   if (!fieldMatrix.eligibleForPersistentAnchor) {
@@ -60,6 +63,9 @@ export function getPersistentAnchorReadiness(input: {
   if (!calibrationVerified) {
     blockers.push('calibration-not-verified');
   }
+  if (!calibrationMetricCurrent) {
+    blockers.push('calibration-metric-authority-stale');
+  }
   if (input.provider === 'none' || !input.providerConfigured) {
     blockers.push('persistent-anchor-provider-not-configured');
   }
@@ -67,6 +73,7 @@ export function getPersistentAnchorReadiness(input: {
   return {
     fieldMatrix,
     calibrationVerified,
+    calibrationMetricCurrent,
     providerConfigured: input.providerConfigured,
     provider: input.provider,
     readyToHost: blockers.length === 0,
@@ -84,6 +91,9 @@ export function createPersistentAnchorRecord(input: {
   if (!input.providerAnchorId.trim()) throw new Error('providerAnchorId is required');
   if (!input.hostedByDeviceLabel.trim()) throw new Error('hostedByDeviceLabel is required');
   if (!input.calibration.verifiedAt) throw new Error('calibration must be verified before hosting a persistent anchor');
+  if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) {
+    throw new Error('calibration metric authority is stale');
+  }
 
   const hostedAt = new Date().toISOString();
   return {
