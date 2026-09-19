@@ -1,10 +1,10 @@
-import type { CalibrationProfile } from './calibration';
-import type { RomanovEra } from './romanov-hotspots';
+import type { CalibrationProfile } from './calibration.ts';
+import type { RomanovEra } from './romanov-hotspots.ts';
 import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
   type RomanovMetricBinding
-} from './romanovMetricAuthority';
+} from './romanovMetricAuthority.ts';
 
 export type FieldDistanceMeters = 5 | 10 | 15;
 export type FieldPlatform = 'ios' | 'android' | string;
