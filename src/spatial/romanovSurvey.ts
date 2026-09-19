@@ -1,4 +1,9 @@
 import { romanovControlPoints } from './romanovControlPoints';
+import {
+  currentRomanovMetricBinding,
+  isCurrentRomanovMetricBinding,
+  type RomanovMetricBinding
+} from './romanovMetricAuthority';
 
 export type SurveyMethod =
   | 'total-station'
@@ -36,6 +41,7 @@ export type RomanovSurveyPacket = {
   coordinateReference: 'WGS84';
   modelUnits: 'meters';
   createdAt: string;
+  metricBinding?: RomanovMetricBinding;
   points: RomanovSurveyPoint[];
   approvedAt?: string;
   approvedBy?: string;
@@ -57,6 +63,7 @@ export function createEmptyRomanovSurveyPacket(): RomanovSurveyPacket {
     coordinateReference: 'WGS84',
     modelUnits: 'meters',
     createdAt: new Date().toISOString(),
+    metricBinding: currentRomanovMetricBinding,
     points: romanovControlPoints.map((point) => ({
       controlPointId: point.id,
       status: 'pending'
@@ -99,6 +106,10 @@ export function summarizeRomanovSurvey(packet: RomanovSurveyPacket): RomanovSurv
   const uniquePoints = new Map(packet.points.map((point) => [point.controlPointId, point]));
   const blockers: string[] = [];
 
+  if (!isCurrentRomanovMetricBinding(packet.metricBinding)) {
+    blockers.push('metric-authority-stale');
+  }
+
   if (uniquePoints.size !== expectedIds.size || [...expectedIds].some((id) => !uniquePoints.has(id))) {
     blockers.push('control-point-set-incomplete');
   }
@@ -127,6 +138,9 @@ export function summarizeRomanovSurvey(packet: RomanovSurveyPacket): RomanovSurv
 
 export function surveyPacketToTsv(packet: RomanovSurveyPacket) {
   const header = [
+    'metric_authority_id',
+    'metric_authority_version',
+    'model_pack_version',
     'control_point_id',
     'model_x_m',
     'model_y_m',
@@ -144,6 +158,9 @@ export function surveyPacketToTsv(packet: RomanovSurveyPacket) {
     'notes'
   ];
   const rows = packet.points.map((point) => [
+    packet.metricBinding?.metricAuthorityId ?? '',
+    packet.metricBinding?.metricAuthorityVersion?.toString() ?? '',
+    packet.metricBinding?.modelPackVersion ?? '',
     point.controlPointId,
     point.modelPointMeters?.[0]?.toString() ?? '',
     point.modelPointMeters?.[1]?.toString() ?? '',
