@@ -16,7 +16,9 @@ import {
   type ViroARHitTestResult
 } from '@reactvision/react-viro';
 import {
+  bindCalibrationToCurrentMetricAuthority,
   defaultRomanovCalibration,
+  invalidateCalibrationVerification,
   isCalibrationProfile,
   type CalibrationProfile
 } from '../../spatial/calibration';
@@ -332,16 +334,18 @@ export default function MoscowSpatialJourney({
     setCalibration((current) => {
       const translation: [number, number, number] = [...current.translation];
       translation[axis] = value;
-      return { ...current, translation };
+      return invalidateCalibrationVerification({ ...current, translation });
     });
   };
 
   const saveCalibration = async () => {
-    await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(calibration));
+    const nextCalibration = bindCalibrationToCurrentMetricAuthority(calibration);
+    setCalibration(nextCalibration);
+    await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(nextCalibration));
     setStage('calibrated');
-    setStatusMessage('Калибровка сохранена. Verified остаётся заблокирован до полного field release gate.');
+    setStatusMessage('Калибровка сохранена и привязана к текущей версии модели. Verified остаётся заблокирован до полного field release gate.');
     setCalibrationOpen(false);
-    await reloadReleaseGate(calibration).catch(() => undefined);
+    await reloadReleaseGate(nextCalibration).catch(() => undefined);
   };
 
   const openPortal = async () => {
@@ -466,8 +470,8 @@ export default function MoscowSpatialJourney({
                 <CalibrationControl label="X" value={calibration.translation[0]} minimumValue={-10} maximumValue={10} step={0.05} onChange={(value) => setTranslation(0, value)} />
                 <CalibrationControl label="Y" value={calibration.translation[1]} minimumValue={-8} maximumValue={8} step={0.05} onChange={(value) => setTranslation(1, value)} />
                 <CalibrationControl label="Z" value={calibration.translation[2]} minimumValue={-20} maximumValue={-1} step={0.05} onChange={(value) => setTranslation(2, value)} />
-                <CalibrationControl label="Yaw" value={calibration.rotationEulerDeg[1]} minimumValue={-180} maximumValue={180} step={1} onChange={(value) => setCalibration((current) => ({ ...current, rotationEulerDeg: [current.rotationEulerDeg[0], value, current.rotationEulerDeg[2]] }))} />
-                <CalibrationControl label="Scale" value={calibration.scale} minimumValue={0.25} maximumValue={3} step={0.01} onChange={(value) => setCalibration((current) => ({ ...current, scale: value }))} />
+                <CalibrationControl label="Yaw" value={calibration.rotationEulerDeg[1]} minimumValue={-180} maximumValue={180} step={1} onChange={(value) => setCalibration((current) => invalidateCalibrationVerification({ ...current, rotationEulerDeg: [current.rotationEulerDeg[0], value, current.rotationEulerDeg[2]] }))} />
+                <CalibrationControl label="Scale" value={calibration.scale} minimumValue={0.25} maximumValue={3} step={0.01} onChange={(value) => setCalibration((current) => invalidateCalibrationVerification({ ...current, scale: value }))} />
                 <View style={styles.actionRow}>
                   <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={saveCalibration}><Text style={styles.primaryText}>Сохранить</Text></PhysicalPressable>
                   <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={() => setCalibrationOpen(false)}><Text style={styles.secondaryText}>Закрыть</Text></PhysicalPressable>
