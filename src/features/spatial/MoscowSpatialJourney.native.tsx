@@ -569,7 +569,6 @@ export default function MoscowSpatialJourney({
         hdrEnabled
         shadowsEnabled
         multisamplingEnabled
-        depthEnabled={!isQuest}
         style={StyleSheet.absoluteFill}
       />
 
