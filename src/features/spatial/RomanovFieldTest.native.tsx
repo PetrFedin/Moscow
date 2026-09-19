@@ -32,6 +32,7 @@ import type { RomanovEra } from '../../spatial/romanov-hotspots';
 import { romanovControlPoints } from '../../spatial/romanovControlPoints';
 
 const FIELD_STORAGE_KEY = 'moscow:p0:romanov-field-sessions:v1';
+const SURVEY_STORAGE_KEY = 'moscow:p0:romanov-survey-packet:v1';
 const DEVICE_LABEL_STORAGE_KEY = 'moscow:p0:romanov-device-label:v1';
 
 type Props = {
@@ -62,6 +63,7 @@ export default function RomanovFieldTest({
   const [measurements, setMeasurements] = useState<Record<FieldDistanceMeters, ResidualMap>>(() => emptyDistanceMap());
   const [deviceLabel, setDeviceLabel] = useState('');
   const [sessions, setSessions] = useState<RomanovFieldSession[]>([]);
+  const [activeSurveyPacketId, setActiveSurveyPacketId] = useState<string | undefined>();
   const [savedSession, setSavedSession] = useState<RomanovFieldSession | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [armedPointId, setArmedPointId] = useState<string | null>(null);
@@ -70,14 +72,19 @@ export default function RomanovFieldTest({
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(FIELD_STORAGE_KEY),
-      AsyncStorage.getItem(DEVICE_LABEL_STORAGE_KEY)
+      AsyncStorage.getItem(DEVICE_LABEL_STORAGE_KEY),
+      AsyncStorage.getItem(SURVEY_STORAGE_KEY)
     ])
-      .then(([rawSessions, rawDeviceLabel]) => {
+      .then(([rawSessions, rawDeviceLabel, rawSurvey]) => {
         if (rawSessions) {
           const parsed = JSON.parse(rawSessions) as RomanovFieldSession[];
           if (Array.isArray(parsed)) setSessions(parsed);
         }
         if (rawDeviceLabel) setDeviceLabel(rawDeviceLabel);
+        if (rawSurvey) {
+          const parsed = JSON.parse(rawSurvey) as { id?: string };
+          if (parsed.id) setActiveSurveyPacketId(parsed.id);
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -91,7 +98,10 @@ export default function RomanovFieldTest({
     [currentMeasurements]
   );
   const summary = summarizeResiduals(observations);
-  const matrix = useMemo(() => summarizeFieldMatrix(sessions, calibration.version), [calibration.version, sessions]);
+  const matrix = useMemo(
+    () => summarizeFieldMatrix(sessions, { surveyPacketId: activeSurveyPacketId }),
+    [activeSurveyPacketId, sessions]
+  );
   const surveyIds = [...new Set(observations.map((item) => item.evidence?.surveyPacketId).filter(Boolean))] as string[];
   const surveyPacketId = surveyIds.length === 1 ? surveyIds[0] : undefined;
   const eligibleCount = observations.filter((item) => isReleaseEligibleMeasuredResidual(item, {
@@ -282,9 +292,7 @@ export default function RomanovFieldTest({
           {matrix.unmeasuredSessions > 0 && (
             <Text style={styles.matrixWarning}>Legacy/ручные сессии: {matrix.unmeasuredSessions}. Они остаются в аудите, но больше не участвуют в release gate.</Text>
           )}
-          {matrix.staleCalibrationSessions > 0 && (
-            <Text style={styles.matrixWarning}>Сессии другой версии калибровки: {matrix.staleCalibrationSessions}. После сдвига/масштаба измерения нужно повторить.</Text>
-          )}
+
           {matrix.staleMetricSessions > 0 && (
             <Text style={styles.matrixWarning}>Сессии старой модели: {matrix.staleMetricSessions}. Они не участвуют в release gate.</Text>
           )}
