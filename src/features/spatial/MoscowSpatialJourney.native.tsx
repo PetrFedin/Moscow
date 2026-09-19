@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, PixelRatio, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   Viro3DObject,
   ViroAmbientLight,
@@ -11,10 +11,16 @@ import {
   ViroPortalScene,
   ViroScene,
   ViroText,
+  ViroTrackingStateConstants,
   ViroXRSceneNavigator,
   isQuest,
   type ViroARHitTestResult
 } from '@reactvision/react-viro';
+import {
+  buildRomanovMeasuredResidual,
+  type RomanovMeasuredControlPointResidual,
+  type RomanovWorldPointMeters
+} from '../../spatial/alignmentResidual';
 import {
   bindCalibrationToCurrentMetricAuthority,
   defaultRomanovCalibration,
@@ -29,6 +35,7 @@ import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/roma
 import { summarizeRomanovReleaseGate } from '../../spatial/romanovReleaseGate';
 import {
   createEmptyRomanovSurveyPacket,
+  summarizeRomanovSurvey,
   type RomanovSurveyPacket as RomanovSurveyPacketData
 } from '../../spatial/romanovSurvey';
 import type { SpatialStage } from '../../e2e/experienceContract';
@@ -65,6 +72,18 @@ type LocalAnchor = {
   position: [number, number, number];
 };
 
+type AlignmentMeasurementRequest = {
+  id: number;
+  controlPointId: string;
+};
+
+type AlignmentMeasurementSample = {
+  requestId: number;
+  hitType: ViroARHitTestResult['type'];
+  observedWorldPointMeters: RomanovWorldPointMeters;
+  cameraWorldPointMeters: RomanovWorldPointMeters;
+};
+
 type SceneProps = {
   sceneNavigator?: {
     viroAppProps?: {
@@ -73,6 +92,9 @@ type SceneProps = {
       trustMode?: RomanovTrustMode;
       requestId?: number;
       portalVisible?: boolean;
+      measurementRequest?: AlignmentMeasurementRequest | null;
+      onMeasurementSample?: (sample: AlignmentMeasurementSample) => void;
+      onMeasurementError?: (requestId: number, message: string) => void;
       onCandidate?: (hitType: ViroARHitTestResult['type']) => void;
       onAnchored?: (anchor: LocalAnchor) => void;
       onAnchorError?: (message: string) => void;
@@ -125,11 +147,16 @@ function PortalScene() {
 function SpatialScene({ sceneNavigator }: SceneProps) {
   const arRef = useRef<ViroARScene | null>(null);
   const lastRequest = useRef(0);
+  const lastMeasurementRequest = useRef(0);
+  const trackingState = useRef<number>(0);
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const era = sceneNavigator?.viroAppProps?.era ?? '1859';
   const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
   const requestId = sceneNavigator?.viroAppProps?.requestId ?? 0;
   const portalVisible = sceneNavigator?.viroAppProps?.portalVisible ?? false;
+  const measurementRequest = sceneNavigator?.viroAppProps?.measurementRequest ?? null;
+  const onMeasurementSample = sceneNavigator?.viroAppProps?.onMeasurementSample;
+  const onMeasurementError = sceneNavigator?.viroAppProps?.onMeasurementError;
   const onCandidate = sceneNavigator?.viroAppProps?.onCandidate;
   const onAnchored = sceneNavigator?.viroAppProps?.onAnchored;
   const onAnchorError = sceneNavigator?.viroAppProps?.onAnchorError;
@@ -174,6 +201,69 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
     return () => { cancelled = true; };
   }, [onAnchorError, onAnchored, onCandidate, requestId]);
 
+  useEffect(() => {
+    if (isQuest || !measurementRequest || measurementRequest.id === lastMeasurementRequest.current) return;
+    lastMeasurementRequest.current = measurementRequest.id;
+    let cancelled = false;
+
+    const run = async () => {
+      const scene = arRef.current;
+      if (!scene) {
+        onMeasurementError?.(measurementRequest.id, 'AR scene ещё не готова.');
+        return;
+      }
+      if (trackingState.current !== ViroTrackingStateConstants.TRACKING_NORMAL) {
+        onMeasurementError?.(measurementRequest.id, 'Tracking не NORMAL. Остановитесь, наведитесь на фактурный фасад и дождитесь стабилизации.');
+        return;
+      }
+
+      const orientation = await scene.getCameraOrientationAsync();
+      if (cancelled || !isUsablePoint(orientation?.position)) return;
+      const { width, height } = Dimensions.get('window');
+      const ratio = PixelRatio.get();
+      const results = await scene.performARHitTestWithPoint(
+        (width * ratio) / 2,
+        (height * ratio) / 2
+      ) as ViroARHitTestResult[];
+      if (cancelled) return;
+
+      const releaseHit = HIT_PRIORITY
+        .filter((type) => type !== 'FeaturePoint')
+        .map((type) => (Array.isArray(results) ? results : []).find((item) => item.type === type && isUsablePoint(item.transform?.position)))
+        .find(Boolean);
+
+      if (!releaseHit || !isUsablePoint(releaseHit.transform?.position)) {
+        onMeasurementError?.(measurementRequest.id, 'Нет release-grade depth/plane hit в центре. Наведите перекрестие на устойчивую плоскость фасада.');
+        return;
+      }
+
+      onMeasurementSample?.({
+        requestId: measurementRequest.id,
+        hitType: releaseHit.type,
+        observedWorldPointMeters: [
+          releaseHit.transform.position[0],
+          releaseHit.transform.position[1],
+          releaseHit.transform.position[2]
+        ],
+        cameraWorldPointMeters: [
+          orientation.position[0],
+          orientation.position[1],
+          orientation.position[2]
+        ]
+      });
+    };
+
+    run().catch((error) => {
+      if (!cancelled) {
+        onMeasurementError?.(
+          measurementRequest.id,
+          error instanceof Error ? error.message : 'Не удалось снять AR residual.'
+        );
+      }
+    });
+    return () => { cancelled = true; };
+  }, [measurementRequest, onMeasurementError, onMeasurementSample]);
+
   const content = (
     <>
       <ViroAmbientLight color="#ffffff" intensity={650} />
@@ -194,7 +284,14 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
     </>
   );
 
-  return isQuest ? <ViroScene>{content}</ViroScene> : <ViroARScene ref={arRef}>{content}</ViroARScene>;
+  return isQuest
+    ? <ViroScene>{content}</ViroScene>
+    : <ViroARScene
+        ref={arRef}
+        onTrackingUpdated={(state) => { trackingState.current = state; }}
+      >
+        {content}
+      </ViroARScene>;
 }
 
 const SpatialSceneFactory = SpatialScene as unknown as () => React.JSX.Element;
@@ -257,6 +354,17 @@ export default function MoscowSpatialJourney({
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [fieldOpen, setFieldOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [measurementRequest, setMeasurementRequest] = useState<AlignmentMeasurementRequest | null>(null);
+  const measurementResolver = useRef<{
+    requestId: number;
+    controlPointId: string;
+    distance: 5 | 10 | 15;
+    survey: RomanovSurveyPacketData;
+    calibration: CalibrationProfile;
+    resolve: (value: RomanovMeasuredControlPointResidual) => void;
+    reject: (reason: Error) => void;
+  } | null>(null);
+  const measurementSequence = useRef(0);
   const demoPreview = __DEV__ || process.env.EXPO_PUBLIC_DEMO_MODE === '1';
 
   const stageIndex = Math.max(0, stageOrder.indexOf(stage === 'portal-preview' || stage === 'portal-entered' ? 'verified' : stage));
@@ -348,6 +456,71 @@ export default function MoscowSpatialJourney({
     await reloadReleaseGate(nextCalibration).catch(() => undefined);
   };
 
+  const requestMeasuredResidual = async (
+    controlPointId: string,
+    distance: 5 | 10 | 15
+  ): Promise<RomanovMeasuredControlPointResidual> => {
+    const rawSurvey = await AsyncStorage.getItem(SURVEY_KEY);
+    if (!rawSurvey) throw new Error('Сначала создайте и утвердите survey packet.');
+    const survey = JSON.parse(rawSurvey) as RomanovSurveyPacketData;
+    const surveyGate = summarizeRomanovSurvey(survey);
+    if (!surveyGate.complete) {
+      throw new Error(`Survey packet не прошёл gate: ${surveyGate.blockers.join(', ')}`);
+    }
+    const point = survey.points.find((item) => item.controlPointId === controlPointId);
+    if (!point?.modelPointMeters || point.status !== 'verified') {
+      throw new Error('Эта контрольная точка ещё не verified в survey packet.');
+    }
+    if (measurementResolver.current) {
+      measurementResolver.current.reject(new Error('Предыдущее измерение отменено новым запросом.'));
+      measurementResolver.current = null;
+    }
+
+    const requestId = ++measurementSequence.current;
+    return new Promise<RomanovMeasuredControlPointResidual>((resolve, reject) => {
+      measurementResolver.current = {
+        requestId,
+        controlPointId,
+        distance,
+        survey,
+        calibration: { ...calibration, translation: [...calibration.translation] as [number, number, number], rotationEulerDeg: [...calibration.rotationEulerDeg] as [number, number, number] },
+        resolve,
+        reject
+      };
+      setMeasurementRequest({ id: requestId, controlPointId });
+    });
+  };
+
+  const handleMeasurementSample = (sample: AlignmentMeasurementSample) => {
+    const pending = measurementResolver.current;
+    if (!pending || pending.requestId !== sample.requestId) return;
+    const point = pending.survey.points.find((item) => item.controlPointId === pending.controlPointId);
+    if (!point?.modelPointMeters) {
+      pending.reject(new Error('Survey model point отсутствует.'));
+    } else {
+      pending.resolve(buildRomanovMeasuredResidual({
+        controlPointId: pending.controlPointId,
+        surveyPacketId: pending.survey.id,
+        calibration: pending.calibration,
+        modelPointMeters: point.modelPointMeters,
+        observedWorldPointMeters: sample.observedWorldPointMeters,
+        cameraWorldPointMeters: sample.cameraWorldPointMeters,
+        distanceBucketMeters: pending.distance,
+        hitType: sample.hitType
+      }));
+    }
+    measurementResolver.current = null;
+    setMeasurementRequest(null);
+  };
+
+  const handleMeasurementError = (requestId: number, message: string) => {
+    const pending = measurementResolver.current;
+    if (!pending || pending.requestId !== requestId) return;
+    pending.reject(new Error(message));
+    measurementResolver.current = null;
+    setMeasurementRequest(null);
+  };
+
   const openPortal = async () => {
     const gate = await reloadReleaseGate().catch(() => null);
     const verified = gate?.state === 'field-verified-spatial-scene';
@@ -384,6 +557,9 @@ export default function MoscowSpatialJourney({
           trustMode,
           requestId,
           portalVisible,
+          measurementRequest,
+          onMeasurementSample: handleMeasurementSample,
+          onMeasurementError: handleMeasurementError,
           onCandidate: handleCandidate,
           onAnchored: handleAnchored,
           onAnchorError: handleAnchorError
@@ -392,6 +568,7 @@ export default function MoscowSpatialJourney({
         hdrEnabled
         shadowsEnabled
         multisamplingEnabled
+        depthEnabled={!isQuest}
         style={StyleSheet.absoluteFill}
       />
 
@@ -482,7 +659,14 @@ export default function MoscowSpatialJourney({
         </SafeAreaView>
       )}
 
-      {fieldOpen && !isQuest && <RomanovFieldTest calibration={calibration} era={era} onClose={() => { setFieldOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
+      {fieldOpen && !isQuest && (
+        <RomanovFieldTest
+          calibration={calibration}
+          era={era}
+          onMeasureResidual={requestMeasuredResidual}
+          onClose={() => { setFieldOpen(false); reloadReleaseGate().catch(() => undefined); }}
+        />
+      )}
       {surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
     </View>
   );
