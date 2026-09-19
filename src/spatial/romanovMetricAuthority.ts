@@ -15,7 +15,8 @@ export const ROMANOV_METRIC_AUTHORITY = {
   researchCoordinateOrder: ['x', 'depth', 'height'] as const,
   viroCoordinateOrder: ['x', 'height', 'depth'] as const,
   sourceManifestPath: 'assets/models/romanov-production-candidate-v1.manifest.json',
-  scaleStatus: 'provisional-pending-survey' as const
+  scaleStatus: 'provisional-pending-survey' as const,
+  verifiedScaleTolerance: 0.02
 };
 
 export const currentRomanovMetricBinding: RomanovMetricBinding = {
@@ -37,4 +38,10 @@ export function romanovResearchPointToViro(
   [x, depth, height]: [number, number, number]
 ): [number, number, number] {
   return [x, height, depth];
+}
+
+
+export function isRomanovVerifiedScaleAuthoritative(scale: number) {
+  return Number.isFinite(scale)
+    && Math.abs(scale - ROMANOV_METRIC_AUTHORITY.metersPerModelUnit) <= ROMANOV_METRIC_AUTHORITY.verifiedScaleTolerance;
 }
