@@ -57,6 +57,7 @@ import type { SpatialStage } from '../../e2e/experienceContract';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
+import RomanovEvidenceTransferPanel from './RomanovEvidenceTransferPanel.native';
 import RomanovFieldTest from './RomanovFieldTest.native';
 import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
 import RomanovSurveyPacketScreen from './RomanovSurveyPacket.native';
@@ -444,6 +445,7 @@ export default function MoscowSpatialJourney({
   const [fieldOpen, setFieldOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [anchorOpen, setAnchorOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [activePersistentAnchor, setActivePersistentAnchor] = useState<RomanovPersistentAnchor | null>(null);
   const xrNavigatorRef = useRef<unknown>(null);
   const anchorRuntime = getPersistentAnchorRuntimeConfig();
@@ -803,6 +805,9 @@ export default function MoscowSpatialJourney({
             <View style={styles.actionRow}>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setFieldOpen(true)}><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
+            </View>
+            <View style={styles.actionRow}>
+              <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setEvidenceOpen(true)}><Text style={styles.toolText}>Evidence</Text></PhysicalPressable>
               <PhysicalPressable style={[styles.toolButton, activePersistentAnchor && styles.toolButtonActive]} contentStyle={styles.center} onPress={() => setAnchorOpen(true)}><Text style={styles.toolText}>Anchor</Text></PhysicalPressable>
             </View>
             <View style={styles.portalTransition}>
@@ -850,6 +855,19 @@ export default function MoscowSpatialJourney({
         />
       )}
       {surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
+      {evidenceOpen && !isQuest && (
+        <RomanovEvidenceTransferPanel
+          calibration={calibration}
+          onCalibrationChange={(next) => {
+            setCalibration(next);
+            setStage('calibrated');
+            setActivePersistentAnchor(null);
+            AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY).catch(() => undefined);
+            reloadReleaseGate(next).catch(() => undefined);
+          }}
+          onClose={() => { setEvidenceOpen(false); reloadReleaseGate().catch(() => undefined); }}
+        />
+      )}
       {anchorOpen && !isQuest && (
         <RomanovPersistentAnchorPanel
           calibration={calibration}
