@@ -136,3 +136,16 @@ export function isFiniteAnchorFrameTransform(value?: RomanovAnchorFrameModelTran
     && value.scale > 0
   );
 }
+
+
+export function rotationMatrixAngularDistanceDeg(
+  aEuler: [number, number, number],
+  bEuler: [number, number, number]
+) {
+  const a = viroEulerXYZToMatrix(aEuler);
+  const b = viroEulerXYZToMatrix(bEuler);
+  const relative = multiply3(transpose3(a), b);
+  const trace = relative[0] + relative[4] + relative[8];
+  const cosine = Math.max(-1, Math.min(1, (trace - 1) / 2));
+  return rad(Math.acos(cosine));
+}
