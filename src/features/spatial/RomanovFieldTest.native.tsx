@@ -91,7 +91,7 @@ export default function RomanovFieldTest({
     [currentMeasurements]
   );
   const summary = summarizeResiduals(observations);
-  const matrix = useMemo(() => summarizeFieldMatrix(sessions), [sessions]);
+  const matrix = useMemo(() => summarizeFieldMatrix(sessions, calibration.version), [calibration.version, sessions]);
   const surveyIds = [...new Set(observations.map((item) => item.evidence?.surveyPacketId).filter(Boolean))] as string[];
   const surveyPacketId = surveyIds.length === 1 ? surveyIds[0] : undefined;
   const eligibleCount = observations.filter((item) => isReleaseEligibleMeasuredResidual(item, {
@@ -281,6 +281,9 @@ export default function RomanovFieldTest({
           <Text style={styles.matrixText}>Для каждого физического устройства нужны measured PASS на 5 / 10 / 15 м.</Text>
           {matrix.unmeasuredSessions > 0 && (
             <Text style={styles.matrixWarning}>Legacy/ручные сессии: {matrix.unmeasuredSessions}. Они остаются в аудите, но больше не участвуют в release gate.</Text>
+          )}
+          {matrix.staleCalibrationSessions > 0 && (
+            <Text style={styles.matrixWarning}>Сессии другой версии калибровки: {matrix.staleCalibrationSessions}. После сдвига/масштаба измерения нужно повторить.</Text>
           )}
           {matrix.staleMetricSessions > 0 && (
             <Text style={styles.matrixWarning}>Сессии старой модели: {matrix.staleMetricSessions}. Они не участвуют в release gate.</Text>
