@@ -48,7 +48,10 @@ module.exports = () => {
     extra: {
       ...(staticConfig.extra || {}),
       spatialAnchorProvider: provider,
-      spatialAnchorTtlDays: Math.max(1, Math.min(365, Math.round(Number(process.env.EXPO_PUBLIC_SPATIAL_ANCHOR_TTL_DAYS || 1))))
+      spatialAnchorTtlDays: (() => {
+        const requested = Number(process.env.EXPO_PUBLIC_SPATIAL_ANCHOR_TTL_DAYS || 1);
+        return Number.isFinite(requested) ? Math.max(1, Math.min(365, Math.round(requested))) : 1;
+      })()
     }
   };
 };
