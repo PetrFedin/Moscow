@@ -1,3 +1,9 @@
+import {
+  currentRomanovMetricBinding,
+  isCurrentRomanovMetricBinding,
+  type RomanovMetricBinding
+} from './romanovMetricAuthority.ts';
+
 export type CalibrationProfile = {
   latitude: number;
   longitude: number;
@@ -8,6 +14,7 @@ export type CalibrationProfile = {
   rotationEulerDeg: [number, number, number];
   anchorStrategy: 'manual-first' | 'visual' | 'cloud';
   version: number;
+  metricBinding?: RomanovMetricBinding;
   verifiedAt?: string;
 };
 
@@ -20,7 +27,8 @@ export const defaultRomanovCalibration: CalibrationProfile = {
   translation: [0, 0, -4],
   rotationEulerDeg: [0, 0, 0],
   anchorStrategy: 'manual-first',
-  version: 1
+  version: 1,
+  metricBinding: currentRomanovMetricBinding
 };
 
 export function isCalibrationProfile(value: unknown): value is CalibrationProfile {
@@ -36,4 +44,20 @@ export function isCalibrationProfile(value: unknown): value is CalibrationProfil
     Array.isArray(profile.rotationEulerDeg) && profile.rotationEulerDeg.length === 3 &&
     typeof profile.version === 'number'
   );
+}
+
+export function bindCalibrationToCurrentMetricAuthority(profile: CalibrationProfile): CalibrationProfile {
+  return {
+    ...profile,
+    metricBinding: currentRomanovMetricBinding,
+    verifiedAt: undefined
+  };
+}
+
+export function invalidateCalibrationVerification(profile: CalibrationProfile): CalibrationProfile {
+  if (!profile.verifiedAt && isCurrentRomanovMetricBinding(profile.metricBinding)) return profile;
+  return {
+    ...profile,
+    verifiedAt: undefined
+  };
 }

@@ -1,5 +1,10 @@
-import type { CalibrationProfile } from './calibration';
-import type { RomanovEra } from './romanov-hotspots';
+import type { CalibrationProfile } from './calibration.ts';
+import type { RomanovEra } from './romanov-hotspots.ts';
+import {
+  currentRomanovMetricBinding,
+  isCurrentRomanovMetricBinding,
+  type RomanovMetricBinding
+} from './romanovMetricAuthority.ts';
 
 export type FieldDistanceMeters = 5 | 10 | 15;
 export type FieldPlatform = 'ios' | 'android' | string;
@@ -20,6 +25,7 @@ export type RomanovFieldSession = {
   /** Human-readable physical device label, e.g. "iPhone 16 Pro #1" or "Pixel 10 Pro #1". */
   deviceLabel?: string;
   appBuild?: string;
+  metricBinding?: RomanovMetricBinding;
   observations: ControlPointResidual[];
   meanResidualCm: number;
   maxResidualCm: number;
@@ -37,6 +43,8 @@ export type RomanovDeviceVerification = {
 export type RomanovFieldMatrixSummary = {
   sessions: number;
   passedSessions: number;
+  currentMetricSessions: number;
+  staleMetricSessions: number;
   completeDevices: RomanovDeviceVerification[];
   iosCompleteDevices: number;
   androidCompleteDevices: number;
@@ -69,13 +77,14 @@ export function summarizeResiduals(values: ControlPointResidual[]) {
   return { meanResidualCm, maxResidualCm, passed };
 }
 
-export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capturedAt' | 'meanResidualCm' | 'maxResidualCm' | 'passed'>): RomanovFieldSession {
+export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capturedAt' | 'metricBinding' | 'meanResidualCm' | 'maxResidualCm' | 'passed'> & { metricBinding?: RomanovMetricBinding }): RomanovFieldSession {
   const summary = summarizeResiduals(input.observations);
   const capturedAt = new Date().toISOString();
   return {
     ...input,
     id: `romanov-field-${capturedAt}-${input.viewingDistanceMeters}m`,
     capturedAt,
+    metricBinding: input.metricBinding ?? currentRomanovMetricBinding,
     ...summary
   };
 }
@@ -86,7 +95,9 @@ function normalizedDeviceKey(session: RomanovFieldSession) {
 }
 
 export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFieldMatrixSummary {
-  const passedSessions = sessions.filter((session) => session.passed);
+  const currentMetricSessions = sessions.filter((session) => isCurrentRomanovMetricBinding(session.metricBinding));
+  const staleMetricSessions = sessions.length - currentMetricSessions.length;
+  const passedSessions = currentMetricSessions.filter((session) => session.passed);
   const grouped = new Map<string, RomanovFieldSession[]>();
 
   for (const session of passedSessions) {
@@ -124,6 +135,8 @@ export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFi
   return {
     sessions: sessions.length,
     passedSessions: passedSessions.length,
+    currentMetricSessions: currentMetricSessions.length,
+    staleMetricSessions,
     completeDevices,
     iosCompleteDevices,
     androidCompleteDevices,
@@ -136,6 +149,9 @@ export function sessionToTsv(session: RomanovFieldSession) {
   const header = [
     'session_id',
     'captured_at',
+    'metric_authority_id',
+    'metric_authority_version',
+    'model_pack_version',
     'era',
     'distance_m',
     'device_platform',
@@ -151,6 +167,9 @@ export function sessionToTsv(session: RomanovFieldSession) {
   const rows = session.observations.map((item) => [
     session.id,
     session.capturedAt,
+    session.metricBinding?.metricAuthorityId ?? '',
+    session.metricBinding?.metricAuthorityVersion?.toString() ?? '',
+    session.metricBinding?.modelPackVersion ?? '',
     session.era,
     String(session.viewingDistanceMeters),
     session.devicePlatform,

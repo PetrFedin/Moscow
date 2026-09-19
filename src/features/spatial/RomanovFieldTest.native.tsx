@@ -188,7 +188,10 @@ export default function RomanovFieldTest({ calibration, era, onClose }: Props) {
           <Text style={styles.matrixKicker}>CROSS-DEVICE GATE</Text>
           <Text style={styles.matrixTitle}>{matrix.eligibleForPersistentAnchor ? 'ГОТОВО К PERSISTENT ANCHOR' : 'PERSISTENT ANCHOR ЗАБЛОКИРОВАН'}</Text>
           <Text style={styles.matrixText}>iPhone/iOS: {matrix.iosCompleteDevices}/{ROMANOV_REQUIRED_IOS_DEVICES} · Android: {matrix.androidCompleteDevices}/{ROMANOV_REQUIRED_ANDROID_DEVICES}</Text>
-          <Text style={styles.matrixText}>Для каждого устройства нужны PASS на 5 / 10 / 15 м. Всего сохранено сессий: {matrix.sessions}.</Text>
+          <Text style={styles.matrixText}>Для каждого устройства нужны PASS на 5 / 10 / 15 м. Сессий текущей модели: {matrix.currentMetricSessions}/{matrix.sessions}.</Text>
+          {matrix.staleMetricSessions > 0 && (
+            <Text style={styles.matrixWarning}>Устаревшие измерения: {matrix.staleMetricSessions}. Они сохранены для аудита, но не участвуют в release gate.</Text>
+          )}
         </View>
 
         {saveError && <Text style={styles.error}>{saveError}</Text>}
@@ -239,6 +242,7 @@ const styles = StyleSheet.create({
   matrixKicker: { color: '#a7895b', fontSize: 8, letterSpacing: 1.2, fontWeight: '900' },
   matrixTitle: { color: '#e5c98f', fontSize: 11, fontWeight: '900', marginTop: 3 },
   matrixText: { color: '#95999f', fontSize: 9, lineHeight: 13, marginTop: 4 },
+  matrixWarning: { color: '#c58d81', fontSize: 9, lineHeight: 13, marginTop: 4 },
   error: { color: '#e99d95', fontSize: 10, marginTop: 8 },
   primary: { minHeight: 46, borderRadius: 14, backgroundColor: '#d7bb84', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   primaryText: { color: '#17130d', fontSize: 12, fontWeight: '900' },
