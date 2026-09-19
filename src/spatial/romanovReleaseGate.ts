@@ -1,4 +1,5 @@
 import type { CalibrationProfile } from './calibration';
+import { isCurrentRomanovMetricBinding } from './romanovMetricAuthority';
 import {
   summarizeFieldMatrix,
   type RomanovFieldSession
@@ -19,16 +20,19 @@ export type RomanovReleaseGate = {
   surveyComplete: boolean;
   fieldMatrixComplete: boolean;
   calibrationVerified: boolean;
+  metricAuthorityCurrent: boolean;
   persistentAnchorVerified: boolean;
   independentAnchorResolveVerified: boolean;
   blockers: string[];
 };
 
 export function canVerifyCalibration(input: {
+  calibration?: CalibrationProfile;
   survey: RomanovSurveyPacket;
   sessions: RomanovFieldSession[];
 }) {
-  return summarizeRomanovSurvey(input.survey).complete
+  return (!input.calibration || isCurrentRomanovMetricBinding(input.calibration.metricBinding))
+    && summarizeRomanovSurvey(input.survey).complete
     && summarizeFieldMatrix(input.sessions).crossPlatformReady;
 }
 
@@ -41,6 +45,9 @@ export function verifyCalibration(input: {
   survey: RomanovSurveyPacket;
   sessions: RomanovFieldSession[];
 }): CalibrationProfile {
+  if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) {
+    throw new Error('Romanov calibration metric authority is stale');
+  }
   if (!canVerifyCalibration(input)) {
     throw new Error('Romanov calibration cannot be verified before survey and field matrix pass');
   }
@@ -60,10 +67,12 @@ export function summarizeRomanovReleaseGate(input: {
   const surveyComplete = summarizeRomanovSurvey(input.survey).complete;
   const fieldMatrixComplete = summarizeFieldMatrix(input.sessions).crossPlatformReady;
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
+  const metricAuthorityCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
 
   const anchorsForCurrentCalibration = input.anchors.filter((anchor) =>
     anchor.state !== 'retired'
     && anchor.calibrationVersion === input.calibration.version
+    && isCurrentRomanovMetricBinding(anchor.calibration.metricBinding)
   );
   const persistentAnchorVerified = anchorsForCurrentCalibration.some((anchor) => anchor.state === 'verified');
   const independentAnchorResolveVerified = anchorsForCurrentCalibration.some((anchor) =>
@@ -76,6 +85,7 @@ export function summarizeRomanovReleaseGate(input: {
   if (!surveyComplete) blockers.push('survey-packet-incomplete');
   if (!fieldMatrixComplete) blockers.push('cross-device-field-matrix-incomplete');
   if (!calibrationVerified) blockers.push('calibration-not-verified');
+  if (!metricAuthorityCurrent) blockers.push('metric-authority-stale');
   if (!persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
   if (!independentAnchorResolveVerified) blockers.push('independent-anchor-resolve-not-verified');
 
@@ -84,6 +94,7 @@ export function summarizeRomanovReleaseGate(input: {
     surveyComplete,
     fieldMatrixComplete,
     calibrationVerified,
+    metricAuthorityCurrent,
     persistentAnchorVerified,
     independentAnchorResolveVerified,
     blockers
