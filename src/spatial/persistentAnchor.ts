@@ -1,13 +1,13 @@
-import type { CalibrationProfile } from './calibration';
+import type { CalibrationProfile } from './calibration.ts';
 import {
   isCurrentRomanovMetricBinding,
   isRomanovVerifiedScaleAuthoritative
-} from './romanovMetricAuthority';
+} from './romanovMetricAuthority.ts';
 import {
   summarizeFieldMatrix,
   type RomanovFieldMatrixSummary,
   type RomanovFieldSession
-} from './fieldVerification';
+} from './fieldVerification.ts';
 
 export type PersistentAnchorProvider = 'none' | 'reactvision' | 'arcore';
 export type PersistentAnchorState = 'candidate' | 'hosted' | 'resolved' | 'verified' | 'retired';
