@@ -37,6 +37,7 @@ import {
 import type { RomanovFieldSession } from '../../spatial/fieldVerification';
 import {
   isIndependentAnchorResolve,
+  isPersistentAnchorFrameAuthoritative,
   markAnchorHostLocalized,
   markAnchorResolved,
   markAnchorVerified,
@@ -101,6 +102,28 @@ type AlignmentMeasurementSample = {
   observedWorldPointMeters: RomanovWorldPointMeters;
   cameraWorldPointMeters: RomanovWorldPointMeters;
 };
+
+type CloudAnchorNavigatorMethods = {
+  hostCloudAnchor: (anchorId: string, ttlDays?: number) => Promise<ViroHostCloudAnchorResult>;
+  cancelCloudAnchorOperations?: () => void;
+};
+
+type XRNavigatorRuntimeRef = {
+  arSceneNavigator?: CloudAnchorNavigatorMethods;
+  sceneNavigator?: CloudAnchorNavigatorMethods;
+};
+
+type XRNavigatorProviderProps = React.ComponentProps<typeof ViroXRSceneNavigator> & {
+  provider?: PersistentAnchorProvider;
+};
+
+const PersistentViroXRSceneNavigator = ViroXRSceneNavigator as React.ComponentType<XRNavigatorProviderProps>;
+
+function cloudAnchorNavigator(value: unknown): CloudAnchorNavigatorMethods | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as XRNavigatorRuntimeRef;
+  return candidate.arSceneNavigator ?? candidate.sceneNavigator ?? null;
+}
 
 type SceneProps = {
   arSceneNavigator?: unknown;
@@ -420,6 +443,10 @@ export default function MoscowSpatialJourney({
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [fieldOpen, setFieldOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [anchorOpen, setAnchorOpen] = useState(false);
+  const [activePersistentAnchor, setActivePersistentAnchor] = useState<RomanovPersistentAnchor | null>(null);
+  const xrNavigatorRef = useRef<unknown>(null);
+  const anchorRuntime = getPersistentAnchorRuntimeConfig();
   const [measurementRequest, setMeasurementRequest] = useState<AlignmentMeasurementRequest | null>(null);
   const measurementResolver = useRef<{
     requestId: number;
@@ -458,8 +485,10 @@ export default function MoscowSpatialJourney({
     Promise.all([
       AsyncStorage.getItem(CALIBRATION_KEY),
       AsyncStorage.getItem(ERA_KEY),
-      AsyncStorage.getItem(TRUST_KEY)
-    ]).then(([rawCalibration, rawEra, rawTrust]) => {
+      AsyncStorage.getItem(TRUST_KEY),
+      AsyncStorage.getItem(ACTIVE_ANCHOR_KEY),
+      AsyncStorage.getItem(ANCHOR_KEY)
+    ]).then(([rawCalibration, rawEra, rawTrust, rawActiveAnchorId, rawAnchors]) => {
       let loadedCalibration = defaultRomanovCalibration;
       if (rawCalibration) {
         const parsed: unknown = JSON.parse(rawCalibration);
@@ -468,6 +497,14 @@ export default function MoscowSpatialJourney({
       setCalibration(loadedCalibration);
       if (rawEra === '1857' || rawEra === '1859') setEra(rawEra);
       if (rawTrust === 'documented' || rawTrust === 'public') setTrustMode(rawTrust);
+      if (rawActiveAnchorId && rawAnchors) {
+        const storedAnchors = JSON.parse(rawAnchors) as RomanovPersistentAnchor[];
+        const storedActive = storedAnchors.find((item) => item.id === rawActiveAnchorId);
+        if (storedActive && isPersistentAnchorFrameAuthoritative(storedActive)) {
+          setActivePersistentAnchor(storedActive);
+          setStatusMessage('Persistent anchor proof загружен. Локализуем общий location frame…');
+        }
+      }
       if (rawCalibration) {
         setStage('calibrated');
         setStatusMessage('Сохранённый calibration profile загружен. Проверяем release gate…');
@@ -478,6 +515,8 @@ export default function MoscowSpatialJourney({
 
   const requestAnchor = () => {
     setPortalVisible(false);
+    setActivePersistentAnchor(null);
+    AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY).catch(() => undefined);
     setStatusMessage('Ищем устойчивую поверхность в центре экрана…');
     setStage('searching');
     setLocalAnchor(null);
@@ -587,6 +626,78 @@ export default function MoscowSpatialJourney({
     setMeasurementRequest(null);
   };
 
+  const persistActiveAnchor = async (anchor: RomanovPersistentAnchor) => {
+    const raw = await AsyncStorage.getItem(ANCHOR_KEY);
+    const anchors: RomanovPersistentAnchor[] = raw ? JSON.parse(raw) : [];
+    const next = [...anchors.filter((item) => item.id !== anchor.id), anchor];
+    await Promise.all([
+      AsyncStorage.setItem(ANCHOR_KEY, JSON.stringify(next)),
+      AsyncStorage.setItem(ACTIVE_ANCHOR_KEY, anchor.id)
+    ]);
+    setActivePersistentAnchor(anchor);
+  };
+
+  const hostPersistentAnchor = async (anchorId: string, ttlDays: number) => {
+    if (isQuest) throw new Error('Phone cloud anchors are not hosted from the Quest runtime.');
+    const navigator = cloudAnchorNavigator(xrNavigatorRef.current);
+    if (!navigator?.hostCloudAnchor) throw new Error('AR cloud-anchor navigator is not mounted yet.');
+    return navigator.hostCloudAnchor(anchorId, ttlDays);
+  };
+
+  const handlePersistentLocalized = async (event: ViroLocalizedEvent) => {
+    const anchor = activePersistentAnchor;
+    if (!anchor) return;
+
+    try {
+      const deviceLabel = (await AsyncStorage.getItem(DEVICE_LABEL_KEY))?.trim();
+      if (!deviceLabel) {
+        setStatusMessage('Cloud anchor localized, но device label не задан. Откройте Persistent anchor и укажите физическое устройство.');
+        return;
+      }
+
+      let next = anchor;
+      if (deviceLabel.toLowerCase() === anchor.hostedByDeviceLabel.trim().toLowerCase()) {
+        const transform = parseLocationTransform(event.transform);
+        if (!transform) throw new Error('Cloud anchor localized, но provider не вернул корректный location transform.');
+        const worldModelOrigin = locationToWorld(transform, anchor.anchorFrameModelTransform.position);
+        const continuityResidualCm = Math.hypot(
+          worldModelOrigin[0] - anchor.calibration.translation[0],
+          worldModelOrigin[1] - anchor.calibration.translation[1],
+          worldModelOrigin[2] - anchor.calibration.translation[2]
+        ) * 100;
+        next = markAnchorHostLocalized(anchor, { continuityResidualCm });
+        setStatusMessage(
+          next.hostContinuityPassed
+            ? `Host anchor-frame continuity PASS · ${continuityResidualCm.toFixed(1)} см. Экспортируйте proof на другое устройство.`
+            : `Host anchor-frame continuity FAIL · ${continuityResidualCm.toFixed(1)} см. Persistent placement требует исправления.`
+        );
+      } else {
+        next = markAnchorResolved(anchor, {
+          resolvedByDeviceLabel: deviceLabel,
+          resolveSessionId: `resolve-${new Date().toISOString()}`
+        });
+        if (next.hostContinuityPassed && isIndependentAnchorResolve(next)) {
+          next = markAnchorVerified(next, { verifiedByDeviceLabel: deviceLabel });
+          setStatusMessage(`Independent persistent-anchor resolve VERIFIED · ${deviceLabel}. Экспортируйте proof обратно на field-authority устройство.`);
+          void haptic('anchor-verified');
+        } else {
+          setStatusMessage(`Persistent anchor resolved on ${deviceLabel}, но verification prerequisites ещё не выполнены.`);
+        }
+      }
+
+      await persistActiveAnchor(next);
+      await reloadReleaseGate().catch(() => undefined);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Persistent anchor localization evidence failed.');
+      void haptic('field-warning');
+    }
+  };
+
+  const handlePersistentLocalizeError = (message: string) => {
+    setStatusMessage(`Persistent anchor resolve failed: ${message}`);
+    void haptic('field-warning');
+  };
+
   const openPortal = async () => {
     const gate = await reloadReleaseGate().catch(() => null);
     const verified = gate?.state === 'field-verified-spatial-scene';
@@ -615,7 +726,9 @@ export default function MoscowSpatialJourney({
 
   return (
     <View style={styles.root}>
-      <ViroXRSceneNavigator
+      <PersistentViroXRSceneNavigator
+        ref={xrNavigatorRef}
+        provider={anchorRuntime.provider}
         initialScene={{ scene: SpatialSceneFactory }}
         viroAppProps={{
           calibration,
@@ -623,7 +736,10 @@ export default function MoscowSpatialJourney({
           trustMode,
           requestId,
           portalVisible,
+          activePersistentAnchor,
           measurementRequest,
+          onPersistentLocalized: handlePersistentLocalized,
+          onPersistentLocalizeError: handlePersistentLocalizeError,
           onMeasurementSample: handleMeasurementSample,
           onMeasurementError: handleMeasurementError,
           onCandidate: handleCandidate,
@@ -676,9 +792,9 @@ export default function MoscowSpatialJourney({
                 <Text style={styles.secondaryText}>{stage === 'searching' ? 'Найти фасад' : 'Перепривязать'}</Text>
               </PhysicalPressable>
               <PhysicalPressable
-                style={[styles.primary, !localAnchor && styles.disabled]}
+                style={[styles.primary, (!localAnchor || Boolean(activePersistentAnchor)) && styles.disabled]}
                 contentStyle={styles.center}
-                disabled={!localAnchor}
+                disabled={!localAnchor || Boolean(activePersistentAnchor)}
                 onPress={() => setCalibrationOpen((current) => !current)}
               >
                 <Text style={styles.primaryText}>Калибровка</Text>
@@ -687,6 +803,7 @@ export default function MoscowSpatialJourney({
             <View style={styles.actionRow}>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setFieldOpen(true)}><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
+              <PhysicalPressable style={[styles.toolButton, activePersistentAnchor && styles.toolButtonActive]} contentStyle={styles.center} onPress={() => setAnchorOpen(true)}><Text style={styles.toolText}>Anchor</Text></PhysicalPressable>
             </View>
             <View style={styles.portalTransition}>
               <PortalTransitionControl
@@ -733,6 +850,21 @@ export default function MoscowSpatialJourney({
         />
       )}
       {surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
+      {anchorOpen && !isQuest && (
+        <RomanovPersistentAnchorPanel
+          calibration={calibration}
+          localAnchor={localAnchor}
+          activeAnchor={activePersistentAnchor}
+          onCalibrationChange={(next) => {
+            setCalibration(next);
+            setStage('calibrated');
+            reloadReleaseGate(next).catch(() => undefined);
+          }}
+          onActiveAnchorChange={persistActiveAnchor}
+          onHostCloudAnchor={hostPersistentAnchor}
+          onClose={() => { setAnchorOpen(false); reloadReleaseGate().catch(() => undefined); }}
+        />
+      )}
     </View>
   );
 }
@@ -764,6 +896,7 @@ const styles = StyleSheet.create({
   secondaryText: { color: '#d9c59e', fontSize: 10, fontWeight: '900', textAlign: 'center' },
   disabled: { opacity: 0.35 },
   toolButton: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#45505a' },
+  toolButtonActive: { borderColor: '#9f855a', backgroundColor: '#211b13' },
   toolText: { color: '#9ea6ae', fontSize: 8.5, fontWeight: '900' },
   portalTransition: { marginTop: 9 },
   backButton: { minHeight: 40, borderRadius: 12, marginTop: 7 },
