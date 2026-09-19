@@ -43,6 +43,7 @@ export type RomanovDeviceVerification = {
 };
 
 export type RomanovFieldMatrixSummary = {
+  surveyPacketId?: string;
   sessions: number;
   passedSessions: number;
   currentMetricSessions: number;
@@ -139,47 +140,92 @@ function normalizedDeviceKey(session: RomanovFieldSession) {
   return `${session.devicePlatform}:${label || session.deviceVersion}`.toLowerCase();
 }
 
-export function summarizeFieldMatrix(
-  sessions: RomanovFieldSession[],
-  expectedCalibrationVersion?: number
-): RomanovFieldMatrixSummary {
-  const currentMetricSessions = sessions.filter((session) => isCurrentRomanovMetricBinding(session.metricBinding));
-  const staleMetricSessions = sessions.length - currentMetricSessions.length;
-  const calibrationSessions = expectedCalibrationVersion === undefined
-    ? currentMetricSessions
-    : currentMetricSessions.filter((session) => session.calibration.version === expectedCalibrationVersion);
-  const staleCalibrationSessions = currentMetricSessions.length - calibrationSessions.length;
-  const evidenceSessions = calibrationSessions.filter(isFieldSessionEvidenceAuthoritative);
-  const unmeasuredSessions = calibrationSessions.length - evidenceSessions.length;
-  const passedSessions = evidenceSessions.filter((session) => session.passed);
-  const grouped = new Map<string, RomanovFieldSession[]>();
+export type RomanovFieldMatrixOptions = {
+  surveyPacketId?: string;
+  localCalibrationVersion?: number;
+};
 
-  for (const session of passedSessions) {
+function completeDevicesForSurvey(
+  sessions: RomanovFieldSession[],
+  surveyPacketId: string
+): RomanovDeviceVerification[] {
+  const surveySessions = sessions.filter((session) => session.surveyPacketId === surveyPacketId);
+  const byDevice = new Map<string, RomanovFieldSession[]>();
+
+  for (const session of surveySessions) {
     const key = normalizedDeviceKey(session);
-    const current = grouped.get(key) ?? [];
+    const current = byDevice.get(key) ?? [];
     current.push(session);
-    grouped.set(key, current);
+    byDevice.set(key, current);
   }
 
-  const completeDevices: RomanovDeviceVerification[] = [];
-  for (const [deviceKey, deviceSessions] of grouped) {
+  const complete: RomanovDeviceVerification[] = [];
+  for (const [deviceKey, deviceSessions] of byDevice) {
     const first = deviceSessions[0];
     if (!first) continue;
-    const surveyIds = new Set(deviceSessions.map((session) => session.surveyPacketId));
-    if (surveyIds.size !== 1) continue;
 
-    const distancesPassed = ROMANOV_FIELD_DISTANCES.filter((distance) =>
-      deviceSessions.some((session) => session.viewingDistanceMeters === distance && session.passed)
+    const byCalibration = new Map<number, RomanovFieldSession[]>();
+    for (const session of deviceSessions) {
+      const current = byCalibration.get(session.calibration.version) ?? [];
+      current.push(session);
+      byCalibration.set(session.calibration.version, current);
+    }
+
+    const completeCalibration = [...byCalibration.values()].find((calibrationSessions) =>
+      ROMANOV_FIELD_DISTANCES.every((distance) =>
+        calibrationSessions.some((session) => session.viewingDistanceMeters === distance && session.passed)
+      )
     );
-    if (distancesPassed.length !== ROMANOV_FIELD_DISTANCES.length) continue;
+    if (!completeCalibration) continue;
 
-    completeDevices.push({
+    complete.push({
       deviceKey,
       deviceLabel: first.deviceLabel?.trim() || `${first.devicePlatform} ${first.deviceVersion}`,
       platform: first.devicePlatform,
-      distancesPassed,
+      distancesPassed: [...ROMANOV_FIELD_DISTANCES],
       completeDistanceMatrix: true
     });
+  }
+  return complete;
+}
+
+export function summarizeFieldMatrix(
+  sessions: RomanovFieldSession[],
+  options: RomanovFieldMatrixOptions | number = {}
+): RomanovFieldMatrixSummary {
+  const normalized: RomanovFieldMatrixOptions = typeof options === 'number'
+    ? { localCalibrationVersion: options }
+    : options;
+
+  const currentMetricSessions = sessions.filter((session) => isCurrentRomanovMetricBinding(session.metricBinding));
+  const staleMetricSessions = sessions.length - currentMetricSessions.length;
+  const surveySessions = normalized.surveyPacketId
+    ? currentMetricSessions.filter((session) => session.surveyPacketId === normalized.surveyPacketId)
+    : currentMetricSessions;
+  const calibrationSessions = normalized.localCalibrationVersion === undefined
+    ? surveySessions
+    : surveySessions.filter((session) => session.calibration.version === normalized.localCalibrationVersion);
+  const staleCalibrationSessions = normalized.localCalibrationVersion === undefined
+    ? 0
+    : surveySessions.length - calibrationSessions.length;
+  const evidenceSessions = calibrationSessions.filter(isFieldSessionEvidenceAuthoritative);
+  const unmeasuredSessions = calibrationSessions.length - evidenceSessions.length;
+  const passedSessions = evidenceSessions.filter((session) => session.passed);
+
+  const surveyIds = normalized.surveyPacketId
+    ? [normalized.surveyPacketId]
+    : [...new Set(passedSessions.map((session) => session.surveyPacketId).filter(Boolean))] as string[];
+
+  let selectedSurveyPacketId = normalized.surveyPacketId;
+  let completeDevices: RomanovDeviceVerification[] = [];
+  for (const surveyPacketId of surveyIds) {
+    const candidate = completeDevicesForSurvey(passedSessions, surveyPacketId);
+    if (!selectedSurveyPacketId || candidate.length > completeDevices.length) {
+      selectedSurveyPacketId = surveyPacketId;
+      completeDevices = candidate;
+    } else if (surveyPacketId === selectedSurveyPacketId) {
+      completeDevices = candidate;
+    }
   }
 
   const iosCompleteDevices = completeDevices.filter((device) => device.platform === 'ios').length;
@@ -188,6 +234,7 @@ export function summarizeFieldMatrix(
     && androidCompleteDevices >= ROMANOV_REQUIRED_ANDROID_DEVICES;
 
   return {
+    surveyPacketId: selectedSurveyPacketId,
     sessions: sessions.length,
     passedSessions: passedSessions.length,
     currentMetricSessions: currentMetricSessions.length,
