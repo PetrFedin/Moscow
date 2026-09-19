@@ -90,12 +90,19 @@ export default function RomanovPersistentAnchorPanel({
     load().catch((error) => setStatus(error instanceof Error ? error.message : 'Не удалось загрузить evidence.'));
   }, []);
 
-  const canPromoteCalibration = canVerifyCalibration({ calibration, survey, sessions });
+  const canPromoteCalibration = Boolean(localAnchor) && canVerifyCalibration({
+    calibration,
+    survey,
+    sessions,
+    localAnchorId: localAnchor?.anchorId
+  });
   const readiness = getPersistentAnchorReadiness({
     sessions,
     calibration,
     provider: runtime.provider,
-    providerConfigured: runtime.configured
+    providerConfigured: runtime.configured,
+    surveyPacketId: survey.id,
+    currentLocalAnchorId: localAnchor?.anchorId
   });
 
   const saveAnchors = async (next: RomanovPersistentAnchor[]) => {
@@ -111,7 +118,13 @@ export default function RomanovPersistentAnchorPanel({
   const promoteCalibration = async () => {
     setBusy(true);
     try {
-      const verified = verifyCalibration({ calibration, survey, sessions });
+      if (!localAnchor) throw new Error('Calibration verification requires a local anchor in the current AR session.');
+      const verified = verifyCalibration({
+        calibration,
+        survey,
+        sessions,
+        localAnchorId: localAnchor.anchorId
+      });
       await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(verified));
       onCalibrationChange(verified);
       setStatus('Calibration verification зафиксирована measured survey + cross-device field matrix.');
@@ -139,7 +152,9 @@ export default function RomanovPersistentAnchorPanel({
       sessions,
       calibration,
       provider: runtime.provider,
-      providerConfigured: runtime.configured
+      providerConfigured: runtime.configured,
+      surveyPacketId: survey.id,
+      currentLocalAnchorId: localAnchor.anchorId
     });
     if (!refreshedReadiness.readyToHost) {
       setStatus(`Host blocked: ${refreshedReadiness.blockers.join(', ')}`);
@@ -158,6 +173,7 @@ export default function RomanovPersistentAnchorPanel({
         provider: runtime.provider,
         providerAnchorId: result.cloudAnchorId,
         calibration,
+        hostSessionAnchorId: localAnchor.anchorId,
         hostAnchorPose: {
           position: localAnchor.position,
           rotationEulerDeg: localAnchor.rotationEulerDeg
@@ -252,7 +268,7 @@ export default function RomanovPersistentAnchorPanel({
             <View style={styles.stepCopy}>
               <Text style={styles.stepTitle}>Measured calibration authority</Text>
               <Text style={styles.stepMeta}>
-                survey: {canPromoteCalibration ? 'PASS' : 'BLOCKED'} · calibration: {calibration.verifiedAt ? 'VERIFIED' : 'not verified'}
+                survey+matrix: {canPromoteCalibration ? 'PASS' : 'BLOCKED'} · current-session calibration: {calibration.verifiedAt ? 'VERIFIED' : 'not verified'}
               </Text>
             </View>
           </View>
