@@ -45,6 +45,10 @@ import {
   type PersistentAnchorProvider,
   type RomanovPersistentAnchor
 } from '../../spatial/persistentAnchor';
+import {
+  anchorFrameModelToWorld,
+  rotationMatrixAngularDistanceDeg
+} from '../../spatial/persistentAnchorFrame';
 import { getPersistentAnchorRuntimeConfig } from '../../spatial/persistentAnchorRuntime';
 import type { RomanovEra } from '../../spatial/romanov-hotspots';
 import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack.native';
@@ -694,11 +698,27 @@ export default function MoscowSpatialJourney({
           worldModelOrigin[1] - anchor.calibration.translation[1],
           worldModelOrigin[2] - anchor.calibration.translation[2]
         ) * 100;
-        next = markAnchorHostLocalized(anchor, { continuityResidualCm });
+        const localizedRotation: [number, number, number] = [
+          event.rotation?.[0] ?? 0,
+          event.rotation?.[1] ?? 0,
+          event.rotation?.[2] ?? 0
+        ];
+        const reconstructed = anchorFrameModelToWorld(
+          {
+            position: [event.position?.[0] ?? 0, event.position?.[1] ?? 0, event.position?.[2] ?? 0],
+            rotationEulerDeg: localizedRotation
+          },
+          anchor.anchorFrameModelTransform
+        );
+        const continuityRotationDeg = rotationMatrixAngularDistanceDeg(
+          reconstructed.rotationEulerDeg,
+          anchor.calibration.rotationEulerDeg
+        );
+        next = markAnchorHostLocalized(anchor, { continuityResidualCm, continuityRotationDeg });
         setStatusMessage(
           next.hostContinuityPassed
-            ? `Host anchor-frame continuity PASS · ${continuityResidualCm.toFixed(1)} см. Экспортируйте proof на другое устройство.`
-            : `Host anchor-frame continuity FAIL · ${continuityResidualCm.toFixed(1)} см. Persistent placement требует исправления.`
+            ? `Host anchor-frame continuity PASS · ${continuityResidualCm.toFixed(1)} см · ${continuityRotationDeg.toFixed(2)}°. Экспортируйте proof на другое устройство.`
+            : `Host anchor-frame continuity FAIL · ${continuityResidualCm.toFixed(1)} см · ${continuityRotationDeg.toFixed(2)}°. Persistent placement требует исправления.`
         );
       } else {
         next = markAnchorResolved(anchor, {
