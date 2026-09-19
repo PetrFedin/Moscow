@@ -1,20 +1,20 @@
-import type { CalibrationProfile } from './calibration';
+import type { CalibrationProfile } from './calibration.ts';
 import {
   isCurrentRomanovMetricBinding,
   isRomanovVerifiedScaleAuthoritative
-} from './romanovMetricAuthority';
+} from './romanovMetricAuthority.ts';
 import {
   summarizeFieldMatrix,
   type RomanovFieldSession
-} from './fieldVerification';
+} from './fieldVerification.ts';
 import {
   isIndependentAnchorResolve,
   type RomanovPersistentAnchor
-} from './persistentAnchor';
+} from './persistentAnchor.ts';
 import {
   summarizeRomanovSurvey,
   type RomanovSurveyPacket
-} from './romanovSurvey';
+} from './romanovSurvey.ts';
 
 export type RomanovSpatialReleaseState = 'production-candidate' | 'field-verified-spatial-scene';
 
