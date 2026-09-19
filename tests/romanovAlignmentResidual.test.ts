@@ -6,7 +6,10 @@ import {
   isReleaseEligibleMeasuredResidual,
   transformRomanovModelPointToWorld
 } from '../src/spatial/alignmentResidual.ts';
-import { defaultRomanovCalibration } from '../src/spatial/calibration.ts';
+import {
+  advanceCalibrationVersionForSave,
+  defaultRomanovCalibration
+} from '../src/spatial/calibration.ts';
 import {
   createFieldSession,
   summarizeFieldMatrix
@@ -131,4 +134,40 @@ test('survey packet is bound to the current control-point authority', () => {
   assert.equal(survey.controlPointBinding?.controlPointSetId, currentRomanovControlPointBinding.controlPointSetId);
   survey.controlPointBinding = undefined;
   assert.ok(summarizeRomanovSurvey(survey).blockers.includes('control-point-authority-stale'));
+});
+
+
+test('saving a new calibration version invalidates field evidence from the previous transform', () => {
+  const ids = [
+    'main-volume-left-corner',
+    'main-volume-right-corner',
+    'stable-window-opening',
+    'plinth-reference-line',
+    'roof-reference-edge'
+  ];
+  const observations = ids.map((controlPointId, index) => buildRomanovMeasuredResidual({
+    controlPointId,
+    surveyPacketId: 'survey-calibration-version',
+    calibration: defaultRomanovCalibration,
+    modelPointMeters: [index * 0.1, 0, 0],
+    observedWorldPointMeters: [index * 0.1 + 0.1, 0, -4],
+    cameraWorldPointMeters: [0, 0, 1],
+    distanceBucketMeters: 5,
+    hitType: 'DepthPoint'
+  }));
+  const session = createFieldSession({
+    era: '1857',
+    viewingDistanceMeters: 5,
+    calibration: defaultRomanovCalibration,
+    devicePlatform: 'ios',
+    deviceVersion: 'test',
+    deviceLabel: 'iPhone test #1',
+    observations
+  });
+  const nextCalibration = advanceCalibrationVersionForSave(defaultRomanovCalibration);
+  const matrix = summarizeFieldMatrix([session], nextCalibration.version);
+
+  assert.equal(nextCalibration.version, defaultRomanovCalibration.version + 1);
+  assert.equal(matrix.staleCalibrationSessions, 1);
+  assert.equal(matrix.passedSessions, 0);
 });
