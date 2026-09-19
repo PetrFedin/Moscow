@@ -32,8 +32,9 @@ const labels = {
     interestLabels: {
       highlights: 'Главное',
       architecture: 'Архитектура',
-      trade: 'Торговая Москва',
-      'lost-city': 'Исчезнувший город'
+      trade: 'Купеческая и торговая Москва',
+      'lost-city': 'Утраченная Москва',
+      nearby: 'Рядом сейчас'
     }
   },
   en: {
@@ -49,8 +50,9 @@ const labels = {
     interestLabels: {
       highlights: 'Highlights',
       architecture: 'Architecture',
-      trade: 'Trading Moscow',
-      'lost-city': 'Lost city'
+      trade: 'Merchants & trade',
+      'lost-city': 'Lost Moscow',
+      nearby: 'Nearby now'
     }
   }
 } as const;
