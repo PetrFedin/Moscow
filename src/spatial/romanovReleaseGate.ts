@@ -1,5 +1,8 @@
 import type { CalibrationProfile } from './calibration';
-import { isCurrentRomanovMetricBinding } from './romanovMetricAuthority';
+import {
+  isCurrentRomanovMetricBinding,
+  isRomanovVerifiedScaleAuthoritative
+} from './romanovMetricAuthority';
 import {
   summarizeFieldMatrix,
   type RomanovFieldSession
@@ -21,6 +24,7 @@ export type RomanovReleaseGate = {
   fieldMatrixComplete: boolean;
   calibrationVerified: boolean;
   metricAuthorityCurrent: boolean;
+  metricScaleAuthoritative: boolean;
   persistentAnchorVerified: boolean;
   independentAnchorResolveVerified: boolean;
   blockers: string[];
@@ -48,6 +52,9 @@ export function verifyCalibration(input: {
   if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) {
     throw new Error('Romanov calibration metric authority is stale');
   }
+  if (!isRomanovVerifiedScaleAuthoritative(input.calibration.scale)) {
+    throw new Error('Romanov calibration scale must remain metric-authoritative before verification');
+  }
   if (!canVerifyCalibration(input)) {
     throw new Error('Romanov calibration cannot be verified before survey and field matrix pass');
   }
@@ -68,6 +75,7 @@ export function summarizeRomanovReleaseGate(input: {
   const fieldMatrixComplete = summarizeFieldMatrix(input.sessions).crossPlatformReady;
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
   const metricAuthorityCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
+  const metricScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);
 
   const anchorsForCurrentCalibration = input.anchors.filter((anchor) =>
     anchor.state !== 'retired'
@@ -86,6 +94,7 @@ export function summarizeRomanovReleaseGate(input: {
   if (!fieldMatrixComplete) blockers.push('cross-device-field-matrix-incomplete');
   if (!calibrationVerified) blockers.push('calibration-not-verified');
   if (!metricAuthorityCurrent) blockers.push('metric-authority-stale');
+  if (!metricScaleAuthoritative) blockers.push('metric-scale-not-authoritative');
   if (!persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
   if (!independentAnchorResolveVerified) blockers.push('independent-anchor-resolve-not-verified');
 
@@ -95,6 +104,7 @@ export function summarizeRomanovReleaseGate(input: {
     fieldMatrixComplete,
     calibrationVerified,
     metricAuthorityCurrent,
+    metricScaleAuthoritative,
     persistentAnchorVerified,
     independentAnchorResolveVerified,
     blockers
