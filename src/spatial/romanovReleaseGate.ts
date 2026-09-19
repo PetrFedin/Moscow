@@ -1,4 +1,7 @@
-import type { CalibrationProfile } from './calibration.ts';
+import {
+  isCalibrationBoundToSession,
+  type CalibrationProfile
+} from './calibration.ts';
 import {
   isCurrentRomanovMetricBinding,
   isRomanovVerifiedScaleAuthoritative
@@ -36,10 +39,12 @@ export function canVerifyCalibration(input: {
   calibration?: CalibrationProfile;
   survey: RomanovSurveyPacket;
   sessions: RomanovFieldSession[];
+  localAnchorId?: string;
 }) {
   return (!input.calibration || isCurrentRomanovMetricBinding(input.calibration.metricBinding))
+    && (!input.localAnchorId || !input.calibration || isCalibrationBoundToSession(input.calibration, input.localAnchorId))
     && summarizeRomanovSurvey(input.survey).complete
-    && summarizeFieldMatrix(input.sessions, input.calibration?.version).crossPlatformReady;
+    && summarizeFieldMatrix(input.sessions, { surveyPacketId: input.survey.id }).crossPlatformReady;
 }
 
 /**
@@ -50,12 +55,16 @@ export function verifyCalibration(input: {
   calibration: CalibrationProfile;
   survey: RomanovSurveyPacket;
   sessions: RomanovFieldSession[];
+  localAnchorId?: string;
 }): CalibrationProfile {
   if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) {
     throw new Error('Romanov calibration metric authority is stale');
   }
   if (!isRomanovVerifiedScaleAuthoritative(input.calibration.scale)) {
     throw new Error('Romanov calibration scale must remain metric-authoritative before verification');
+  }
+  if (input.localAnchorId && !isCalibrationBoundToSession(input.calibration, input.localAnchorId)) {
+    throw new Error('Romanov calibration is not bound to the current AR session anchor');
   }
   if (!canVerifyCalibration(input)) {
     throw new Error('Romanov calibration cannot be verified before survey and field matrix pass');
@@ -74,7 +83,7 @@ export function summarizeRomanovReleaseGate(input: {
   anchors: RomanovPersistentAnchor[];
 }): RomanovReleaseGate {
   const surveyComplete = summarizeRomanovSurvey(input.survey).complete;
-  const fieldMatrixComplete = summarizeFieldMatrix(input.sessions, input.calibration.version).crossPlatformReady;
+  const fieldMatrixComplete = summarizeFieldMatrix(input.sessions, { surveyPacketId: input.survey.id }).crossPlatformReady;
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
   const metricAuthorityCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
   const metricScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);
