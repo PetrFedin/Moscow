@@ -9,6 +9,7 @@ import {
 } from './fieldVerification.ts';
 import {
   isIndependentAnchorResolve,
+  isPersistentAnchorFrameAuthoritative,
   type RomanovPersistentAnchor
 } from './persistentAnchor.ts';
 import {
@@ -25,6 +26,7 @@ export type RomanovReleaseGate = {
   calibrationVerified: boolean;
   metricAuthorityCurrent: boolean;
   metricScaleAuthoritative: boolean;
+  persistentAnchorFrameVerified: boolean;
   persistentAnchorVerified: boolean;
   independentAnchorResolveVerified: boolean;
   blockers: string[];
@@ -81,8 +83,14 @@ export function summarizeRomanovReleaseGate(input: {
     anchor.state !== 'retired'
     && anchor.calibrationVersion === input.calibration.version
     && isCurrentRomanovMetricBinding(anchor.calibration.metricBinding)
+    && isPersistentAnchorFrameAuthoritative(anchor)
   );
-  const persistentAnchorVerified = anchorsForCurrentCalibration.some((anchor) => anchor.state === 'verified');
+  const persistentAnchorFrameVerified = anchorsForCurrentCalibration.some((anchor) =>
+    Boolean(anchor.hostContinuityPassed && anchor.hostLocalizedAt)
+  );
+  const persistentAnchorVerified = anchorsForCurrentCalibration.some((anchor) =>
+    anchor.state === 'verified' && Boolean(anchor.hostContinuityPassed)
+  );
   const independentAnchorResolveVerified = anchorsForCurrentCalibration.some((anchor) =>
     anchor.state === 'verified'
     && Boolean(anchor.verifiedAt)
@@ -95,6 +103,7 @@ export function summarizeRomanovReleaseGate(input: {
   if (!calibrationVerified) blockers.push('calibration-not-verified');
   if (!metricAuthorityCurrent) blockers.push('metric-authority-stale');
   if (!metricScaleAuthoritative) blockers.push('metric-scale-not-authoritative');
+  if (!persistentAnchorFrameVerified) blockers.push('persistent-anchor-frame-not-verified');
   if (!persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
   if (!independentAnchorResolveVerified) blockers.push('independent-anchor-resolve-not-verified');
 
@@ -105,6 +114,7 @@ export function summarizeRomanovReleaseGate(input: {
     calibrationVerified,
     metricAuthorityCurrent,
     metricScaleAuthoritative,
+    persistentAnchorFrameVerified,
     persistentAnchorVerified,
     independentAnchorResolveVerified,
     blockers
