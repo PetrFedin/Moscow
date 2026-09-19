@@ -1,6 +1,6 @@
 import { pilotRoute, places, type Place } from '../../data/places.ts';
 
-export type TouristInterest = 'highlights' | 'architecture' | 'trade' | 'lost-city';
+export type TouristInterest = 'highlights' | 'architecture' | 'trade' | 'lost-city' | 'nearby';
 export type TouristTimeBudget = 15 | 30 | 45;
 
 export type TouristRoutePlan = {
@@ -16,7 +16,8 @@ const interestPriority: Record<TouristInterest, string[]> = {
   highlights: ['romanov-chambers', 'old-english-court', 'varvarka-gates'],
   architecture: ['romanov-chambers', 'varvarka-gates', 'old-english-court'],
   trade: ['old-english-court', 'romanov-chambers', 'varvarka-gates'],
-  'lost-city': ['varvarka-gates', 'romanov-chambers', 'old-english-court']
+  'lost-city': ['varvarka-gates', 'romanov-chambers', 'old-english-court'],
+  nearby: [...pilotRoute.stopIds]
 };
 
 function estimateMinutes(stopIds: string[], source: Place[] = places) {

@@ -13,6 +13,7 @@ import {
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import MoscowMap from './features/map/MoscowMap';
+import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
 import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
@@ -52,8 +53,8 @@ const copy = {
     start: 'Начать Варварку · 45 мин',
     places: 'Места пилота', story: 'ИСТОРИЯ МЕСТА', time: 'МАШИНА ВРЕМЕНИ',
     today: 'Сегодня', facts: 'ЧТО ИСКАТЬ ГЛАЗАМИ', sources: 'ИСТОЧНИКИ',
-    open3d: 'Открыть 3D', lens: 'Линза времени', save: 'Сохранить', savedAction: 'Сохранено',
-    onlyFacts: 'Только факты', research: '+ реконструкция',
+    open3d: 'Открыть 3D', lens: 'Архив поверх камеры', save: 'Сохранить', savedAction: 'Сохранено',
+    onlyFacts: 'Только факты', research: 'Факты + реконструкция',
     lensPreparing: 'Линза · готовится', modelPreparing: '3D · готовится',
     mapHint: 'Тяните карточку пальцем: свернуть · preview · раскрыть',
     openStory: 'Открыть историю', next: 'Открыто · дальше', finish: 'Завершить прогулку',
@@ -67,8 +68,8 @@ const copy = {
     start: 'Start Varvarka · 45 min',
     places: 'Pilot places', story: 'PLACE STORY', time: 'TIME MACHINE',
     today: 'Today', facts: 'WHAT TO LOOK FOR', sources: 'SOURCES',
-    open3d: 'Open 3D', lens: 'Time Lens', save: 'Save', savedAction: 'Saved',
-    onlyFacts: 'Facts only', research: '+ reconstruction',
+    open3d: 'Open 3D', lens: 'Archive over camera', save: 'Save', savedAction: 'Saved',
+    onlyFacts: 'Facts only', research: 'Facts + reconstruction',
     lensPreparing: 'Lens · preparing', modelPreparing: '3D · preparing',
     mapHint: 'Drag the card: collapsed · preview · expanded',
     openStory: 'Open story', next: 'Discovered · next', finish: 'Finish walk',
@@ -313,9 +314,22 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.heroTitle}>{ui.hero}</Text>
                 <Text style={styles.heroBody}>{ui.heroBody}</Text>
                 <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => setTab('walk')}>
-                  <Text style={styles.primaryText}>{ui.start}</Text>
+                  <Text style={styles.primaryText}>
+                    {completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
+                      ? (language === 'ru'
+                        ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
+                        : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
+                      : ui.start}
+                  </Text>
                 </PhysicalPressable>
               </View>
+
+              <NearbyNow
+                language={language}
+                visitedIds={visitedIds}
+                onOpenPlace={(id) => { selectPlace(id); setTab('discover'); }}
+                onStartFreeWalk={startTouristPlan}
+              />
 
               <TouristRoutePlanner language={language} mustSeeIds={savedIds} onStart={startTouristPlan} />
 
@@ -439,9 +453,16 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.kicker}>WALK · 01</Text>
                 <Text style={styles.heroTitle}>{language === 'ru' ? pilotRoute.title : 'Varvarka: a street that remembers several Moscows'}</Text>
                 <Text style={styles.heroBody}>
-                  {activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {language === 'ru' ? 'ост.' : 'stops'} · {routeInterest === 'highlights' ? (language === 'ru' ? 'главное' : 'highlights') : routeInterest}
+                  {activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {language === 'ru' ? 'ост.' : 'stops'} · {routeInterest === 'highlights'
+                    ? (language === 'ru' ? 'главное' : 'highlights')
+                    : routeInterest === 'nearby'
+                      ? (language === 'ru' ? 'свободная прогулка' : 'free walk')
+                      : routeInterest}
                 </Text>
                 <View style={styles.progress}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
+                <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={language === 'ru' ? 'Поставить прогулку на паузу' : 'Pause walk'}>
+                  <Text style={styles.pauseWalkText}>{language === 'ru' ? 'Пауза · вернуться к обзору' : 'Pause · back to Discover'}</Text>
+                </PhysicalPressable>
               </View>
               <OfflineRoutePackControl language={language} />
               {routePlace && (
@@ -482,7 +503,7 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.kicker}>{language === 'ru' ? 'МОЯ ИСТОРИЯ МОСКВЫ' : 'MY MOSCOW HISTORY'}</Text>
                 <View style={styles.statsRow}>
                   <View style={styles.stat}><Text style={styles.statValue}>{visitedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'мест открыто' : 'places seen'}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'missions'}</Text></View>
+                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'observations'}</Text></View>
                   <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text></View>
                 </View>
               </View>
@@ -620,6 +641,8 @@ const styles = StyleSheet.create({
   smallPrimaryText: { color: '#17130d', fontSize: 10, fontWeight: '900' },
   progress: { height: 6, borderRadius: 3, backgroundColor: '#2f3339', overflow: 'hidden', marginTop: 16 },
   progressFill: { height: '100%', backgroundColor: '#d7bb84' },
+  pauseWalk: { minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#444a51', marginTop: 12 },
+  pauseWalkText: { color: '#a7abb1', fontSize: 9, fontWeight: '900' },
   myMoscowStats: { borderRadius: 20, borderWidth: 1, borderColor: '#343941', backgroundColor: '#111418', padding: 15, marginBottom: 14 },
   statsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   stat: { flex: 1, borderRadius: 14, backgroundColor: '#181b20', paddingVertical: 10, paddingHorizontal: 8 },

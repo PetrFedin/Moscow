@@ -78,7 +78,7 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await timeSlider.press('ArrowRight');
   await expect(timeSlider).toHaveAttribute('aria-valuenow', '1');
 
-  await page.getByText('Линза времени', { exact: true }).click();
+  await page.getByLabel('Архив поверх камеры').click();
   await expect(page.getByText('ЛИНЗА ВРЕМЕНИ · PREVIEW', { exact: true })).toBeVisible();
   const opacitySlider = page.getByTestId('archive-opacity');
   await expect(opacitySlider).toBeVisible();
