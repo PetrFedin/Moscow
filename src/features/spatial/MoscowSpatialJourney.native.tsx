@@ -31,6 +31,7 @@ import {
   bindCalibrationToCurrentMetricAuthority,
   defaultRomanovCalibration,
   invalidateCalibrationVerification,
+  isCalibrationBoundToSession,
   isCalibrationProfile,
   type CalibrationProfile
 } from '../../spatial/calibration';
@@ -496,20 +497,35 @@ export default function MoscowSpatialJourney({
         const parsed: unknown = JSON.parse(rawCalibration);
         if (isCalibrationProfile(parsed)) loadedCalibration = parsed;
       }
-      setCalibration(loadedCalibration);
       if (rawEra === '1857' || rawEra === '1859') setEra(rawEra);
       if (rawTrust === 'documented' || rawTrust === 'public') setTrustMode(rawTrust);
+
+      let storedActive: RomanovPersistentAnchor | undefined;
       if (rawActiveAnchorId && rawAnchors) {
         const storedAnchors = JSON.parse(rawAnchors) as RomanovPersistentAnchor[];
-        const storedActive = storedAnchors.find((item) => item.id === rawActiveAnchorId);
-        if (storedActive && isPersistentAnchorFrameAuthoritative(storedActive)) {
-          setActivePersistentAnchor(storedActive);
-          setStatusMessage('Persistent anchor proof загружен. Локализуем общий location frame…');
-        }
+        storedActive = storedAnchors.find((item) => item.id === rawActiveAnchorId);
       }
-      if (rawCalibration) {
+
+      if (storedActive && isPersistentAnchorFrameAuthoritative(storedActive)) {
+        loadedCalibration = storedActive.calibration;
+        setCalibration(loadedCalibration);
+        setActivePersistentAnchor(storedActive);
         setStage('calibrated');
-        setStatusMessage('Сохранённый calibration profile загружен. Проверяем release gate…');
+        setStatusMessage('Persistent anchor proof загружен. Локализуем общий location frame…');
+      } else {
+        const draftCalibration = {
+          ...loadedCalibration,
+          sessionAnchorId: undefined,
+          verifiedAt: undefined
+        };
+        setCalibration(draftCalibration);
+        setStage('searching');
+        setStatusMessage(
+          rawCalibration
+            ? 'Предыдущие X/Y/Z загружены только как черновик. AR world origin новый: создайте local anchor и сохраните calibration заново.'
+            : 'Наведите центр экрана на устойчивую часть фасада.'
+        );
+        loadedCalibration = draftCalibration;
       }
       reloadReleaseGate(loadedCalibration).catch(() => undefined);
     }).catch(() => undefined);
@@ -554,7 +570,15 @@ export default function MoscowSpatialJourney({
   };
 
   const saveCalibration = async () => {
-    const nextCalibration = advanceCalibrationVersionForSave(bindCalibrationToCurrentMetricAuthority(calibration));
+    if (!localAnchor) {
+      setStatusMessage('Сначала создайте local anchor текущей AR-сессии.');
+      void haptic('field-warning');
+      return;
+    }
+    const nextCalibration = advanceCalibrationVersionForSave(
+      bindCalibrationToCurrentMetricAuthority(calibration),
+      localAnchor.anchorId
+    );
     setCalibration(nextCalibration);
     await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(nextCalibration));
     setStage('calibrated');
@@ -567,6 +591,9 @@ export default function MoscowSpatialJourney({
     controlPointId: string,
     distance: 5 | 10 | 15
   ): Promise<RomanovMeasuredControlPointResidual> => {
+    if (!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)) {
+      throw new Error('Calibration не привязана к local anchor текущей AR-сессии. Создайте anchor и сохраните calibration заново.');
+    }
     const rawSurvey = await AsyncStorage.getItem(SURVEY_KEY);
     if (!rawSurvey) throw new Error('Сначала создайте и утвердите survey packet.');
     const survey = JSON.parse(rawSurvey) as RomanovSurveyPacketData;
@@ -804,7 +831,12 @@ export default function MoscowSpatialJourney({
             </View>
             <View style={styles.actionRow}>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
-              <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setFieldOpen(true)}><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
+              <PhysicalPressable
+                style={[styles.toolButton, (!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)) && styles.disabled]}
+                contentStyle={styles.center}
+                disabled={!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)}
+                onPress={() => setFieldOpen(true)}
+              ><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
             </View>
             <View style={styles.actionRow}>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setEvidenceOpen(true)}><Text style={styles.toolText}>Evidence</Text></PhysicalPressable>
@@ -858,12 +890,21 @@ export default function MoscowSpatialJourney({
       {evidenceOpen && !isQuest && (
         <RomanovEvidenceTransferPanel
           calibration={calibration}
-          onCalibrationChange={(next) => {
-            setCalibration(next);
-            setStage('calibrated');
+          onCampaignImported={() => {
+            const draft = {
+              ...invalidateCalibrationVerification(calibration),
+              sessionAnchorId: undefined
+            };
+            setCalibration(draft);
+            setLocalAnchor(null);
+            setStage('searching');
             setActivePersistentAnchor(null);
-            AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY).catch(() => undefined);
-            reloadReleaseGate(next).catch(() => undefined);
+            Promise.all([
+              AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(draft)),
+              AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY)
+            ]).catch(() => undefined);
+            setStatusMessage('Survey campaign импортирован. Создайте local anchor и session-local calibration на этом телефоне.');
+            reloadReleaseGate(draft).catch(() => undefined);
           }}
           onClose={() => { setEvidenceOpen(false); reloadReleaseGate().catch(() => undefined); }}
         />
