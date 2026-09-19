@@ -1,5 +1,8 @@
 import type { CalibrationProfile } from './calibration';
-import { isCurrentRomanovMetricBinding } from './romanovMetricAuthority';
+import {
+  isCurrentRomanovMetricBinding,
+  isRomanovVerifiedScaleAuthoritative
+} from './romanovMetricAuthority';
 import {
   summarizeFieldMatrix,
   type RomanovFieldMatrixSummary,
@@ -32,6 +35,7 @@ export type PersistentAnchorReadiness = {
   fieldMatrix: RomanovFieldMatrixSummary;
   calibrationVerified: boolean;
   calibrationMetricCurrent: boolean;
+  calibrationScaleAuthoritative: boolean;
   providerConfigured: boolean;
   provider: PersistentAnchorProvider;
   readyToHost: boolean;
@@ -55,6 +59,7 @@ export function getPersistentAnchorReadiness(input: {
   const fieldMatrix = summarizeFieldMatrix(input.sessions);
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
   const calibrationMetricCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
+  const calibrationScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);
   const blockers: string[] = [];
 
   if (!fieldMatrix.eligibleForPersistentAnchor) {
@@ -66,6 +71,9 @@ export function getPersistentAnchorReadiness(input: {
   if (!calibrationMetricCurrent) {
     blockers.push('calibration-metric-authority-stale');
   }
+  if (!calibrationScaleAuthoritative) {
+    blockers.push('calibration-metric-scale-not-authoritative');
+  }
   if (input.provider === 'none' || !input.providerConfigured) {
     blockers.push('persistent-anchor-provider-not-configured');
   }
@@ -74,6 +82,7 @@ export function getPersistentAnchorReadiness(input: {
     fieldMatrix,
     calibrationVerified,
     calibrationMetricCurrent,
+    calibrationScaleAuthoritative,
     providerConfigured: input.providerConfigured,
     provider: input.provider,
     readyToHost: blockers.length === 0,
@@ -93,6 +102,9 @@ export function createPersistentAnchorRecord(input: {
   if (!input.calibration.verifiedAt) throw new Error('calibration must be verified before hosting a persistent anchor');
   if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) {
     throw new Error('calibration metric authority is stale');
+  }
+  if (!isRomanovVerifiedScaleAuthoritative(input.calibration.scale)) {
+    throw new Error('calibration metric scale is not authoritative');
   }
 
   const hostedAt = new Date().toISOString();
