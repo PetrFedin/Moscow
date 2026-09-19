@@ -1,13 +1,8 @@
-import type { CalibrationProfile } from './calibration.ts';
 import {
   isFieldSessionEvidenceAuthoritative,
   validateFieldSessionIntegrity,
   type RomanovFieldSession
 } from './fieldVerification.ts';
-import {
-  isCurrentRomanovMetricBinding,
-  isRomanovVerifiedScaleAuthoritative
-} from './romanovMetricAuthority.ts';
 import {
   summarizeRomanovSurvey,
   type RomanovSurveyPacket
@@ -19,7 +14,6 @@ export const ROMANOV_FIELD_SESSION_BUNDLE_VERSION = 1;
 export type RomanovFieldCampaignPackage = {
   kind: 'romanov-field-campaign';
   version: typeof ROMANOV_FIELD_CAMPAIGN_VERSION;
-  calibration: CalibrationProfile;
   survey: RomanovSurveyPacket;
 };
 
@@ -32,28 +26,17 @@ export type RomanovFieldSessionBundle = {
   sessions: RomanovFieldSession[];
 };
 
-export function isFieldCampaignAuthoritative(input: {
-  calibration: CalibrationProfile;
-  survey: RomanovSurveyPacket;
-}) {
-  return summarizeRomanovSurvey(input.survey).complete
-    && isCurrentRomanovMetricBinding(input.calibration.metricBinding)
-    && isRomanovVerifiedScaleAuthoritative(input.calibration.scale)
-    && Number.isInteger(input.calibration.version)
-    && input.calibration.version > 0;
+export function isFieldCampaignAuthoritative(survey: RomanovSurveyPacket) {
+  return summarizeRomanovSurvey(survey).complete;
 }
 
-export function serializeFieldCampaignPackage(
-  calibration: CalibrationProfile,
-  survey: RomanovSurveyPacket
-) {
-  if (!isFieldCampaignAuthoritative({ calibration, survey })) {
-    throw new Error('field campaign requires an approved current survey and metric-authoritative calibration');
+export function serializeFieldCampaignPackage(survey: RomanovSurveyPacket) {
+  if (!isFieldCampaignAuthoritative(survey)) {
+    throw new Error('field campaign requires an approved current survey');
   }
   const payload: RomanovFieldCampaignPackage = {
     kind: 'romanov-field-campaign',
     version: ROMANOV_FIELD_CAMPAIGN_VERSION,
-    calibration,
     survey
   };
   return JSON.stringify(payload);
@@ -63,10 +46,7 @@ export function parseFieldCampaignPackage(raw: string): RomanovFieldCampaignPack
   const value = JSON.parse(raw) as Partial<RomanovFieldCampaignPackage>;
   if (value.kind !== 'romanov-field-campaign') throw new Error('unsupported field campaign kind');
   if (value.version !== ROMANOV_FIELD_CAMPAIGN_VERSION) throw new Error('unsupported field campaign version');
-  if (!value.calibration || !value.survey || !isFieldCampaignAuthoritative({
-    calibration: value.calibration,
-    survey: value.survey
-  })) {
+  if (!value.survey || !isFieldCampaignAuthoritative(value.survey)) {
     throw new Error('field campaign authority validation failed');
   }
   return value as RomanovFieldCampaignPackage;
