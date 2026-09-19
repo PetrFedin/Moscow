@@ -298,7 +298,7 @@ export default function RomanovPersistentAnchorPanel({
               <Text style={styles.stepTitle}>Host continuity</Text>
               <Text style={styles.stepMeta}>
                 {activeAnchor?.hostContinuityPassed
-                  ? `PASS · ${activeAnchor.hostContinuityResidualCm?.toFixed(1)} см`
+                  ? `PASS · ${activeAnchor.hostContinuityResidualCm?.toFixed(1)} см · ${activeAnchor.hostContinuityRotationDeg?.toFixed(2)}°`
                   : activeAnchor ? 'Ждём localization активного anchor' : 'Сначала host'}
               </Text>
             </View>
