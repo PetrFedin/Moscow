@@ -22,6 +22,7 @@ import {
   type RomanovWorldPointMeters
 } from '../../spatial/alignmentResidual';
 import {
+  advanceCalibrationVersionForSave,
   bindCalibrationToCurrentMetricAuthority,
   defaultRomanovCalibration,
   invalidateCalibrationVerification,
@@ -447,7 +448,7 @@ export default function MoscowSpatialJourney({
   };
 
   const saveCalibration = async () => {
-    const nextCalibration = bindCalibrationToCurrentMetricAuthority(calibration);
+    const nextCalibration = advanceCalibrationVersionForSave(bindCalibrationToCurrentMetricAuthority(calibration));
     setCalibration(nextCalibration);
     await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(nextCalibration));
     setStage('calibrated');
