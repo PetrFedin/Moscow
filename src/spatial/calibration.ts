@@ -61,3 +61,13 @@ export function invalidateCalibrationVerification(profile: CalibrationProfile): 
     verifiedAt: undefined
   };
 }
+
+
+export function advanceCalibrationVersionForSave(profile: CalibrationProfile): CalibrationProfile {
+  return {
+    ...profile,
+    version: Math.max(1, Math.floor(profile.version)) + 1,
+    metricBinding: currentRomanovMetricBinding,
+    verifiedAt: undefined
+  };
+}
