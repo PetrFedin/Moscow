@@ -115,7 +115,7 @@ export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capt
   };
 }
 
-function sessionHasReleaseEvidence(session: RomanovFieldSession) {
+export function isFieldSessionEvidenceAuthoritative(session: RomanovFieldSession) {
   if (!session.surveyPacketId) return false;
   if (session.observations.length < ROMANOV_FIELD_REQUIRED_POINTS) return false;
   return eligibleObservations(
@@ -141,7 +141,7 @@ export function summarizeFieldMatrix(
     ? currentMetricSessions
     : currentMetricSessions.filter((session) => session.calibration.version === expectedCalibrationVersion);
   const staleCalibrationSessions = currentMetricSessions.length - calibrationSessions.length;
-  const evidenceSessions = calibrationSessions.filter(sessionHasReleaseEvidence);
+  const evidenceSessions = calibrationSessions.filter(isFieldSessionEvidenceAuthoritative);
   const unmeasuredSessions = calibrationSessions.length - evidenceSessions.length;
   const passedSessions = evidenceSessions.filter((session) => session.passed);
   const grouped = new Map<string, RomanovFieldSession[]>();
@@ -223,4 +223,16 @@ export function sessionToTsv(session: RomanovFieldSession) {
     ];
   });
   return [header, ...rows].map((row) => row.join('\t')).join('\n');
+}
+
+
+export function validateFieldSessionIntegrity(session: RomanovFieldSession) {
+  if (!isCurrentRomanovMetricBinding(session.metricBinding)) return false;
+  if (!isFieldSessionEvidenceAuthoritative(session)) return false;
+  const recomputed = summarizeResiduals(session.observations);
+  if (Math.abs(recomputed.meanResidualCm - session.meanResidualCm) > 0.05) return false;
+  if (Math.abs(recomputed.maxResidualCm - session.maxResidualCm) > 0.05) return false;
+  const expectedPassed = recomputed.passed
+    && (session.measurementEligiblePoints ?? 0) >= ROMANOV_FIELD_REQUIRED_POINTS;
+  return session.passed === expectedPassed;
 }
