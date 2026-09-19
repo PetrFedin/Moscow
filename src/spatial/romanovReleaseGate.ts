@@ -37,7 +37,7 @@ export function canVerifyCalibration(input: {
 }) {
   return (!input.calibration || isCurrentRomanovMetricBinding(input.calibration.metricBinding))
     && summarizeRomanovSurvey(input.survey).complete
-    && summarizeFieldMatrix(input.sessions).crossPlatformReady;
+    && summarizeFieldMatrix(input.sessions, input.calibration?.version).crossPlatformReady;
 }
 
 /**
@@ -72,7 +72,7 @@ export function summarizeRomanovReleaseGate(input: {
   anchors: RomanovPersistentAnchor[];
 }): RomanovReleaseGate {
   const surveyComplete = summarizeRomanovSurvey(input.survey).complete;
-  const fieldMatrixComplete = summarizeFieldMatrix(input.sessions).crossPlatformReady;
+  const fieldMatrixComplete = summarizeFieldMatrix(input.sessions, input.calibration.version).crossPlatformReady;
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
   const metricAuthorityCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
   const metricScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);

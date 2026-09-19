@@ -1,17 +1,47 @@
+export type RomanovControlPointPurpose = 'alignment' | 'quality-check';
+
 export type RomanovControlPoint = {
   id: string;
   labelRu: string;
   labelEn: string;
-  purpose: 'alignment' | 'quality-check';
+  purpose: RomanovControlPointPurpose;
   state: 'pending-survey' | 'measured' | 'verified';
-  imagePixel?: [number, number];
-  modelPointMeters?: [number, number, number];
   notes: string;
 };
 
+export const ROMANOV_CONTROL_POINT_SET = {
+  id: 'romanov-facade-control-points-v1',
+  version: 1,
+  requiredPoints: 5,
+  requiredAlignmentPoints: 3
+} as const;
+
+export type RomanovControlPointBinding = {
+  controlPointSetId: typeof ROMANOV_CONTROL_POINT_SET.id;
+  controlPointSetVersion: typeof ROMANOV_CONTROL_POINT_SET.version;
+};
+
+export const currentRomanovControlPointBinding: RomanovControlPointBinding = {
+  controlPointSetId: ROMANOV_CONTROL_POINT_SET.id,
+  controlPointSetVersion: ROMANOV_CONTROL_POINT_SET.version
+};
+
+export function isCurrentRomanovControlPointBinding(
+  value?: Partial<RomanovControlPointBinding> | null
+) {
+  return Boolean(
+    value
+    && value.controlPointSetId === currentRomanovControlPointBinding.controlPointSetId
+    && value.controlPointSetVersion === currentRomanovControlPointBinding.controlPointSetVersion
+  );
+}
+
 /**
- * Stable architectural candidates for the first field survey.
- * Coordinates are deliberately absent until they are measured on site / in the verified model.
+ * Pre-registered façade features for the first field survey.
+ *
+ * They are deliberately NOT marked measured or verified here. Their geometry becomes
+ * release-authoritative only when a survey packet contains measured model/world
+ * coordinates and the packet passes the survey gate.
  */
 export const romanovControlPoints: RomanovControlPoint[] = [
   {

@@ -56,7 +56,7 @@ export function getPersistentAnchorReadiness(input: {
   provider: PersistentAnchorProvider;
   providerConfigured: boolean;
 }): PersistentAnchorReadiness {
-  const fieldMatrix = summarizeFieldMatrix(input.sessions);
+  const fieldMatrix = summarizeFieldMatrix(input.sessions, input.calibration.version);
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
   const calibrationMetricCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
   const calibrationScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);

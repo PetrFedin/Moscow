@@ -1,4 +1,9 @@
-import { romanovControlPoints } from './romanovControlPoints.ts';
+import {
+  currentRomanovControlPointBinding,
+  isCurrentRomanovControlPointBinding,
+  romanovControlPoints,
+  type RomanovControlPointBinding
+} from './romanovControlPoints.ts';
 import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
@@ -42,6 +47,7 @@ export type RomanovSurveyPacket = {
   modelUnits: 'meters';
   createdAt: string;
   metricBinding?: RomanovMetricBinding;
+  controlPointBinding?: RomanovControlPointBinding;
   points: RomanovSurveyPoint[];
   approvedAt?: string;
   approvedBy?: string;
@@ -64,6 +70,7 @@ export function createEmptyRomanovSurveyPacket(): RomanovSurveyPacket {
     modelUnits: 'meters',
     createdAt: new Date().toISOString(),
     metricBinding: currentRomanovMetricBinding,
+    controlPointBinding: currentRomanovControlPointBinding,
     points: romanovControlPoints.map((point) => ({
       controlPointId: point.id,
       status: 'pending'
@@ -106,9 +113,8 @@ export function summarizeRomanovSurvey(packet: RomanovSurveyPacket): RomanovSurv
   const uniquePoints = new Map(packet.points.map((point) => [point.controlPointId, point]));
   const blockers: string[] = [];
 
-  if (!isCurrentRomanovMetricBinding(packet.metricBinding)) {
-    blockers.push('metric-authority-stale');
-  }
+  if (!isCurrentRomanovMetricBinding(packet.metricBinding)) blockers.push('metric-authority-stale');
+  if (!isCurrentRomanovControlPointBinding(packet.controlPointBinding)) blockers.push('control-point-authority-stale');
 
   if (uniquePoints.size !== expectedIds.size || [...expectedIds].some((id) => !uniquePoints.has(id))) {
     blockers.push('control-point-set-incomplete');
@@ -141,6 +147,9 @@ export function surveyPacketToTsv(packet: RomanovSurveyPacket) {
     'metric_authority_id',
     'metric_authority_version',
     'model_pack_version',
+    'control_point_set_id',
+    'control_point_set_version',
+    'survey_packet_id',
     'control_point_id',
     'model_x_m',
     'model_y_m',
@@ -161,6 +170,9 @@ export function surveyPacketToTsv(packet: RomanovSurveyPacket) {
     packet.metricBinding?.metricAuthorityId ?? '',
     packet.metricBinding?.metricAuthorityVersion?.toString() ?? '',
     packet.metricBinding?.modelPackVersion ?? '',
+    packet.controlPointBinding?.controlPointSetId ?? '',
+    packet.controlPointBinding?.controlPointSetVersion?.toString() ?? '',
+    packet.id,
     point.controlPointId,
     point.modelPointMeters?.[0]?.toString() ?? '',
     point.modelPointMeters?.[1]?.toString() ?? '',
