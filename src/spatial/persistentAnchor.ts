@@ -1,4 +1,7 @@
-import type { CalibrationProfile } from './calibration.ts';
+import {
+  isCalibrationBoundToSession,
+  type CalibrationProfile
+} from './calibration.ts';
 import {
   isFiniteAnchorFrameTransform,
   type RomanovAnchorFrameModelTransform,
@@ -28,6 +31,8 @@ export type RomanovPersistentAnchor = {
   state: PersistentAnchorState;
   calibrationVersion: number;
   calibration: CalibrationProfile;
+  hostSessionAnchorId: string;
+  hostSessionAnchorId: string;
   hostAnchorPose: RomanovAnchorPose;
   anchorFrameModelTransform: RomanovAnchorFrameModelTransform;
   hostedAt: string;
@@ -55,6 +60,7 @@ export type PersistentAnchorReadiness = {
   calibrationVerified: boolean;
   calibrationMetricCurrent: boolean;
   calibrationScaleAuthoritative: boolean;
+  calibrationSessionCurrent: boolean;
   providerConfigured: boolean;
   provider: PersistentAnchorProvider;
   readyToHost: boolean;
@@ -80,6 +86,7 @@ export function isPersistentAnchorFrameAuthoritative(anchor: RomanovPersistentAn
     && Boolean(anchor.providerAnchorId.trim())
     && Boolean(anchor.calibration.verifiedAt)
     && anchor.calibrationVersion === anchor.calibration.version
+    && anchor.calibration.sessionAnchorId === anchor.hostSessionAnchorId
     && isCurrentRomanovMetricBinding(anchor.calibration.metricBinding)
     && isRomanovVerifiedScaleAuthoritative(anchor.calibration.scale)
     && finiteTuple(anchor.hostAnchorPose?.position)
@@ -92,17 +99,21 @@ export function getPersistentAnchorReadiness(input: {
   calibration: CalibrationProfile;
   provider: PersistentAnchorProvider;
   providerConfigured: boolean;
+  surveyPacketId: string;
+  currentLocalAnchorId?: string | null;
 }): PersistentAnchorReadiness {
-  const fieldMatrix = summarizeFieldMatrix(input.sessions, input.calibration.version);
+  const fieldMatrix = summarizeFieldMatrix(input.sessions, { surveyPacketId: input.surveyPacketId });
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
   const calibrationMetricCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
   const calibrationScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);
+  const calibrationSessionCurrent = isCalibrationBoundToSession(input.calibration, input.currentLocalAnchorId);
   const blockers: string[] = [];
 
   if (!fieldMatrix.eligibleForPersistentAnchor) blockers.push('field-matrix-incomplete');
   if (!calibrationVerified) blockers.push('calibration-not-verified');
   if (!calibrationMetricCurrent) blockers.push('calibration-metric-authority-stale');
   if (!calibrationScaleAuthoritative) blockers.push('calibration-metric-scale-not-authoritative');
+  if (!calibrationSessionCurrent) blockers.push('calibration-not-bound-to-current-ar-session');
   if (input.provider === 'none' || !input.providerConfigured) blockers.push('persistent-anchor-provider-not-configured');
 
   return {
@@ -110,6 +121,7 @@ export function getPersistentAnchorReadiness(input: {
     calibrationVerified,
     calibrationMetricCurrent,
     calibrationScaleAuthoritative,
+    calibrationSessionCurrent,
     providerConfigured: input.providerConfigured,
     provider: input.provider,
     readyToHost: blockers.length === 0,
@@ -127,10 +139,14 @@ export function createPersistentAnchorRecord(input: {
   notes?: string;
 }): RomanovPersistentAnchor {
   if (!input.providerAnchorId.trim()) throw new Error('providerAnchorId is required');
+  if (!input.hostSessionAnchorId.trim()) throw new Error('hostSessionAnchorId is required');
   if (!input.hostedByDeviceLabel.trim()) throw new Error('hostedByDeviceLabel is required');
   if (!input.calibration.verifiedAt) throw new Error('calibration must be verified before hosting a persistent anchor');
   if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) throw new Error('calibration metric authority is stale');
   if (!isRomanovVerifiedScaleAuthoritative(input.calibration.scale)) throw new Error('calibration metric scale is not authoritative');
+  if (!isCalibrationBoundToSession(input.calibration, input.hostSessionAnchorId)) {
+    throw new Error('calibration is not bound to the hosting AR session anchor');
+  }
   if (!finiteTuple(input.hostAnchorPose.position) || !finiteTuple(input.hostAnchorPose.rotationEulerDeg)) {
     throw new Error('host anchor pose is invalid');
   }
@@ -147,6 +163,7 @@ export function createPersistentAnchorRecord(input: {
     state: 'hosted',
     calibrationVersion: input.calibration.version,
     calibration: input.calibration,
+    hostSessionAnchorId: input.hostSessionAnchorId,
     hostAnchorPose: input.hostAnchorPose,
     anchorFrameModelTransform: input.anchorFrameModelTransform,
     hostedAt,
