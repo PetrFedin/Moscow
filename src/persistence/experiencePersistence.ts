@@ -87,6 +87,7 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     || input.routeInterest === 'architecture'
     || input.routeInterest === 'trade'
     || input.routeInterest === 'lost-city'
+    || input.routeInterest === 'nearby'
     ? input.routeInterest
     : defaultState.routeInterest;
   const restoredRouteStopIds = stringArray(input.routeStopIds);
