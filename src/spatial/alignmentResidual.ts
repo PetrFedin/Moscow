@@ -1,5 +1,10 @@
 import type { CalibrationProfile } from './calibration.ts';
 import type { FieldDistanceMeters } from './fieldVerification.ts';
+import {
+  currentRomanovControlPointBinding,
+  isCurrentRomanovControlPointBinding,
+  type RomanovControlPointBinding
+} from './romanovControlPoints.ts';
 
 export type RomanovWorldPointMeters = [number, number, number];
 
@@ -26,6 +31,7 @@ export type RomanovAlignmentMeasurementEvidence = {
   authorityId: typeof ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.id;
   authorityVersion: typeof ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.version;
   surveyPacketId: string;
+  controlPointBinding: RomanovControlPointBinding;
   calibrationVersion: number;
   distanceBucketMeters: FieldDistanceMeters;
   actualViewingDistanceMeters: number;
@@ -144,6 +150,7 @@ export function buildRomanovMeasuredResidual(input: {
       authorityId: ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.id,
       authorityVersion: ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.version,
       surveyPacketId: input.surveyPacketId,
+      controlPointBinding: currentRomanovControlPointBinding,
       calibrationVersion: input.calibration.version,
       distanceBucketMeters: input.distanceBucketMeters,
       actualViewingDistanceMeters,
@@ -181,6 +188,7 @@ export function isReleaseEligibleMeasuredResidual(
   if (Math.abs(recomputed - residual.residualCm) > 0.05) return false;
   if (evidence.authorityId !== ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.id) return false;
   if (evidence.authorityVersion !== ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.version) return false;
+  if (!isCurrentRomanovControlPointBinding(evidence.controlPointBinding)) return false;
   if (!ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.releaseEligibleHitTypes.includes(
     evidence.hitType as (typeof ROMANOV_ALIGNMENT_MEASUREMENT_AUTHORITY.releaseEligibleHitTypes)[number]
   )) return false;
