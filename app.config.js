@@ -19,7 +19,7 @@ module.exports = () => {
   const viroOptions = {
     provider,
     android: {
-      xRMode: 'AR'
+      xRMode: ['AR']
     }
   };
 
@@ -47,7 +47,11 @@ module.exports = () => {
     plugins,
     extra: {
       ...(staticConfig.extra || {}),
-      spatialAnchorProvider: provider
+      spatialAnchorProvider: provider,
+      spatialAnchorTtlDays: (() => {
+        const requested = Number(process.env.EXPO_PUBLIC_SPATIAL_ANCHOR_TTL_DAYS || 1);
+        return Number.isFinite(requested) ? Math.max(1, Math.min(365, Math.round(requested))) : 1;
+      })()
     }
   };
 };

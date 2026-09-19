@@ -15,6 +15,7 @@ export type CalibrationProfile = {
   anchorStrategy: 'manual-first' | 'visual' | 'cloud';
   version: number;
   metricBinding?: RomanovMetricBinding;
+  sessionAnchorId?: string;
   verifiedAt?: string;
 };
 
@@ -63,11 +64,26 @@ export function invalidateCalibrationVerification(profile: CalibrationProfile): 
 }
 
 
-export function advanceCalibrationVersionForSave(profile: CalibrationProfile): CalibrationProfile {
+export function advanceCalibrationVersionForSave(
+  profile: CalibrationProfile,
+  sessionAnchorId?: string
+): CalibrationProfile {
   return {
     ...profile,
     version: Math.max(1, Math.floor(profile.version)) + 1,
     metricBinding: currentRomanovMetricBinding,
+    sessionAnchorId: sessionAnchorId?.trim() || undefined,
     verifiedAt: undefined
   };
+}
+
+export function isCalibrationBoundToSession(
+  profile: CalibrationProfile,
+  sessionAnchorId?: string | null
+) {
+  return Boolean(
+    sessionAnchorId
+    && profile.sessionAnchorId
+    && profile.sessionAnchorId === sessionAnchorId
+  );
 }
