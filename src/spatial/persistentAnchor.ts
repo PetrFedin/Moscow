@@ -1,5 +1,10 @@
 import type { CalibrationProfile } from './calibration.ts';
 import {
+  isFiniteAnchorFrameTransform,
+  type RomanovAnchorFrameModelTransform,
+  type RomanovAnchorPose
+} from './persistentAnchorFrame.ts';
+import {
   isCurrentRomanovMetricBinding,
   isRomanovVerifiedScaleAuthoritative
 } from './romanovMetricAuthority.ts';
@@ -12,6 +17,9 @@ import {
 export type PersistentAnchorProvider = 'none' | 'reactvision' | 'arcore';
 export type PersistentAnchorState = 'candidate' | 'hosted' | 'resolved' | 'verified' | 'retired';
 
+export const ROMANOV_PERSISTENT_ANCHOR_PACKAGE_VERSION = 1;
+export const ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_CM = 35;
+
 export type RomanovPersistentAnchor = {
   id: string;
   placeId: 'romanov-chambers';
@@ -20,8 +28,13 @@ export type RomanovPersistentAnchor = {
   state: PersistentAnchorState;
   calibrationVersion: number;
   calibration: CalibrationProfile;
+  hostAnchorPose: RomanovAnchorPose;
+  anchorFrameModelTransform: RomanovAnchorFrameModelTransform;
   hostedAt: string;
   hostedByDeviceLabel: string;
+  hostLocalizedAt?: string;
+  hostContinuityResidualCm?: number;
+  hostContinuityPassed?: boolean;
   resolvedAt?: string;
   resolvedByDeviceLabel?: string;
   resolveSessionId?: string;
@@ -29,6 +42,12 @@ export type RomanovPersistentAnchor = {
   verifiedByDeviceLabel?: string;
   retiredAt?: string;
   notes?: string;
+};
+
+export type RomanovPersistentAnchorPackage = {
+  kind: 'romanov-persistent-anchor-proof';
+  version: typeof ROMANOV_PERSISTENT_ANCHOR_PACKAGE_VERSION;
+  anchor: RomanovPersistentAnchor;
 };
 
 export type PersistentAnchorReadiness = {
@@ -44,10 +63,28 @@ export type PersistentAnchorReadiness = {
 
 const normalizeDeviceLabel = (value?: string) => value?.trim().toLowerCase() ?? '';
 
+function finiteTuple(value: unknown): value is [number, number, number] {
+  return Array.isArray(value)
+    && value.length === 3
+    && value.every((item) => typeof item === 'number' && Number.isFinite(item));
+}
+
 export function isIndependentAnchorResolve(anchor: RomanovPersistentAnchor) {
   const hosted = normalizeDeviceLabel(anchor.hostedByDeviceLabel);
   const resolved = normalizeDeviceLabel(anchor.resolvedByDeviceLabel);
   return Boolean(hosted && resolved && hosted !== resolved && anchor.resolvedAt);
+}
+
+export function isPersistentAnchorFrameAuthoritative(anchor: RomanovPersistentAnchor) {
+  return anchor.placeId === 'romanov-chambers'
+    && Boolean(anchor.providerAnchorId.trim())
+    && Boolean(anchor.calibration.verifiedAt)
+    && anchor.calibrationVersion === anchor.calibration.version
+    && isCurrentRomanovMetricBinding(anchor.calibration.metricBinding)
+    && isRomanovVerifiedScaleAuthoritative(anchor.calibration.scale)
+    && finiteTuple(anchor.hostAnchorPose?.position)
+    && finiteTuple(anchor.hostAnchorPose?.rotationEulerDeg)
+    && isFiniteAnchorFrameTransform(anchor.anchorFrameModelTransform);
 }
 
 export function getPersistentAnchorReadiness(input: {
@@ -62,21 +99,11 @@ export function getPersistentAnchorReadiness(input: {
   const calibrationScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);
   const blockers: string[] = [];
 
-  if (!fieldMatrix.eligibleForPersistentAnchor) {
-    blockers.push('field-matrix-incomplete');
-  }
-  if (!calibrationVerified) {
-    blockers.push('calibration-not-verified');
-  }
-  if (!calibrationMetricCurrent) {
-    blockers.push('calibration-metric-authority-stale');
-  }
-  if (!calibrationScaleAuthoritative) {
-    blockers.push('calibration-metric-scale-not-authoritative');
-  }
-  if (input.provider === 'none' || !input.providerConfigured) {
-    blockers.push('persistent-anchor-provider-not-configured');
-  }
+  if (!fieldMatrix.eligibleForPersistentAnchor) blockers.push('field-matrix-incomplete');
+  if (!calibrationVerified) blockers.push('calibration-not-verified');
+  if (!calibrationMetricCurrent) blockers.push('calibration-metric-authority-stale');
+  if (!calibrationScaleAuthoritative) blockers.push('calibration-metric-scale-not-authoritative');
+  if (input.provider === 'none' || !input.providerConfigured) blockers.push('persistent-anchor-provider-not-configured');
 
   return {
     fieldMatrix,
@@ -94,17 +121,21 @@ export function createPersistentAnchorRecord(input: {
   provider: Exclude<PersistentAnchorProvider, 'none'>;
   providerAnchorId: string;
   calibration: CalibrationProfile;
+  hostAnchorPose: RomanovAnchorPose;
+  anchorFrameModelTransform: RomanovAnchorFrameModelTransform;
   hostedByDeviceLabel: string;
   notes?: string;
 }): RomanovPersistentAnchor {
   if (!input.providerAnchorId.trim()) throw new Error('providerAnchorId is required');
   if (!input.hostedByDeviceLabel.trim()) throw new Error('hostedByDeviceLabel is required');
   if (!input.calibration.verifiedAt) throw new Error('calibration must be verified before hosting a persistent anchor');
-  if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) {
-    throw new Error('calibration metric authority is stale');
+  if (!isCurrentRomanovMetricBinding(input.calibration.metricBinding)) throw new Error('calibration metric authority is stale');
+  if (!isRomanovVerifiedScaleAuthoritative(input.calibration.scale)) throw new Error('calibration metric scale is not authoritative');
+  if (!finiteTuple(input.hostAnchorPose.position) || !finiteTuple(input.hostAnchorPose.rotationEulerDeg)) {
+    throw new Error('host anchor pose is invalid');
   }
-  if (!isRomanovVerifiedScaleAuthoritative(input.calibration.scale)) {
-    throw new Error('calibration metric scale is not authoritative');
+  if (!isFiniteAnchorFrameTransform(input.anchorFrameModelTransform)) {
+    throw new Error('anchor-frame model transform is invalid');
   }
 
   const hostedAt = new Date().toISOString();
@@ -116,9 +147,27 @@ export function createPersistentAnchorRecord(input: {
     state: 'hosted',
     calibrationVersion: input.calibration.version,
     calibration: input.calibration,
+    hostAnchorPose: input.hostAnchorPose,
+    anchorFrameModelTransform: input.anchorFrameModelTransform,
     hostedAt,
     hostedByDeviceLabel: input.hostedByDeviceLabel.trim(),
     notes: input.notes
+  };
+}
+
+export function markAnchorHostLocalized(
+  anchor: RomanovPersistentAnchor,
+  input: { continuityResidualCm: number }
+): RomanovPersistentAnchor {
+  if (anchor.state === 'retired') throw new Error('retired anchor cannot be localized');
+  if (!Number.isFinite(input.continuityResidualCm) || input.continuityResidualCm < 0) {
+    throw new Error('continuityResidualCm must be a finite non-negative number');
+  }
+  return {
+    ...anchor,
+    hostLocalizedAt: new Date().toISOString(),
+    hostContinuityResidualCm: input.continuityResidualCm,
+    hostContinuityPassed: input.continuityResidualCm <= ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_CM
   };
 }
 
@@ -128,6 +177,7 @@ export function markAnchorResolved(
 ): RomanovPersistentAnchor {
   if (anchor.state === 'retired') throw new Error('retired anchor cannot be resolved');
   if (!input.resolvedByDeviceLabel.trim()) throw new Error('resolvedByDeviceLabel is required');
+  if (!isPersistentAnchorFrameAuthoritative(anchor)) throw new Error('anchor frame is not authoritative');
 
   return {
     ...anchor,
@@ -144,6 +194,9 @@ export function markAnchorVerified(
 ): RomanovPersistentAnchor {
   if (anchor.state !== 'resolved') throw new Error('anchor must be resolved before verification');
   if (!input.verifiedByDeviceLabel.trim()) throw new Error('verifiedByDeviceLabel is required');
+  if (!anchor.hostContinuityPassed || !anchor.hostLocalizedAt) {
+    throw new Error('anchor verification requires a passing host continuity check');
+  }
   if (!isIndependentAnchorResolve(anchor)) {
     throw new Error('anchor verification requires a resolve on a device different from the hosting device');
   }
@@ -163,4 +216,23 @@ export function retireAnchor(anchor: RomanovPersistentAnchor, notes?: string): R
     retiredAt: new Date().toISOString(),
     notes: notes ?? anchor.notes
   };
+}
+
+export function serializePersistentAnchorPackage(anchor: RomanovPersistentAnchor) {
+  if (!isPersistentAnchorFrameAuthoritative(anchor)) throw new Error('cannot export a non-authoritative anchor frame');
+  const payload: RomanovPersistentAnchorPackage = {
+    kind: 'romanov-persistent-anchor-proof',
+    version: ROMANOV_PERSISTENT_ANCHOR_PACKAGE_VERSION,
+    anchor
+  };
+  return JSON.stringify(payload);
+}
+
+export function parsePersistentAnchorPackage(raw: string): RomanovPersistentAnchor {
+  const parsed = JSON.parse(raw) as Partial<RomanovPersistentAnchorPackage>;
+  if (parsed.kind !== 'romanov-persistent-anchor-proof') throw new Error('unsupported anchor proof kind');
+  if (parsed.version !== ROMANOV_PERSISTENT_ANCHOR_PACKAGE_VERSION) throw new Error('unsupported anchor proof version');
+  const anchor = parsed.anchor as RomanovPersistentAnchor | undefined;
+  if (!anchor || !isPersistentAnchorFrameAuthoritative(anchor)) throw new Error('anchor proof is not authoritative');
+  return anchor;
 }
