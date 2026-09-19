@@ -1,4 +1,8 @@
 import type { CalibrationProfile } from './calibration.ts';
+import {
+  isReleaseEligibleMeasuredResidual,
+  type RomanovMeasuredControlPointResidual
+} from './alignmentResidual.ts';
 import type { RomanovEra } from './romanov-hotspots.ts';
 import {
   currentRomanovMetricBinding,
@@ -8,11 +12,7 @@ import {
 
 export type FieldDistanceMeters = 5 | 10 | 15;
 export type FieldPlatform = 'ios' | 'android' | string;
-
-export type ControlPointResidual = {
-  controlPointId: string;
-  residualCm: number;
-};
+export type ControlPointResidual = RomanovMeasuredControlPointResidual;
 
 export type RomanovFieldSession = {
   id: string;
@@ -22,11 +22,12 @@ export type RomanovFieldSession = {
   calibration: CalibrationProfile;
   devicePlatform: FieldPlatform;
   deviceVersion: string;
-  /** Human-readable physical device label, e.g. "iPhone 16 Pro #1" or "Pixel 10 Pro #1". */
   deviceLabel?: string;
   appBuild?: string;
   metricBinding?: RomanovMetricBinding;
+  surveyPacketId?: string;
   observations: ControlPointResidual[];
+  measurementEligiblePoints?: number;
   meanResidualCm: number;
   maxResidualCm: number;
   passed: boolean;
@@ -45,6 +46,7 @@ export type RomanovFieldMatrixSummary = {
   passedSessions: number;
   currentMetricSessions: number;
   staleMetricSessions: number;
+  unmeasuredSessions: number;
   completeDevices: RomanovDeviceVerification[];
   iosCompleteDevices: number;
   androidCompleteDevices: number;
@@ -56,17 +58,12 @@ export const ROMANOV_FIELD_DISTANCES: FieldDistanceMeters[] = [5, 10, 15];
 export const ROMANOV_FIELD_REQUIRED_POINTS = 5;
 export const ROMANOV_REQUIRED_IOS_DEVICES = 2;
 export const ROMANOV_REQUIRED_ANDROID_DEVICES = 2;
-
-// Pilot acceptance target. It is an internal MVP quality gate, not a claim about
-// ARKit/ARCore accuracy in all conditions.
 export const ROMANOV_FIELD_MEAN_TARGET_CM = 35;
 export const ROMANOV_FIELD_MAX_TARGET_CM = 60;
 
 export function summarizeResiduals(values: ControlPointResidual[]) {
   const finite = values.filter((item) => Number.isFinite(item.residualCm) && item.residualCm >= 0);
-  if (finite.length === 0) {
-    return { meanResidualCm: 0, maxResidualCm: 0, passed: false };
-  }
+  if (finite.length === 0) return { meanResidualCm: 0, maxResidualCm: 0, passed: false };
 
   const meanResidualCm = finite.reduce((sum, item) => sum + item.residualCm, 0) / finite.length;
   const maxResidualCm = Math.max(...finite.map((item) => item.residualCm));
@@ -77,16 +74,55 @@ export function summarizeResiduals(values: ControlPointResidual[]) {
   return { meanResidualCm, maxResidualCm, passed };
 }
 
-export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capturedAt' | 'metricBinding' | 'meanResidualCm' | 'maxResidualCm' | 'passed'> & { metricBinding?: RomanovMetricBinding }): RomanovFieldSession {
+function eligibleObservations(
+  observations: ControlPointResidual[],
+  calibrationVersion: number,
+  viewingDistanceMeters: FieldDistanceMeters,
+  surveyPacketId?: string
+) {
+  return observations.filter((observation) => isReleaseEligibleMeasuredResidual(observation, {
+    calibrationVersion,
+    distanceBucketMeters: viewingDistanceMeters,
+    surveyPacketId
+  }));
+}
+
+export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capturedAt' | 'metricBinding' | 'measurementEligiblePoints' | 'meanResidualCm' | 'maxResidualCm' | 'passed'> & { metricBinding?: RomanovMetricBinding }): RomanovFieldSession {
   const summary = summarizeResiduals(input.observations);
+  const surveyIds = [...new Set(input.observations.map((item) => item.evidence?.surveyPacketId).filter(Boolean))] as string[];
+  const surveyPacketId = input.surveyPacketId ?? (surveyIds.length === 1 ? surveyIds[0] : undefined);
+  const eligible = eligibleObservations(
+    input.observations,
+    input.calibration.version,
+    input.viewingDistanceMeters,
+    surveyPacketId
+  );
   const capturedAt = new Date().toISOString();
+
   return {
     ...input,
     id: `romanov-field-${capturedAt}-${input.viewingDistanceMeters}m`,
     capturedAt,
     metricBinding: input.metricBinding ?? currentRomanovMetricBinding,
-    ...summary
+    surveyPacketId,
+    measurementEligiblePoints: eligible.length,
+    meanResidualCm: summary.meanResidualCm,
+    maxResidualCm: summary.maxResidualCm,
+    passed: summary.passed
+      && eligible.length >= ROMANOV_FIELD_REQUIRED_POINTS
+      && surveyIds.length === 1
   };
+}
+
+function sessionHasReleaseEvidence(session: RomanovFieldSession) {
+  if (!session.surveyPacketId) return false;
+  if (session.observations.length < ROMANOV_FIELD_REQUIRED_POINTS) return false;
+  return eligibleObservations(
+    session.observations,
+    session.calibration.version,
+    session.viewingDistanceMeters,
+    session.surveyPacketId
+  ).length >= ROMANOV_FIELD_REQUIRED_POINTS;
 }
 
 function normalizedDeviceKey(session: RomanovFieldSession) {
@@ -97,7 +133,9 @@ function normalizedDeviceKey(session: RomanovFieldSession) {
 export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFieldMatrixSummary {
   const currentMetricSessions = sessions.filter((session) => isCurrentRomanovMetricBinding(session.metricBinding));
   const staleMetricSessions = sessions.length - currentMetricSessions.length;
-  const passedSessions = currentMetricSessions.filter((session) => session.passed);
+  const evidenceSessions = currentMetricSessions.filter(sessionHasReleaseEvidence);
+  const unmeasuredSessions = currentMetricSessions.length - evidenceSessions.length;
+  const passedSessions = evidenceSessions.filter((session) => session.passed);
   const grouped = new Map<string, RomanovFieldSession[]>();
 
   for (const session of passedSessions) {
@@ -111,19 +149,20 @@ export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFi
   for (const [deviceKey, deviceSessions] of grouped) {
     const first = deviceSessions[0];
     if (!first) continue;
+    const surveyIds = new Set(deviceSessions.map((session) => session.surveyPacketId));
+    if (surveyIds.size !== 1) continue;
 
     const distancesPassed = ROMANOV_FIELD_DISTANCES.filter((distance) =>
       deviceSessions.some((session) => session.viewingDistanceMeters === distance && session.passed)
     );
-    const completeDistanceMatrix = distancesPassed.length === ROMANOV_FIELD_DISTANCES.length;
-    if (!completeDistanceMatrix) continue;
+    if (distancesPassed.length !== ROMANOV_FIELD_DISTANCES.length) continue;
 
     completeDevices.push({
       deviceKey,
       deviceLabel: first.deviceLabel?.trim() || `${first.devicePlatform} ${first.deviceVersion}`,
       platform: first.devicePlatform,
       distancesPassed,
-      completeDistanceMatrix
+      completeDistanceMatrix: true
     });
   }
 
@@ -137,6 +176,7 @@ export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFi
     passedSessions: passedSessions.length,
     currentMetricSessions: currentMetricSessions.length,
     staleMetricSessions,
+    unmeasuredSessions,
     completeDevices,
     iosCompleteDevices,
     androidCompleteDevices,
@@ -147,40 +187,31 @@ export function summarizeFieldMatrix(sessions: RomanovFieldSession[]): RomanovFi
 
 export function sessionToTsv(session: RomanovFieldSession) {
   const header = [
-    'session_id',
-    'captured_at',
-    'metric_authority_id',
-    'metric_authority_version',
-    'model_pack_version',
-    'era',
-    'distance_m',
-    'device_platform',
-    'device_version',
-    'device_label',
-    'app_build',
-    'control_point',
-    'residual_cm',
-    'mean_cm',
-    'max_cm',
-    'passed'
+    'session_id','captured_at','metric_authority_id','metric_authority_version','model_pack_version',
+    'survey_packet_id','era','distance_bucket_m','device_platform','device_version','device_label','app_build',
+    'control_point','residual_cm','measurement_authority_id','measurement_authority_version','hit_type',
+    'actual_viewing_distance_m','model_world_x','model_world_y','model_world_z',
+    'observed_world_x','observed_world_y','observed_world_z',
+    'camera_world_x','camera_world_y','camera_world_z','mean_cm','max_cm','passed'
   ];
-  const rows = session.observations.map((item) => [
-    session.id,
-    session.capturedAt,
-    session.metricBinding?.metricAuthorityId ?? '',
-    session.metricBinding?.metricAuthorityVersion?.toString() ?? '',
-    session.metricBinding?.modelPackVersion ?? '',
-    session.era,
-    String(session.viewingDistanceMeters),
-    session.devicePlatform,
-    session.deviceVersion,
-    session.deviceLabel ?? '',
-    session.appBuild ?? '',
-    item.controlPointId,
-    item.residualCm.toFixed(1),
-    session.meanResidualCm.toFixed(1),
-    session.maxResidualCm.toFixed(1),
-    session.passed ? '1' : '0'
-  ]);
+  const rows = session.observations.map((item) => {
+    const e = item.evidence;
+    return [
+      session.id, session.capturedAt,
+      session.metricBinding?.metricAuthorityId ?? '',
+      session.metricBinding?.metricAuthorityVersion?.toString() ?? '',
+      session.metricBinding?.modelPackVersion ?? '',
+      session.surveyPacketId ?? '',
+      session.era, String(session.viewingDistanceMeters),
+      session.devicePlatform, session.deviceVersion, session.deviceLabel ?? '', session.appBuild ?? '',
+      item.controlPointId, item.residualCm.toFixed(1),
+      e?.authorityId ?? '', e?.authorityVersion?.toString() ?? '', e?.hitType ?? '',
+      e?.actualViewingDistanceMeters?.toFixed(3) ?? '',
+      ...(e?.modelWorldPointMeters?.map((v) => v.toFixed(4)) ?? ['', '', '']),
+      ...(e?.observedWorldPointMeters?.map((v) => v.toFixed(4)) ?? ['', '', '']),
+      ...(e?.cameraWorldPointMeters?.map((v) => v.toFixed(4)) ?? ['', '', '']),
+      session.meanResidualCm.toFixed(1), session.maxResidualCm.toFixed(1), session.passed ? '1' : '0'
+    ];
+  });
   return [header, ...rows].map((row) => row.join('\t')).join('\n');
 }
