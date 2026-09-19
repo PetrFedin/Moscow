@@ -22,6 +22,7 @@ export type PersistentAnchorState = 'candidate' | 'hosted' | 'resolved' | 'verif
 
 export const ROMANOV_PERSISTENT_ANCHOR_PACKAGE_VERSION = 1;
 export const ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_CM = 35;
+export const ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_DEG = 2;
 
 export type RomanovPersistentAnchor = {
   id: string;
@@ -39,6 +40,7 @@ export type RomanovPersistentAnchor = {
   hostedByDeviceLabel: string;
   hostLocalizedAt?: string;
   hostContinuityResidualCm?: number;
+  hostContinuityRotationDeg?: number;
   hostContinuityPassed?: boolean;
   resolvedAt?: string;
   resolvedByDeviceLabel?: string;
@@ -174,17 +176,23 @@ export function createPersistentAnchorRecord(input: {
 
 export function markAnchorHostLocalized(
   anchor: RomanovPersistentAnchor,
-  input: { continuityResidualCm: number }
+  input: { continuityResidualCm: number; continuityRotationDeg: number }
 ): RomanovPersistentAnchor {
   if (anchor.state === 'retired') throw new Error('retired anchor cannot be localized');
   if (!Number.isFinite(input.continuityResidualCm) || input.continuityResidualCm < 0) {
     throw new Error('continuityResidualCm must be a finite non-negative number');
   }
+  if (!Number.isFinite(input.continuityRotationDeg) || input.continuityRotationDeg < 0) {
+    throw new Error('continuityRotationDeg must be a finite non-negative number');
+  }
   return {
     ...anchor,
     hostLocalizedAt: new Date().toISOString(),
     hostContinuityResidualCm: input.continuityResidualCm,
-    hostContinuityPassed: input.continuityResidualCm <= ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_CM
+    hostContinuityRotationDeg: input.continuityRotationDeg,
+    hostContinuityPassed:
+      input.continuityResidualCm <= ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_CM
+      && input.continuityRotationDeg <= ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_DEG
   };
 }
 
