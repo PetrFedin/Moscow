@@ -27,13 +27,13 @@ const DEVICE_LABEL_KEY = 'moscow:p0:romanov-device-label:v1';
 
 type Props = {
   calibration: CalibrationProfile;
-  onCalibrationChange: (calibration: CalibrationProfile) => void;
+  onCampaignImported: () => void;
   onClose: () => void;
 };
 
 export default function RomanovEvidenceTransferPanel({
   calibration,
-  onCalibrationChange,
+  onCampaignImported,
   onClose
 }: Props) {
   const [survey, setSurvey] = useState<RomanovSurveyPacket>(() => createEmptyRomanovSurveyPacket());
@@ -59,7 +59,7 @@ export default function RomanovEvidenceTransferPanel({
   }, []);
 
   const surveyGate = useMemo(() => summarizeRomanovSurvey(survey), [survey]);
-  const matrix = useMemo(() => summarizeFieldMatrix(sessions, calibration.version), [calibration.version, sessions]);
+  const matrix = useMemo(() => summarizeFieldMatrix(sessions, { surveyPacketId: survey.id }), [sessions, survey.id]);
   const localDeviceSessions = useMemo(
     () => sessions.filter((item) =>
       item.calibration.version === calibration.version
@@ -72,7 +72,7 @@ export default function RomanovEvidenceTransferPanel({
 
   const exportCampaign = async () => {
     try {
-      const payload = serializeFieldCampaignPackage(calibration, survey);
+      const payload = serializeFieldCampaignPackage(survey);
       await Share.share({ title: 'Romanov field campaign', message: payload });
       setStatus('Campaign JSON готов. Импортируйте его на каждый тестовый телефон до измерений.');
     } catch (error) {
@@ -98,22 +98,16 @@ export default function RomanovEvidenceTransferPanel({
       const parsed = JSON.parse(raw) as { kind?: string };
       if (parsed.kind === 'romanov-field-campaign') {
         const campaign = parseFieldCampaignPackage(raw);
-        await Promise.all([
-          AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(campaign.calibration)),
-          AsyncStorage.setItem(SURVEY_KEY, JSON.stringify(campaign.survey))
-        ]);
+        await AsyncStorage.setItem(SURVEY_KEY, JSON.stringify(campaign.survey));
         setSurvey(campaign.survey);
-        onCalibrationChange(campaign.calibration);
+        onCampaignImported();
         setImportText('');
-        setStatus(`Campaign импортирован · calibration v${campaign.calibration.version} · survey ${campaign.survey.id}. Старые local sessions сохранены, но authority gate отфильтрует их как stale.`);
+        setStatus(`Campaign импортирован · survey ${campaign.survey.id}. Теперь на этом телефоне создайте новый local anchor и сохраните собственную session-local calibration.`);
         return;
       }
 
       if (parsed.kind === 'romanov-field-session-bundle') {
         const bundle = parseFieldSessionBundle(raw);
-        if (bundle.calibrationVersion !== calibration.version) {
-          throw new Error(`Bundle calibration v${bundle.calibrationVersion}, текущая v${calibration.version}.`);
-        }
         if (bundle.surveyPacketId !== survey.id) {
           throw new Error('Bundle относится к другому survey packet.');
         }
@@ -146,7 +140,7 @@ export default function RomanovEvidenceTransferPanel({
         </View>
 
         <Text style={styles.body}>
-          Один authority-device создаёт survey + calibration campaign. Остальные телефоны импортируют тот же campaign, снимают 5/10/15 м и возвращают versioned session bundle. Ручное изменение JSON не считается криптографически защищённым attestation.
+          Один authority-device создаёт approved survey campaign. Каждый телефон импортирует один и тот же survey, но строит собственную calibration в своей AR-сессии, снимает 5/10/15 м и возвращает versioned session bundle. JSON остаётся аудируемым, но не является криптографическим hardware-attestation.
         </Text>
 
         <View style={styles.summaryRow}>
@@ -155,7 +149,7 @@ export default function RomanovEvidenceTransferPanel({
             <Text style={styles.summaryValue}>{surveyGate.complete ? 'PASS' : 'BLOCKED'}</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>CALIBRATION</Text>
+            <Text style={styles.summaryLabel}>LOCAL CAL</Text>
             <Text style={styles.summaryValue}>v{calibration.version}</Text>
           </View>
           <View style={styles.summaryCard}>
@@ -167,7 +161,7 @@ export default function RomanovEvidenceTransferPanel({
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.step}>1 · AUTHORITY DEVICE → ВСЕ ТЕЛЕФОНЫ</Text>
           <Pressable style={[styles.primary, !surveyGate.complete && styles.disabled]} disabled={!surveyGate.complete} onPress={exportCampaign}>
-            <Text style={styles.primaryText}>Экспортировать survey + calibration campaign</Text>
+            <Text style={styles.primaryText}>Экспортировать approved survey campaign</Text>
           </Pressable>
 
           <Text style={styles.step}>2 · КАЖДЫЙ ТЕЛЕФОН → AUTHORITY DEVICE</Text>
@@ -184,7 +178,7 @@ export default function RomanovEvidenceTransferPanel({
             onChangeText={setImportText}
             multiline
             style={styles.input}
-            placeholder="Вставьте полный field-campaign или field-session-bundle JSON"
+            placeholder="Вставьте approved survey campaign или measured field-session-bundle JSON"
             placeholderTextColor="#666c74"
           />
           <Pressable style={[styles.secondary, !importText.trim() && styles.disabled]} disabled={!importText.trim()} onPress={importEvidence}>
