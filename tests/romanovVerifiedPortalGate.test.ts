@@ -99,9 +99,12 @@ function session(
   });
 }
 
-function fullMatrix(surveyPacketId: string) {
+function fullMatrix(
+  surveyPacketId: string,
+  host: { label: string; platform: string; cal: CalibrationProfile }
+) {
   const devices = [
-    { label: 'ios-a', platform: 'ios', cal: calibration(2, 'ios-a-anchor', 0.2) },
+    host,
     { label: 'ios-b', platform: 'ios', cal: calibration(5, 'ios-b-anchor', 2.2) },
     { label: 'android-a', platform: 'android', cal: calibration(3, 'android-a-anchor', -1.3) },
     { label: 'android-b', platform: 'android', cal: calibration(8, 'android-b-anchor', 5.1) }
@@ -115,14 +118,20 @@ function fullMatrix(surveyPacketId: string) {
 
 test('verified portal stays blocked until independent persistent-anchor proof completes', () => {
   const measuredSurvey = survey();
-  const sessions = fullMatrix(measuredSurvey.id);
   const hostLocalAnchorId = 'authority-host-local-anchor';
   const hostCalibration = calibration(11, hostLocalAnchorId, 0.7);
+  const sessions = fullMatrix(measuredSurvey.id, {
+    label: 'ios-authority',
+    platform: 'ios',
+    cal: hostCalibration
+  });
   const verifiedCalibration = verifyCalibration({
     calibration: hostCalibration,
     survey: measuredSurvey,
     sessions,
-    localAnchorId: hostLocalAnchorId
+    localAnchorId: hostLocalAnchorId,
+    deviceLabel: 'ios-authority',
+    devicePlatform: 'ios'
   });
 
   const hostPose = {
@@ -192,13 +201,20 @@ test('verified portal stays blocked until independent persistent-anchor proof co
 
 test('release gate rejects a different calibration snapshot even when its local version collides', () => {
   const measuredSurvey = survey();
-  const sessions = fullMatrix(measuredSurvey.id);
   const hostLocalAnchorId = 'snapshot-host-anchor';
+  const hostCalibration = calibration(12, hostLocalAnchorId, 0.4);
+  const sessions = fullMatrix(measuredSurvey.id, {
+    label: 'ios-host',
+    platform: 'ios',
+    cal: hostCalibration
+  });
   const verifiedCalibration = verifyCalibration({
-    calibration: calibration(12, hostLocalAnchorId, 0.4),
+    calibration: hostCalibration,
     survey: measuredSurvey,
     sessions,
-    localAnchorId: hostLocalAnchorId
+    localAnchorId: hostLocalAnchorId,
+    deviceLabel: 'ios-host',
+    devicePlatform: 'ios'
   });
   const hostPose = {
     position: [0.1, 0.02, -2.2] as [number, number, number],
@@ -242,4 +258,41 @@ test('release gate rejects a different calibration snapshot even when its local 
   assert.equal(gate.persistentAnchorFrameVerified, false);
   assert.equal(gate.persistentAnchorVerified, false);
   assert.ok(gate.blockers.includes('persistent-anchor-frame-not-verified'));
+});
+
+
+test('a fresh unmeasured host calibration cannot inherit verification from another four-device matrix', () => {
+  const measuredSurvey = survey();
+  const measuredHostCalibration = calibration(21, 'measured-host-anchor', 0.6);
+  const sessions = fullMatrix(measuredSurvey.id, {
+    label: 'ios-authority',
+    platform: 'ios',
+    cal: measuredHostCalibration
+  });
+  const freshUnmeasuredCalibration = calibration(22, 'fresh-unmeasured-anchor', 1.1);
+
+  assert.throws(
+    () => verifyCalibration({
+      calibration: freshUnmeasuredCalibration,
+      survey: measuredSurvey,
+      sessions,
+      localAnchorId: 'fresh-unmeasured-anchor',
+      deviceLabel: 'ios-authority',
+      devicePlatform: 'ios'
+    }),
+    /cannot be verified/
+  );
+
+  const gate = summarizeRomanovReleaseGate({
+    calibration: {
+      ...freshUnmeasuredCalibration,
+      verifiedAt: '2026-09-20T00:00:00.000Z'
+    },
+    survey: measuredSurvey,
+    sessions,
+    anchors: []
+  });
+  assert.equal(gate.calibrationPlacementMeasured, false);
+  assert.equal(gate.calibrationVerified, false);
+  assert.ok(gate.blockers.includes('calibration-placement-not-measured'));
 });
