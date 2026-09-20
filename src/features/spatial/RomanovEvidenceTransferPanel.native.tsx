@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { CalibrationProfile } from '../../spatial/calibration';
+import {
+  isSameCalibrationPlacement,
+  type CalibrationProfile
+} from '../../spatial/calibration';
 import {
   parseFieldCampaignPackage,
   parseFieldSessionBundle,
@@ -62,12 +65,12 @@ export default function RomanovEvidenceTransferPanel({
   const matrix = useMemo(() => summarizeFieldMatrix(sessions, { surveyPacketId: survey.id }), [sessions, survey.id]);
   const localDeviceSessions = useMemo(
     () => sessions.filter((item) =>
-      item.calibration.version === calibration.version
+      isSameCalibrationPlacement(item.calibration, calibration)
       && item.surveyPacketId === survey.id
       && item.deviceLabel?.trim() === deviceLabel.trim()
       && validateFieldSessionIntegrity(item)
     ),
-    [calibration.version, deviceLabel, sessions, survey.id]
+    [calibration, deviceLabel, sessions, survey.id]
   );
 
   const exportCampaign = async () => {
