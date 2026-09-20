@@ -132,6 +132,7 @@ export function isPersistentAnchorFrameAuthoritative(value: unknown): value is R
     || !isPersistentAnchorProvider(anchor.provider)
     || !hasText(anchor.providerAnchorId)
     || !isPersistentAnchorState(anchor.state)
+    || typeof anchor.calibrationVersion !== 'number'
     || !Number.isInteger(anchor.calibrationVersion)
     || !isCalibrationProfile(anchor.calibration)
     || !hasText(anchor.hostSessionAnchorId)
