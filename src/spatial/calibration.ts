@@ -48,7 +48,7 @@ export function isCalibrationProfile(value: unknown): value is CalibrationProfil
     typeof profile.scale === 'number' && Number.isFinite(profile.scale) && profile.scale > 0 &&
     finiteTuple3(profile.translation) &&
     finiteTuple3(profile.rotationEulerDeg) &&
-    Number.isInteger(profile.version) && (profile.version ?? 0) >= 1 &&
+    typeof profile.version === 'number' && Number.isInteger(profile.version) && profile.version >= 1 &&
     (profile.anchorStrategy === 'manual-first' || profile.anchorStrategy === 'visual' || profile.anchorStrategy === 'cloud') &&
     (profile.sessionAnchorId === undefined || typeof profile.sessionAnchorId === 'string') &&
     (profile.verifiedAt === undefined || typeof profile.verifiedAt === 'string')
