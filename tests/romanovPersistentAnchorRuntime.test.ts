@@ -197,3 +197,58 @@ test('persistent proof import rejects an anchor-frame transform that no longer m
     /not authoritative/
   );
 });
+
+
+test('verification identity must match the device that actually resolved the anchor', () => {
+  const hostPose = {
+    position: [0, 0, -3] as [number, number, number],
+    rotationEulerDeg: [0, 0, 0] as [number, number, number]
+  };
+  let anchor = createPersistentAnchorRecord({
+    provider: 'reactvision',
+    providerAnchorId: 'cloud-anchor-resolver-identity',
+    calibration: verifiedCalibration,
+    hostSessionAnchorId: HOST_LOCAL_ANCHOR,
+    hostAnchorPose: hostPose,
+    anchorFrameModelTransform: modelWorldToAnchorFrame(verifiedCalibration, hostPose),
+    hostedByDeviceLabel: 'device-a'
+  });
+  anchor = markAnchorHostLocalized(anchor, {
+    continuityResidualCm: 4,
+    continuityRotationDeg: 0.4
+  });
+  anchor = markAnchorResolved(anchor, {
+    resolvedByDeviceLabel: 'device-b',
+    resolveSessionId: 'resolve-device-b'
+  });
+
+  assert.throws(
+    () => markAnchorVerified(anchor, { verifiedByDeviceLabel: 'device-c' }),
+    /resolving device/
+  );
+});
+
+test('persistent proof import rejects fabricated verified state without independent resolve evidence', () => {
+  const hostPose = {
+    position: [0, 0, -3] as [number, number, number],
+    rotationEulerDeg: [0, 0, 0] as [number, number, number]
+  };
+  const anchor = createPersistentAnchorRecord({
+    provider: 'reactvision',
+    providerAnchorId: 'cloud-anchor-fabricated-verified',
+    calibration: verifiedCalibration,
+    hostSessionAnchorId: HOST_LOCAL_ANCHOR,
+    hostAnchorPose: hostPose,
+    anchorFrameModelTransform: modelWorldToAnchorFrame(verifiedCalibration, hostPose),
+    hostedByDeviceLabel: 'device-a'
+  });
+  const payload = JSON.parse(serializePersistentAnchorPackage(anchor));
+  payload.anchor.state = 'verified';
+  payload.anchor.verifiedAt = '2026-09-20T00:00:00.000Z';
+  payload.anchor.verifiedByDeviceLabel = 'device-b';
+
+  assert.throws(
+    () => parsePersistentAnchorPackage(JSON.stringify(payload)),
+    /not authoritative/
+  );
+});
