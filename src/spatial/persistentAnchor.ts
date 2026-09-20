@@ -15,7 +15,9 @@ import {
   isRomanovVerifiedScaleAuthoritative
 } from './romanovMetricAuthority.ts';
 import {
+  hasCompleteMeasuredPlacement,
   summarizeFieldMatrix,
+  type FieldPlatform,
   type RomanovFieldMatrixSummary,
   type RomanovFieldSession
 } from './fieldVerification.ts';
@@ -62,6 +64,7 @@ export type RomanovPersistentAnchorPackage = {
 export type PersistentAnchorReadiness = {
   fieldMatrix: RomanovFieldMatrixSummary;
   calibrationVerified: boolean;
+  calibrationPlacementMeasured: boolean;
   calibrationMetricCurrent: boolean;
   calibrationScaleAuthoritative: boolean;
   calibrationSessionCurrent: boolean;
@@ -211,9 +214,18 @@ export function getPersistentAnchorReadiness(input: {
   providerConfigured: boolean;
   surveyPacketId: string;
   currentLocalAnchorId?: string | null;
+  deviceLabel?: string;
+  devicePlatform?: FieldPlatform;
 }): PersistentAnchorReadiness {
   const fieldMatrix = summarizeFieldMatrix(input.sessions, { surveyPacketId: input.surveyPacketId });
   const calibrationVerified = Boolean(input.calibration.verifiedAt);
+  const calibrationPlacementMeasured = hasCompleteMeasuredPlacement({
+    sessions: input.sessions,
+    surveyPacketId: input.surveyPacketId,
+    calibration: input.calibration,
+    deviceLabel: input.deviceLabel,
+    devicePlatform: input.devicePlatform
+  });
   const calibrationMetricCurrent = isCurrentRomanovMetricBinding(input.calibration.metricBinding);
   const calibrationScaleAuthoritative = isRomanovVerifiedScaleAuthoritative(input.calibration.scale);
   const calibrationSessionCurrent = isCalibrationBoundToSession(input.calibration, input.currentLocalAnchorId);
@@ -221,6 +233,7 @@ export function getPersistentAnchorReadiness(input: {
 
   if (!fieldMatrix.eligibleForPersistentAnchor) blockers.push('field-matrix-incomplete');
   if (!calibrationVerified) blockers.push('calibration-not-verified');
+  if (!calibrationPlacementMeasured) blockers.push('calibration-placement-not-measured');
   if (!calibrationMetricCurrent) blockers.push('calibration-metric-authority-stale');
   if (!calibrationScaleAuthoritative) blockers.push('calibration-metric-scale-not-authoritative');
   if (!calibrationSessionCurrent) blockers.push('calibration-not-bound-to-current-ar-session');
@@ -229,6 +242,7 @@ export function getPersistentAnchorReadiness(input: {
   return {
     fieldMatrix,
     calibrationVerified,
+    calibrationPlacementMeasured,
     calibrationMetricCurrent,
     calibrationScaleAuthoritative,
     calibrationSessionCurrent,
