@@ -1,3 +1,4 @@
+import { isSameCalibrationPlacement } from './calibration.ts';
 import {
   isFieldSessionEvidenceAuthoritative,
   validateFieldSessionIntegrity,
@@ -58,9 +59,13 @@ export function serializeFieldSessionBundle(sessions: RomanovFieldSession[]) {
 
   const surveyIds = new Set(sessions.map((item) => item.surveyPacketId));
   const calibrationVersions = new Set(sessions.map((item) => item.calibration.version));
+  const firstCalibration = sessions[0]!.calibration;
+  const onePlacement = sessions.every((item) =>
+    isSameCalibrationPlacement(item.calibration, firstCalibration)
+  );
   const labels = new Set(sessions.map((item) => item.deviceLabel?.trim()).filter(Boolean));
   if (surveyIds.size !== 1 || !sessions[0]?.surveyPacketId) throw new Error('session bundle must use one survey packet');
-  if (calibrationVersions.size !== 1) throw new Error('session bundle must use one calibration version');
+  if (calibrationVersions.size !== 1 || !onePlacement) throw new Error('session bundle must use one exact calibration placement');
   if (labels.size !== 1) throw new Error('session bundle must represent one physical device');
 
   const payload: RomanovFieldSessionBundle = {
@@ -85,6 +90,10 @@ export function parseFieldSessionBundle(raw: string): RomanovFieldSessionBundle 
   }
   if (!Number.isInteger(value.calibrationVersion) || value.sessions.some((item) => item.calibration.version !== value.calibrationVersion)) {
     throw new Error('field session calibration authority mismatch');
+  }
+  const firstCalibration = value.sessions[0]!.calibration;
+  if (!value.sessions.every((item) => isSameCalibrationPlacement(item.calibration, firstCalibration))) {
+    throw new Error('field session calibration placement mismatch');
   }
   if (!value.deviceLabel?.trim() || value.sessions.some((item) => item.deviceLabel?.trim() !== value.deviceLabel?.trim())) {
     throw new Error('field session device identity mismatch');
