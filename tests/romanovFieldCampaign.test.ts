@@ -192,7 +192,7 @@ test('bundle rejects mixed device labels, local calibration versions and survey 
     'ios',
     localCalibration(3, 'a-v3', 1)
   );
-  assert.throws(() => serializeFieldSessionBundle([a, otherVersion]), /one calibration version/);
+  assert.throws(() => serializeFieldSessionBundle([a, otherVersion]), /one exact calibration placement/);
 
   const otherSurvey = measuredSession('another-survey', 10, 'device-a', 'ios', calA);
   assert.throws(() => serializeFieldSessionBundle([a, otherSurvey]), /one survey/);
