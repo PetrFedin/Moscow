@@ -31,21 +31,31 @@ Each physical phone creates its own local AR anchor and its own session-local ca
 
 Different devices are expected to have different AR world XYZ values and may have different local calibration version numbers.
 
-A single physical device cannot combine 5/10/15 measurements from different local calibration versions.
+A single physical device cannot combine 5/10/15 measurements from different local calibration placements, even when two placements happen to share the same local version number.
 
 ## Calibration verification
 
-After the survey and cross-device matrix pass:
+The calibration that will be hosted must itself be one of the measured placements in the cross-device matrix. A green matrix cannot be used to bless a new, unmeasured manual alignment.
 
-1. The authority device starts a fresh AR session.
-2. Create a local anchor.
-3. Save a session-local calibration against that anchor.
-4. Open **Anchor**.
-5. Promote calibration to verified.
+Recommended ordering:
 
-Verification is blocked if the calibration is not bound to the current local AR anchor.
+1. Import the completed bundles from the other field devices onto the authority/hosting device.
+2. On the authority/hosting device, create the local AR anchor that will be hosted.
+3. Save one session-local calibration against that anchor.
+4. Without changing calibration or restarting the AR session, capture the complete five-point measured set at 5 m, 10 m and 15 m.
+5. Save those three PASS sessions under the same physical-device label.
+6. Once this placement also completes the required 2 iOS + 2 Android matrix, open **Anchor**.
+7. Promote this exact measured placement to verified.
+8. Host the cloud anchor from the same still-active local AR session.
 
-Persisted pre-cloud calibration coordinates are only draft parameters after a restart. They are not treated as a current physical placement.
+Verification is blocked if:
+
+- the calibration is not bound to the current local AR anchor;
+- the current physical-device label/platform does not own the measured placement;
+- any of 5/10/15 m is missing for this exact placement;
+- the overall 2 iOS + 2 Android matrix is incomplete.
+
+A fresh calibration created after the field matrix passes does **not** inherit verification. Persisted pre-cloud calibration coordinates after a restart are only draft parameters and are not treated as a current physical placement.
 
 ## Native provider build
 
@@ -112,7 +122,7 @@ The field-campaign, field-session and persistent-anchor JSON packages are versio
 They reject, among other things:
 
 - mixed surveys;
-- mixed local calibration versions within one device bundle;
+- mixed local calibration placements within one device bundle, including same-version geometry collisions;
 - mixed physical device labels;
 - duplicate facade control points;
 - stale model/metric authority;
