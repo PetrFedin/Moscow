@@ -101,15 +101,16 @@ function sameTuple3(
 
 /**
  * Calibration versions are local counters, not globally unique identifiers.
- * Release authority therefore binds to the complete verified snapshot.
+ * A measured placement is the complete session-local geometry/authority tuple;
+ * verifiedAt is deliberately excluded because field sessions are captured
+ * before the placement is promoted to verified.
  */
-export function isSameCalibrationSnapshot(
+export function isSameCalibrationPlacement(
   a: CalibrationProfile,
   b: CalibrationProfile
 ) {
   return a.version === b.version
     && a.sessionAnchorId === b.sessionAnchorId
-    && a.verifiedAt === b.verifiedAt
     && a.anchorStrategy === b.anchorStrategy
     && sameNumber(a.latitude, b.latitude)
     && sameNumber(a.longitude, b.longitude)
@@ -121,6 +122,17 @@ export function isSameCalibrationSnapshot(
     && a.metricBinding?.metricAuthorityId === b.metricBinding?.metricAuthorityId
     && a.metricBinding?.metricAuthorityVersion === b.metricBinding?.metricAuthorityVersion
     && a.metricBinding?.modelPackVersion === b.metricBinding?.modelPackVersion;
+}
+
+/**
+ * Persistent-anchor release authority binds to the complete promoted snapshot.
+ */
+export function isSameCalibrationSnapshot(
+  a: CalibrationProfile,
+  b: CalibrationProfile
+) {
+  return isSameCalibrationPlacement(a, b)
+    && a.verifiedAt === b.verifiedAt;
 }
 
 export function isCalibrationBoundToSession(
