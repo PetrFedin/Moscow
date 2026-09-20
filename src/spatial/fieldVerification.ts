@@ -1,4 +1,7 @@
-import type { CalibrationProfile } from './calibration.ts';
+import {
+  isSameCalibrationPlacement,
+  type CalibrationProfile
+} from './calibration.ts';
 import {
   isReleaseEligibleMeasuredResidual,
   type RomanovMeasuredControlPointResidual
@@ -164,18 +167,18 @@ function completeDevicesForSurvey(
     const first = deviceSessions[0];
     if (!first) continue;
 
-    const byCalibration = new Map<number, RomanovFieldSession[]>();
-    for (const session of deviceSessions) {
-      const current = byCalibration.get(session.calibration.version) ?? [];
-      current.push(session);
-      byCalibration.set(session.calibration.version, current);
-    }
-
-    const completeCalibration = [...byCalibration.values()].find((calibrationSessions) =>
-      ROMANOV_FIELD_DISTANCES.every((distance) =>
-        calibrationSessions.some((session) => session.viewingDistanceMeters === distance && session.passed)
-      )
-    );
+    const completeCalibration = deviceSessions.find((candidate) => {
+      const placementSessions = deviceSessions.filter((session) =>
+        isSameCalibrationPlacement(session.calibration, candidate.calibration)
+      );
+      return ROMANOV_FIELD_DISTANCES.every((distance) =>
+        placementSessions.some((session) =>
+          session.viewingDistanceMeters === distance
+          && session.passed
+          && isFieldSessionEvidenceAuthoritative(session)
+        )
+      );
+    });
     if (!completeCalibration) continue;
 
     complete.push({
@@ -187,6 +190,29 @@ function completeDevicesForSurvey(
     });
   }
   return complete;
+}
+
+export function hasCompleteMeasuredPlacement(input: {
+  sessions: RomanovFieldSession[];
+  surveyPacketId: string;
+  calibration: CalibrationProfile;
+  deviceLabel?: string;
+  devicePlatform?: FieldPlatform;
+}) {
+  const expectedLabel = input.deviceLabel?.trim().toLowerCase();
+  const placementSessions = input.sessions.filter((session) =>
+    session.surveyPacketId === input.surveyPacketId
+    && isCurrentRomanovMetricBinding(session.metricBinding)
+    && isSameCalibrationPlacement(session.calibration, input.calibration)
+    && isFieldSessionEvidenceAuthoritative(session)
+    && session.passed
+    && (!expectedLabel || session.deviceLabel?.trim().toLowerCase() === expectedLabel)
+    && (!input.devicePlatform || session.devicePlatform === input.devicePlatform)
+  );
+
+  return ROMANOV_FIELD_DISTANCES.every((distance) =>
+    placementSessions.some((session) => session.viewingDistanceMeters === distance)
+  );
 }
 
 export function summarizeFieldMatrix(
