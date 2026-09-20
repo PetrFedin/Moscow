@@ -83,7 +83,7 @@ export function verifyCalibration(input: {
     throw new Error('Romanov calibration is not bound to the current AR session anchor');
   }
   if (!canVerifyCalibration(input)) {
-    throw new Error('Romanov calibration cannot be verified before survey and field matrix pass');
+    throw new Error('Romanov calibration cannot be verified before survey, cross-device matrix and this exact 5/10/15 measured placement pass');
   }
 
   return {
