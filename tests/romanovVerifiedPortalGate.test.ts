@@ -13,6 +13,7 @@ import {
 } from '../src/spatial/fieldVerification.ts';
 import {
   createPersistentAnchorRecord,
+  getPersistentAnchorReadiness,
   markAnchorHostLocalized,
   markAnchorResolved,
   markAnchorVerified
@@ -283,11 +284,26 @@ test('a fresh unmeasured host calibration cannot inherit verification from anoth
     /cannot be verified/
   );
 
+  const forgedVerifiedCalibration = {
+    ...freshUnmeasuredCalibration,
+    verifiedAt: '2026-09-20T00:00:00.000Z'
+  };
+  const readiness = getPersistentAnchorReadiness({
+    sessions,
+    calibration: forgedVerifiedCalibration,
+    provider: 'reactvision',
+    providerConfigured: true,
+    surveyPacketId: measuredSurvey.id,
+    currentLocalAnchorId: 'fresh-unmeasured-anchor',
+    deviceLabel: 'ios-authority',
+    devicePlatform: 'ios'
+  });
+  assert.equal(readiness.readyToHost, false);
+  assert.equal(readiness.calibrationPlacementMeasured, false);
+  assert.ok(readiness.blockers.includes('calibration-placement-not-measured'));
+
   const gate = summarizeRomanovReleaseGate({
-    calibration: {
-      ...freshUnmeasuredCalibration,
-      verifiedAt: '2026-09-20T00:00:00.000Z'
-    },
+    calibration: forgedVerifiedCalibration,
     survey: measuredSurvey,
     sessions,
     anchors: []
