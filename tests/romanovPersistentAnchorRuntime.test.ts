@@ -173,3 +173,27 @@ test('cloud host rejects calibration from a different AR session anchor', () => 
     hostedByDeviceLabel: 'device-a'
   }), /hosting AR session/);
 });
+
+
+test('persistent proof import rejects an anchor-frame transform that no longer matches its host snapshot', () => {
+  const hostPose = {
+    position: [1, 0, -3] as [number, number, number],
+    rotationEulerDeg: [0, 20, 0] as [number, number, number]
+  };
+  const anchor = createPersistentAnchorRecord({
+    provider: 'reactvision',
+    providerAnchorId: 'cloud-anchor-tampered-frame',
+    calibration: verifiedCalibration,
+    hostSessionAnchorId: HOST_LOCAL_ANCHOR,
+    hostAnchorPose: hostPose,
+    anchorFrameModelTransform: modelWorldToAnchorFrame(verifiedCalibration, hostPose),
+    hostedByDeviceLabel: 'device-a'
+  });
+  const payload = JSON.parse(serializePersistentAnchorPackage(anchor));
+  payload.anchor.anchorFrameModelTransform.position[0] += 0.25;
+
+  assert.throws(
+    () => parsePersistentAnchorPackage(JSON.stringify(payload)),
+    /not authoritative/
+  );
+});
