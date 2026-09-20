@@ -5,7 +5,6 @@ import { Dimensions, PixelRatio, SafeAreaView, ScrollView, StyleSheet, Text, Vie
 import {
   Viro3DObject,
   ViroAmbientLight,
-  ViroARCloudAnchor,
   ViroARScene,
   ViroNode,
   ViroPortal,
@@ -15,11 +14,9 @@ import {
   ViroTrackingStateConstants,
   ViroXRSceneNavigator,
   isQuest,
-  locationToWorld,
-  parseLocationTransform,
   type ViroARHitTestResult,
   type ViroHostCloudAnchorResult,
-  type ViroLocalizedEvent
+  type ViroResolveCloudAnchorResult
 } from '@reactvision/react-viro';
 import {
   buildRomanovMeasuredResidual,
@@ -109,8 +106,16 @@ type AlignmentMeasurementSample = {
   cameraWorldPointMeters: RomanovWorldPointMeters;
 };
 
+type PersistentResolveSample = {
+  anchorPose: {
+    position: [number, number, number];
+    rotationEulerDeg: [number, number, number];
+  };
+};
+
 type CloudAnchorNavigatorMethods = {
   hostCloudAnchor: (anchorId: string, ttlDays?: number) => Promise<ViroHostCloudAnchorResult>;
+  resolveCloudAnchor: (cloudAnchorId: string) => Promise<ViroResolveCloudAnchorResult>;
   cancelCloudAnchorOperations?: () => void;
 };
 
@@ -125,10 +130,20 @@ type XRNavigatorProviderProps = React.ComponentProps<typeof ViroXRSceneNavigator
 
 const PersistentViroXRSceneNavigator = ViroXRSceneNavigator as React.ComponentType<XRNavigatorProviderProps>;
 
+function isCloudAnchorNavigator(value: unknown): value is CloudAnchorNavigatorMethods {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<CloudAnchorNavigatorMethods>;
+  return typeof candidate.hostCloudAnchor === 'function'
+    && typeof candidate.resolveCloudAnchor === 'function';
+}
+
 function cloudAnchorNavigator(value: unknown): CloudAnchorNavigatorMethods | null {
+  if (isCloudAnchorNavigator(value)) return value;
   if (!value || typeof value !== 'object') return null;
   const candidate = value as XRNavigatorRuntimeRef;
-  return candidate.arSceneNavigator ?? candidate.sceneNavigator ?? null;
+  if (isCloudAnchorNavigator(candidate.arSceneNavigator)) return candidate.arSceneNavigator;
+  if (isCloudAnchorNavigator(candidate.sceneNavigator)) return candidate.sceneNavigator;
+  return null;
 }
 
 type SceneProps = {
@@ -142,7 +157,7 @@ type SceneProps = {
       portalVisible?: boolean;
       activePersistentAnchor?: RomanovPersistentAnchor | null;
       measurementRequest?: AlignmentMeasurementRequest | null;
-      onPersistentLocalized?: (event: ViroLocalizedEvent) => void;
+      onPersistentLocalized?: (sample: PersistentResolveSample) => void;
       onPersistentLocalizeError?: (message: string) => void;
       onMeasurementSample?: (sample: AlignmentMeasurementSample) => void;
       onMeasurementError?: (requestId: number, message: string) => void;
@@ -199,7 +214,9 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const arRef = useRef<ViroARScene | null>(null);
   const lastRequest = useRef(0);
   const lastMeasurementRequest = useRef(0);
+  const lastPersistentResolve = useRef<string | null>(null);
   const trackingState = useRef<number>(0);
+  const [resolvedPersistentModelTransform, setResolvedPersistentModelTransform] = useState<ReturnType<typeof anchorFrameModelToWorld> | null>(null);
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const era = sceneNavigator?.viroAppProps?.era ?? '1859';
   const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
@@ -320,6 +337,60 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
     return () => { cancelled = true; };
   }, [measurementRequest, onMeasurementError, onMeasurementSample]);
 
+  useEffect(() => {
+    if (isQuest || !activePersistentAnchor) {
+      lastPersistentResolve.current = null;
+      setResolvedPersistentModelTransform(null);
+      return;
+    }
+    if (lastPersistentResolve.current === activePersistentAnchor.id) return;
+
+    const navigator = cloudAnchorNavigator(arSceneNavigator);
+    if (!navigator?.resolveCloudAnchor) {
+      onPersistentLocalizeError?.('Cloud-anchor resolve API недоступен в текущем AR navigator.');
+      return;
+    }
+
+    let cancelled = false;
+    lastPersistentResolve.current = activePersistentAnchor.id;
+    setResolvedPersistentModelTransform(null);
+
+    navigator.resolveCloudAnchor(activePersistentAnchor.providerAnchorId)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.success || !result.anchor) {
+          lastPersistentResolve.current = null;
+          onPersistentLocalizeError?.(result.error ?? `Cloud anchor resolve failed: ${result.state}`);
+          return;
+        }
+
+        const anchorPose = {
+          position: result.anchor.position,
+          rotationEulerDeg: result.anchor.rotation
+        };
+        setResolvedPersistentModelTransform(
+          anchorFrameModelToWorld(anchorPose, activePersistentAnchor.anchorFrameModelTransform)
+        );
+        onPersistentLocalized?.({ anchorPose });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        lastPersistentResolve.current = null;
+        onPersistentLocalizeError?.(
+          error instanceof Error ? error.message : 'Cloud anchor resolve failed.'
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activePersistentAnchor,
+    arSceneNavigator,
+    onPersistentLocalized,
+    onPersistentLocalizeError
+  ]);
+
   const modelContents = (
     <>
       <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
@@ -344,32 +415,26 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   );
 
   const anchoredModel = activePersistentAnchor && !isQuest ? (
-    <ViroARCloudAnchor
-      cloudAnchorId={activePersistentAnchor.providerAnchorId}
-      arSceneNavigator={arSceneNavigator}
-      onLocalized={onPersistentLocalized}
-      onLocalizeError={(message) => onPersistentLocalizeError?.(message)}
-      placeholder={(
-        <ViroText
-          text="LOCALIZING PERSISTENT ANCHOR…"
-          position={[0, 0, -2]}
-          scale={[0.12, 0.12, 0.12]}
-          style={{ fontSize: 14, color: '#f0d39b', textAlign: 'center' }}
-        />
-      )}
-    >
+    resolvedPersistentModelTransform ? (
       <ViroNode
-        position={activePersistentAnchor.anchorFrameModelTransform.position}
-        rotation={activePersistentAnchor.anchorFrameModelTransform.rotationEulerDeg}
+        position={resolvedPersistentModelTransform.position}
+        rotation={resolvedPersistentModelTransform.rotationEulerDeg}
         scale={[
-          activePersistentAnchor.anchorFrameModelTransform.scale,
-          activePersistentAnchor.anchorFrameModelTransform.scale,
-          activePersistentAnchor.anchorFrameModelTransform.scale
+          resolvedPersistentModelTransform.scale,
+          resolvedPersistentModelTransform.scale,
+          resolvedPersistentModelTransform.scale
         ]}
       >
         {modelContents}
       </ViroNode>
-    </ViroARCloudAnchor>
+    ) : (
+      <ViroText
+        text="LOCALIZING PERSISTENT ANCHOR…"
+        position={[0, 0, -2]}
+        scale={[0.12, 0.12, 0.12]}
+        style={{ fontSize: 14, color: '#f0d39b', textAlign: 'center' }}
+      />
+    )
   ) : unanchoredModel;
 
   const content = (
@@ -677,7 +742,7 @@ export default function MoscowSpatialJourney({
     return navigator.hostCloudAnchor(anchorId, ttlDays);
   };
 
-  const handlePersistentLocalized = async (event: ViroLocalizedEvent) => {
+  const handlePersistentLocalized = async (sample: PersistentResolveSample) => {
     const anchor = activePersistentAnchor;
     if (!anchor) return;
 
@@ -690,26 +755,15 @@ export default function MoscowSpatialJourney({
 
       let next = anchor;
       if (deviceLabel.toLowerCase() === anchor.hostedByDeviceLabel.trim().toLowerCase()) {
-        const transform = parseLocationTransform(event.transform);
-        if (!transform) throw new Error('Cloud anchor localized, но provider не вернул корректный location transform.');
-        const worldModelOrigin = locationToWorld(transform, anchor.anchorFrameModelTransform.position);
-        const continuityResidualCm = Math.hypot(
-          worldModelOrigin[0] - anchor.calibration.translation[0],
-          worldModelOrigin[1] - anchor.calibration.translation[1],
-          worldModelOrigin[2] - anchor.calibration.translation[2]
-        ) * 100;
-        const localizedRotation: [number, number, number] = [
-          event.rotation?.[0] ?? 0,
-          event.rotation?.[1] ?? 0,
-          event.rotation?.[2] ?? 0
-        ];
         const reconstructed = anchorFrameModelToWorld(
-          {
-            position: [event.position?.[0] ?? 0, event.position?.[1] ?? 0, event.position?.[2] ?? 0],
-            rotationEulerDeg: localizedRotation
-          },
+          sample.anchorPose,
           anchor.anchorFrameModelTransform
         );
+        const continuityResidualCm = Math.hypot(
+          reconstructed.position[0] - anchor.calibration.translation[0],
+          reconstructed.position[1] - anchor.calibration.translation[1],
+          reconstructed.position[2] - anchor.calibration.translation[2]
+        ) * 100;
         const continuityRotationDeg = rotationMatrixAngularDistanceDeg(
           reconstructed.rotationEulerDeg,
           anchor.calibration.rotationEulerDeg
