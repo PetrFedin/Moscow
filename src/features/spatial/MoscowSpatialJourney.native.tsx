@@ -225,6 +225,10 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const activePersistentAnchor = sceneNavigator?.viroAppProps?.activePersistentAnchor ?? null;
   const onPersistentLocalized = sceneNavigator?.viroAppProps?.onPersistentLocalized;
   const onPersistentLocalizeError = sceneNavigator?.viroAppProps?.onPersistentLocalizeError;
+  const onPersistentLocalizedRef = useRef(onPersistentLocalized);
+  const onPersistentLocalizeErrorRef = useRef(onPersistentLocalizeError);
+  onPersistentLocalizedRef.current = onPersistentLocalized;
+  onPersistentLocalizeErrorRef.current = onPersistentLocalizeError;
   const measurementRequest = sceneNavigator?.viroAppProps?.measurementRequest ?? null;
   const onMeasurementSample = sceneNavigator?.viroAppProps?.onMeasurementSample;
   const onMeasurementError = sceneNavigator?.viroAppProps?.onMeasurementError;
@@ -347,7 +351,7 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
 
     const navigator = cloudAnchorNavigator(arSceneNavigator);
     if (!navigator?.resolveCloudAnchor) {
-      onPersistentLocalizeError?.('Cloud-anchor resolve API недоступен в текущем AR navigator.');
+      onPersistentLocalizeErrorRef.current?.('Cloud-anchor resolve API недоступен в текущем AR navigator.');
       return;
     }
 
@@ -360,7 +364,7 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
         if (cancelled) return;
         if (!result.success || !result.anchor) {
           lastPersistentResolve.current = null;
-          onPersistentLocalizeError?.(result.error ?? `Cloud anchor resolve failed: ${result.state}`);
+          onPersistentLocalizeErrorRef.current?.(result.error ?? `Cloud anchor resolve failed: ${result.state}`);
           return;
         }
 
@@ -371,12 +375,12 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
         setResolvedPersistentModelTransform(
           anchorFrameModelToWorld(anchorPose, activePersistentAnchor.anchorFrameModelTransform)
         );
-        onPersistentLocalized?.({ anchorPose });
+        onPersistentLocalizedRef.current?.({ anchorPose });
       })
       .catch((error) => {
         if (cancelled) return;
         lastPersistentResolve.current = null;
-        onPersistentLocalizeError?.(
+        onPersistentLocalizeErrorRef.current?.(
           error instanceof Error ? error.message : 'Cloud anchor resolve failed.'
         );
       });
@@ -386,9 +390,7 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
     };
   }, [
     activePersistentAnchor,
-    arSceneNavigator,
-    onPersistentLocalized,
-    onPersistentLocalizeError
+    arSceneNavigator
   ]);
 
   const modelContents = (
