@@ -45,7 +45,9 @@ test('anchor-frame transform reconstructs the original model pose', () => {
   const reconstructed = anchorFrameModelToWorld(anchor, relative);
 
   reconstructed.position.forEach((value, index) => {
-    assert.ok(Math.abs(value - verifiedCalibration.translation[index]) < 1e-9);
+    const expected = verifiedCalibration.translation[index];
+    assert.notEqual(expected, undefined);
+    assert.ok(Math.abs(value - expected!) < 1e-9);
   });
   assert.ok(rotationMatrixAngularDistanceDeg(
     reconstructed.rotationEulerDeg,
