@@ -105,7 +105,9 @@ export default function RomanovPersistentAnchorPanel({
     provider: runtime.provider,
     providerConfigured: runtime.configured,
     surveyPacketId: survey.id,
-    currentLocalAnchorId: localAnchor?.anchorId
+    currentLocalAnchorId: localAnchor?.anchorId,
+    deviceLabel,
+    devicePlatform: Platform.OS
   });
 
   const saveAnchors = async (next: RomanovPersistentAnchor[]) => {
@@ -159,7 +161,9 @@ export default function RomanovPersistentAnchorPanel({
       provider: runtime.provider,
       providerConfigured: runtime.configured,
       surveyPacketId: survey.id,
-      currentLocalAnchorId: localAnchor.anchorId
+      currentLocalAnchorId: localAnchor.anchorId,
+      deviceLabel,
+      devicePlatform: Platform.OS
     });
     if (!refreshedReadiness.readyToHost) {
       setStatus(`Host blocked: ${refreshedReadiness.blockers.join(', ')}`);
