@@ -188,3 +188,58 @@ test('verified portal stays blocked until independent persistent-anchor proof co
   assert.equal(gate.state, 'field-verified-spatial-scene');
   assert.deepEqual(gate.blockers, []);
 });
+
+
+test('release gate rejects a different calibration snapshot even when its local version collides', () => {
+  const measuredSurvey = survey();
+  const sessions = fullMatrix(measuredSurvey.id);
+  const hostLocalAnchorId = 'snapshot-host-anchor';
+  const verifiedCalibration = verifyCalibration({
+    calibration: calibration(12, hostLocalAnchorId, 0.4),
+    survey: measuredSurvey,
+    sessions,
+    localAnchorId: hostLocalAnchorId
+  });
+  const hostPose = {
+    position: [0.1, 0.02, -2.2] as [number, number, number],
+    rotationEulerDeg: [0, 4, 0] as [number, number, number]
+  };
+  let anchor = createPersistentAnchorRecord({
+    provider: 'reactvision',
+    providerAnchorId: 'cloud-anchor-snapshot',
+    calibration: verifiedCalibration,
+    hostSessionAnchorId: hostLocalAnchorId,
+    hostAnchorPose: hostPose,
+    anchorFrameModelTransform: modelWorldToAnchorFrame(verifiedCalibration, hostPose),
+    hostedByDeviceLabel: 'ios-host'
+  });
+  anchor = markAnchorHostLocalized(anchor, {
+    continuityResidualCm: 4,
+    continuityRotationDeg: 0.2
+  });
+  anchor = markAnchorResolved(anchor, {
+    resolvedByDeviceLabel: 'android-independent',
+    resolveSessionId: 'resolve-snapshot'
+  });
+  anchor = markAnchorVerified(anchor, { verifiedByDeviceLabel: 'android-independent' });
+
+  const collidingCalibration: CalibrationProfile = {
+    ...verifiedCalibration,
+    translation: [
+      verifiedCalibration.translation[0] + 0.5,
+      verifiedCalibration.translation[1],
+      verifiedCalibration.translation[2]
+    ]
+  };
+  const gate = summarizeRomanovReleaseGate({
+    calibration: collidingCalibration,
+    survey: measuredSurvey,
+    sessions,
+    anchors: [anchor]
+  });
+
+  assert.equal(gate.state, 'production-candidate');
+  assert.equal(gate.persistentAnchorFrameVerified, false);
+  assert.equal(gate.persistentAnchorVerified, false);
+  assert.ok(gate.blockers.includes('persistent-anchor-frame-not-verified'));
+});
