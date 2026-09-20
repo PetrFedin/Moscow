@@ -14,7 +14,9 @@ import {
   ViroTrackingStateConstants,
   ViroXRSceneNavigator,
   isQuest,
-  type ViroARHitTestResult
+  type ViroARHitTestResult,
+  type ViroHostCloudAnchorResult,
+  type ViroResolveCloudAnchorResult
 } from '@reactvision/react-viro';
 import {
   buildRomanovMeasuredResidual,
@@ -26,11 +28,25 @@ import {
   bindCalibrationToCurrentMetricAuthority,
   defaultRomanovCalibration,
   invalidateCalibrationVerification,
+  isCalibrationBoundToSession,
   isCalibrationProfile,
   type CalibrationProfile
 } from '../../spatial/calibration';
 import type { RomanovFieldSession } from '../../spatial/fieldVerification';
-import type { RomanovPersistentAnchor } from '../../spatial/persistentAnchor';
+import {
+  isIndependentAnchorResolve,
+  isPersistentAnchorFrameAuthoritative,
+  markAnchorHostLocalized,
+  markAnchorResolved,
+  markAnchorVerified,
+  type PersistentAnchorProvider,
+  type RomanovPersistentAnchor
+} from '../../spatial/persistentAnchor';
+import {
+  anchorFrameModelToWorld,
+  rotationMatrixAngularDistanceDeg
+} from '../../spatial/persistentAnchorFrame';
+import { getPersistentAnchorRuntimeConfig } from '../../spatial/persistentAnchorRuntime';
 import type { RomanovEra } from '../../spatial/romanov-hotspots';
 import { getRomanovModelSource, type RomanovTrustMode } from '../../spatial/romanovModelPack.native';
 import { summarizeRomanovReleaseGate } from '../../spatial/romanovReleaseGate';
@@ -43,13 +59,17 @@ import type { SpatialStage } from '../../e2e/experienceContract';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
+import RomanovEvidenceTransferPanel from './RomanovEvidenceTransferPanel.native';
 import RomanovFieldTest from './RomanovFieldTest.native';
+import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
 import RomanovSurveyPacketScreen from './RomanovSurveyPacket.native';
 
 const CALIBRATION_KEY = 'moscow:p0:romanov-calibration:v1';
 const SURVEY_KEY = 'moscow:p0:romanov-survey-packet:v1';
 const FIELD_KEY = 'moscow:p0:romanov-field-sessions:v1';
 const ANCHOR_KEY = 'moscow:p0:romanov-persistent-anchors:v1';
+const ACTIVE_ANCHOR_KEY = 'moscow:p0:romanov-active-persistent-anchor:v1';
+const DEVICE_LABEL_KEY = 'moscow:p0:romanov-device-label:v1';
 const ERA_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
@@ -71,6 +91,7 @@ type LocalAnchor = {
   anchorId: string;
   hitType: ViroARHitTestResult['type'];
   position: [number, number, number];
+  rotationEulerDeg: [number, number, number];
 };
 
 type AlignmentMeasurementRequest = {
@@ -85,7 +106,48 @@ type AlignmentMeasurementSample = {
   cameraWorldPointMeters: RomanovWorldPointMeters;
 };
 
+type PersistentResolveSample = {
+  anchorPose: {
+    position: [number, number, number];
+    rotationEulerDeg: [number, number, number];
+  };
+};
+
+type CloudAnchorNavigatorMethods = {
+  hostCloudAnchor: (anchorId: string, ttlDays?: number) => Promise<ViroHostCloudAnchorResult>;
+  resolveCloudAnchor: (cloudAnchorId: string) => Promise<ViroResolveCloudAnchorResult>;
+  cancelCloudAnchorOperations?: () => void;
+};
+
+type XRNavigatorRuntimeRef = {
+  arSceneNavigator?: CloudAnchorNavigatorMethods;
+  sceneNavigator?: CloudAnchorNavigatorMethods;
+};
+
+type XRNavigatorProviderProps = React.ComponentProps<typeof ViroXRSceneNavigator> & {
+  provider?: PersistentAnchorProvider;
+};
+
+const PersistentViroXRSceneNavigator = ViroXRSceneNavigator as React.ComponentType<XRNavigatorProviderProps>;
+
+function isCloudAnchorNavigator(value: unknown): value is CloudAnchorNavigatorMethods {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<CloudAnchorNavigatorMethods>;
+  return typeof candidate.hostCloudAnchor === 'function'
+    && typeof candidate.resolveCloudAnchor === 'function';
+}
+
+function cloudAnchorNavigator(value: unknown): CloudAnchorNavigatorMethods | null {
+  if (isCloudAnchorNavigator(value)) return value;
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as XRNavigatorRuntimeRef;
+  if (isCloudAnchorNavigator(candidate.arSceneNavigator)) return candidate.arSceneNavigator;
+  if (isCloudAnchorNavigator(candidate.sceneNavigator)) return candidate.sceneNavigator;
+  return null;
+}
+
 type SceneProps = {
+  arSceneNavigator?: unknown;
   sceneNavigator?: {
     viroAppProps?: {
       calibration?: CalibrationProfile;
@@ -93,7 +155,10 @@ type SceneProps = {
       trustMode?: RomanovTrustMode;
       requestId?: number;
       portalVisible?: boolean;
+      activePersistentAnchor?: RomanovPersistentAnchor | null;
       measurementRequest?: AlignmentMeasurementRequest | null;
+      onPersistentLocalized?: (sample: PersistentResolveSample) => void;
+      onPersistentLocalizeError?: (message: string) => void;
       onMeasurementSample?: (sample: AlignmentMeasurementSample) => void;
       onMeasurementError?: (requestId: number, message: string) => void;
       onCandidate?: (hitType: ViroARHitTestResult['type']) => void;
@@ -120,7 +185,7 @@ function pickHit(results: ViroARHitTestResult[]) {
 
 function PortalScene() {
   return (
-    <ViroPortalScene passable position={[2.6, 0, -4]}>
+    <ViroPortalScene passable position={[2.6, 0, 0]}>
       <ViroPortal position={[0, 0, 0]}>
         <Viro3DObject
           source={require('../../../assets/models/romanov-portal-frame.obj')}
@@ -145,16 +210,25 @@ function PortalScene() {
   );
 }
 
-function SpatialScene({ sceneNavigator }: SceneProps) {
+function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const arRef = useRef<ViroARScene | null>(null);
   const lastRequest = useRef(0);
   const lastMeasurementRequest = useRef(0);
+  const lastPersistentResolve = useRef<string | null>(null);
   const trackingState = useRef<number>(0);
+  const [resolvedPersistentModelTransform, setResolvedPersistentModelTransform] = useState<ReturnType<typeof anchorFrameModelToWorld> | null>(null);
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const era = sceneNavigator?.viroAppProps?.era ?? '1859';
   const trustMode = sceneNavigator?.viroAppProps?.trustMode ?? 'public';
   const requestId = sceneNavigator?.viroAppProps?.requestId ?? 0;
   const portalVisible = sceneNavigator?.viroAppProps?.portalVisible ?? false;
+  const activePersistentAnchor = sceneNavigator?.viroAppProps?.activePersistentAnchor ?? null;
+  const onPersistentLocalized = sceneNavigator?.viroAppProps?.onPersistentLocalized;
+  const onPersistentLocalizeError = sceneNavigator?.viroAppProps?.onPersistentLocalizeError;
+  const onPersistentLocalizedRef = useRef(onPersistentLocalized);
+  const onPersistentLocalizeErrorRef = useRef(onPersistentLocalizeError);
+  onPersistentLocalizedRef.current = onPersistentLocalized;
+  onPersistentLocalizeErrorRef.current = onPersistentLocalizeError;
   const measurementRequest = sceneNavigator?.viroAppProps?.measurementRequest ?? null;
   const onMeasurementSample = sceneNavigator?.viroAppProps?.onMeasurementSample;
   const onMeasurementError = sceneNavigator?.viroAppProps?.onMeasurementError;
@@ -189,10 +263,12 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
         return;
       }
       const position = node.transform?.position ?? hit.transform.position;
+      const rotation = node.transform?.rotation ?? hit.transform.rotation ?? [0, 0, 0];
       onAnchored?.({
         anchorId: node.anchorId,
         hitType: hit.type,
-        position: [position[0], position[1], position[2]]
+        position: [position[0], position[1], position[2]],
+        rotationEulerDeg: [rotation[0] ?? 0, rotation[1] ?? 0, rotation[2] ?? 0]
       });
     };
 
@@ -265,23 +341,108 @@ function SpatialScene({ sceneNavigator }: SceneProps) {
     return () => { cancelled = true; };
   }, [measurementRequest, onMeasurementError, onMeasurementSample]);
 
+  useEffect(() => {
+    if (isQuest || !activePersistentAnchor) {
+      lastPersistentResolve.current = null;
+      setResolvedPersistentModelTransform(null);
+      return;
+    }
+    if (lastPersistentResolve.current === activePersistentAnchor.id) return;
+
+    const navigator = cloudAnchorNavigator(arSceneNavigator);
+    if (!navigator?.resolveCloudAnchor) {
+      onPersistentLocalizeErrorRef.current?.('Cloud-anchor resolve API недоступен в текущем AR navigator.');
+      return;
+    }
+
+    let cancelled = false;
+    lastPersistentResolve.current = activePersistentAnchor.id;
+    setResolvedPersistentModelTransform(null);
+
+    navigator.resolveCloudAnchor(activePersistentAnchor.providerAnchorId)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.success || !result.anchor) {
+          lastPersistentResolve.current = null;
+          onPersistentLocalizeErrorRef.current?.(result.error ?? `Cloud anchor resolve failed: ${result.state}`);
+          return;
+        }
+
+        const anchorPose = {
+          position: result.anchor.position,
+          rotationEulerDeg: result.anchor.rotation
+        };
+        setResolvedPersistentModelTransform(
+          anchorFrameModelToWorld(anchorPose, activePersistentAnchor.anchorFrameModelTransform)
+        );
+        onPersistentLocalizedRef.current?.({ anchorPose });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        lastPersistentResolve.current = null;
+        onPersistentLocalizeErrorRef.current?.(
+          error instanceof Error ? error.message : 'Cloud anchor resolve failed.'
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activePersistentAnchor,
+    arSceneNavigator
+  ]);
+
+  const modelContents = (
+    <>
+      <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
+      <ViroText
+        text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'}`}
+        position={[0, 14.2, 0]}
+        scale={[0.22, 0.22, 0.22]}
+        style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
+      />
+      {portalVisible && <PortalScene />}
+    </>
+  );
+
+  const unanchoredModel = (
+    <ViroNode
+      position={calibration.translation}
+      rotation={calibration.rotationEulerDeg}
+      scale={[calibration.scale, calibration.scale, calibration.scale]}
+    >
+      {modelContents}
+    </ViroNode>
+  );
+
+  const anchoredModel = activePersistentAnchor && !isQuest ? (
+    resolvedPersistentModelTransform ? (
+      <ViroNode
+        position={resolvedPersistentModelTransform.position}
+        rotation={resolvedPersistentModelTransform.rotationEulerDeg}
+        scale={[
+          resolvedPersistentModelTransform.scale,
+          resolvedPersistentModelTransform.scale,
+          resolvedPersistentModelTransform.scale
+        ]}
+      >
+        {modelContents}
+      </ViroNode>
+    ) : (
+      <ViroText
+        text="LOCALIZING PERSISTENT ANCHOR…"
+        position={[0, 0, -2]}
+        scale={[0.12, 0.12, 0.12]}
+        style={{ fontSize: 14, color: '#f0d39b', textAlign: 'center' }}
+      />
+    )
+  ) : unanchoredModel;
+
   const content = (
     <>
       <ViroAmbientLight color="#ffffff" intensity={650} />
-      <ViroNode
-        position={calibration.translation}
-        rotation={calibration.rotationEulerDeg}
-        scale={[calibration.scale, calibration.scale, calibration.scale]}
-      >
-        <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
-        <ViroText
-          text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'}`}
-          position={[0, 14.2, 0]}
-          scale={[0.22, 0.22, 0.22]}
-          style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
-        />
-      </ViroNode>
-      {portalVisible && <PortalScene />}
+      {anchoredModel}
     </>
   );
 
@@ -355,6 +516,11 @@ export default function MoscowSpatialJourney({
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [fieldOpen, setFieldOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [anchorOpen, setAnchorOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [activePersistentAnchor, setActivePersistentAnchor] = useState<RomanovPersistentAnchor | null>(null);
+  const xrNavigatorRef = useRef<unknown>(null);
+  const anchorRuntime = getPersistentAnchorRuntimeConfig();
   const [measurementRequest, setMeasurementRequest] = useState<AlignmentMeasurementRequest | null>(null);
   const measurementResolver = useRef<{
     requestId: number;
@@ -393,19 +559,44 @@ export default function MoscowSpatialJourney({
     Promise.all([
       AsyncStorage.getItem(CALIBRATION_KEY),
       AsyncStorage.getItem(ERA_KEY),
-      AsyncStorage.getItem(TRUST_KEY)
-    ]).then(([rawCalibration, rawEra, rawTrust]) => {
+      AsyncStorage.getItem(TRUST_KEY),
+      AsyncStorage.getItem(ACTIVE_ANCHOR_KEY),
+      AsyncStorage.getItem(ANCHOR_KEY)
+    ]).then(([rawCalibration, rawEra, rawTrust, rawActiveAnchorId, rawAnchors]) => {
       let loadedCalibration = defaultRomanovCalibration;
       if (rawCalibration) {
         const parsed: unknown = JSON.parse(rawCalibration);
         if (isCalibrationProfile(parsed)) loadedCalibration = parsed;
       }
-      setCalibration(loadedCalibration);
       if (rawEra === '1857' || rawEra === '1859') setEra(rawEra);
       if (rawTrust === 'documented' || rawTrust === 'public') setTrustMode(rawTrust);
-      if (rawCalibration) {
+
+      let storedActive: RomanovPersistentAnchor | undefined;
+      if (rawActiveAnchorId && rawAnchors) {
+        const storedAnchors = JSON.parse(rawAnchors) as RomanovPersistentAnchor[];
+        storedActive = storedAnchors.find((item) => item.id === rawActiveAnchorId);
+      }
+
+      if (storedActive && isPersistentAnchorFrameAuthoritative(storedActive)) {
+        loadedCalibration = storedActive.calibration;
+        setCalibration(loadedCalibration);
+        setActivePersistentAnchor(storedActive);
         setStage('calibrated');
-        setStatusMessage('Сохранённый calibration profile загружен. Проверяем release gate…');
+        setStatusMessage('Persistent anchor proof загружен. Локализуем общий location frame…');
+      } else {
+        const draftCalibration = {
+          ...loadedCalibration,
+          sessionAnchorId: undefined,
+          verifiedAt: undefined
+        };
+        setCalibration(draftCalibration);
+        setStage('searching');
+        setStatusMessage(
+          rawCalibration
+            ? 'Предыдущие X/Y/Z загружены только как черновик. AR world origin новый: создайте local anchor и сохраните calibration заново.'
+            : 'Наведите центр экрана на устойчивую часть фасада.'
+        );
+        loadedCalibration = draftCalibration;
       }
       reloadReleaseGate(loadedCalibration).catch(() => undefined);
     }).catch(() => undefined);
@@ -413,6 +604,8 @@ export default function MoscowSpatialJourney({
 
   const requestAnchor = () => {
     setPortalVisible(false);
+    setActivePersistentAnchor(null);
+    AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY).catch(() => undefined);
     setStatusMessage('Ищем устойчивую поверхность в центре экрана…');
     setStage('searching');
     setLocalAnchor(null);
@@ -448,7 +641,15 @@ export default function MoscowSpatialJourney({
   };
 
   const saveCalibration = async () => {
-    const nextCalibration = advanceCalibrationVersionForSave(bindCalibrationToCurrentMetricAuthority(calibration));
+    if (!localAnchor) {
+      setStatusMessage('Сначала создайте local anchor текущей AR-сессии.');
+      void haptic('field-warning');
+      return;
+    }
+    const nextCalibration = advanceCalibrationVersionForSave(
+      bindCalibrationToCurrentMetricAuthority(calibration),
+      localAnchor.anchorId
+    );
     setCalibration(nextCalibration);
     await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(nextCalibration));
     setStage('calibrated');
@@ -461,6 +662,9 @@ export default function MoscowSpatialJourney({
     controlPointId: string,
     distance: 5 | 10 | 15
   ): Promise<RomanovMeasuredControlPointResidual> => {
+    if (!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)) {
+      throw new Error('Calibration не привязана к local anchor текущей AR-сессии. Создайте anchor и сохраните calibration заново.');
+    }
     const rawSurvey = await AsyncStorage.getItem(SURVEY_KEY);
     if (!rawSurvey) throw new Error('Сначала создайте и утвердите survey packet.');
     const survey = JSON.parse(rawSurvey) as RomanovSurveyPacketData;
@@ -522,6 +726,83 @@ export default function MoscowSpatialJourney({
     setMeasurementRequest(null);
   };
 
+  const persistActiveAnchor = async (anchor: RomanovPersistentAnchor) => {
+    const raw = await AsyncStorage.getItem(ANCHOR_KEY);
+    const anchors: RomanovPersistentAnchor[] = raw ? JSON.parse(raw) : [];
+    const next = [...anchors.filter((item) => item.id !== anchor.id), anchor];
+    await Promise.all([
+      AsyncStorage.setItem(ANCHOR_KEY, JSON.stringify(next)),
+      AsyncStorage.setItem(ACTIVE_ANCHOR_KEY, anchor.id)
+    ]);
+    setActivePersistentAnchor(anchor);
+  };
+
+  const hostPersistentAnchor = async (anchorId: string, ttlDays: number) => {
+    if (isQuest) throw new Error('Phone cloud anchors are not hosted from the Quest runtime.');
+    const navigator = cloudAnchorNavigator(xrNavigatorRef.current);
+    if (!navigator?.hostCloudAnchor) throw new Error('AR cloud-anchor navigator is not mounted yet.');
+    return navigator.hostCloudAnchor(anchorId, ttlDays);
+  };
+
+  const handlePersistentLocalized = async (sample: PersistentResolveSample) => {
+    const anchor = activePersistentAnchor;
+    if (!anchor) return;
+
+    try {
+      const deviceLabel = (await AsyncStorage.getItem(DEVICE_LABEL_KEY))?.trim();
+      if (!deviceLabel) {
+        setStatusMessage('Cloud anchor localized, но device label не задан. Откройте Persistent anchor и укажите физическое устройство.');
+        return;
+      }
+
+      let next = anchor;
+      if (deviceLabel.toLowerCase() === anchor.hostedByDeviceLabel.trim().toLowerCase()) {
+        const reconstructed = anchorFrameModelToWorld(
+          sample.anchorPose,
+          anchor.anchorFrameModelTransform
+        );
+        const continuityResidualCm = Math.hypot(
+          reconstructed.position[0] - anchor.calibration.translation[0],
+          reconstructed.position[1] - anchor.calibration.translation[1],
+          reconstructed.position[2] - anchor.calibration.translation[2]
+        ) * 100;
+        const continuityRotationDeg = rotationMatrixAngularDistanceDeg(
+          reconstructed.rotationEulerDeg,
+          anchor.calibration.rotationEulerDeg
+        );
+        next = markAnchorHostLocalized(anchor, { continuityResidualCm, continuityRotationDeg });
+        setStatusMessage(
+          next.hostContinuityPassed
+            ? `Host anchor-frame continuity PASS · ${continuityResidualCm.toFixed(1)} см · ${continuityRotationDeg.toFixed(2)}°. Экспортируйте proof на другое устройство.`
+            : `Host anchor-frame continuity FAIL · ${continuityResidualCm.toFixed(1)} см · ${continuityRotationDeg.toFixed(2)}°. Persistent placement требует исправления.`
+        );
+      } else {
+        next = markAnchorResolved(anchor, {
+          resolvedByDeviceLabel: deviceLabel,
+          resolveSessionId: `resolve-${new Date().toISOString()}`
+        });
+        if (next.hostContinuityPassed && isIndependentAnchorResolve(next)) {
+          next = markAnchorVerified(next, { verifiedByDeviceLabel: deviceLabel });
+          setStatusMessage(`Independent persistent-anchor resolve VERIFIED · ${deviceLabel}. Экспортируйте proof обратно на field-authority устройство.`);
+          void haptic('anchor-verified');
+        } else {
+          setStatusMessage(`Persistent anchor resolved on ${deviceLabel}, но verification prerequisites ещё не выполнены.`);
+        }
+      }
+
+      await persistActiveAnchor(next);
+      await reloadReleaseGate().catch(() => undefined);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Persistent anchor localization evidence failed.');
+      void haptic('field-warning');
+    }
+  };
+
+  const handlePersistentLocalizeError = (message: string) => {
+    setStatusMessage(`Persistent anchor resolve failed: ${message}`);
+    void haptic('field-warning');
+  };
+
   const openPortal = async () => {
     const gate = await reloadReleaseGate().catch(() => null);
     const verified = gate?.state === 'field-verified-spatial-scene';
@@ -550,7 +831,9 @@ export default function MoscowSpatialJourney({
 
   return (
     <View style={styles.root}>
-      <ViroXRSceneNavigator
+      <PersistentViroXRSceneNavigator
+        ref={xrNavigatorRef}
+        provider={anchorRuntime.provider}
         initialScene={{ scene: SpatialSceneFactory }}
         viroAppProps={{
           calibration,
@@ -558,7 +841,10 @@ export default function MoscowSpatialJourney({
           trustMode,
           requestId,
           portalVisible,
+          activePersistentAnchor,
           measurementRequest,
+          onPersistentLocalized: handlePersistentLocalized,
+          onPersistentLocalizeError: handlePersistentLocalizeError,
           onMeasurementSample: handleMeasurementSample,
           onMeasurementError: handleMeasurementError,
           onCandidate: handleCandidate,
@@ -611,9 +897,9 @@ export default function MoscowSpatialJourney({
                 <Text style={styles.secondaryText}>{stage === 'searching' ? 'Найти фасад' : 'Перепривязать'}</Text>
               </PhysicalPressable>
               <PhysicalPressable
-                style={[styles.primary, !localAnchor && styles.disabled]}
+                style={[styles.primary, (!localAnchor || Boolean(activePersistentAnchor)) && styles.disabled]}
                 contentStyle={styles.center}
-                disabled={!localAnchor}
+                disabled={!localAnchor || Boolean(activePersistentAnchor)}
                 onPress={() => setCalibrationOpen((current) => !current)}
               >
                 <Text style={styles.primaryText}>Калибровка</Text>
@@ -621,7 +907,16 @@ export default function MoscowSpatialJourney({
             </View>
             <View style={styles.actionRow}>
               <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
-              <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setFieldOpen(true)}><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
+              <PhysicalPressable
+                style={[styles.toolButton, (!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)) && styles.disabled]}
+                contentStyle={styles.center}
+                disabled={!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)}
+                onPress={() => setFieldOpen(true)}
+              ><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
+            </View>
+            <View style={styles.actionRow}>
+              <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setEvidenceOpen(true)}><Text style={styles.toolText}>Evidence</Text></PhysicalPressable>
+              <PhysicalPressable style={[styles.toolButton, activePersistentAnchor && styles.toolButtonActive]} contentStyle={styles.center} onPress={() => setAnchorOpen(true)}><Text style={styles.toolText}>Anchor</Text></PhysicalPressable>
             </View>
             <View style={styles.portalTransition}>
               <PortalTransitionControl
@@ -668,6 +963,43 @@ export default function MoscowSpatialJourney({
         />
       )}
       {surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
+      {evidenceOpen && !isQuest && (
+        <RomanovEvidenceTransferPanel
+          calibration={calibration}
+          onCampaignImported={() => {
+            const draft = {
+              ...invalidateCalibrationVerification(calibration),
+              sessionAnchorId: undefined
+            };
+            setCalibration(draft);
+            setLocalAnchor(null);
+            setStage('searching');
+            setActivePersistentAnchor(null);
+            Promise.all([
+              AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(draft)),
+              AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY)
+            ]).catch(() => undefined);
+            setStatusMessage('Survey campaign импортирован. Создайте local anchor и session-local calibration на этом телефоне.');
+            reloadReleaseGate(draft).catch(() => undefined);
+          }}
+          onClose={() => { setEvidenceOpen(false); reloadReleaseGate().catch(() => undefined); }}
+        />
+      )}
+      {anchorOpen && !isQuest && (
+        <RomanovPersistentAnchorPanel
+          calibration={calibration}
+          localAnchor={localAnchor}
+          activeAnchor={activePersistentAnchor}
+          onCalibrationChange={(next) => {
+            setCalibration(next);
+            setStage('calibrated');
+            reloadReleaseGate(next).catch(() => undefined);
+          }}
+          onActiveAnchorChange={persistActiveAnchor}
+          onHostCloudAnchor={hostPersistentAnchor}
+          onClose={() => { setAnchorOpen(false); reloadReleaseGate().catch(() => undefined); }}
+        />
+      )}
     </View>
   );
 }
@@ -699,6 +1031,7 @@ const styles = StyleSheet.create({
   secondaryText: { color: '#d9c59e', fontSize: 10, fontWeight: '900', textAlign: 'center' },
   disabled: { opacity: 0.35 },
   toolButton: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#45505a' },
+  toolButtonActive: { borderColor: '#9f855a', backgroundColor: '#211b13' },
   toolText: { color: '#9ea6ae', fontSize: 8.5, fontWeight: '900' },
   portalTransition: { marginTop: 9 },
   backButton: { minHeight: 40, borderRadius: 12, marginTop: 7 },

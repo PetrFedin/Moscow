@@ -15,6 +15,7 @@ export type CalibrationProfile = {
   anchorStrategy: 'manual-first' | 'visual' | 'cloud';
   version: number;
   metricBinding?: RomanovMetricBinding;
+  sessionAnchorId?: string;
   verifiedAt?: string;
 };
 
@@ -34,15 +35,23 @@ export const defaultRomanovCalibration: CalibrationProfile = {
 export function isCalibrationProfile(value: unknown): value is CalibrationProfile {
   if (!value || typeof value !== 'object') return false;
   const profile = value as Partial<CalibrationProfile>;
+  const finiteTuple3 = (tuple: unknown): tuple is [number, number, number] =>
+    Array.isArray(tuple)
+    && tuple.length === 3
+    && tuple.every((item) => typeof item === 'number' && Number.isFinite(item));
+
   return (
-    typeof profile.latitude === 'number' &&
-    typeof profile.longitude === 'number' &&
-    typeof profile.headingDeg === 'number' &&
-    typeof profile.pitchDeg === 'number' &&
-    typeof profile.scale === 'number' &&
-    Array.isArray(profile.translation) && profile.translation.length === 3 &&
-    Array.isArray(profile.rotationEulerDeg) && profile.rotationEulerDeg.length === 3 &&
-    typeof profile.version === 'number'
+    typeof profile.latitude === 'number' && Number.isFinite(profile.latitude) &&
+    typeof profile.longitude === 'number' && Number.isFinite(profile.longitude) &&
+    typeof profile.headingDeg === 'number' && Number.isFinite(profile.headingDeg) &&
+    typeof profile.pitchDeg === 'number' && Number.isFinite(profile.pitchDeg) &&
+    typeof profile.scale === 'number' && Number.isFinite(profile.scale) && profile.scale > 0 &&
+    finiteTuple3(profile.translation) &&
+    finiteTuple3(profile.rotationEulerDeg) &&
+    typeof profile.version === 'number' && Number.isInteger(profile.version) && profile.version >= 1 &&
+    (profile.anchorStrategy === 'manual-first' || profile.anchorStrategy === 'visual' || profile.anchorStrategy === 'cloud') &&
+    (profile.sessionAnchorId === undefined || typeof profile.sessionAnchorId === 'string') &&
+    (profile.verifiedAt === undefined || typeof profile.verifiedAt === 'string')
   );
 }
 
@@ -63,11 +72,76 @@ export function invalidateCalibrationVerification(profile: CalibrationProfile): 
 }
 
 
-export function advanceCalibrationVersionForSave(profile: CalibrationProfile): CalibrationProfile {
+export function advanceCalibrationVersionForSave(
+  profile: CalibrationProfile,
+  sessionAnchorId?: string
+): CalibrationProfile {
   return {
     ...profile,
     version: Math.max(1, Math.floor(profile.version)) + 1,
     metricBinding: currentRomanovMetricBinding,
+    sessionAnchorId: sessionAnchorId?.trim() || undefined,
     verifiedAt: undefined
   };
+}
+
+function sameNumber(a: number, b: number, tolerance = 1e-9) {
+  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= tolerance;
+}
+
+function sameTuple3(
+  a: [number, number, number],
+  b: [number, number, number],
+  tolerance = 1e-9
+) {
+  return sameNumber(a[0], b[0], tolerance)
+    && sameNumber(a[1], b[1], tolerance)
+    && sameNumber(a[2], b[2], tolerance);
+}
+
+/**
+ * Calibration versions are local counters, not globally unique identifiers.
+ * A measured placement is the complete session-local geometry/authority tuple;
+ * verifiedAt is deliberately excluded because field sessions are captured
+ * before the placement is promoted to verified.
+ */
+export function isSameCalibrationPlacement(
+  a: CalibrationProfile,
+  b: CalibrationProfile
+) {
+  return a.version === b.version
+    && a.sessionAnchorId === b.sessionAnchorId
+    && a.anchorStrategy === b.anchorStrategy
+    && sameNumber(a.latitude, b.latitude)
+    && sameNumber(a.longitude, b.longitude)
+    && sameNumber(a.headingDeg, b.headingDeg)
+    && sameNumber(a.pitchDeg, b.pitchDeg)
+    && sameNumber(a.scale, b.scale)
+    && sameTuple3(a.translation, b.translation)
+    && sameTuple3(a.rotationEulerDeg, b.rotationEulerDeg)
+    && a.metricBinding?.metricAuthorityId === b.metricBinding?.metricAuthorityId
+    && a.metricBinding?.metricAuthorityVersion === b.metricBinding?.metricAuthorityVersion
+    && a.metricBinding?.modelPackVersion === b.metricBinding?.modelPackVersion;
+}
+
+/**
+ * Persistent-anchor release authority binds to the complete promoted snapshot.
+ */
+export function isSameCalibrationSnapshot(
+  a: CalibrationProfile,
+  b: CalibrationProfile
+) {
+  return isSameCalibrationPlacement(a, b)
+    && a.verifiedAt === b.verifiedAt;
+}
+
+export function isCalibrationBoundToSession(
+  profile: CalibrationProfile,
+  sessionAnchorId?: string | null
+) {
+  return Boolean(
+    sessionAnchorId
+    && profile.sessionAnchorId
+    && profile.sessionAnchorId === sessionAnchorId
+  );
 }
