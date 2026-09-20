@@ -1,5 +1,6 @@
 import {
   isCalibrationBoundToSession,
+  isSameCalibrationSnapshot,
   type CalibrationProfile
 } from './calibration.ts';
 import {
@@ -91,6 +92,7 @@ export function summarizeRomanovReleaseGate(input: {
   const anchorsForCurrentCalibration = input.anchors.filter((anchor) =>
     anchor.state !== 'retired'
     && anchor.calibrationVersion === input.calibration.version
+    && isSameCalibrationSnapshot(anchor.calibration, input.calibration)
     && isCurrentRomanovMetricBinding(anchor.calibration.metricBinding)
     && isPersistentAnchorFrameAuthoritative(anchor)
   );
