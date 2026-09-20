@@ -32,6 +32,44 @@ export type Place = {
 
 export const places: Place[] = [
   {
+    id: 'church-st-barbara',
+    title: 'Храм Варвары Великомученицы',
+    subtitle: 'Храм, который дал имя Варварке',
+    district: 'Китай-город',
+    latitude: 55.75232,
+    longitude: 37.62594,
+    shortStory: 'Западный вход в прогулку: через один участок видно, как Варварка сохраняет память XVI века внутри классицистического города конца XVIII — начала XIX века.',
+    tags: ['архитектура', 'торговля', 'Варварка'],
+    experienceMinutes: 6,
+    arReady: false,
+    vrReady: false,
+    highlights: [
+      'узнать, почему улица получила название Варварка',
+      'связать первый каменный храм 1514 года с богатыми сурожскими купцами',
+      'увидеть, как новый храм Родиона Казакова сохранил место и фундамент более ранней церкви'
+    ],
+    sources: [
+      { label: 'Мосгорнаследие — историко-культурная экспертиза храма Варвары', url: 'https://www.mos.ru/upload/documents/files/6187/AKT-GIKE-Krasnaya-pl-d5-ispravlennii.pdf' },
+      { label: '«Московское наследие» — церкви Варварки', url: 'https://www.mos.ru/upload/documents/files/3331/MN_3_2017_finalfinal.pdf' }
+    ],
+    periods: [
+      {
+        id: 'st-barbara-1514',
+        label: 'Первый каменный храм',
+        year: '1514',
+        summary: 'Каменная церковь Варвары была построена Алевизом Новым по заказу богатых сурожских купцов. Именно с этим храмом источники связывают закрепление названия Варварки.',
+        confidence: 'documented'
+      },
+      {
+        id: 'st-barbara-1804',
+        label: 'Классицистический храм',
+        year: '1796–1804',
+        summary: 'Существующее здание возвели по проекту Родиона Казакова на основании более раннего храма. Так одна точка соединяет разные архитектурные эпохи улицы.',
+        confidence: 'documented'
+      }
+    ]
+  },
+  {
     id: 'romanov-chambers',
     title: 'Палаты бояр Романовых',
     subtitle: 'Дом, который менялся вместе с Варваркой',
@@ -117,6 +155,44 @@ export const places: Place[] = [
     ]
   },
   {
+    id: 'znamensky-cathedral',
+    title: 'Знаменский собор',
+    subtitle: 'Собор Старого Государева двора',
+    district: 'Китай-город',
+    latitude: 55.752444,
+    longitude: 37.628774,
+    shortStory: 'Собор связывает Варварку с Знаменским монастырём, старой усадьбой Романовых и масштабной реставрацией XX века — здесь особенно хорошо видно, как исторический образ города возвращался после утрат.',
+    tags: ['архитектура', 'Романовы', 'реставрация'],
+    experienceMinutes: 7,
+    arReady: false,
+    vrReady: false,
+    highlights: [
+      'увидеть центр ансамбля Знаменского монастыря на территории Старого Государева двора',
+      'понять связь монастыря с усадьбой Романовых и царским покровительством',
+      'сравнить собор XVII века с его советскими переделками и научной реставрацией 1960–1970-х годов'
+    ],
+    sources: [
+      { label: 'Мосгорнаследие — исторические сведения по Зарядью', url: 'https://www.mos.ru/upload/documents/oiv/zaryade_26062017_.pdf' },
+      { label: '«Московское наследие» — Знаменский монастырь', url: 'https://www.mos.ru/upload/documents/files/1/Moskovskoenasledie32.pdf' }
+    ],
+    periods: [
+      {
+        id: 'znamensky-1684',
+        label: 'Собор XVII века',
+        year: '1679–1684',
+        summary: 'Существующий собор был построен в 1679–1684 годах и стал композиционным центром Знаменского монастыря.',
+        confidence: 'documented'
+      },
+      {
+        id: 'znamensky-1970s',
+        label: 'Возвращение исторического облика',
+        year: '1960–1970-е',
+        summary: 'После утрат и приспособлений советского времени собор прошёл научную реставрацию, ориентированную на образ здания конца XVII века.',
+        confidence: 'documented'
+      }
+    ]
+  },
+  {
     id: 'varvarka-gates',
     title: 'Варварские ворота',
     subtitle: 'Исчезнувшая граница Китай-города',
@@ -143,7 +219,13 @@ export const places: Place[] = [
 export const pilotRoute = {
   id: 'varvarka-zaryadye-pilot',
   title: 'Варварка: улица, которая помнит несколько Москв',
-  durationMinutes: 45,
+  durationMinutes: 55,
   distanceKm: 1.2,
-  stopIds: ['romanov-chambers', 'old-english-court', 'varvarka-gates']
+  stopIds: [
+    'church-st-barbara',
+    'old-english-court',
+    'romanov-chambers',
+    'znamensky-cathedral',
+    'varvarka-gates'
+  ]
 };
