@@ -4,6 +4,8 @@ import {
 } from './calibration.ts';
 import {
   isFiniteAnchorFrameTransform,
+  modelWorldToAnchorFrame,
+  rotationMatrixAngularDistanceDeg,
   type RomanovAnchorFrameModelTransform,
   type RomanovAnchorPose
 } from './persistentAnchorFrame.ts';
@@ -76,6 +78,24 @@ function finiteTuple(value: unknown): value is [number, number, number] {
     && value.every((item) => typeof item === 'number' && Number.isFinite(item));
 }
 
+
+function isAnchorFrameConsistentWithHostSnapshot(anchor: RomanovPersistentAnchor) {
+  if (!isFiniteAnchorFrameTransform(anchor.anchorFrameModelTransform)) return false;
+  const expected = modelWorldToAnchorFrame(anchor.calibration, anchor.hostAnchorPose);
+  const positionErrorMeters = Math.hypot(
+    expected.position[0] - anchor.anchorFrameModelTransform.position[0],
+    expected.position[1] - anchor.anchorFrameModelTransform.position[1],
+    expected.position[2] - anchor.anchorFrameModelTransform.position[2]
+  );
+  const rotationErrorDeg = rotationMatrixAngularDistanceDeg(
+    expected.rotationEulerDeg,
+    anchor.anchorFrameModelTransform.rotationEulerDeg
+  );
+  return positionErrorMeters <= 1e-6
+    && rotationErrorDeg <= 1e-5
+    && Math.abs(expected.scale - anchor.anchorFrameModelTransform.scale) <= 1e-9;
+}
+
 export function isIndependentAnchorResolve(anchor: RomanovPersistentAnchor) {
   const hosted = normalizeDeviceLabel(anchor.hostedByDeviceLabel);
   const resolved = normalizeDeviceLabel(anchor.resolvedByDeviceLabel);
@@ -92,7 +112,7 @@ export function isPersistentAnchorFrameAuthoritative(anchor: RomanovPersistentAn
     && isRomanovVerifiedScaleAuthoritative(anchor.calibration.scale)
     && finiteTuple(anchor.hostAnchorPose?.position)
     && finiteTuple(anchor.hostAnchorPose?.rotationEulerDeg)
-    && isFiniteAnchorFrameTransform(anchor.anchorFrameModelTransform);
+    && isAnchorFrameConsistentWithHostSnapshot(anchor);
 }
 
 export function getPersistentAnchorReadiness(input: {
