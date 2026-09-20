@@ -31,6 +31,7 @@ test('Old English Court has a real Time Machine but cannot borrow Romanov assets
   assert.equal(capabilities.model3d, 'needs-asset');
   assert.equal(capabilities.spatial, 'needs-asset');
   assert.equal(capabilities.runtime, null);
+  assert.equal(capabilities.spatialAuthorityId, 'old-english-court-spatial-authority-v1');
   assert.equal(canOpenArchiveLens('old-english-court'), false);
   assert.equal(canOpenModel3d('old-english-court'), false);
   assert.equal(canOpenSpatial('old-english-court'), false);
