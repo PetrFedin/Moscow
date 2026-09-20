@@ -209,3 +209,37 @@ test('parsed field bundle revalidates device identity instead of trusting top-le
 
   assert.throws(() => parseFieldSessionBundle(JSON.stringify(parsed)), /device identity mismatch/);
 });
+
+
+test('same local calibration version cannot combine different placements into one device matrix or bundle', () => {
+  const survey = approvedSurvey();
+  const placementA = localCalibration(6, 'device-a-anchor-1', 0);
+  const placementB = localCalibration(6, 'device-a-anchor-2', 1.5);
+  const sessions = [
+    measuredSession(survey.id, 5, 'device-a', 'ios', placementA),
+    measuredSession(survey.id, 10, 'device-a', 'ios', placementB),
+    measuredSession(survey.id, 15, 'device-a', 'ios', placementB)
+  ];
+
+  const matrix = summarizeFieldMatrix(sessions, { surveyPacketId: survey.id });
+  assert.equal(matrix.completeDevices.length, 0);
+  assert.throws(
+    () => serializeFieldSessionBundle(sessions),
+    /one exact calibration placement/
+  );
+});
+
+test('parsed bundle rejects geometry tampering even when calibration version is unchanged', () => {
+  const survey = approvedSurvey();
+  const calibration = localCalibration(6, 'device-a-anchor', 0);
+  const sessions = ([5, 10, 15] as FieldDistanceMeters[]).map((distance) =>
+    measuredSession(survey.id, distance, 'device-a', 'ios', calibration)
+  );
+  const parsed = JSON.parse(serializeFieldSessionBundle(sessions));
+  parsed.sessions[1].calibration.translation[0] += 0.5;
+
+  assert.throws(
+    () => parseFieldSessionBundle(JSON.stringify(parsed)),
+    /calibration placement mismatch|integrity validation failed/
+  );
+});
