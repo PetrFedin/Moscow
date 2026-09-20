@@ -77,6 +77,44 @@ export function advanceCalibrationVersionForSave(
   };
 }
 
+function sameNumber(a: number, b: number, tolerance = 1e-9) {
+  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= tolerance;
+}
+
+function sameTuple3(
+  a: [number, number, number],
+  b: [number, number, number],
+  tolerance = 1e-9
+) {
+  return sameNumber(a[0], b[0], tolerance)
+    && sameNumber(a[1], b[1], tolerance)
+    && sameNumber(a[2], b[2], tolerance);
+}
+
+/**
+ * Calibration versions are local counters, not globally unique identifiers.
+ * Release authority therefore binds to the complete verified snapshot.
+ */
+export function isSameCalibrationSnapshot(
+  a: CalibrationProfile,
+  b: CalibrationProfile
+) {
+  return a.version === b.version
+    && a.sessionAnchorId === b.sessionAnchorId
+    && a.verifiedAt === b.verifiedAt
+    && a.anchorStrategy === b.anchorStrategy
+    && sameNumber(a.latitude, b.latitude)
+    && sameNumber(a.longitude, b.longitude)
+    && sameNumber(a.headingDeg, b.headingDeg)
+    && sameNumber(a.pitchDeg, b.pitchDeg)
+    && sameNumber(a.scale, b.scale)
+    && sameTuple3(a.translation, b.translation)
+    && sameTuple3(a.rotationEulerDeg, b.rotationEulerDeg)
+    && a.metricBinding?.metricAuthorityId === b.metricBinding?.metricAuthorityId
+    && a.metricBinding?.metricAuthorityVersion === b.metricBinding?.metricAuthorityVersion
+    && a.metricBinding?.modelPackVersion === b.metricBinding?.modelPackVersion;
+}
+
 export function isCalibrationBoundToSession(
   profile: CalibrationProfile,
   sessionAnchorId?: string | null
