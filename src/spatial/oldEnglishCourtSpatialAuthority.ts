@@ -1,3 +1,23 @@
+export const OLD_ENGLISH_COURT_SOURCE_LEDGER = [
+  {
+    id: 'zaryadye-old-english-court',
+    label: 'Парк «Зарядье» — Старый Английский двор',
+    url: 'https://welcome.zaryadyepark.ru/map'
+  },
+  {
+    id: 'museum-of-moscow-history',
+    label: 'Музей Москвы — история Старого Английского двора',
+    url: 'https://mosmuseum.ru/news/p/staryiy-angliyskiy-dvor-stanet-chastyu-parka-zaryade/'
+  },
+  {
+    id: 'museum-of-moscow-restoration',
+    label: 'Музей Москвы — реставрация и музейная экспозиция',
+    url: 'https://mosmuseum.ru/news/p/muzey-moskvyi-otkryil-staryiy-angliyskiy-dvor-posle-restavratsii/'
+  }
+] as const;
+
+export type OldEnglishCourtSourceId = typeof OLD_ENGLISH_COURT_SOURCE_LEDGER[number]['id'];
+
 export const OLD_ENGLISH_COURT_SPATIAL_AUTHORITY = {
   id: 'old-english-court-spatial-authority-v1',
   version: 1,
@@ -5,11 +25,7 @@ export const OLD_ENGLISH_COURT_SPATIAL_AUTHORITY = {
   modelUnits: 'meters',
   coordinateReference: 'WGS84',
   status: 'asset-intake' as const,
-  requiredSourceIds: [
-    'zaryadye-old-english-court',
-    'museum-of-moscow-history',
-    'museum-of-moscow-restoration'
-  ] as const
+  requiredSourceIds: OLD_ENGLISH_COURT_SOURCE_LEDGER.map((source) => source.id)
 };
 
 export type OldEnglishCourtHistoricalLayer =
@@ -21,7 +37,7 @@ export const oldEnglishCourtHistoricalLayers: Array<{
   id: OldEnglishCourtHistoricalLayer;
   periodId: string;
   evidence: 'documented' | 'reconstructed';
-  sourceIds: string[];
+  sourceIds: OldEnglishCourtSourceId[];
 }> = [
   {
     id: '1556-documented',
@@ -47,7 +63,7 @@ export type OldEnglishCourtModelCandidate = {
   id: string;
   version: number;
   assetPath: string;
-  sourceIds: string[];
+  sourceIds: OldEnglishCourtSourceId[];
   rightsStatus: 'unknown' | 'restricted' | 'verified';
   rightsEvidenceRef?: string;
   modelUnits: 'meters' | 'unknown';
