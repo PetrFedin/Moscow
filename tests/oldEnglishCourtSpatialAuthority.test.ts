@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { places } from '../src/data/places.ts';
 import {
+  OLD_ENGLISH_COURT_SOURCE_LEDGER,
   OLD_ENGLISH_COURT_SPATIAL_AUTHORITY,
   currentOldEnglishCourtReadiness,
   evaluateOldEnglishCourtModelCandidate,
@@ -31,6 +32,11 @@ test('Old English Court historical layers bind to real place periods with explic
   assert.ok(place);
 
   const periodIds = new Set(place.periods.map((period) => period.id));
+  const placeSourceUrls = new Set(place.sources.map((source) => source.url));
+  assert.equal(
+    OLD_ENGLISH_COURT_SOURCE_LEDGER.every((source) => placeSourceUrls.has(source.url)),
+    true
+  );
   assert.equal(oldEnglishCourtHistoricalLayers.length, 3);
   assert.equal(oldEnglishCourtHistoricalLayers.every((layer) => periodIds.has(layer.periodId)), true);
   assert.deepEqual(
