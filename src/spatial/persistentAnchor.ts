@@ -33,7 +33,6 @@ export type RomanovPersistentAnchor = {
   calibrationVersion: number;
   calibration: CalibrationProfile;
   hostSessionAnchorId: string;
-  hostSessionAnchorId: string;
   hostAnchorPose: RomanovAnchorPose;
   anchorFrameModelTransform: RomanovAnchorFrameModelTransform;
   hostedAt: string;
@@ -135,6 +134,7 @@ export function createPersistentAnchorRecord(input: {
   provider: Exclude<PersistentAnchorProvider, 'none'>;
   providerAnchorId: string;
   calibration: CalibrationProfile;
+  hostSessionAnchorId: string;
   hostAnchorPose: RomanovAnchorPose;
   anchorFrameModelTransform: RomanovAnchorFrameModelTransform;
   hostedByDeviceLabel: string;
