@@ -1,3 +1,6 @@
+import { OLD_ENGLISH_COURT_SPATIAL_AUTHORITY } from './oldEnglishCourtSpatialAuthority.ts';
+import { ROMANOV_METRIC_AUTHORITY } from './romanovMetricAuthority.ts';
+
 export type PlaceExperienceStatus = 'ready' | 'candidate' | 'needs-asset' | 'future';
 export type SpatialRuntimeKind = 'romanov-v1' | null;
 
@@ -8,6 +11,7 @@ export type PlaceExperienceCapabilities = {
   model3d: PlaceExperienceStatus;
   spatial: PlaceExperienceStatus;
   runtime: SpatialRuntimeKind;
+  spatialAuthorityId?: string;
   modelEraMap?: Record<number, '1857' | '1859'>;
 };
 
@@ -19,6 +23,7 @@ const registry: Record<string, PlaceExperienceCapabilities> = {
     model3d: 'candidate',
     spatial: 'candidate',
     runtime: 'romanov-v1',
+    spatialAuthorityId: ROMANOV_METRIC_AUTHORITY.id,
     modelEraMap: { 0: '1857', 1: '1859', 2: '1859' }
   },
   'old-english-court': {
@@ -27,7 +32,8 @@ const registry: Record<string, PlaceExperienceCapabilities> = {
     archiveLens: 'needs-asset',
     model3d: 'needs-asset',
     spatial: 'needs-asset',
-    runtime: null
+    runtime: null,
+    spatialAuthorityId: OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.id
   },
   'varvarka-gates': {
     placeId: 'varvarka-gates',
