@@ -35,15 +35,23 @@ export const defaultRomanovCalibration: CalibrationProfile = {
 export function isCalibrationProfile(value: unknown): value is CalibrationProfile {
   if (!value || typeof value !== 'object') return false;
   const profile = value as Partial<CalibrationProfile>;
+  const finiteTuple3 = (tuple: unknown): tuple is [number, number, number] =>
+    Array.isArray(tuple)
+    && tuple.length === 3
+    && tuple.every((item) => typeof item === 'number' && Number.isFinite(item));
+
   return (
-    typeof profile.latitude === 'number' &&
-    typeof profile.longitude === 'number' &&
-    typeof profile.headingDeg === 'number' &&
-    typeof profile.pitchDeg === 'number' &&
-    typeof profile.scale === 'number' &&
-    Array.isArray(profile.translation) && profile.translation.length === 3 &&
-    Array.isArray(profile.rotationEulerDeg) && profile.rotationEulerDeg.length === 3 &&
-    typeof profile.version === 'number'
+    typeof profile.latitude === 'number' && Number.isFinite(profile.latitude) &&
+    typeof profile.longitude === 'number' && Number.isFinite(profile.longitude) &&
+    typeof profile.headingDeg === 'number' && Number.isFinite(profile.headingDeg) &&
+    typeof profile.pitchDeg === 'number' && Number.isFinite(profile.pitchDeg) &&
+    typeof profile.scale === 'number' && Number.isFinite(profile.scale) && profile.scale > 0 &&
+    finiteTuple3(profile.translation) &&
+    finiteTuple3(profile.rotationEulerDeg) &&
+    Number.isInteger(profile.version) && (profile.version ?? 0) >= 1 &&
+    (profile.anchorStrategy === 'manual-first' || profile.anchorStrategy === 'visual' || profile.anchorStrategy === 'cloud') &&
+    (profile.sessionAnchorId === undefined || typeof profile.sessionAnchorId === 'string') &&
+    (profile.verifiedAt === undefined || typeof profile.verifiedAt === 'string')
   );
 }
 
