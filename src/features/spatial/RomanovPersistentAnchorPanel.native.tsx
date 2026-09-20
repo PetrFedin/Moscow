@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -90,12 +91,14 @@ export default function RomanovPersistentAnchorPanel({
     load().catch((error) => setStatus(error instanceof Error ? error.message : 'Не удалось загрузить evidence.'));
   }, []);
 
-  const canPromoteCalibration = Boolean(localAnchor) && canVerifyCalibration({
+  const canPromoteCalibration = localAnchor ? canVerifyCalibration({
     calibration,
     survey,
     sessions,
-    localAnchorId: localAnchor?.anchorId
-  });
+    localAnchorId: localAnchor.anchorId,
+    deviceLabel,
+    devicePlatform: Platform.OS
+  }) : false;
   const readiness = getPersistentAnchorReadiness({
     sessions,
     calibration,
@@ -123,11 +126,13 @@ export default function RomanovPersistentAnchorPanel({
         calibration,
         survey,
         sessions,
-        localAnchorId: localAnchor.anchorId
+        localAnchorId: localAnchor.anchorId,
+        deviceLabel,
+        devicePlatform: Platform.OS
       });
       await AsyncStorage.setItem(CALIBRATION_KEY, JSON.stringify(verified));
       onCalibrationChange(verified);
-      setStatus('Calibration verification зафиксирована measured survey + cross-device field matrix.');
+      setStatus('Calibration verification зафиксирована: текущая placement сама прошла measured 5/10/15 м и входит в cross-device matrix.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Calibration verification не выполнена.');
     } finally {
@@ -268,7 +273,7 @@ export default function RomanovPersistentAnchorPanel({
             <View style={styles.stepCopy}>
               <Text style={styles.stepTitle}>Measured calibration authority</Text>
               <Text style={styles.stepMeta}>
-                survey+matrix: {canPromoteCalibration ? 'PASS' : 'BLOCKED'} · current-session calibration: {calibration.verifiedAt ? 'VERIFIED' : 'not verified'}
+                survey+matrix+current 5/10/15 placement: {canPromoteCalibration ? 'PASS' : 'BLOCKED'} · current-session calibration: {calibration.verifiedAt ? 'VERIFIED' : 'not verified'}
               </Text>
             </View>
           </View>
