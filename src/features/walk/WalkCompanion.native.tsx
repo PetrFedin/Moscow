@@ -44,9 +44,10 @@ export default function WalkCompanion({
     () => buildWalkAudioPlan({
       placeId: place.id,
       locale: language,
-      fallbackTranscript: fallbackNarration
+      fallbackTranscript: fallbackNarration,
+      displayTitle: place.title
     }),
-    [fallbackNarration, language, place.id]
+    [fallbackNarration, language, place.id, place.title]
   );
   const [playbackMode, setPlaybackMode] = useState<AudioPlaybackMode>(audioPlan.mode);
 
