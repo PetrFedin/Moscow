@@ -85,11 +85,10 @@ function estimatedWalkMinutes(a: Place, b: Place) {
 }
 
 function estimateMinutes(stopIds: string[], source: Place[] = places) {
-  const ordered = orderAlongPilot(stopIds);
   const byId = new Map(source.map((place) => [place.id, place]));
-  const content = ordered.reduce((sum, id) => sum + (byId.get(id)?.experienceMinutes ?? 0), 0);
-  const walking = ordered.slice(1).reduce((sum, id, index) => {
-    const previous = byId.get(ordered[index]!);
+  const content = stopIds.reduce((sum, id) => sum + (byId.get(id)?.experienceMinutes ?? 0), 0);
+  const walking = stopIds.slice(1).reduce((sum, id, index) => {
+    const previous = byId.get(stopIds[index]!);
     const current = byId.get(id);
     return sum + (previous && current ? estimatedWalkMinutes(previous, current) : 4);
   }, 0);
