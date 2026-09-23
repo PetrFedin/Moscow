@@ -53,7 +53,7 @@ const registry: Record<string, PlaceExperienceCapabilities> = {
   },
   'varvarka-gates': {
     placeId: 'varvarka-gates',
-    timeMachine: 'future',
+    timeMachine: 'ready',
     archiveLens: 'needs-asset',
     model3d: 'future',
     spatial: 'future',
