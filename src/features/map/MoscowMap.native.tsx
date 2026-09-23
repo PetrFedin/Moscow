@@ -3,6 +3,11 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { MarkerView, Polyline, YandexMapView, initialize } from 'expo-yandex-mapkit';
 import { pilotRoute, places } from '../../data/places';
 
+const pilotPlaces = pilotRoute.stopIds.flatMap((id) => {
+  const place = places.find((item) => item.id === id);
+  return place ? [place] : [];
+});
+
 type Props = {
   selectedId: string;
   onSelect: (id: string) => void;
@@ -54,7 +59,7 @@ export default function MoscowMap({ selectedId, onSelect }: Props) {
         showUserPosition
       >
         <Polyline points={routePoints} strokeColor="#d7bb84" strokeWidth={4} />
-        {places.map((place, index) => (
+        {pilotPlaces.map((place, index) => (
           <MarkerView
             key={place.id}
             point={{ latitude: place.latitude, longitude: place.longitude }}
@@ -71,12 +76,17 @@ export default function MoscowMap({ selectedId, onSelect }: Props) {
           </MarkerView>
         ))}
       </YandexMapView>
+      <View pointerEvents="none" style={styles.routeNote}>
+        <Text style={styles.routeNoteText}>СХЕМА ОСТАНОВОК · НЕ ПОШАГОВАЯ НАВИГАЦИЯ</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: { height: 480, borderRadius: 24, overflow: 'hidden', backgroundColor: '#15171a' },
+  routeNote: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 30, borderRadius: 10, backgroundColor: 'rgba(12,14,17,0.88)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  routeNoteText: { color: '#d3bd91', fontSize: 8, fontWeight: '900', letterSpacing: 0.7, textAlign: 'center' },
   loading: { height: 480, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#15171a' },
   loadingText: { color: '#a8aab0', marginTop: 12 },
   fallback: { borderRadius: 24, padding: 22, backgroundColor: '#17191d', borderWidth: StyleSheet.hairlineWidth, borderColor: '#303238' },

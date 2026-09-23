@@ -27,7 +27,13 @@ test('experience persistence accepts old v4 snapshots without losing existing pr
   assert.equal(restored.trustMode, 'public');
   assert.equal(restored.routeBudgetMinutes, 45);
   assert.equal(restored.routeInterest, 'highlights');
-  assert.deepEqual(restored.routeStopIds, ['romanov-chambers', 'old-english-court', 'varvarka-gates']);
+  assert.deepEqual(restored.routeStopIds, [
+    'church-st-barbara',
+    'old-english-court',
+    'romanov-chambers',
+    'znamensky-cathedral',
+    'varvarka-gates'
+  ]);
   assert.deepEqual(restored.missionDoneIds, ['observation:old-english-court:v1']);
   assert.equal(restored.walkAutoAudio, true);
 });

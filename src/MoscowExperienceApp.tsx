@@ -115,6 +115,13 @@ export default function MoscowExperienceApp() {
     () => localizedPlaces.find((place) => place.id === selectedId) ?? localizedPlaces[0],
     [localizedPlaces, selectedId]
   );
+  const pilotPlaces = useMemo(() => {
+    const byId = new Map(localizedPlaces.map((place) => [place.id, place]));
+    return pilotRoute.stopIds.flatMap((id) => {
+      const place = byId.get(id);
+      return place ? [place] : [];
+    });
+  }, [localizedPlaces]);
   const selectedExperience = useMemo(() => getPlaceExperienceCapabilities(selectedId), [selectedId]);
   const activeRoutePlan = useMemo(
     () => ({
@@ -334,7 +341,7 @@ export default function MoscowExperienceApp() {
               <TouristRoutePlanner language={language} mustSeeIds={savedIds} onStart={startTouristPlan} />
 
               <Text style={styles.sectionTitle}>{ui.places}</Text>
-              {localizedPlaces.map((place, index) => (
+              {pilotPlaces.map((place, index) => (
                 <PhysicalPressable
                   key={place.id}
                   style={[styles.placeCard, place.id === selectedId && styles.placeCardActive]}
@@ -453,7 +460,7 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.kicker}>WALK · 01</Text>
                 <Text style={styles.heroTitle}>{language === 'ru' ? pilotRoute.title : 'Varvarka: a street that remembers several Moscows'}</Text>
                 <Text style={styles.heroBody}>
-                  {activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {language === 'ru' ? 'ост.' : 'stops'} · {routeInterest === 'highlights'
+                  ≈{activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {language === 'ru' ? 'ост.' : 'stops'} · {routeInterest === 'highlights'
                     ? (language === 'ru' ? 'главное' : 'highlights')
                     : routeInterest === 'nearby'
                       ? (language === 'ru' ? 'свободная прогулка' : 'free walk')

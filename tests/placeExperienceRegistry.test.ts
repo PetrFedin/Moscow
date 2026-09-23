@@ -45,7 +45,22 @@ test('unknown and future places fail closed instead of opening another object ru
   assert.equal(modelEraFromTimeIndex('unknown-place', 0), null);
 
   const gates = getPlaceExperienceCapabilities('varvarka-gates');
-  assert.equal(gates.timeMachine, 'future');
+  assert.equal(gates.timeMachine, 'ready');
   assert.equal(canOpenModel3d('varvarka-gates'), false);
   assert.equal(canOpenSpatial('varvarka-gates'), false);
+});
+
+
+test('new Varvarka content stops expose timeline only and stay spatially fail-closed', () => {
+  for (const placeId of ['church-st-barbara', 'znamensky-cathedral']) {
+    const capabilities = getPlaceExperienceCapabilities(placeId);
+    assert.equal(capabilities.timeMachine, 'ready');
+    assert.equal(capabilities.archiveLens, 'needs-asset');
+    assert.equal(capabilities.model3d, 'future');
+    assert.equal(capabilities.spatial, 'future');
+    assert.equal(capabilities.runtime, null);
+    assert.equal(canOpenArchiveLens(placeId), false);
+    assert.equal(canOpenModel3d(placeId), false);
+    assert.equal(canOpenSpatial(placeId), false);
+  }
 });

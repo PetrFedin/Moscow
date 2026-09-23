@@ -6,11 +6,12 @@ import {
   type RoutePackManifest
 } from './routePackManifest.ts';
 
-export const VARVARKA_OFFLINE_PACK_VERSION = `varvarka-offline-v1+${ROMANOV_MODEL_PACK_VERSION}`;
+export const VARVARKA_OFFLINE_PACK_VERSION = `varvarka-offline-v2+${ROMANOV_MODEL_PACK_VERSION}`;
 export const ROMANOV_ARCHIVE_1857_ASSET_ID = 'romanov-timm-1857';
 
 export const VARVARKA_REQUIRED_BUNDLED_DATA_IDS = [
-  'varvarka-route-data-v1',
+  'varvarka-route-data-v2',
+  'varvarka-place-sources-v1',
   'romanov-hotspots-v1',
   'romanov-sources-v1',
   'romanov-narration-contract-v1'

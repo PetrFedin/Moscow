@@ -1,6 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { places } from '../../data/places';
+import { pilotRoute, places } from '../../data/places';
+
+const pilotPlaces = pilotRoute.stopIds.flatMap((id) => {
+  const place = places.find((item) => item.id === id);
+  return place ? [place] : [];
+});
 
 type Props = {
   selectedId: string;
@@ -14,8 +19,13 @@ export default function MoscowMap({ selectedId, onSelect }: Props) {
       <Text style={styles.title}>Варварка — Зарядье</Text>
       <Text style={styles.body}>В мобильной сборке здесь работает нативный Yandex MapKit. В браузерном preview показана та же последовательность остановок без подмены её веб-картой.</Text>
       <View style={styles.track}>
-        {places.map((place, index) => (
-          <Pressable key={place.id} onPress={() => onSelect(place.id)} style={styles.stopRow}>
+        {pilotPlaces.map((place, index) => (
+          <Pressable
+          key={place.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Открыть ${place.title}`}
+          onPress={() => onSelect(place.id)}
+          style={styles.stopRow}>
             <View style={[styles.dot, selectedId === place.id && styles.dotActive]}><Text style={[styles.dotText, selectedId === place.id && styles.dotTextActive]}>{index + 1}</Text></View>
             <View style={styles.copy}>
               <Text style={styles.placeTitle}>{place.title}</Text>

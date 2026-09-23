@@ -47,7 +47,7 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   }
 
   // Second object uses the same Time Machine contract but cannot borrow Romanov assets.
-  await page.getByText('Старый Английский двор', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Открыть Старый Английский двор' }).click();
   await expect(page.getByText('Открыть историю', { exact: true })).toBeVisible();
   await page.getByText('Открыть историю', { exact: true }).click();
   await expect(page.getByText('Старый Английский двор', { exact: true }).last()).toBeVisible();
@@ -68,7 +68,7 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await expect(page.getByText('3D MODEL · ROMANOV', { exact: true })).toHaveCount(0);
 
   // Romanov remains the current candidate spatial pipeline.
-  await page.getByText('Палаты бояр Романовых', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Палаты бояр Романовых' }).first().click();
   await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
 
   const timeSlider = page.getByRole('slider', { name: 'Выберите историческую эпоху' });

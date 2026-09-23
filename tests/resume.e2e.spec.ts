@@ -15,7 +15,7 @@ test('experience resume survives browser reload without resetting place, time or
   await ensureRussian(page);
 
   // Prove a non-default place/time survives reload.
-  await page.getByText('Старый Английский двор', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Старый Английский двор' }).first().click();
   let slider = page.getByRole('slider', { name: 'Выберите историческую эпоху' });
   await slider.focus();
   await slider.press('ArrowRight');
@@ -30,7 +30,7 @@ test('experience resume survives browser reload without resetting place, time or
   await expect(page.getByText('1960-е', { exact: true })).toBeVisible();
 
   // Switch to Romanov and prove era/trust survive a second restart and still reach spatial state.
-  await page.getByText('Палаты бояр Романовых', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Палаты бояр Романовых' }).first().click();
   slider = page.getByRole('slider', { name: 'Выберите историческую эпоху' });
   await expect(slider).toHaveAttribute('aria-valuenow', '0');
   await slider.focus();

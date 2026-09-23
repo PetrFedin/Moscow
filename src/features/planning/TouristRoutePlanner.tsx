@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { places } from '../../data/places';
+import { localizePlaces } from '../../data/places.en';
 import type { AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import {
@@ -29,6 +31,8 @@ const labels = {
     stops: 'мест',
     start: 'Начать маршрут',
     savedHint: 'Сохранённые места считаем обязательными, если они помещаются во время.',
+    estimate: 'Оценка времени до появления точной пешеходной геометрии',
+    route: 'МАРШРУТ',
     interestLabels: {
       highlights: 'Главное',
       architecture: 'Архитектура',
@@ -47,6 +51,8 @@ const labels = {
     stops: 'stops',
     start: 'Start my route',
     savedHint: 'Saved places are treated as must-sees when they fit the time budget.',
+    estimate: 'Time estimate until authoritative pedestrian routing is connected',
+    route: 'ROUTE',
     interestLabels: {
       highlights: 'Highlights',
       architecture: 'Architecture',
@@ -61,6 +67,11 @@ export default function TouristRoutePlanner({ language, mustSeeIds, onStart }: P
   const [budget, setBudget] = useState<TouristTimeBudget>(30);
   const [interest, setInterest] = useState<TouristInterest>('highlights');
   const copy = labels[language];
+  const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
+  const placeById = useMemo(
+    () => new Map(localizedPlaces.map((place) => [place.id, place])),
+    [localizedPlaces]
+  );
   const plan = useMemo(
     () => buildTouristRoutePlan(budget, interest, undefined, mustSeeIds),
     [budget, interest, mustSeeIds]
@@ -105,6 +116,17 @@ export default function TouristRoutePlanner({ language, mustSeeIds, onStart }: P
         ))}
       </View>
 
+      <Text style={styles.label}>{copy.route}</Text>
+      <View style={styles.routePreview}>
+        {plan.stopIds.map((id, index) => (
+          <View key={id} style={styles.routeStop}>
+            <View style={styles.routeNumber}><Text style={styles.routeNumberText}>{index + 1}</Text></View>
+            <Text style={styles.routeStopText}>{placeById.get(id)?.title ?? id}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.estimateNote}>≈ {plan.estimatedMinutes} {copy.minutes} · {copy.estimate}</Text>
+
       <PhysicalPressable
         style={styles.primary}
         contentStyle={styles.center}
@@ -113,7 +135,7 @@ export default function TouristRoutePlanner({ language, mustSeeIds, onStart }: P
         accessibilityLabel={copy.start}
       >
         <Text style={styles.primaryText}>
-          {copy.start} · {plan.stopIds.length} {copy.stops} · {plan.estimatedMinutes} {copy.minutes}
+          {copy.start} · {plan.stopIds.length} {copy.stops} · ≈{plan.estimatedMinutes} {copy.minutes}
         </Text>
       </PhysicalPressable>
     </View>
@@ -137,6 +159,12 @@ const styles = StyleSheet.create({
   interestActive: { borderColor: '#9f855a', backgroundColor: '#211b13' },
   interestText: { color: '#9ca1a8', fontSize: 9, fontWeight: '900' },
   interestTextActive: { color: '#ebcc91' },
+  routePreview: { gap: 6 },
+  routeStop: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 11, backgroundColor: '#171a1f', paddingHorizontal: 9 },
+  routeNumber: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#282d33' },
+  routeNumberText: { color: '#d7bb84', fontSize: 8, fontWeight: '900' },
+  routeStopText: { flex: 1, color: '#c7cbd0', fontSize: 9.5, fontWeight: '800' },
+  estimateNote: { color: '#70767e', fontSize: 8.5, lineHeight: 12, marginTop: 7 },
   primary: { minHeight: 50, borderRadius: 15, backgroundColor: '#d7bb84', marginTop: 14 },
   primaryText: { color: '#17130d', fontSize: 11, fontWeight: '900', textAlign: 'center' },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 }

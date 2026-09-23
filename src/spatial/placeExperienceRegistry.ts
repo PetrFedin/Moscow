@@ -16,6 +16,14 @@ export type PlaceExperienceCapabilities = {
 };
 
 const registry: Record<string, PlaceExperienceCapabilities> = {
+  'church-st-barbara': {
+    placeId: 'church-st-barbara',
+    timeMachine: 'ready',
+    archiveLens: 'needs-asset',
+    model3d: 'future',
+    spatial: 'future',
+    runtime: null
+  },
   'romanov-chambers': {
     placeId: 'romanov-chambers',
     timeMachine: 'ready',
@@ -35,9 +43,17 @@ const registry: Record<string, PlaceExperienceCapabilities> = {
     runtime: null,
     spatialAuthorityId: OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.id
   },
+  'znamensky-cathedral': {
+    placeId: 'znamensky-cathedral',
+    timeMachine: 'ready',
+    archiveLens: 'needs-asset',
+    model3d: 'future',
+    spatial: 'future',
+    runtime: null
+  },
   'varvarka-gates': {
     placeId: 'varvarka-gates',
-    timeMachine: 'future',
+    timeMachine: 'ready',
     archiveLens: 'needs-asset',
     model3d: 'future',
     spatial: 'future',
