@@ -31,6 +31,7 @@ export type WalkAudioPlan = {
   transcript: string;
   masterUrl?: string;
   productionStatus: VarvarkaAudioStatus;
+  displayTitle: string;
 };
 
 const SHA256 = /^[a-f0-9]{64}$/i;
@@ -190,6 +191,7 @@ export function buildWalkAudioPlan(input: {
   placeId: string;
   locale: VarvarkaAudioLocale;
   fallbackTranscript: string;
+  displayTitle: string;
 }): WalkAudioPlan {
   const track = getVarvarkaAudioTrack(input.placeId, input.locale);
   if (track && isProductionAudioTrack(track) && track.production) {
@@ -200,7 +202,8 @@ export function buildWalkAudioPlan(input: {
       mode: 'recorded',
       transcript: track.transcript,
       masterUrl: track.production.masterUrl,
-      productionStatus: track.status
+      productionStatus: track.status,
+      displayTitle: input.displayTitle
     };
   }
 
@@ -210,6 +213,7 @@ export function buildWalkAudioPlan(input: {
     locale: input.locale,
     mode: 'tts-fallback',
     transcript: track?.transcript ?? input.fallbackTranscript,
-    productionStatus: track?.status ?? 'script-approved'
+    productionStatus: track?.status ?? 'script-approved',
+    displayTitle: input.displayTitle
   };
 }
