@@ -3,6 +3,11 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { MarkerView, Polyline, YandexMapView, initialize } from 'expo-yandex-mapkit';
 import { pilotRoute, places } from '../../data/places';
 
+const pilotPlaces = pilotRoute.stopIds.flatMap((id) => {
+  const place = places.find((item) => item.id === id);
+  return place ? [place] : [];
+});
+
 type Props = {
   selectedId: string;
   onSelect: (id: string) => void;
@@ -54,7 +59,7 @@ export default function MoscowMap({ selectedId, onSelect }: Props) {
         showUserPosition
       >
         <Polyline points={routePoints} strokeColor="#d7bb84" strokeWidth={4} />
-        {places.map((place, index) => (
+        {pilotPlaces.map((place, index) => (
           <MarkerView
             key={place.id}
             point={{ latitude: place.latitude, longitude: place.longitude }}
