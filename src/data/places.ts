@@ -186,8 +186,8 @@ export const places: Place[] = [
       {
         id: 'znamensky-1970s',
         label: 'Возвращение исторического облика',
-        year: '1960–1970-е',
-        summary: 'После утрат и приспособлений советского времени собор прошёл научную реставрацию, ориентированную на образ здания конца XVII века.',
+        year: '1963–1972',
+        summary: 'В 1963–1972 годах собор прошёл крупную научную реставрацию, возвращавшую архитектуре черты конца XVII века после позднейших переделок и приспособлений.',
         confidence: 'documented'
       }
     ]
@@ -220,7 +220,7 @@ export const pilotRoute = {
   id: 'varvarka-zaryadye-pilot',
   title: 'Варварка: улица, которая помнит несколько Москв',
   durationMinutes: 45,
-  distanceKm: 1.2,
+  distanceKm: 0.7,
   stopIds: [
     'church-st-barbara',
     'old-english-court',
