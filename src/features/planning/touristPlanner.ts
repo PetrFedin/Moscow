@@ -11,18 +11,14 @@ export type TouristRoutePlan = {
 };
 
 /**
- * Curated corridor walking times for the five-stop Varvarka pilot.
+ * Editorial route estimate until MapKit pedestrian geometry becomes authority.
  *
- * This is deliberately not presented as live pedestrian routing. It replaces the
- * old flat "4 minutes between any two stops" assumption with an explicit
- * editorial corridor model until a pedestrian-routing provider becomes route
- * authority.
- *
- * Segments follow pilotRoute.stopIds order:
- * Barbara → English Court → Romanov → Znamensky → Varvarka Gates.
+ * Stops are all on the same Varvarka corridor, so straight-line geodesic
+ * distance is materially better than the old flat "4 minutes between any
+ * stops" assumption. We use 75 m/min (~4.5 km/h) and clearly keep this as an
+ * estimate, not turn-by-turn routing.
  */
-export const VARVARKA_WALK_SEGMENT_MINUTES = [4, 3, 2, 7] as const;
-const FALLBACK_WALK_BETWEEN_STOPS_MINUTES = 4;
+export const TOURIST_ESTIMATED_WALK_METERS_PER_MINUTE = 75;
 
 const interestPriority: Record<TouristInterest, string[]> = {
   highlights: [
@@ -69,30 +65,34 @@ function orderAlongPilot(stopIds: string[]) {
   });
 }
 
-function corridorWalkMinutes(fromId: string, toId: string) {
-  const from = pilotOrder.get(fromId);
-  const to = pilotOrder.get(toId);
-  if (from === undefined || to === undefined || from === to) {
-    return from === to ? 0 : FALLBACK_WALK_BETWEEN_STOPS_MINUTES;
-  }
+function geodesicDistanceMeters(a: Place, b: Place) {
+  const earthRadiusMeters = 6371000;
+  const rad = (value: number) => value * Math.PI / 180;
+  const lat1 = rad(a.latitude);
+  const lat2 = rad(b.latitude);
+  const deltaLat = rad(b.latitude - a.latitude);
+  const deltaLon = rad(b.longitude - a.longitude);
+  const h = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
 
-  const start = Math.min(from, to);
-  const end = Math.max(from, to);
-  let total = 0;
-  for (let index = start; index < end; index += 1) {
-    total += VARVARKA_WALK_SEGMENT_MINUTES[index] ?? FALLBACK_WALK_BETWEEN_STOPS_MINUTES;
-  }
-  return total;
+function estimatedWalkMinutes(a: Place, b: Place) {
+  return Math.max(
+    1,
+    Math.round(geodesicDistanceMeters(a, b) / TOURIST_ESTIMATED_WALK_METERS_PER_MINUTE)
+  );
 }
 
 function estimateMinutes(stopIds: string[], source: Place[] = places) {
   const ordered = orderAlongPilot(stopIds);
   const byId = new Map(source.map((place) => [place.id, place]));
   const content = ordered.reduce((sum, id) => sum + (byId.get(id)?.experienceMinutes ?? 0), 0);
-  const walking = ordered.slice(1).reduce(
-    (sum, id, index) => sum + corridorWalkMinutes(ordered[index]!, id),
-    0
-  );
+  const walking = ordered.slice(1).reduce((sum, id, index) => {
+    const previous = byId.get(ordered[index]!);
+    const current = byId.get(id);
+    return sum + (previous && current ? estimatedWalkMinutes(previous, current) : 4);
+  }, 0);
   return content + walking;
 }
 
