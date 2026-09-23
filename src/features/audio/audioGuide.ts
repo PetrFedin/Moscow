@@ -44,7 +44,8 @@ function speakNarrationFallback(
   text: string,
   locale: AudioGuideLocale,
   epoch: number,
-  onFinished?: () => void
+  onFinished?: () => void,
+  onInterrupted?: () => void
 ) {
   if (epoch !== playbackEpoch) return;
   Speech.speak(text, {
@@ -58,7 +59,7 @@ function speakNarrationFallback(
     // A deliberate stop/pause is not a completed tourist stop.
     onStopped: () => undefined,
     onError: () => {
-      if (epoch === playbackEpoch) onFinished?.();
+      if (epoch === playbackEpoch) onInterrupted?.();
     }
   });
 }
@@ -67,7 +68,8 @@ export function playNarrationGuide(
   plan: WalkAudioPlan,
   locale: AudioGuideLocale,
   onFinished?: () => void,
-  onModeChange?: (mode: AudioPlaybackMode) => void
+  onModeChange?: (mode: AudioPlaybackMode) => void,
+  onInterrupted?: () => void
 ) {
   const epoch = ++playbackEpoch;
   cleanupRecordedPlayer();
@@ -81,7 +83,7 @@ export function playNarrationGuide(
         if (epoch !== playbackEpoch) return;
         cleanupRecordedPlayer();
         onModeChange?.('tts-fallback');
-        speakNarrationFallback(plan.transcript, locale, epoch, onFinished);
+        speakNarrationFallback(plan.transcript, locale, epoch, onFinished, onInterrupted);
       };
 
       if (plan.mode !== 'recorded' || !plan.masterUrl) {
