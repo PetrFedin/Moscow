@@ -30,7 +30,7 @@ test('saved must-see influences a new plan but the active route is frozen after 
     await enButton.first().click();
   }
 
-  await page.getByText('Старый Английский двор', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Старый Английский двор' }).first().click();
   await page.getByLabel('Сохранить').click();
 
   await expect(page.getByText(/Сохранённые места считаем обязательными/)).toBeVisible();
