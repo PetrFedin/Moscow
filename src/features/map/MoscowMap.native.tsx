@@ -76,12 +76,17 @@ export default function MoscowMap({ selectedId, onSelect }: Props) {
           </MarkerView>
         ))}
       </YandexMapView>
+      <View pointerEvents="none" style={styles.routeNote}>
+        <Text style={styles.routeNoteText}>СХЕМА ОСТАНОВОК · НЕ ПОШАГОВАЯ НАВИГАЦИЯ</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: { height: 480, borderRadius: 24, overflow: 'hidden', backgroundColor: '#15171a' },
+  routeNote: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 30, borderRadius: 10, backgroundColor: 'rgba(12,14,17,0.88)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  routeNoteText: { color: '#d3bd91', fontSize: 8, fontWeight: '900', letterSpacing: 0.7, textAlign: 'center' },
   loading: { height: 480, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#15171a' },
   loadingText: { color: '#a8aab0', marginTop: 12 },
   fallback: { borderRadius: 24, padding: 22, backgroundColor: '#17191d', borderWidth: StyleSheet.hairlineWidth, borderColor: '#303238' },
