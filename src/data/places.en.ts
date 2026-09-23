@@ -1,11 +1,39 @@
 import type { Place } from './places';
 
 export const placeEnglish: Record<string, Partial<Place>> = {
+  'church-st-barbara': {
+    title: 'Church of St Barbara',
+    subtitle: 'The church that gave Varvarka its name',
+    district: 'Kitay-Gorod',
+    shortStory: 'The western entry to the walk shows how one site can preserve the memory of 16th-century Moscow inside the classical city of the late 18th and early 19th centuries.',
+    tags: ['architecture', 'trade', 'Varvarka'],
+    highlights: [
+      'understand why the street became known as Varvarka',
+      'connect the stone church of 1514 with the wealthy Surozh merchant community',
+      'see how Rodion Kazakov\'s later church retained the site of the earlier building'
+    ],
+    periods: [
+      {
+        id: 'st-barbara-1514',
+        label: 'First stone church',
+        year: '1514',
+        summary: 'The stone Church of St Barbara was built by Aleviz Novy for wealthy Surozh merchants. Historical sources link this church with the street name Varvarka.',
+        confidence: 'documented'
+      },
+      {
+        id: 'st-barbara-1804',
+        label: 'Classical church',
+        year: '1796–1804',
+        summary: 'The present building was erected to a design by Rodion Kazakov on the site of the earlier church, connecting two architectural periods in one location.',
+        confidence: 'documented'
+      }
+    ]
+  },
   'romanov-chambers': {
     title: 'Chambers of the Romanov Boyars',
     subtitle: 'A house that changed together with Varvarka Street',
     district: 'Kitay-Gorod',
-    shortStory: 'The opening point of the pilot: the building is explored through documented historical states, archival images and a future spatial reconstruction.',
+    shortStory: 'A core spatial point of the pilot: the building is explored through documented historical states, archival images and an evidence-gated spatial reconstruction.',
     tags: ['architecture', '17th century', 'Varvarka'],
     highlights: [
       'compare the façades before and after the 19th-century restoration changes',
@@ -60,6 +88,34 @@ export const placeEnglish: Record<string, Partial<Place>> = {
         label: 'Museum opens',
         year: '1994',
         summary: 'A museum of Anglo-Russian relations opened in the restored chambers; Queen Elizabeth II took part in the opening ceremony.',
+        confidence: 'documented'
+      }
+    ]
+  },
+  'znamensky-cathedral': {
+    title: 'Znamensky Cathedral',
+    subtitle: 'Cathedral of the Old Sovereign Court',
+    district: 'Kitay-Gorod',
+    shortStory: 'The cathedral links Varvarka with the Znamensky Monastery, the old Romanov estate and the major restoration campaigns of the 20th century.',
+    tags: ['architecture', 'Romanovs', 'restoration'],
+    highlights: [
+      'see the architectural centre of the Znamensky Monastery ensemble',
+      'understand the monastery\'s connection with the Romanov estate and royal patronage',
+      'compare the 17th-century cathedral with later alterations and the scholarly restoration of the 1960s–1970s'
+    ],
+    periods: [
+      {
+        id: 'znamensky-1684',
+        label: '17th-century cathedral',
+        year: '1679–1684',
+        summary: 'The existing cathedral was built in 1679–1684 and became the compositional centre of the Znamensky Monastery.',
+        confidence: 'documented'
+      },
+      {
+        id: 'znamensky-1970s',
+        label: 'Historical form restored',
+        year: '1963–1972',
+        summary: 'A major scholarly restoration campaign returned the cathedral towards its late-17th-century architectural appearance after later alterations and uses.',
         confidence: 'documented'
       }
     ]
