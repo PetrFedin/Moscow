@@ -95,7 +95,10 @@ export default function WalkCompanion({
                 setSpeaking(false);
                 onAutoStopCompleted(place.id);
               },
-              setPlaybackMode
+              setPlaybackMode,
+              () => {
+                if (active) setSpeaking(false);
+              }
             );
           }
         }
@@ -125,7 +128,8 @@ export default function WalkCompanion({
       audioPlan,
       language === 'ru' ? 'ru-RU' : 'en-US',
       () => setSpeaking(false),
-      setPlaybackMode
+      setPlaybackMode,
+      () => setSpeaking(false)
     );
   };
 
