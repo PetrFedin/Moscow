@@ -76,7 +76,7 @@ export const places: Place[] = [
     district: 'Китай-город',
     latitude: 55.75193,
     longitude: 37.62845,
-    shortStory: 'Стартовая точка пилота: история здания раскрывается через документированные состояния, архивные изображения и будущую пространственную реконструкцию.',
+    shortStory: 'Опорная spatial-точка пилота: история здания раскрывается через документированные состояния, архивные изображения и доказательно проверяемую пространственную реконструкцию.',
     tags: ['архитектура', 'XVII век', 'Варварка'],
     experienceMinutes: 9,
     arReady: false,
@@ -219,7 +219,7 @@ export const places: Place[] = [
 export const pilotRoute = {
   id: 'varvarka-zaryadye-pilot',
   title: 'Варварка: улица, которая помнит несколько Москв',
-  durationMinutes: 55,
+  durationMinutes: 45,
   distanceKm: 1.2,
   stopIds: [
     'church-st-barbara',
