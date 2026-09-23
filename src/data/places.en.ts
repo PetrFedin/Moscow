@@ -124,12 +124,35 @@ export const placeEnglish: Record<string, Partial<Place>> = {
     title: 'Varvarsky Gates',
     subtitle: 'A vanished boundary of Kitay-Gorod',
     district: 'Kitay-Gorod',
-    shortStory: 'A location designed to reveal a vanished part of the city structure and connect a historical map with the modern square.',
-    tags: ['lost landmark', 'city wall', 'AR'],
+    shortStory: 'The final stop reveals a vanished city boundary: most of the 16th-century Kitay-Gorod wall disappeared above ground, while the base of the Varvarinskaya Tower survives as protected heritage.',
+    tags: ['lost landmark', 'city wall', 'fortification'],
     highlights: [
-      'see a lost piece of the city boundary at the scale of the modern space',
-      'understand where the Kitay-Gorod wall once ran',
-      'compare the historic street structure with the square you see today'
+      'picture the eastern boundary of Kitay-Gorod at the scale of the modern square',
+      'understand why most of the wall disappeared in the 1930s',
+      'discover that the 1534–1538 base of the Varvarinskaya Tower survives in the Kitay-Gorod metro passage'
+    ],
+    periods: [
+      {
+        id: 'varvarka-gates-1538',
+        label: 'Stone boundary of Kitay-Gorod',
+        year: '1534–1538',
+        summary: 'Construction of the stone Kitay-Gorod fortifications began in 1535 under Petrok Maly; the surviving base of the Varvarinskaya Tower is dated 1534–1538.',
+        confidence: 'documented'
+      },
+      {
+        id: 'varvarka-gates-1934',
+        label: 'Fortifications dismantled',
+        year: '1933–1934',
+        summary: 'Demolition of the Varvarinskaya Tower was planned in spring 1933 but delayed. In autumn 1934 most of the Kitay-Gorod wall was demolished.',
+        confidence: 'documented'
+      },
+      {
+        id: 'varvarka-gates-today',
+        label: 'Tower base below ground',
+        year: 'Today',
+        summary: 'The lower part of the 1534–1538 Varvarinskaya Tower remains protected heritage, with its base preserved in the Kitay-Gorod metro passage.',
+        confidence: 'documented'
+      }
     ]
   }
 };
