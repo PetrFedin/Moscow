@@ -57,7 +57,8 @@ export default function WalkCompanion({
       audioPlan,
       language === 'ru' ? 'ru-RU' : 'en-US',
       () => setSpeaking(false),
-      setPlaybackMode
+      setPlaybackMode,
+      () => setSpeaking(false)
     );
   };
 
