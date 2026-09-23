@@ -53,6 +53,7 @@ test('full Varvarka pilot has five source-backed stops and fits the 45 minute bu
     const place = byId.get(id);
     assert.ok(place, `missing pilot place: ${id}`);
     assert.ok(place.sources.length > 0, `pilot place has no source: ${id}`);
+    assert.ok(place.periods.length > 0, `pilot place has no historical timeline: ${id}`);
     assert.ok(place.experienceMinutes > 0, `pilot place has no content duration: ${id}`);
   }
 });
