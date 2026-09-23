@@ -19,7 +19,7 @@ test('Varvarka offline manifest covers every required Romanov scene asset', () =
   const coverage = getVarvarkaOfflineCoverage(manifest);
 
   assert.equal(manifest.routeId, 'varvarka-zaryadye-pilot');
-  assert.match(manifest.version, /^varvarka-offline-v2\+/);
+  assert.match(manifest.version, /^varvarka-offline-v3\+/);
   assert.deepEqual(validateRoutePackManifest(manifest), []);
   assert.equal(coverage.complete, true);
   assert.deepEqual(coverage.missing, []);
@@ -33,6 +33,8 @@ test('Varvarka offline manifest covers every required Romanov scene asset', () =
   }
   assert.equal(bundledIds.has('varvarka-route-data-v2'), true);
   assert.equal(bundledIds.has('varvarka-place-sources-v1'), true);
+  assert.equal(bundledIds.has('varvarka-audio-catalog-v1'), true);
+  assert.equal(manifest.files.some((asset) => asset.kind === 'audio'), false, 'pending recordings must not enter offline pack');
 
   const archive = manifest.files.find((asset) => asset.id === ROMANOV_ARCHIVE_1857_ASSET_ID);
   assert.ok(archive);
