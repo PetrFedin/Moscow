@@ -3,6 +3,7 @@ export type VarvarkaAudioStatus = 'script-approved' | 'recording-pending' | 'pro
 
 export type ProductionAudioMaster = {
   masterUrl: string;
+  filename: string;
   sha256: string;
   durationSeconds: number;
   narratorCredit: string;
@@ -41,6 +42,8 @@ export function isProductionAudioTrack(track?: VarvarkaAudioTrack | null) {
     && track.status === 'production-ready'
     && master
     && master.masterUrl.startsWith('https://')
+    && /^[A-Za-z0-9._-]+$/.test(master.filename)
+    && !master.filename.includes('..')
     && SHA256.test(master.sha256)
     && Number.isFinite(master.durationSeconds)
     && master.durationSeconds > 0
