@@ -45,7 +45,7 @@ test('unknown and future places fail closed instead of opening another object ru
   assert.equal(modelEraFromTimeIndex('unknown-place', 0), null);
 
   const gates = getPlaceExperienceCapabilities('varvarka-gates');
-  assert.equal(gates.timeMachine, 'future');
+  assert.equal(gates.timeMachine, 'ready');
   assert.equal(canOpenModel3d('varvarka-gates'), false);
   assert.equal(canOpenSpatial('varvarka-gates'), false);
 });
