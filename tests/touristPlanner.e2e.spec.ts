@@ -13,12 +13,12 @@ test('tourist can build a time-and-interest route and keep it after reload', asy
   await page.getByLabel('Торговая Москва').click();
   await page.getByLabel('Начать маршрут').click();
 
-  await expect(page.getByText('Старый Английский двор', { exact: true })).toBeVisible();
-  await expect(page.getByText(/21 min · 2 ост./)).toBeVisible();
+  await expect(page.getByText('Храм Варвары Великомученицы', { exact: true })).toBeVisible();
+  await expect(page.getByText(/≈26 min · 3 ост./)).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('Старый Английский двор', { exact: true })).toBeVisible();
-  await expect(page.getByText(/21 min · 2 ост./)).toBeVisible();
+  await expect(page.getByText('Храм Варвары Великомученицы', { exact: true })).toBeVisible();
+  await expect(page.getByText(/≈26 min · 3 ост./)).toBeVisible();
 });
 
 
