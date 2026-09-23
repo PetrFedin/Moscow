@@ -145,13 +145,6 @@ export const placeEnglish: Record<string, Partial<Place>> = {
         year: '1933–1934',
         summary: 'Demolition of the Varvarinskaya Tower was planned in spring 1933 but delayed. In autumn 1934 most of the Kitay-Gorod wall was demolished.',
         confidence: 'documented'
-      },
-      {
-        id: 'varvarka-gates-today',
-        label: 'Tower base below ground',
-        year: 'Today',
-        summary: 'The lower part of the 1534–1538 Varvarinskaya Tower remains protected heritage, with its base preserved in the Kitay-Gorod metro passage.',
-        confidence: 'documented'
       }
     ]
   }
