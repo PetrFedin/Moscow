@@ -1,4 +1,4 @@
-import { createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import type { WalkAudioPlan } from './varvarkaAudioCatalog';
 
@@ -15,6 +15,7 @@ function cleanupRecordedPlayer() {
   if (recordedPlayer) {
     try {
       recordedPlayer.pause();
+      recordedPlayer.setActiveForLockScreen(false);
       recordedPlayer.remove();
     } catch {
       // Native media teardown must never block the text fallback or UI cleanup.
@@ -76,7 +77,7 @@ export function playNarrationGuide(
 
   Speech.stop()
     .catch(() => undefined)
-    .then(() => {
+    .then(async () => {
       if (epoch !== playbackEpoch) return;
 
       const fallback = () => {
@@ -92,11 +93,22 @@ export function playNarrationGuide(
       }
 
       try {
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: 'doNotMix'
+        });
+        if (epoch !== playbackEpoch) return;
+
         const player = createAudioPlayer(plan.masterUrl, {
           updateInterval: 250,
           downloadFirst: true
         });
         recordedPlayer = player;
+        player.setActiveForLockScreen(true, {
+          title: plan.displayTitle,
+          artist: 'Moscow · Varvarka'
+        });
         onModeChange?.('recorded');
 
         recordedSubscription = player.addListener('playbackStatusUpdate', (status) => {
