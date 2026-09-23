@@ -10,6 +10,9 @@ test('walk companion turns sightseeing into a persistent observation journey', a
 
   await page.getByText('Прогулка', { exact: true }).click();
   await expect(page.getByLabel('Слушать остановку')).toBeVisible();
+  await expect(page.getByText('TTS FALLBACK · ЗАПИСЬ ГОТОВИТСЯ', { exact: true })).toBeVisible();
+  await page.getByLabel('Показать текст аудиогида').click();
+  await expect(page.getByLabel('Скрыть текст аудиогида')).toBeVisible();
   await expect(page.getByText('МИССИЯ НАБЛЮДЕНИЯ', { exact: true })).toBeVisible();
   await page.getByLabel('Я нашёл').click();
   await expect(page.getByLabel('Наблюдение выполнено')).toBeVisible();
