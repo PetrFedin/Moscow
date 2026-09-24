@@ -80,3 +80,26 @@ test('route pack manifest rejects duplicate ids and unsafe filenames', () => {
   assert.ok(errors.some((item) => item.includes('unsafe filename')));
   assert.throws(() => assertRoutePackManifest(bad));
 });
+
+
+test('offline audio assets require SHA-256 authority before the pack can be accepted', () => {
+  const base: RoutePackManifest = {
+    routeId: 'route',
+    version: 'v1',
+    downloadedAt: '2026-09-24T12:00:00.000Z',
+    locale: 'ru',
+    files: [
+      { id: 'audio', url: 'https://example.com/audio.m4a', filename: 'audio.m4a', kind: 'audio' }
+    ]
+  };
+
+  assert.ok(validateRoutePackManifest(base).some((item) => item.includes('audio asset requires sha256')));
+  assert.ok(validateRoutePackManifest({
+    ...base,
+    files: [{ ...base.files[0]!, sha256: 'bad' }]
+  }).some((item) => item.includes('invalid sha256')));
+  assert.deepEqual(validateRoutePackManifest({
+    ...base,
+    files: [{ ...base.files[0]!, sha256: 'a'.repeat(64) }]
+  }), []);
+});
