@@ -536,11 +536,13 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.heroBody}>{ui.heroBody}</Text>
                 <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
                   <Text style={styles.primaryText}>
-                    {completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
-                      ? (language === 'ru'
-                        ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
-                        : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
-                      : ui.start}
+                    {routeFinished
+                      ? (language === 'ru' ? 'Пройти Варварку ещё раз' : 'Walk Varvarka again')
+                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
+                        ? (language === 'ru'
+                          ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
+                          : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
+                        : ui.start}
                   </Text>
                 </PhysicalPressable>
               </View>
@@ -690,12 +692,74 @@ export default function MoscowExperienceApp() {
                       : routeInterest}
                 </Text>
                 <View style={styles.progress}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
-                <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={language === 'ru' ? 'Поставить прогулку на паузу' : 'Pause walk'}>
-                  <Text style={styles.pauseWalkText}>{language === 'ru' ? 'Пауза · вернуться к обзору' : 'Pause · back to Discover'}</Text>
-                </PhysicalPressable>
+                {!routeFinished && (
+                  <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={language === 'ru' ? 'Поставить прогулку на паузу' : 'Pause walk'}>
+                    <Text style={styles.pauseWalkText}>{language === 'ru' ? 'Пауза · вернуться к обзору' : 'Pause · back to Discover'}</Text>
+                  </PhysicalPressable>
+                )}
               </View>
-              <OfflineRoutePackControl language={language} />
-              {routePlace && (
+              {!routeFinished && <OfflineRoutePackControl language={language} />}
+              {routeFinished ? (
+                <View style={styles.storyCard}>
+                  <Text style={styles.kicker}>{language === 'ru' ? 'МАРШРУТ ЗАВЕРШЁН' : 'WALK COMPLETE'}</Text>
+                  <Text style={styles.storyTitle}>{language === 'ru' ? 'Варварка пройдена' : 'Varvarka complete'}</Text>
+                  <Text style={styles.storyBody}>
+                    {language === 'ru'
+                      ? 'Текущая прогулка закрыта. Открытые места и наблюдения остаются в «Моя Москва», а повтор маршрута сбросит только прогресс этой прогулки.'
+                      : 'This walk is complete. Places and observations stay in My Moscow; repeating the route resets only this walk’s progress.'}
+                  </Text>
+
+                  <View style={styles.statsRow}>
+                    <View style={styles.stat}>
+                      <Text style={styles.statValue}>{activeRoutePlan.stopIds.length}</Text>
+                      <Text style={styles.statLabel}>{language === 'ru' ? 'мест пройдено' : 'stops completed'}</Text>
+                    </View>
+                    <View style={styles.stat}>
+                      <Text style={styles.statValue}>{routeMissionCount}</Text>
+                      <Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'observations'}</Text>
+                    </View>
+                    <View style={styles.stat}>
+                      <Text style={styles.statValue}>{routeSavedCount}</Text>
+                      <Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.factRow}>
+                    <Text style={styles.factNumber}>1</Text>
+                    <Text style={styles.factText}>{language === 'ru' ? 'История открытых мест сохраняется независимо от нового прохождения маршрута.' : 'Your history of opened places is preserved independently of a new route attempt.'}</Text>
+                  </View>
+                  <View style={styles.factRow}>
+                    <Text style={styles.factNumber}>2</Text>
+                    <Text style={styles.factText}>{language === 'ru' ? 'Карта позволяет продолжить исследование с любого объекта пилота.' : 'The map lets you continue exploring from any pilot place.'}</Text>
+                  </View>
+
+                  <PhysicalPressable
+                    style={styles.primary}
+                    contentStyle={styles.center}
+                    strong
+                    onPress={() => continueAfterWalk('map')}
+                    accessibilityLabel={language === 'ru' ? 'Продолжить исследовать на карте' : 'Continue exploring on the map'}
+                  >
+                    <Text style={styles.primaryText}>{language === 'ru' ? 'Продолжить исследовать на карте' : 'Continue exploring on the map'}</Text>
+                  </PhysicalPressable>
+                  <PhysicalPressable
+                    style={styles.secondary}
+                    contentStyle={styles.center}
+                    onPress={() => continueAfterWalk('saved')}
+                    accessibilityLabel={language === 'ru' ? 'Открыть Мою Москву' : 'Open My Moscow'}
+                  >
+                    <Text style={styles.secondaryText}>{language === 'ru' ? 'Открыть «Моя Москва»' : 'Open My Moscow'}</Text>
+                  </PhysicalPressable>
+                  <PhysicalPressable
+                    style={styles.secondary}
+                    contentStyle={styles.center}
+                    onPress={repeatActiveWalk}
+                    accessibilityLabel={language === 'ru' ? 'Пройти маршрут ещё раз' : 'Walk the route again'}
+                  >
+                    <Text style={styles.secondaryText}>{language === 'ru' ? 'Пройти маршрут ещё раз' : 'Walk the route again'}</Text>
+                  </PhysicalPressable>
+                </View>
+              ) : routePlace && (
                 <View style={styles.storyCard}>
                   <Text style={styles.kicker}>{language === 'ru' ? `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}` : `NOW · STOP ${routeStep + 1}`}</Text>
                   <Text style={styles.storyTitle}>{routePlace.title}</Text>
