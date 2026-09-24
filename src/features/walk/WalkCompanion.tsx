@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Place } from '../../data/places';
 import type { AppLanguage } from '../../i18n';
@@ -15,6 +15,10 @@ type Props = {
   onAutoEnabledChange: (enabled: boolean) => void;
   onMissionComplete: (missionId: string) => void;
   onAutoStopCompleted: (placeId: string) => void;
+  onProximityArrive?: (placeId: string) => void;
+  onAudioStart?: (placeId: string, mode: AudioPlaybackMode) => void;
+  onAudioComplete?: (placeId: string, mode: AudioPlaybackMode) => void;
+  onTranscriptOpen?: (placeId: string) => void;
 };
 
 export default function WalkCompanion({
@@ -23,7 +27,10 @@ export default function WalkCompanion({
   missionDone,
   autoEnabled,
   onAutoEnabledChange,
-  onMissionComplete
+  onMissionComplete,
+  onAudioStart,
+  onAudioComplete,
+  onTranscriptOpen
 }: Props) {
   const [speaking, setSpeaking] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
@@ -39,9 +46,13 @@ export default function WalkCompanion({
     [fallbackNarration, language, place.id, place.title]
   );
   const [playbackMode, setPlaybackMode] = useState<AudioPlaybackMode>(audioPlan.mode);
+  const playbackModeRef = useRef<AudioPlaybackMode>(audioPlan.mode);
+  const audioStartReportedRef = useRef(false);
 
   useEffect(() => {
     setPlaybackMode(audioPlan.mode);
+    playbackModeRef.current = audioPlan.mode;
+    audioStartReportedRef.current = false;
     setTranscriptOpen(false);
   }, [audioPlan]);
 
@@ -53,12 +64,23 @@ export default function WalkCompanion({
       setSpeaking(false);
       return;
     }
+    audioStartReportedRef.current = false;
     setSpeaking(true);
     playNarrationGuide(
       audioPlan,
       language === 'ru' ? 'ru-RU' : 'en-US',
-      () => setSpeaking(false),
-      setPlaybackMode,
+      () => {
+        setSpeaking(false);
+        onAudioComplete?.(place.id, playbackModeRef.current);
+      },
+      (mode) => {
+        setPlaybackMode(mode);
+        playbackModeRef.current = mode;
+        if (!audioStartReportedRef.current) {
+          audioStartReportedRef.current = true;
+          onAudioStart?.(place.id, mode);
+        }
+      },
       () => setSpeaking(false)
     );
   };
@@ -92,7 +114,11 @@ export default function WalkCompanion({
         style={styles.transcriptButton}
         contentStyle={styles.transcriptButtonContent}
         hapticEvent="none"
-        onPress={() => setTranscriptOpen((value) => !value)}
+        onPress={() => setTranscriptOpen((value) => {
+          const next = !value;
+          if (next) onTranscriptOpen?.(place.id);
+          return next;
+        })}
         accessibilityLabel={transcriptOpen
           ? (language === 'ru' ? 'Скрыть текст аудиогида' : 'Hide audio transcript')
           : (language === 'ru' ? 'Показать текст аудиогида' : 'Show audio transcript')}
