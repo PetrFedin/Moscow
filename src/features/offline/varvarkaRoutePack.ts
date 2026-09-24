@@ -51,7 +51,8 @@ export function createVarvarkaRoutePackManifest(
         url: track.production!.masterUrl,
         filename: track.production!.filename,
         kind: 'audio' as const,
-        required: true
+        required: true,
+        sha256: track.production!.sha256
       }))
     ],
     bundled: [
