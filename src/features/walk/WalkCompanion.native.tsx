@@ -20,6 +20,10 @@ type Props = {
   onAutoEnabledChange: (enabled: boolean) => void;
   onMissionComplete: (missionId: string) => void;
   onAutoStopCompleted: (placeId: string) => void;
+  onProximityArrive?: (placeId: string) => void;
+  onAudioStart?: (placeId: string, mode: AudioPlaybackMode) => void;
+  onAudioComplete?: (placeId: string, mode: AudioPlaybackMode) => void;
+  onTranscriptOpen?: (placeId: string) => void;
 };
 
 const TRIGGER_RADIUS_METERS = 55;
@@ -31,7 +35,11 @@ export default function WalkCompanion({
   autoEnabled,
   onAutoEnabledChange,
   onMissionComplete,
-  onAutoStopCompleted
+  onAutoStopCompleted,
+  onProximityArrive,
+  onAudioStart,
+  onAudioComplete,
+  onTranscriptOpen
 }: Props) {
   const [speaking, setSpeaking] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
@@ -50,12 +58,16 @@ export default function WalkCompanion({
     [fallbackNarration, language, place.id, place.title]
   );
   const [playbackMode, setPlaybackMode] = useState<AudioPlaybackMode>(audioPlan.mode);
+  const playbackModeRef = useRef<AudioPlaybackMode>(audioPlan.mode);
+  const audioStartReportedRef = useRef(false);
 
   useEffect(() => {
     triggeredRef.current = false;
     setDistance(null);
     setTranscriptOpen(false);
     setPlaybackMode(audioPlan.mode);
+    playbackModeRef.current = audioPlan.mode;
+    audioStartReportedRef.current = false;
   }, [audioPlan, place.id]);
 
   useEffect(() => {
@@ -87,6 +99,8 @@ export default function WalkCompanion({
           setDistance(nextDistance);
           if (nextDistance <= TRIGGER_RADIUS_METERS && !triggeredRef.current) {
             triggeredRef.current = true;
+            onProximityArrive?.(place.id);
+            audioStartReportedRef.current = false;
             setSpeaking(true);
             playNarrationGuide(
               audioPlan,
@@ -94,9 +108,17 @@ export default function WalkCompanion({
               () => {
                 if (!active) return;
                 setSpeaking(false);
+                onAudioComplete?.(place.id, playbackModeRef.current);
                 onAutoStopCompleted(place.id);
               },
-              setPlaybackMode,
+              (mode) => {
+                setPlaybackMode(mode);
+                playbackModeRef.current = mode;
+                if (!audioStartReportedRef.current) {
+                  audioStartReportedRef.current = true;
+                  onAudioStart?.(place.id, mode);
+                }
+              },
               () => {
                 if (active) setSpeaking(false);
               }
@@ -116,7 +138,7 @@ export default function WalkCompanion({
       subscription?.remove();
       void stopNarrationGuide();
     };
-  }, [audioPlan, autoEnabled, language, onAutoEnabledChange, onAutoStopCompleted, place.id, place.latitude, place.longitude]);
+  }, [audioPlan, autoEnabled, language, onAudioComplete, onAudioStart, onAutoEnabledChange, onAutoStopCompleted, onProximityArrive, place.id, place.latitude, place.longitude]);
 
   const toggleAudio = () => {
     if (speaking) {
@@ -124,12 +146,23 @@ export default function WalkCompanion({
       setSpeaking(false);
       return;
     }
+    audioStartReportedRef.current = false;
     setSpeaking(true);
     playNarrationGuide(
       audioPlan,
       language === 'ru' ? 'ru-RU' : 'en-US',
-      () => setSpeaking(false),
-      setPlaybackMode,
+      () => {
+        setSpeaking(false);
+        onAudioComplete?.(place.id, playbackModeRef.current);
+      },
+      (mode) => {
+        setPlaybackMode(mode);
+        playbackModeRef.current = mode;
+        if (!audioStartReportedRef.current) {
+          audioStartReportedRef.current = true;
+          onAudioStart?.(place.id, mode);
+        }
+      },
       () => setSpeaking(false)
     );
   };
@@ -171,7 +204,11 @@ export default function WalkCompanion({
         style={styles.transcriptButton}
         contentStyle={styles.transcriptButtonContent}
         hapticEvent="none"
-        onPress={() => setTranscriptOpen((value) => !value)}
+        onPress={() => setTranscriptOpen((value) => {
+          const next = !value;
+          if (next) onTranscriptOpen?.(place.id);
+          return next;
+        })}
         accessibilityLabel={transcriptOpen
           ? (language === 'ru' ? 'Скрыть текст аудиогида' : 'Hide audio transcript')
           : (language === 'ru' ? 'Показать текст аудиогида' : 'Show audio transcript')}
