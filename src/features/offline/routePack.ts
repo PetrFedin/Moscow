@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
 import {
@@ -13,6 +14,20 @@ export type {
 } from './routePackManifest';
 
 const DB_NAME = 'moscow-offline.db';
+
+async function sha256FileHex(file: File) {
+  const bytes = await file.bytes();
+  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function assertDownloadedAssetIntegrity(file: File, asset: RoutePackManifest['files'][number]) {
+  if (!asset.sha256) return;
+  const actual = await sha256FileHex(file);
+  if (actual.toLowerCase() !== asset.sha256.toLowerCase()) {
+    throw new Error(`Checksum mismatch for offline asset: ${asset.id}`);
+  }
+}
 
 async function openDb() {
   const db = await SQLite.openDatabaseAsync(DB_NAME);
@@ -44,6 +59,7 @@ export async function downloadRoutePack(manifest: RoutePackManifest) {
       const target = new File(directory, asset.filename);
       if (target.exists) target.delete();
       await File.downloadFileAsync(asset.url, target, { idempotent: true });
+      await assertDownloadedAssetIntegrity(target, asset);
     }
   } catch (error) {
     for (const asset of manifest.files) {
@@ -91,7 +107,13 @@ export async function getDownloadedRoutePackAssetUri(
   const directory = packDirectory(routeId, locale, false);
   if (!directory.exists) return null;
   const target = new File(directory, asset.filename);
-  return target.exists ? target.uri : null;
+  if (!target.exists) return null;
+  try {
+    await assertDownloadedAssetIntegrity(target, asset);
+    return target.uri;
+  } catch {
+    return null;
+  }
 }
 
 export async function getDownloadedRoutePackAssetUriWithLocaleFallback(

@@ -28,6 +28,15 @@
         }
       ],
       [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": true,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
         "@reactvision/react-viro",
         {
           "provider": "none",

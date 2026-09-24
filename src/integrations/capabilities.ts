@@ -26,9 +26,9 @@ export const capabilities: Capability[] = [
   {
     id: 'audio',
     title: 'Аудиогид',
-    provider: 'Expo Speech + Expo Audio',
-    status: 'ready',
-    note: 'TTS доступен сразу; мастер-озвучку можно хранить в офлайн-пакете маршрута.'
+    provider: 'Expo Audio + Expo Speech fallback',
+    status: 'needs-asset',
+    note: 'RU/EN scripts and transcripts are versioned. TTS is an explicit fallback only; production readiness requires human master files with narrator/rights evidence, duration and SHA-256.'
   },
   {
     id: 'offline',

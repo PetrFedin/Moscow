@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Place } from '../../data/places';
 import type { AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
-import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
+import { playNarrationGuide, stopNarrationGuide, type AudioPlaybackMode } from '../audio/audioGuide';
+import { buildWalkAudioPlan } from '../audio/varvarkaAudioCatalog';
 import { buildPlaceWalkNarration, getObservationMission } from './walkCompanionContract';
 
 type Props = {
@@ -25,19 +26,41 @@ export default function WalkCompanion({
   onMissionComplete
 }: Props) {
   const [speaking, setSpeaking] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const mission = useMemo(() => getObservationMission(place, language), [language, place]);
-  const narration = useMemo(() => buildPlaceWalkNarration(place, language), [language, place]);
+  const fallbackNarration = useMemo(() => buildPlaceWalkNarration(place, language), [language, place]);
+  const audioPlan = useMemo(
+    () => buildWalkAudioPlan({
+      placeId: place.id,
+      locale: language,
+      fallbackTranscript: fallbackNarration,
+      displayTitle: place.title
+    }),
+    [fallbackNarration, language, place.id, place.title]
+  );
+  const [playbackMode, setPlaybackMode] = useState<AudioPlaybackMode>(audioPlan.mode);
 
-  useEffect(() => () => { void stopTextGuide().catch(() => undefined); }, []);
+  useEffect(() => {
+    setPlaybackMode(audioPlan.mode);
+    setTranscriptOpen(false);
+  }, [audioPlan]);
+
+  useEffect(() => () => { void stopNarrationGuide(); }, []);
 
   const toggleAudio = () => {
     if (speaking) {
-      void stopTextGuide().catch(() => undefined);
+      void stopNarrationGuide();
       setSpeaking(false);
       return;
     }
     setSpeaking(true);
-    playTextGuide(narration, language === 'ru' ? 'ru-RU' : 'en-US', () => setSpeaking(false));
+    playNarrationGuide(
+      audioPlan,
+      language === 'ru' ? 'ru-RU' : 'en-US',
+      () => setSpeaking(false),
+      setPlaybackMode,
+      () => setSpeaking(false)
+    );
   };
 
   return (
@@ -56,6 +79,35 @@ export default function WalkCompanion({
           <Text style={[styles.audioText, speaking && styles.audioTextActive]}>{speaking ? '■' : '▶'}</Text>
         </PhysicalPressable>
       </View>
+
+      <View style={[styles.audioAuthority, playbackMode === 'recorded' && styles.audioAuthorityReady]}>
+        <Text style={[styles.audioAuthorityText, playbackMode === 'recorded' && styles.audioAuthorityTextReady]}>
+          {playbackMode === 'recorded'
+            ? (language === 'ru' ? 'HUMAN MASTER · VERIFIED' : 'HUMAN MASTER · VERIFIED')
+            : (language === 'ru' ? 'TTS FALLBACK · ЗАПИСЬ ГОТОВИТСЯ' : 'TTS FALLBACK · RECORDING PENDING')}
+        </Text>
+      </View>
+
+      <PhysicalPressable
+        style={styles.transcriptButton}
+        contentStyle={styles.transcriptButtonContent}
+        hapticEvent="none"
+        onPress={() => setTranscriptOpen((value) => !value)}
+        accessibilityLabel={transcriptOpen
+          ? (language === 'ru' ? 'Скрыть текст аудиогида' : 'Hide audio transcript')
+          : (language === 'ru' ? 'Показать текст аудиогида' : 'Show audio transcript')}
+      >
+        <Text style={styles.transcriptButtonText}>
+          {transcriptOpen
+            ? (language === 'ru' ? 'Скрыть текст' : 'Hide transcript')
+            : (language === 'ru' ? 'Текст аудио' : 'Audio transcript')}
+        </Text>
+      </PhysicalPressable>
+      {transcriptOpen && (
+        <View style={styles.transcript}>
+          <Text style={styles.transcriptText}>{audioPlan.transcript}</Text>
+        </View>
+      )}
 
       <View style={styles.autoNotice}>
         <Text style={styles.autoText}>
@@ -95,6 +147,15 @@ const styles = StyleSheet.create({
   audioText: { color: '#e7c98f', fontSize: 14, fontWeight: '900' },
   audioTextActive: { color: '#17130d' },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9 },
+  audioAuthority: { alignSelf: 'flex-start', borderRadius: 9, borderWidth: 1, borderColor: '#6e5634', backgroundColor: '#20190f', paddingHorizontal: 8, paddingVertical: 5, marginTop: 9 },
+  audioAuthorityReady: { borderColor: '#4d7457', backgroundColor: '#101b14' },
+  audioAuthorityText: { color: '#c7a971', fontSize: 7.5, fontWeight: '900', letterSpacing: 0.7 },
+  audioAuthorityTextReady: { color: '#acd2b4' },
+  transcriptButton: { minHeight: 36, borderRadius: 11, borderWidth: 1, borderColor: '#3e444b', marginTop: 8 },
+  transcriptButtonContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  transcriptButtonText: { color: '#b7bbc1', fontSize: 9, fontWeight: '900' },
+  transcript: { borderRadius: 12, backgroundColor: '#171a1f', padding: 10, marginTop: 7 },
+  transcriptText: { color: '#aeb3ba', fontSize: 10, lineHeight: 15 },
   autoNotice: { borderRadius: 12, backgroundColor: '#171a1f', padding: 9, marginTop: 10 },
   autoText: { color: '#858b93', fontSize: 9, lineHeight: 13 },
   mission: { borderRadius: 15, borderWidth: 1, borderColor: '#4b4436', backgroundColor: '#17140f', padding: 12, marginTop: 10 },

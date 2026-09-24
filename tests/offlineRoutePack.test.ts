@@ -19,7 +19,7 @@ test('Varvarka offline manifest covers every required Romanov scene asset', () =
   const coverage = getVarvarkaOfflineCoverage(manifest);
 
   assert.equal(manifest.routeId, 'varvarka-zaryadye-pilot');
-  assert.match(manifest.version, /^varvarka-offline-v2\+/);
+  assert.match(manifest.version, /^varvarka-offline-v3\+/);
   assert.deepEqual(validateRoutePackManifest(manifest), []);
   assert.equal(coverage.complete, true);
   assert.deepEqual(coverage.missing, []);
@@ -33,6 +33,8 @@ test('Varvarka offline manifest covers every required Romanov scene asset', () =
   }
   assert.equal(bundledIds.has('varvarka-route-data-v2'), true);
   assert.equal(bundledIds.has('varvarka-place-sources-v1'), true);
+  assert.equal(bundledIds.has('varvarka-audio-catalog-v1'), true);
+  assert.equal(manifest.files.some((asset) => asset.kind === 'audio'), false, 'pending recordings must not enter offline pack');
 
   const archive = manifest.files.find((asset) => asset.id === ROMANOV_ARCHIVE_1857_ASSET_ID);
   assert.ok(archive);
@@ -77,4 +79,27 @@ test('route pack manifest rejects duplicate ids and unsafe filenames', () => {
   assert.ok(errors.some((item) => item.includes('must use https')));
   assert.ok(errors.some((item) => item.includes('unsafe filename')));
   assert.throws(() => assertRoutePackManifest(bad));
+});
+
+
+test('offline audio assets require SHA-256 authority before the pack can be accepted', () => {
+  const base: RoutePackManifest = {
+    routeId: 'route',
+    version: 'v1',
+    downloadedAt: '2026-09-24T12:00:00.000Z',
+    locale: 'ru',
+    files: [
+      { id: 'audio', url: 'https://example.com/audio.m4a', filename: 'audio.m4a', kind: 'audio' }
+    ]
+  };
+
+  assert.ok(validateRoutePackManifest(base).some((item) => item.includes('audio asset requires sha256')));
+  assert.ok(validateRoutePackManifest({
+    ...base,
+    files: [{ ...base.files[0]!, sha256: 'bad' }]
+  }).some((item) => item.includes('invalid sha256')));
+  assert.deepEqual(validateRoutePackManifest({
+    ...base,
+    files: [{ ...base.files[0]!, sha256: 'a'.repeat(64) }]
+  }), []);
 });

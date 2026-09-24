@@ -6,6 +6,7 @@ export type RoutePackDownloadAsset = {
   filename: string;
   kind: RoutePackAssetKind;
   required?: boolean;
+  sha256?: string;
 };
 
 export type RoutePackBundledAsset = {
@@ -50,6 +51,12 @@ export function validateRoutePackManifest(manifest: RoutePackManifest) {
     }
     if (filenames.has(asset.filename)) errors.push(`duplicate filename: ${asset.filename}`);
     filenames.add(asset.filename);
+    if (asset.sha256 !== undefined && !/^[a-f0-9]{64}$/i.test(asset.sha256)) {
+      errors.push(`invalid sha256: ${asset.id}`);
+    }
+    if (asset.kind === 'audio' && !asset.sha256) {
+      errors.push(`audio asset requires sha256: ${asset.id}`);
+    }
   }
 
   return errors;
