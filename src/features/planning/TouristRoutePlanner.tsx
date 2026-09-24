@@ -15,6 +15,7 @@ type Props = {
   language: AppLanguage;
   mustSeeIds: string[];
   onStart: (plan: TouristRoutePlan) => void;
+  onPreview?: (plan: TouristRoutePlan) => void;
 };
 
 const budgets: TouristTimeBudget[] = [15, 30, 45];
@@ -63,7 +64,7 @@ const labels = {
   }
 } as const;
 
-export default function TouristRoutePlanner({ language, mustSeeIds, onStart }: Props) {
+export default function TouristRoutePlanner({ language, mustSeeIds, onStart, onPreview }: Props) {
   const [budget, setBudget] = useState<TouristTimeBudget>(30);
   const [interest, setInterest] = useState<TouristInterest>('highlights');
   const copy = labels[language];
@@ -131,7 +132,10 @@ export default function TouristRoutePlanner({ language, mustSeeIds, onStart }: P
         style={styles.primary}
         contentStyle={styles.center}
         strong
-        onPress={() => onStart(plan)}
+        onPress={() => {
+          onPreview?.(plan);
+          onStart(plan);
+        }}
         accessibilityLabel={copy.start}
       >
         <Text style={styles.primaryText}>
