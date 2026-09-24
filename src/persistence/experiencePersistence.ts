@@ -22,6 +22,8 @@ export type PersistedExperienceState = {
   routeBudgetMinutes: TouristTimeBudget;
   routeInterest: TouristInterest;
   routeStopIds: string[];
+  routeCompletedStopIds: string[];
+  routeFinished: boolean;
   missionDoneIds: string[];
   walkAutoAudio: boolean;
 };
@@ -46,6 +48,8 @@ const defaultState: PersistedExperienceState = {
   routeBudgetMinutes: 45,
   routeInterest: 'highlights',
   routeStopIds: [...pilotRoute.stopIds],
+  routeCompletedStopIds: [],
+  routeFinished: false,
   missionDoneIds: [],
   walkAutoAudio: false
 };
@@ -101,6 +105,13 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
       Math.round(finiteNumber(input.routeStep, defaultState.routeStep))
     )
   );
+  const explicitCompletedStopIds = Array.isArray(input.routeCompletedStopIds)
+    ? stringArray(input.routeCompletedStopIds).filter((id) => routeStopIds.includes(id))
+    : null;
+  const routeCompletedStopIds = explicitCompletedStopIds ?? routeStopIds.slice(0, routeStep);
+  const routeFinished = input.routeFinished === true
+    && routeStopIds.length > 0
+    && routeStopIds.every((id) => routeCompletedStopIds.includes(id));
 
   return {
     savedIds: stringArray(input.savedIds),
@@ -121,6 +132,8 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     routeBudgetMinutes,
     routeInterest,
     routeStopIds,
+    routeCompletedStopIds,
+    routeFinished,
     missionDoneIds: missionArray(input.missionDoneIds),
     walkAutoAudio: typeof input.walkAutoAudio === 'boolean' ? input.walkAutoAudio : defaultState.walkAutoAudio
   };
