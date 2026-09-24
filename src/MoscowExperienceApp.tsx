@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Linking,
   Modal,
@@ -10,6 +10,8 @@ import {
   Text,
   View
 } from 'react-native';
+import { trackTouristEvent } from './analytics/touristAnalytics';
+import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from './analytics/touristAnalyticsContract';
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import MoscowMap from './features/map/MoscowMap';
@@ -102,6 +104,13 @@ export default function MoscowExperienceApp() {
   const [lensVisible, setLensVisible] = useState(true);
   const [mapSheetState, setMapSheetState] = useState<StableSheetState>('preview');
   const [modal, setModal] = useState<ModalMode>(null);
+  const appOpenTrackedRef = useRef(false);
+  const previousAnalyticsTabRef = useRef<Tab | null>(null);
+  const stopPresentedTrackedRef = useRef(new Set<string>());
+  const stopCompletionTrackedRef = useRef(new Set<string>());
+  const arrivalTrackedRef = useRef(new Set<string>());
+  const routeCompleteTrackedRef = useRef(new Set<string>());
+  const timeMachineTrackedRef = useRef(new Set<string>());
 
   const ui = copy[language];
   const tabLabels: Record<Tab, string> = {
@@ -138,6 +147,10 @@ export default function MoscowExperienceApp() {
   );
   const archiveAvailable = Boolean(selected && canOpenArchiveLens(selected.id));
   const modelAvailable = Boolean(selected && canOpenModel3d(selected.id));
+  const analyticsRouteKey = useMemo(
+    () => `${routeBudgetMinutes}:${routeInterest}:${routeStopIds.join('>')}`,
+    [routeBudgetMinutes, routeInterest, routeStopIds]
+  );
 
   useEffect(() => {
     AsyncStorage.getItem(EXPERIENCE_STORAGE_KEY)
@@ -164,6 +177,37 @@ export default function MoscowExperienceApp() {
       .catch(() => undefined)
       .finally(() => setHydrated(true));
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    if (!appOpenTrackedRef.current) {
+      appOpenTrackedRef.current = true;
+      void trackTouristEvent({ event: 'app_open', language });
+    }
+
+    if (previousAnalyticsTabRef.current !== tab) {
+      if (tab === 'discover') {
+        void trackTouristEvent({ event: 'discover_view', language });
+      }
+      previousAnalyticsTabRef.current = tab;
+    }
+  }, [hydrated, language, tab]);
+
+  useEffect(() => {
+    if (!hydrated || tab !== 'walk' || !routePlace) return;
+    const key = `${analyticsRouteKey}:${routeStep}:${routePlace.id}`;
+    if (stopPresentedTrackedRef.current.has(key)) return;
+    stopPresentedTrackedRef.current.add(key);
+    void trackTouristEvent({
+      event: 'stop_presented',
+      routeId: pilotRoute.id,
+      placeId: routePlace.id,
+      stepIndex: routeStep,
+      stopCount: activeRoutePlan.stopIds.length,
+      language
+    });
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routePlace, routeStep, tab]);
 
   useEffect(() => {
     if (!hydrated) return;
