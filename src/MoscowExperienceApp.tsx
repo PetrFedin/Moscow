@@ -239,21 +239,6 @@ export default function MoscowExperienceApp() {
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
   }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
-  useEffect(() => {
-    if (!hydrated || tab !== 'walk' || !routeFinished) return;
-    const key = `${analyticsRouteKey}:recap`;
-    if (recapTrackedRef.current.has(key)) return;
-    recapTrackedRef.current.add(key);
-    void trackTouristEvent({
-      event: 'walk_recap_view',
-      routeId: pilotRoute.id,
-      stopCount: activeRoutePlan.stopIds.length,
-      missionCount: routeMissionCount,
-      savedCount: routeSavedCount,
-      language
-    });
-  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routeMissionCount, routeSavedCount, tab]);
-
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
       setTimeValue(0);
@@ -313,6 +298,21 @@ export default function MoscowExperienceApp() {
   const routeMissionCount = activeRoutePlan.stopIds.filter((id) => missionDoneIds.includes(`observation:${id}:v1`)).length;
   const routeSavedCount = activeRoutePlan.stopIds.filter((id) => savedIds.includes(id)).length;
   const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
+
+  useEffect(() => {
+    if (!hydrated || tab !== 'walk' || !routeFinished) return;
+    const key = `${analyticsRouteKey}:recap`;
+    if (recapTrackedRef.current.has(key)) return;
+    recapTrackedRef.current.add(key);
+    void trackTouristEvent({
+      event: 'walk_recap_view',
+      routeId: pilotRoute.id,
+      stopCount: activeRoutePlan.stopIds.length,
+      missionCount: routeMissionCount,
+      savedCount: routeSavedCount,
+      language
+    });
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routeMissionCount, routeSavedCount, tab]);
 
   const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
     stopPresentedTrackedRef.current.clear();
