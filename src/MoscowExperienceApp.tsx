@@ -113,6 +113,7 @@ export default function MoscowExperienceApp() {
   const arrivalTrackedRef = useRef(new Set<string>());
   const routeCompleteTrackedRef = useRef(new Set<string>());
   const timeMachineTrackedRef = useRef(new Set<string>());
+  const recapTrackedRef = useRef(new Set<string>());
 
   const ui = copy[language];
   const tabLabels: Record<Tab, string> = {
@@ -238,6 +239,21 @@ export default function MoscowExperienceApp() {
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
   }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
+  useEffect(() => {
+    if (!hydrated || tab !== 'walk' || !routeFinished) return;
+    const key = `${analyticsRouteKey}:recap`;
+    if (recapTrackedRef.current.has(key)) return;
+    recapTrackedRef.current.add(key);
+    void trackTouristEvent({
+      event: 'walk_recap_view',
+      routeId: pilotRoute.id,
+      stopCount: activeRoutePlan.stopIds.length,
+      missionCount: routeMissionCount,
+      savedCount: routeSavedCount,
+      language
+    });
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routeMissionCount, routeSavedCount, tab]);
+
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
       setTimeValue(0);
@@ -294,6 +310,8 @@ export default function MoscowExperienceApp() {
   const todaySelected = Boolean(selected && roundedTime === selected.periods.length);
   const activePeriod = selected?.periods[roundedTime];
   const completedRouteStops = activeRoutePlan.stopIds.filter((id) => routeCompletedStopIds.includes(id)).length;
+  const routeMissionCount = activeRoutePlan.stopIds.filter((id) => missionDoneIds.includes(`observation:${id}:v1`)).length;
+  const routeSavedCount = activeRoutePlan.stopIds.filter((id) => savedIds.includes(id)).length;
   const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
 
   const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
@@ -302,6 +320,7 @@ export default function MoscowExperienceApp() {
     arrivalTrackedRef.current.clear();
     const nextRouteKey = `${plan.budgetMinutes}:${plan.interest}:${plan.stopIds.join('>')}`;
     routeCompleteTrackedRef.current.delete(nextRouteKey);
+    recapTrackedRef.current.delete(`${nextRouteKey}:recap`);
     void trackTouristEvent({
       event: 'route_start',
       origin,
@@ -391,6 +410,26 @@ export default function MoscowExperienceApp() {
     } else {
       setRouteStep((current) => current + 1);
     }
+  };
+
+  const continueAfterWalk = (destination: 'map' | 'saved') => {
+    void trackTouristEvent({
+      event: 'continue_explore',
+      routeId: pilotRoute.id,
+      destination,
+      language
+    });
+    setTab(destination);
+  };
+
+  const repeatActiveWalk = () => {
+    void trackTouristEvent({
+      event: 'continue_explore',
+      routeId: pilotRoute.id,
+      destination: 'repeat',
+      language
+    });
+    startTouristPlan(activeRoutePlan, 'recap');
   };
 
   const recordProximityArrival = (placeId: string) => {
