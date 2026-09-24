@@ -42,12 +42,14 @@ test('recording-pending scripts can never masquerade as production audio', () =>
     const plan = buildWalkAudioPlan({
       placeId: track.placeId,
       locale: track.locale,
-      fallbackTranscript: 'fallback'
+      fallbackTranscript: 'fallback',
+      displayTitle: 'Test stop'
     });
     assert.equal(plan.mode, 'tts-fallback');
     assert.equal(plan.productionStatus, 'recording-pending');
     assert.equal(plan.transcript, track.transcript);
     assert.equal(plan.masterUrl, undefined);
+    assert.equal(plan.displayTitle, 'Test stop');
   }
 });
 
@@ -87,10 +89,12 @@ test('unknown places fall back to grounded caller transcript instead of inventin
   const plan = buildWalkAudioPlan({
     placeId: 'unknown-place',
     locale: 'ru',
-    fallbackTranscript: 'Проверенный резервный текст.'
+    fallbackTranscript: 'Проверенный резервный текст.',
+    displayTitle: 'Проверенная остановка'
   });
 
   assert.equal(plan.mode, 'tts-fallback');
   assert.equal(plan.productionStatus, 'script-approved');
   assert.equal(plan.transcript, 'Проверенный резервный текст.');
+  assert.equal(plan.displayTitle, 'Проверенная остановка');
 });
