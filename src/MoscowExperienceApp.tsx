@@ -247,6 +247,10 @@ export default function MoscowExperienceApp() {
   };
 
   const onTimeChange = (value: number) => {
+    if (!timeMachineTrackedRef.current.has(selectedId)) {
+      timeMachineTrackedRef.current.add(selectedId);
+      void trackTouristEvent({ event: 'time_machine_open', placeId: selectedId, language });
+    }
     setTimeValue(value);
     const nextEra = modelEraFromTimeIndex(selectedId, value);
     if (nextEra) setEra(nextEra);
@@ -264,16 +268,19 @@ export default function MoscowExperienceApp() {
 
   const openSpatial = async () => {
     if (!await prepareSpatial()) return;
+    void trackTouristEvent({ event: 'ar_open', placeId: selectedId, language });
     setModal('spatial');
   };
 
   const openModel = () => {
     if (!canOpenModel3d(selectedId)) return;
+    void trackTouristEvent({ event: 'model_open', placeId: selectedId, language });
     setModal('model');
   };
 
   const openLens = () => {
     if (!selected || !canOpenArchiveLens(selected.id)) return;
+    void trackTouristEvent({ event: 'archive_open', placeId: selected.id, language });
     setModal('lens');
   };
 
@@ -283,7 +290,21 @@ export default function MoscowExperienceApp() {
   const completedRouteStops = activeRoutePlan.stopIds.filter((id) => visitedIds.includes(id)).length;
   const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
 
-  const startTouristPlan = (plan: TouristRoutePlan) => {
+  const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
+    stopPresentedTrackedRef.current.clear();
+    stopCompletionTrackedRef.current.clear();
+    arrivalTrackedRef.current.clear();
+    const nextRouteKey = `${plan.budgetMinutes}:${plan.interest}:${plan.stopIds.join('>')}`;
+    routeCompleteTrackedRef.current.delete(nextRouteKey);
+    void trackTouristEvent({
+      event: 'route_start',
+      origin,
+      routeId: pilotRoute.id,
+      budgetMinutes: plan.budgetMinutes,
+      interest: plan.interest,
+      stopCount: plan.stopIds.length,
+      language
+    });
     setRouteBudgetMinutes(plan.budgetMinutes);
     setRouteInterest(plan.interest);
     setRouteStopIds(plan.stopIds);
@@ -291,14 +312,108 @@ export default function MoscowExperienceApp() {
     setTab('walk');
   };
 
-  const completeRouteStop = (placeId: string) => {
+  const previewTouristPlan = (plan: TouristRoutePlan) => {
+    void trackTouristEvent({
+      event: 'route_preview',
+      origin: 'planner',
+      routeId: pilotRoute.id,
+      budgetMinutes: plan.budgetMinutes,
+      interest: plan.interest,
+      stopCount: plan.stopIds.length,
+      language
+    });
+  };
+
+  const openWalkFromHero = () => {
+    if (completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length) {
+      void trackTouristEvent({
+        event: 'route_resume',
+        routeId: pilotRoute.id,
+        stepIndex: routeStep,
+        stopCount: activeRoutePlan.stopIds.length,
+        language
+      });
+      setTab('walk');
+      return;
+    }
+
+    if (completedRouteStops === 0) {
+      startTouristPlan(activeRoutePlan, 'hero');
+      return;
+    }
+
+    setTab('walk');
+  };
+
+  const completeRouteStop = (placeId: string, completionMode: TouristAnalyticsCompletionMode) => {
+    const completionKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
+    if (!stopCompletionTrackedRef.current.has(completionKey)) {
+      stopCompletionTrackedRef.current.add(completionKey);
+      void trackTouristEvent({
+        event: 'stop_complete',
+        routeId: pilotRoute.id,
+        placeId,
+        completionMode,
+        language
+      });
+    }
+
+    const finalStep = routeStep >= activeRoutePlan.stopIds.length - 1;
+    if (finalStep && !routeCompleteTrackedRef.current.has(analyticsRouteKey)) {
+      routeCompleteTrackedRef.current.add(analyticsRouteKey);
+      void trackTouristEvent({
+        event: 'route_complete',
+        routeId: pilotRoute.id,
+        budgetMinutes: routeBudgetMinutes,
+        interest: routeInterest,
+        stopCount: activeRoutePlan.stopIds.length,
+        language
+      });
+    }
+
     setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    if (routeStep < activeRoutePlan.stopIds.length - 1) {
+    if (!finalStep) {
       setRouteStep((current) => current + 1);
     }
   };
 
+  const recordProximityArrival = (placeId: string) => {
+    const arrivalKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
+    if (arrivalTrackedRef.current.has(arrivalKey)) return;
+    arrivalTrackedRef.current.add(arrivalKey);
+    void trackTouristEvent({
+      event: 'stop_arrive',
+      routeId: pilotRoute.id,
+      placeId,
+      arrivalEvidence: 'foreground-proximity',
+      language
+    });
+  };
+
+  const recordAudioStart = (placeId: string, audioMode: 'recorded' | 'tts-fallback') => {
+    void trackTouristEvent({ event: 'audio_start', placeId, audioMode, language });
+  };
+
+  const recordAudioComplete = (placeId: string, audioMode: 'recorded' | 'tts-fallback') => {
+    void trackTouristEvent({ event: 'audio_complete', placeId, audioMode, language });
+  };
+
+  const recordTranscriptOpen = (placeId: string) => {
+    void trackTouristEvent({ event: 'transcript_open', placeId, language });
+  };
+
   const completeMission = (missionId: string) => {
+    if (!missionDoneIds.includes(missionId)) {
+      const match = /^observation:([^:]+):v1$/.exec(missionId);
+      if (match?.[1]) {
+        void trackTouristEvent({
+          event: 'mission_complete',
+          placeId: match[1],
+          missionId,
+          language
+        });
+      }
+    }
     setMissionDoneIds((current) => current.includes(missionId) ? current : [...current, missionId]);
   };
 
