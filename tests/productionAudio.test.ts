@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { pilotRoute } from '../src/data/places.ts';
@@ -97,4 +98,19 @@ test('unknown places fall back to grounded caller transcript instead of inventin
   assert.equal(plan.productionStatus, 'script-approved');
   assert.equal(plan.transcript, 'Проверенный резервный текст.');
   assert.equal(plan.displayTitle, 'Проверенная остановка');
+});
+
+
+test('background playback native config is explicit and does not request recording permissions', () => {
+  const appConfig = JSON.parse(readFileSync('app.json', 'utf8')) as {
+    expo?: { plugins?: unknown[] };
+  };
+  const plugins = appConfig.expo?.plugins ?? [];
+  const audioPlugin = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-audio') as [string, Record<string, unknown>] | undefined;
+
+  assert.ok(audioPlugin, 'expo-audio config plugin is required for sustained background playback');
+  assert.equal(audioPlugin[1].enableBackgroundPlayback, true);
+  assert.equal(audioPlugin[1].enableBackgroundRecording, false);
+  assert.equal(audioPlugin[1].microphonePermission, false);
+  assert.equal(audioPlugin[1].recordAudioAndroid, false);
 });
