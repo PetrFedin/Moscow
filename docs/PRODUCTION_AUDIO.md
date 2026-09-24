@@ -87,6 +87,8 @@ The route pack includes the versioned audio catalog immediately.
 
 Actual audio binaries enter the offline pack only after they pass `production-ready`. Pending recordings are never downloaded or counted as available audio.
 
+Every production audio file carries its catalog SHA-256 into the route-pack manifest. The mobile downloader verifies the downloaded bytes before marking the pack ready, and re-checks hashed assets before returning a local URI. A mismatch fails closed instead of serving an unverified master.
+
 ## Recording handoff
 
 The next physical/editorial step is to record the ten v1 scripts.
