@@ -94,6 +94,8 @@ export default function MoscowExperienceApp() {
   const [routeBudgetMinutes, setRouteBudgetMinutes] = useState<TouristTimeBudget>(45);
   const [routeInterest, setRouteInterest] = useState<TouristInterest>('highlights');
   const [routeStopIds, setRouteStopIds] = useState<string[]>([...pilotRoute.stopIds]);
+  const [routeCompletedStopIds, setRouteCompletedStopIds] = useState<string[]>([]);
+  const [routeFinished, setRouteFinished] = useState(false);
   const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -171,6 +173,8 @@ export default function MoscowExperienceApp() {
         setRouteBudgetMinutes(parsed.routeBudgetMinutes);
         setRouteInterest(parsed.routeInterest);
         setRouteStopIds(parsed.routeStopIds);
+        setRouteCompletedStopIds(parsed.routeCompletedStopIds);
+        setRouteFinished(parsed.routeFinished);
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
       })
@@ -195,7 +199,7 @@ export default function MoscowExperienceApp() {
   }, [hydrated, language, tab]);
 
   useEffect(() => {
-    if (!hydrated || tab !== 'walk' || !routePlace) return;
+    if (!hydrated || tab !== 'walk' || routeFinished || !routePlace) return;
     const key = `${analyticsRouteKey}:${routeStep}:${routePlace.id}`;
     if (stopPresentedTrackedRef.current.has(key)) return;
     stopPresentedTrackedRef.current.add(key);
@@ -207,7 +211,7 @@ export default function MoscowExperienceApp() {
       stopCount: activeRoutePlan.stopIds.length,
       language
     });
-  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routePlace, routeStep, tab]);
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routePlace, routeStep, tab]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -226,11 +230,13 @@ export default function MoscowExperienceApp() {
       routeBudgetMinutes,
       routeInterest,
       routeStopIds,
+      routeCompletedStopIds,
+      routeFinished,
       missionDoneIds,
       walkAutoAudio
     };
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -287,7 +293,7 @@ export default function MoscowExperienceApp() {
   const roundedTime = selected ? Math.min(Math.round(timeValue), selected.periods.length) : 0;
   const todaySelected = Boolean(selected && roundedTime === selected.periods.length);
   const activePeriod = selected?.periods[roundedTime];
-  const completedRouteStops = activeRoutePlan.stopIds.filter((id) => visitedIds.includes(id)).length;
+  const completedRouteStops = activeRoutePlan.stopIds.filter((id) => routeCompletedStopIds.includes(id)).length;
   const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
 
   const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
