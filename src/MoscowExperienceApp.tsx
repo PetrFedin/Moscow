@@ -314,6 +314,8 @@ export default function MoscowExperienceApp() {
     setRouteBudgetMinutes(plan.budgetMinutes);
     setRouteInterest(plan.interest);
     setRouteStopIds(plan.stopIds);
+    setRouteCompletedStopIds([]);
+    setRouteFinished(false);
     setRouteStep(0);
     setTab('walk');
   };
@@ -331,6 +333,11 @@ export default function MoscowExperienceApp() {
   };
 
   const openWalkFromHero = () => {
+    if (routeFinished) {
+      startTouristPlan(activeRoutePlan, 'hero');
+      return;
+    }
+
     if (completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length) {
       void trackTouristEvent({
         event: 'route_resume',
@@ -378,7 +385,10 @@ export default function MoscowExperienceApp() {
     }
 
     setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    if (!finalStep) {
+    setRouteCompletedStopIds((current) => current.includes(placeId) ? current : [...current, placeId]);
+    if (finalStep) {
+      setRouteFinished(true);
+    } else {
       setRouteStep((current) => current + 1);
     }
   };
