@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Linking,
   Modal,
@@ -10,6 +10,8 @@ import {
   Text,
   View
 } from 'react-native';
+import { trackTouristEvent } from './analytics/touristAnalytics';
+import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from './analytics/touristAnalyticsContract';
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import MoscowMap from './features/map/MoscowMap';
@@ -102,6 +104,13 @@ export default function MoscowExperienceApp() {
   const [lensVisible, setLensVisible] = useState(true);
   const [mapSheetState, setMapSheetState] = useState<StableSheetState>('preview');
   const [modal, setModal] = useState<ModalMode>(null);
+  const appOpenTrackedRef = useRef(false);
+  const previousAnalyticsTabRef = useRef<Tab | null>(null);
+  const stopPresentedTrackedRef = useRef(new Set<string>());
+  const stopCompletionTrackedRef = useRef(new Set<string>());
+  const arrivalTrackedRef = useRef(new Set<string>());
+  const routeCompleteTrackedRef = useRef(new Set<string>());
+  const timeMachineTrackedRef = useRef(new Set<string>());
 
   const ui = copy[language];
   const tabLabels: Record<Tab, string> = {
@@ -138,6 +147,10 @@ export default function MoscowExperienceApp() {
   );
   const archiveAvailable = Boolean(selected && canOpenArchiveLens(selected.id));
   const modelAvailable = Boolean(selected && canOpenModel3d(selected.id));
+  const analyticsRouteKey = useMemo(
+    () => `${routeBudgetMinutes}:${routeInterest}:${routeStopIds.join('>')}`,
+    [routeBudgetMinutes, routeInterest, routeStopIds]
+  );
 
   useEffect(() => {
     AsyncStorage.getItem(EXPERIENCE_STORAGE_KEY)
@@ -164,6 +177,37 @@ export default function MoscowExperienceApp() {
       .catch(() => undefined)
       .finally(() => setHydrated(true));
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    if (!appOpenTrackedRef.current) {
+      appOpenTrackedRef.current = true;
+      void trackTouristEvent({ event: 'app_open', language });
+    }
+
+    if (previousAnalyticsTabRef.current !== tab) {
+      if (tab === 'discover') {
+        void trackTouristEvent({ event: 'discover_view', language });
+      }
+      previousAnalyticsTabRef.current = tab;
+    }
+  }, [hydrated, language, tab]);
+
+  useEffect(() => {
+    if (!hydrated || tab !== 'walk' || !routePlace) return;
+    const key = `${analyticsRouteKey}:${routeStep}:${routePlace.id}`;
+    if (stopPresentedTrackedRef.current.has(key)) return;
+    stopPresentedTrackedRef.current.add(key);
+    void trackTouristEvent({
+      event: 'stop_presented',
+      routeId: pilotRoute.id,
+      placeId: routePlace.id,
+      stepIndex: routeStep,
+      stopCount: activeRoutePlan.stopIds.length,
+      language
+    });
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routePlace, routeStep, tab]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -203,6 +247,10 @@ export default function MoscowExperienceApp() {
   };
 
   const onTimeChange = (value: number) => {
+    if (!timeMachineTrackedRef.current.has(selectedId)) {
+      timeMachineTrackedRef.current.add(selectedId);
+      void trackTouristEvent({ event: 'time_machine_open', placeId: selectedId, language });
+    }
     setTimeValue(value);
     const nextEra = modelEraFromTimeIndex(selectedId, value);
     if (nextEra) setEra(nextEra);
@@ -220,16 +268,19 @@ export default function MoscowExperienceApp() {
 
   const openSpatial = async () => {
     if (!await prepareSpatial()) return;
+    void trackTouristEvent({ event: 'ar_open', placeId: selectedId, language });
     setModal('spatial');
   };
 
   const openModel = () => {
     if (!canOpenModel3d(selectedId)) return;
+    void trackTouristEvent({ event: 'model_open', placeId: selectedId, language });
     setModal('model');
   };
 
   const openLens = () => {
     if (!selected || !canOpenArchiveLens(selected.id)) return;
+    void trackTouristEvent({ event: 'archive_open', placeId: selected.id, language });
     setModal('lens');
   };
 
@@ -239,7 +290,21 @@ export default function MoscowExperienceApp() {
   const completedRouteStops = activeRoutePlan.stopIds.filter((id) => visitedIds.includes(id)).length;
   const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
 
-  const startTouristPlan = (plan: TouristRoutePlan) => {
+  const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
+    stopPresentedTrackedRef.current.clear();
+    stopCompletionTrackedRef.current.clear();
+    arrivalTrackedRef.current.clear();
+    const nextRouteKey = `${plan.budgetMinutes}:${plan.interest}:${plan.stopIds.join('>')}`;
+    routeCompleteTrackedRef.current.delete(nextRouteKey);
+    void trackTouristEvent({
+      event: 'route_start',
+      origin,
+      routeId: pilotRoute.id,
+      budgetMinutes: plan.budgetMinutes,
+      interest: plan.interest,
+      stopCount: plan.stopIds.length,
+      language
+    });
     setRouteBudgetMinutes(plan.budgetMinutes);
     setRouteInterest(plan.interest);
     setRouteStopIds(plan.stopIds);
@@ -247,14 +312,108 @@ export default function MoscowExperienceApp() {
     setTab('walk');
   };
 
-  const completeRouteStop = (placeId: string) => {
+  const previewTouristPlan = (plan: TouristRoutePlan) => {
+    void trackTouristEvent({
+      event: 'route_preview',
+      origin: 'planner',
+      routeId: pilotRoute.id,
+      budgetMinutes: plan.budgetMinutes,
+      interest: plan.interest,
+      stopCount: plan.stopIds.length,
+      language
+    });
+  };
+
+  const openWalkFromHero = () => {
+    if (completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length) {
+      void trackTouristEvent({
+        event: 'route_resume',
+        routeId: pilotRoute.id,
+        stepIndex: routeStep,
+        stopCount: activeRoutePlan.stopIds.length,
+        language
+      });
+      setTab('walk');
+      return;
+    }
+
+    if (completedRouteStops === 0) {
+      startTouristPlan(activeRoutePlan, 'hero');
+      return;
+    }
+
+    setTab('walk');
+  };
+
+  const completeRouteStop = (placeId: string, completionMode: TouristAnalyticsCompletionMode) => {
+    const completionKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
+    if (!stopCompletionTrackedRef.current.has(completionKey)) {
+      stopCompletionTrackedRef.current.add(completionKey);
+      void trackTouristEvent({
+        event: 'stop_complete',
+        routeId: pilotRoute.id,
+        placeId,
+        completionMode,
+        language
+      });
+    }
+
+    const finalStep = routeStep >= activeRoutePlan.stopIds.length - 1;
+    if (finalStep && !routeCompleteTrackedRef.current.has(analyticsRouteKey)) {
+      routeCompleteTrackedRef.current.add(analyticsRouteKey);
+      void trackTouristEvent({
+        event: 'route_complete',
+        routeId: pilotRoute.id,
+        budgetMinutes: routeBudgetMinutes,
+        interest: routeInterest,
+        stopCount: activeRoutePlan.stopIds.length,
+        language
+      });
+    }
+
     setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    if (routeStep < activeRoutePlan.stopIds.length - 1) {
+    if (!finalStep) {
       setRouteStep((current) => current + 1);
     }
   };
 
+  const recordProximityArrival = (placeId: string) => {
+    const arrivalKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
+    if (arrivalTrackedRef.current.has(arrivalKey)) return;
+    arrivalTrackedRef.current.add(arrivalKey);
+    void trackTouristEvent({
+      event: 'stop_arrive',
+      routeId: pilotRoute.id,
+      placeId,
+      arrivalEvidence: 'foreground-proximity',
+      language
+    });
+  };
+
+  const recordAudioStart = (placeId: string, audioMode: 'recorded' | 'tts-fallback') => {
+    void trackTouristEvent({ event: 'audio_start', placeId, audioMode, language });
+  };
+
+  const recordAudioComplete = (placeId: string, audioMode: 'recorded' | 'tts-fallback') => {
+    void trackTouristEvent({ event: 'audio_complete', placeId, audioMode, language });
+  };
+
+  const recordTranscriptOpen = (placeId: string) => {
+    void trackTouristEvent({ event: 'transcript_open', placeId, language });
+  };
+
   const completeMission = (missionId: string) => {
+    if (!missionDoneIds.includes(missionId)) {
+      const match = /^observation:([^:]+):v1$/.exec(missionId);
+      if (match?.[1]) {
+        void trackTouristEvent({
+          event: 'mission_complete',
+          placeId: match[1],
+          missionId,
+          language
+        });
+      }
+    }
     setMissionDoneIds((current) => current.includes(missionId) ? current : [...current, missionId]);
   };
 
@@ -320,7 +479,7 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.kicker}>{ui.cityTime}</Text>
                 <Text style={styles.heroTitle}>{ui.hero}</Text>
                 <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => setTab('walk')}>
+                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
                   <Text style={styles.primaryText}>
                     {completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
                       ? (language === 'ru'
@@ -334,11 +493,20 @@ export default function MoscowExperienceApp() {
               <NearbyNow
                 language={language}
                 visitedIds={visitedIds}
-                onOpenPlace={(id) => { selectPlace(id); setTab('discover'); }}
-                onStartFreeWalk={startTouristPlan}
+                onOpenPlace={(id) => {
+                  void trackTouristEvent({ event: 'nearby_open', placeId: id, language });
+                  selectPlace(id);
+                  setTab('discover');
+                }}
+                onStartFreeWalk={(plan) => startTouristPlan(plan, 'nearby')}
               />
 
-              <TouristRoutePlanner language={language} mustSeeIds={savedIds} onStart={startTouristPlan} />
+              <TouristRoutePlanner
+                language={language}
+                mustSeeIds={savedIds}
+                onPreview={previewTouristPlan}
+                onStart={(plan) => startTouristPlan(plan, 'planner')}
+              />
 
               <Text style={styles.sectionTitle}>{ui.places}</Text>
               {pilotPlaces.map((place, index) => (
@@ -485,13 +653,17 @@ export default function MoscowExperienceApp() {
                     autoEnabled={walkAutoAudio}
                     onAutoEnabledChange={setWalkAutoAudio}
                     onMissionComplete={completeMission}
-                    onAutoStopCompleted={completeRouteStop}
+                    onAutoStopCompleted={(placeId) => completeRouteStop(placeId, 'audio-auto')}
+                    onProximityArrive={recordProximityArrival}
+                    onAudioStart={recordAudioStart}
+                    onAudioComplete={recordAudioComplete}
+                    onTranscriptOpen={recordTranscriptOpen}
                   />
                   <PhysicalPressable
                     style={styles.primary}
                     contentStyle={styles.center}
                     strong
-                    onPress={() => completeRouteStop(routePlace.id)}
+                    onPress={() => completeRouteStop(routePlace.id, 'manual')}
                   >
                     <Text style={styles.primaryText}>{routeStep === activeRoutePlan.stopIds.length - 1 ? ui.finish : ui.next}</Text>
                   </PhysicalPressable>
