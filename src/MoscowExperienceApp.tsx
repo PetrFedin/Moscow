@@ -479,7 +479,7 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.kicker}>{ui.cityTime}</Text>
                 <Text style={styles.heroTitle}>{ui.hero}</Text>
                 <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => setTab('walk')}>
+                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
                   <Text style={styles.primaryText}>
                     {completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
                       ? (language === 'ru'
@@ -493,11 +493,20 @@ export default function MoscowExperienceApp() {
               <NearbyNow
                 language={language}
                 visitedIds={visitedIds}
-                onOpenPlace={(id) => { selectPlace(id); setTab('discover'); }}
-                onStartFreeWalk={startTouristPlan}
+                onOpenPlace={(id) => {
+                  void trackTouristEvent({ event: 'nearby_open', placeId: id, language });
+                  selectPlace(id);
+                  setTab('discover');
+                }}
+                onStartFreeWalk={(plan) => startTouristPlan(plan, 'nearby')}
               />
 
-              <TouristRoutePlanner language={language} mustSeeIds={savedIds} onStart={startTouristPlan} />
+              <TouristRoutePlanner
+                language={language}
+                mustSeeIds={savedIds}
+                onPreview={previewTouristPlan}
+                onStart={(plan) => startTouristPlan(plan, 'planner')}
+              />
 
               <Text style={styles.sectionTitle}>{ui.places}</Text>
               {pilotPlaces.map((place, index) => (
@@ -644,13 +653,17 @@ export default function MoscowExperienceApp() {
                     autoEnabled={walkAutoAudio}
                     onAutoEnabledChange={setWalkAutoAudio}
                     onMissionComplete={completeMission}
-                    onAutoStopCompleted={completeRouteStop}
+                    onAutoStopCompleted={(placeId) => completeRouteStop(placeId, 'audio-auto')}
+                    onProximityArrive={recordProximityArrival}
+                    onAudioStart={recordAudioStart}
+                    onAudioComplete={recordAudioComplete}
+                    onTranscriptOpen={recordTranscriptOpen}
                   />
                   <PhysicalPressable
                     style={styles.primary}
                     contentStyle={styles.center}
                     strong
-                    onPress={() => completeRouteStop(routePlace.id)}
+                    onPress={() => completeRouteStop(routePlace.id, 'manual')}
                   >
                     <Text style={styles.primaryText}>{routeStep === activeRoutePlan.stopIds.length - 1 ? ui.finish : ui.next}</Text>
                   </PhysicalPressable>
