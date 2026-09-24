@@ -34,6 +34,8 @@ test('experience persistence accepts old v4 snapshots without losing existing pr
     'znamensky-cathedral',
     'varvarka-gates'
   ]);
+  assert.deepEqual(restored.routeCompletedStopIds, ['church-st-barbara', 'old-english-court']);
+  assert.equal(restored.routeFinished, false);
   assert.deepEqual(restored.missionDoneIds, ['observation:old-english-court:v1']);
   assert.equal(restored.walkAutoAudio, true);
 });
@@ -58,6 +60,8 @@ test('experience persistence restores selected place, time, era, trust and tab',
   assert.equal(restored.routeBudgetMinutes, 30);
   assert.equal(restored.routeInterest, 'trade');
   assert.deepEqual(restored.routeStopIds, ['old-english-court', 'romanov-chambers']);
+  assert.deepEqual(restored.routeCompletedStopIds, []);
+  assert.equal(restored.routeFinished, false);
   assert.deepEqual(restored.missionDoneIds, []);
   assert.equal(restored.walkAutoAudio, false);
 });
@@ -92,4 +96,41 @@ test('experience persistence fails closed on corrupt fields and clamps numeric s
   assert.equal(restored.trustMode, 'public');
   assert.equal(restored.routeBudgetMinutes, 45);
   assert.equal(restored.routeInterest, 'highlights');
+});
+
+
+test('route completion authority restores only when every active stop is complete', () => {
+  const complete = normalizeExperienceSnapshot({
+    routeBudgetMinutes: 30,
+    routeInterest: 'trade',
+    routeStopIds: ['old-english-court', 'romanov-chambers'],
+    routeCompletedStopIds: ['old-english-court', 'romanov-chambers'],
+    routeFinished: true,
+    routeStep: 1
+  });
+  assert.deepEqual(complete.routeCompletedStopIds, ['old-english-court', 'romanov-chambers']);
+  assert.equal(complete.routeFinished, true);
+
+  const impossible = normalizeExperienceSnapshot({
+    routeStopIds: ['old-english-court', 'romanov-chambers'],
+    routeCompletedStopIds: ['old-english-court'],
+    routeFinished: true,
+    routeStep: 1
+  });
+  assert.deepEqual(impossible.routeCompletedStopIds, ['old-english-court']);
+  assert.equal(impossible.routeFinished, false);
+});
+
+test('route-specific completion ignores lifetime visits outside the active route', () => {
+  const restored = normalizeExperienceSnapshot({
+    visitedIds: ['church-st-barbara', 'old-english-court', 'romanov-chambers'],
+    routeStopIds: ['old-english-court', 'romanov-chambers'],
+    routeCompletedStopIds: [],
+    routeFinished: false,
+    routeStep: 0
+  });
+
+  assert.equal(restored.visitedIds.length, 3);
+  assert.deepEqual(restored.routeCompletedStopIds, []);
+  assert.equal(restored.routeFinished, false);
 });
