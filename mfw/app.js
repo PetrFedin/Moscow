@@ -47,7 +47,7 @@
   }
 
   function topbar(){
-    return '<div class="topbar"><div class="wordmark"><span>MOSCOW</span><span>FASHION WEEK</span></div><div class="top-actions"><button class="icon-btn" data-action="notifications">●</button><button class="icon-btn pass" data-tab="me">QR</button></div></div>';
+    return '<div class="topbar"><div class="wordmark"><span>MOSCOW</span><span>FASHION WEEK</span></div><div class="top-actions"><button class="investor-pill" data-action="investor-tour">INVESTOR</button><button class="icon-btn" data-action="notifications">●</button><button class="icon-btn pass" data-tab="me">QR</button></div></div>';
   }
 
   function nav(){
@@ -72,7 +72,8 @@
       '<div class="eyebrow" style="margin-top:18px">26 сентября · День 1</div>'+
       '<h1>СЕГОДНЯ<br>В MFW</h1>'+
       demoNote()+
-      '<section class="hero" style="margin-top:16px">'+
+      '<div class="investor-strip"><div><div class="kicker">Investor demo</div><b>Покажите ценность платформы за 3 минуты</b><p>Audience → commerce → organizer control → measurable partner value.</p></div><button class="action primary" data-action="investor-tour">Старт</button></div>'+
+      '<section class="hero live-glow" style="margin-top:16px">'+
         '<div><span class="live-tag"><span class="dot"></span> LIVE NOW</span></div>'+
         '<div><div class="hero-title">OPENING<br>RUNWAY</div><div class="hero-meta">Манеж · Зал 1 · LOOK 14 / 32</div>'+
         '<div class="action-row"><button class="action light" data-tab="live">Смотреть LIVE</button><button class="action ghost" data-action="save-look" data-look="look-14">'+(state.savedLooks.indexOf('look-14')>=0?'♥ Сохранено':'♡ Сохранить образ')+'</button></div></div>'+
@@ -148,12 +149,14 @@
       roleContent='<h2>Brand dashboard</h2><div class="stat-grid"><div class="stat"><b>82%</b><small>Профиль</small></div><div class="stat"><b>148</b><small>Сохранения</small></div><div class="stat"><b>17</b><small>Buyer interest</small></div></div><div class="card" style="margin-top:10px"><h3>До показа</h3><div class="sub">Нужно загрузить 4 look metadata и проверить порядок выхода.</div><button class="action primary" data-action="toast" data-message="Demo: открыта подготовка коллекции">Продолжить подготовку</button></div>';
     } else if(state.role==='Staff'){
       roleContent=staffPanel();
+    } else if(state.role==='Organizer'){
+      roleContent=organizerPanel();
     }
 
     return '<main><div class="eyebrow" style="margin-top:18px">MFW ID</div><h1>ВАШ<br>ПРОФИЛЬ</h1>'+
       '<div class="profile-head"><div class="avatar"></div><div><h3>'+esc(state.name)+'</h3><div class="role">'+esc(state.role.toUpperCase())+'</div><div class="sub">Demo account</div></div></div>'+
       '<div class="pass-card"><div class="pass-top"><div><div class="pass-title">MOSCOW FASHION WEEK</div><div class="pass-role">'+esc(state.role)+' PASS · DEMO</div></div><b>01</b></div><div id="qr" class="qr" aria-label="Demo QR"></div><div class="pass-top"><div><b>26 SEP — 01 OCT</b><div style="font-size:11px;margin-top:5px">Entitlements: '+entitlementText()+'</div></div><div class="offline"><span class="okdot"></span> Offline ready</div></div></div>'+
-      '<h2>Demo role</h2><div class="role-switcher">'+['Visitor','Buyer','Media','Designer','Staff'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-role="'+r+'">'+r+'</button>';}).join('')+'</div>'+
+      '<h2>Demo role</h2><div class="role-switcher">'+['Visitor','Buyer','Media','Designer','Organizer','Staff'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-role="'+r+'">'+r+'</button>';}).join('')+'</div>'+
       '<div class="stat-grid"><div class="stat"><b>'+state.myEvents.length+'</b><small>События</small></div><div class="stat"><b>'+state.savedLooks.length+'</b><small>Образы</small></div><div class="stat"><b>'+state.connections+'</b><small>Контакты</small></div></div>'+
       roleContent+
       '<h2>MFW Passport</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
@@ -166,6 +169,7 @@
     if(state.role==='Media') return 'Media · Press Zone · selected shows';
     if(state.role==='Designer') return 'Backstage · Brand Zone · assigned show';
     if(state.role==='Staff') return 'Gate · Operations';
+    if(state.role==='Organizer') return 'Programme · Access · Content · Analytics';
     return 'Public programme · registered events';
   }
 
@@ -173,6 +177,14 @@
     return '<h2>Buyer workspace</h2>'+
       '<div class="card"><div class="eyebrow">SHORTLIST</div><div class="event-name">3 бренда для просмотра</div><div class="sub">Подборка на основе demo-интересов: premium womenswear / emerging designers.</div><div class="action-row"><button class="action primary" data-action="brand" data-id="b1">Открыть shortlist</button><button class="action ghost" data-action="line-sheet">Line sheets</button></div></div>'+
       '<div class="card"><div class="eyebrow">MEETING</div><div class="event-name">'+(state.meeting?'14:30 · MFW / NEW 01':'Запросить встречу')+'</div><div class="sub">'+(state.meeting?'Showroom Meeting Point 4 · подтверждено':'Выберите бренд и доступный слот.')+'</div><button class="action '+(state.meeting?'ghost':'primary')+'" data-action="meeting">'+(state.meeting?'Добавить private note':'Выбрать слот')+'</button></div>';
+  }
+
+  function organizerPanel(){
+    return '<h2>Organizer cockpit</h2>'+
+      '<div class="value-grid"><div class="value-card"><div class="n">8.4K</div><small>demo active users today</small></div><div class="value-card"><div class="n">71%</div><small>demo programme engagement</small></div><div class="value-card"><div class="n">312</div><small>demo buyer actions</small></div></div>'+
+      '<div class="card" style="margin-top:10px"><div class="eyebrow">LIVE OPERATIONS · DEMO</div><div class="metric-row"><b>Opening Runway capacity</b><strong>86%</strong></div><div class="capacity"><span style="width:86%"></span></div><div class="metric-row"><b>Checked in</b><strong>428</strong></div><div class="metric-row"><b>Waitlist</b><strong>37</strong></div><div class="action-row"><button class="action primary" data-action="toast" data-message="Demo: 12 waitlist invitations released">Освободить 12 мест</button><button class="action ghost" data-action="notifications">Отправить push</button></div></div>'+
+      '<div class="commercial-card"><div class="eyebrow">PARTNER VALUE · DEMO METRICS</div><div class="event-name">Из показа — в измеримый результат</div><div class="metric-row"><b>Sponsored LIVE reach</b><strong>24.8K</strong></div><div class="metric-row"><b>Brand profile opens</b><strong>6.1K</strong></div><div class="metric-row"><b>Saved looks</b><strong>1.9K</strong></div><div class="metric-row"><b>Shop / showroom intent</b><strong>487</strong></div></div>'+
+      '<div class="card"><div class="eyebrow">WHY THIS SELLS</div><div class="event-name">Один слой данных для всего события</div><div class="sub">Регистрация → доступ → посещение → просмотр → сохранение → встреча → лид → отчёт партнёру.</div><div class="action-row"><button class="action primary" data-action="investor-tour">Открыть investor tour</button></div></div>';
   }
 
   function staffPanel(){
@@ -233,6 +245,17 @@
     openSheet('<div class="eyebrow">LIVE Q&A · DEMO</div><h1 style="font-size:42px">ВОПРОСЫ<br>СПИКЕРУ</h1><div class="question"><button class="vote" data-action="upvote">▲ 127</button><b>Что байер оценивает в первые пять минут встречи?</b></div><div class="question"><button class="vote" data-action="upvote">▲ 84</button><b>Какие ошибки чаще всего мешают бренду получить заказ?</b></div><input class="input" style="margin-top:16px" placeholder="Ваш вопрос" /><button class="action primary" style="margin-top:10px" data-action="toast" data-message="Вопрос отправлен модератору">Отправить</button>');
   }
 
+  function investorTour(){
+    openSheet('<div class="kicker">Investor tour · 3 minutes</div><h1 style="font-size:42px">ПОКАЖИТЕ<br>НЕ ЭКРАНЫ,<br>А БИЗНЕС</h1>'+
+      '<div class="demo-step"><span class="step-num">1</span><b>Audience experience</b><p>Откройте Today → LIVE → сохраните образ. Покажите, что трансляция превращается в структурированный fashion content.</p></div>'+
+      '<div class="demo-step"><span class="step-num">2</span><b>Access authority</b><p>Откройте QR в профиле: роль и право входа разделены, пропуск готов к offline-проверке.</p></div>'+
+      '<div class="demo-step"><span class="step-num">3</span><b>Buyer commerce</b><p>Переключите роль на Buyer → бренд → line sheet → meeting slot → private follow-up.</p></div>'+
+      '<div class="demo-step"><span class="step-num">4</span><b>Organizer control</b><p>Переключите роль на Organizer: capacity, waitlist, push и partner-value analytics в одном cockpit.</p></div>'+
+      '<div class="demo-step"><span class="step-num">5</span><b>Scale story</b><p>Объяснение инвестору: текущий стенд — front-end proof. Production подключает MFW ID, PostgreSQL, signed pass, CMS, streaming и analytics без смены UX-модели.</p></div>'+
+      '<div class="phone-hint"><div class="symbol">＋</div><div><b>Для показа на iPhone</b><p>Откройте сайт в Safari → Поделиться → На экран «Домой». PWA запускается как отдельное приложение без браузерной панели.</p></div></div>'+
+      '<div class="action-row"><button class="action primary" data-action="tour-start">Начать с Visitor</button><button class="action ghost" data-action="tour-organizer">Сразу Organizer</button></div>');
+  }
+
   function notifications(){
     openSheet('<div class="eyebrow">Notification center</div><h1 style="font-size:42px">СЕГОДНЯ</h1><div class="card"><b>Критическое</b><p class="sub">Demo: при переносе зала или времени уведомление появится здесь и в push.</p></div><div class="card"><b>LIVE</b><p class="sub">Opening Runway уже в эфире.</p></div><div class="card"><b>Персональное</b><p class="sub">До сохранённой вами лекции 45 минут.</p></div>');
   }
@@ -291,6 +314,9 @@
       else if(a==='brand')openBrand(el.getAttribute('data-id'));
       else if(a==='save-brand')saveBrand(el.getAttribute('data-id'));
       else if(a==='notifications')notifications();
+      else if(a==='investor-tour')investorTour();
+      else if(a==='tour-start'){state.role='Visitor';state.tab='today';persist();closeSheet();render();toast('Investor tour: Visitor experience');}
+      else if(a==='tour-organizer'){state.role='Organizer';state.tab='me';persist();closeSheet();render();toast('Investor tour: Organizer cockpit');}
       else if(a==='questions')questions();
       else if(a==='meeting')meeting();
       else if(a==='confirm-meeting'){state.meeting=true;closeSheet();render();toast('Встреча подтверждена: 14:30');}
