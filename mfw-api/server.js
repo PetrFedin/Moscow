@@ -1,10 +1,22 @@
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
 const PASS_SECRET = process.env.MFW_PASS_SECRET || 'demo-only-change-before-production';
-const VERSION = 'investor-api-v1';
+const VERSION = 'investor-api-v2';
+
+function validateInvestorBuild() {
+  const frontend = fs.readFileSync('mfw/app.js','utf8');
+  new Function(frontend);
+  JSON.parse(fs.readFileSync('mfw/manifest.webmanifest','utf8'));
+  for (const required of ['investor-tour','Organizer cockpit','/v1/passes/issue','/v1/meetings']) {
+    if (!frontend.includes(required)) throw new Error('missing_investor_hook:' + required);
+  }
+}
+
+validateInvestorBuild();
 
 const events = [
   { id:'e1', time:'17:00', name:'MFW Opening Runway', type:'show', venue:'Manege Hall 1', status:'LIVE', demo:true },
@@ -122,6 +134,8 @@ const server = http.createServer(async (req, res) => {
         authority:'server',
         persistence:'memory-demo',
         postgres:false,
+        frontendSyntaxChecked:true,
+        investorHooksChecked:true,
         note:'PostgreSQL is intentionally not shared with another project.'
       });
     }
