@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  var API='https://moscow-fashion-week-api.onrender.com';
+  var API='https://moscow-fashion-week-authority.onrender.com';\n  var passRefreshTimer=null;\n  var scannerStream=null;\n  var scannerFrame=null;
   var demoEvents = [
     {id:'e1',time:'17:00',name:'MFW Opening Runway',type:'Показ',venue:'Манеж · Зал 1',status:'LIVE',access:'OPEN'},
     {id:'e2',time:'18:00',name:'New Names: Moscow',type:'Показ',venue:'Манеж · Зал 2',status:'REGISTRATION',access:'OPEN'},
@@ -55,7 +55,10 @@
     try{ res=await fetch(API+path,opts); }
     finally{ clearTimeout(timer); }
     var data=await res.json().catch(function(){return {};});
-    if(!res.ok) throw new Error(data.error||('api_'+res.status));
+    if(!res.ok){
+      var err=new Error(data.error||data.reason||('api_'+res.status));
+      err.status=res.status;err.data=data;throw err;
+    }
     return data;
   }
 
@@ -66,35 +69,76 @@
     el.className='badge '+(state.backendStatus==='online'?'open':state.backendStatus==='offline'?'live':'');
   }
 
+  async function cacheOfflineAuthority(){
+    try{
+      var key=await api('/v1/authority/public-key');
+      localStorage.setItem('mfwAuthorityJwk',JSON.stringify(key.jwk));
+      var rev=await api('/v1/authority/revocations');
+      localStorage.setItem('mfwRevocations',JSON.stringify(rev.revoked||[]));
+    }catch(_){}
+  }
+
   async function checkBackend(){
     try{
       await api('/health');
       state.backendStatus='online';
+      cacheOfflineAuthority();
     }catch(_){
       state.backendStatus='offline';
     }
     updateBackendIndicator();
   }
 
+  function schedulePassRotation(ms){
+    if(passRefreshTimer)clearTimeout(passRefreshTimer);
+    passRefreshTimer=setTimeout(function(){
+      state.passToken=null;state.passPayload=null;
+      if(state.tab==='me')ensurePass();
+    },Math.max(15000,Number(ms||45000)));
+  }
+
+  async function renderPassQR(){
+    var el=document.getElementById('qr');if(!el||!state.passToken)return;
+    try{
+      var controller=new AbortController();
+      var timer=setTimeout(function(){controller.abort();},6500);
+      var res=await fetch(API+'/v1/passes/qr',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({token:state.passToken}),
+        signal:controller.signal
+      });
+      clearTimeout(timer);
+      if(!res.ok)throw new Error('qr_'+res.status);
+      el.innerHTML=await res.text();
+    }catch(_){
+      el.innerHTML='<div style="color:#111;font-size:11px;padding:36px 12px;text-align:center">QR temporarily unavailable</div>';
+    }
+  }
+
   async function ensurePass(){
-    if(state.passToken)return;
+    if(state.passToken&&state.passPayload&&Number(state.passPayload.exp||0)>Date.now()+30000){
+      renderPassQR();return;
+    }
     try{
       var data=await api('/v1/passes/issue',{
         method:'POST',
         body:JSON.stringify({
           userId:state.userId||('demo_'+state.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi,'_').slice(0,40)),
           role:state.role,
+          eventId:'e1',
           entitlements:[entitlementText()]
         })
       });
       state.passToken=data.token;
       state.passPayload=data.payload;
-      generateQR();
+      renderPassQR();
+      schedulePassRotation(data.refreshAfterMs);
       var el=document.getElementById('pass-authority');
-      if(el)el.textContent='Server-signed · '+String(data.payload.jti||'').slice(-8);
+      if(el)el.textContent='ES256 · rotating · '+String(data.payload.jti||'').slice(-8);
     }catch(_){
       var el2=document.getElementById('pass-authority');
-      if(el2)el2.textContent='Local fallback · API unavailable';
+      if(el2)el2.textContent='API unavailable · cached pass only';
     }
   }
 
@@ -255,9 +299,16 @@
 
   function staffPanel(){
     var result='';
-    if(state.scannerState==='valid') result='<div class="access-result valid">SERVER VERIFIED · VALID</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'signature + expiry accepted')+'</div>';
-    if(state.scannerState==='no') result='<div class="access-result no">SERVER REJECTED · NO ACCESS</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'invalid token')+'</div>';
-    return '<h2>Gate scanner</h2><div class="scanner" data-action="scan-valid"></div>'+result+'<div class="action-row"><button class="action primary" data-action="scan-valid">Проверить signed pass</button><button class="action danger" data-action="scan-no">Проверить tampered pass</button></div><div class="demo-note">Camera capture — следующий слой. Здесь уже работает серверная cryptographic verification pass.</div>';
+    if(state.scannerState==='valid') result='<div class="access-result valid">CHECK-IN ACCEPTED</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'ES256 + entitlement accepted')+'</div>';
+    if(state.scannerState==='offline') result='<div class="access-result valid">OFFLINE VALID</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'signature verified on device')+'</div>';
+    if(state.scannerState==='duplicate') result='<div class="access-result no" style="background:#3b2d12;color:#ffe08a">DUPLICATE CHECK-IN</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'already checked in')+'</div>';
+    if(state.scannerState==='no') result='<div class="access-result no">ACCESS REJECTED</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'invalid pass')+'</div>';
+    return '<h2>Gate scanner</h2>'+
+      '<div class="scanner" data-action="camera-scan"></div>'+result+
+      '<div class="action-row"><button class="action primary" data-action="camera-scan">Открыть камеру</button><label class="action ghost file-scan">Фото QR<input id="qr-file" type="file" accept="image/*" capture="environment"></label></div>'+
+      '<div class="action-row"><button class="action ghost" data-action="checkin-current">Check-in текущего pass</button><button class="action ghost" data-action="checkin-current">Повторить → duplicate</button></div>'+
+      '<div class="action-row"><button class="action ghost" data-action="offline-current">Offline verify</button><button class="action danger" data-action="tamper-current">Tampered</button></div>'+
+      '<div class="demo-note"><b>Authority.</b> ES256 signature · 2-minute rotating token · cached public key · cached revocation delta · server duplicate check-in.</div>';
   }
 
   function render(){
@@ -269,7 +320,7 @@
     }
     var screen=state.tab==='today'?today():state.tab==='schedule'?schedule():state.tab==='live'?live():state.tab==='discover'?discover():me();
     app.innerHTML='<div class="app">'+topbar()+screen+nav()+'</div>';
-    if(state.tab==='me'){ generateQR(); ensurePass(); updateBackendIndicator(); }
+    if(state.tab==='me'){ ensurePass(); updateBackendIndicator(); }
     bind();
   }
 
@@ -279,19 +330,40 @@
       '<p class="sub" style="font-size:11px;margin-top:16px">Продолжая, вы видите демонстрационный интерфейс. Реальные согласия и обработка данных будут подключаться отдельными юридическими сущностями.</p></main></div>';
   }
 
-  function generateQR(){
-    var el=document.getElementById('qr'); if(!el) return;
-    var seed=((state.passToken||'')+state.name+state.role+'MFW').split('').reduce(function(a,c){return a+c.charCodeAt(0);},0);
-    var html='';
-    for(var i=0;i<441;i++){
-      var x=i%21,y=Math.floor(i/21);
-      var finder=((x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13));
-      var border=finder && (x%7===0||x%7===6||y%7===0||y%7===6);
-      var center=finder && x%7>=2&&x%7<=4&&y%7>=2&&y%7<=4;
-      var on=border||center||(((i*17+seed*13+i*i)%23)<10);
-      html+='<i class="'+(on?'on':'')+'"></i>';
-    }
-    el.innerHTML=html;
+  function b64urlBytes(v){
+    v=v.replace(/-/g,'+').replace(/_/g,'/');
+    while(v.length%4)v+='=';
+    var raw=atob(v),out=new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+    return out;
+  }
+
+  function decodePayload(token){
+    try{
+      var p=token.split('.')[1];
+      return JSON.parse(new TextDecoder().decode(b64urlBytes(p)));
+    }catch(_){return null;}
+  }
+
+  async function verifyOfflineToken(token){
+    token=String(token||'').replace(/^MFW:/,'');
+    var jwk;
+    try{jwk=JSON.parse(localStorage.getItem('mfwAuthorityJwk')||'null');}catch(_){}
+    if(!jwk)return {ok:false,reason:'public_key_not_cached'};
+    var parts=token.split('.');
+    if(parts.length!==3)return {ok:false,reason:'malformed'};
+    var payload=decodePayload(token);
+    if(!payload)return {ok:false,reason:'bad_payload'};
+    if(payload.exp&&Date.now()>=payload.exp)return {ok:false,reason:'expired',payload:payload};
+    try{
+      var key=await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+      var data=new TextEncoder().encode(parts[0]+'.'+parts[1]);
+      var ok=await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,b64urlBytes(parts[2]),data);
+      if(!ok)return {ok:false,reason:'bad_signature',payload:payload};
+      var rev=[];try{rev=JSON.parse(localStorage.getItem('mfwRevocations')||'[]');}catch(_){}
+      if(rev.some(function(x){return x.jti===payload.jti;}))return {ok:false,reason:'revoked_cached',payload:payload};
+      return {ok:true,payload:payload};
+    }catch(_){return {ok:false,reason:'offline_crypto_error',payload:payload};}
   }
 
   function openEvent(id){
@@ -332,7 +404,10 @@
     wrap.innerHTML='<div class="sheet"><div class="sheet-head"><div class="eyebrow">MFW</div><button class="close" data-action="close">×</button></div>'+html+'</div>';
     document.body.appendChild(wrap);bind();
   }
-  function closeSheet(){var m=document.getElementById('modal');if(m)m.remove();}
+  function closeSheet(){
+    stopCameraScanner();
+    var m=document.getElementById('modal');if(m)m.remove();
+  }
 
   function toast(msg){
     var old=document.querySelector('.toast');if(old)old.remove();
@@ -386,23 +461,94 @@
     track('onboarding_completed',{role:state.role,authority:state.authStatus});
   }
 
-  async function verifyCurrentPass(tamper){
-    if(!state.passToken)await ensurePass();
-    if(!state.passToken){
-      state.scannerState='no';state.scannerReason='pass unavailable';render();return;
-    }
-    var token=state.passToken;
-    if(tamper)token=token.slice(0,-2)+'xx';
+  async function checkinToken(token){
+    token=String(token||'').replace(/^MFW:/,'');
     try{
-      var out=await api('/v1/passes/verify',{method:'POST',body:JSON.stringify({token:token})});
-      state.scannerState=out.ok?'valid':'no';
-      state.scannerReason=out.ok?'HMAC signature + expiry accepted by MFW API':String(out.reason||'rejected');
+      var out=await api('/v1/checkins',{method:'POST',body:JSON.stringify({token:token,eventId:'e1',scannerId:'iphone-investor-demo'})});
+      state.scannerState='valid';
+      state.scannerReason='Server check-in · '+new Date(out.checkedInAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }catch(err){
-      state.scannerState='no';
-      state.scannerReason=tamper?'bad_signature':'API unavailable';
+      if(err.status===409){
+        state.scannerState='duplicate';
+        state.scannerReason='same user + event already checked in';
+      }else{
+        state.scannerState='no';
+        state.scannerReason=String((err.data&&err.data.reason)||err.message||'rejected');
+      }
     }
     render();
-    track('pass_verification',{result:state.scannerState,tampered:!!tamper});
+  }
+
+  async function checkinCurrent(tamper){
+    if(!state.passToken)await ensurePass();
+    if(!state.passToken){state.scannerState='no';state.scannerReason='pass unavailable';render();return;}
+    var token=state.passToken;
+    if(tamper)token=token.slice(0,-2)+'xx';
+    await checkinToken(token);
+  }
+
+  async function offlineCheckinCurrent(){
+    if(!state.passToken)await ensurePass();
+    if(!state.passToken){state.scannerState='no';state.scannerReason='pass unavailable';render();return;}
+    var result=await verifyOfflineToken(state.passToken);
+    if(!result.ok){state.scannerState='no';state.scannerReason=result.reason;render();return;}
+    var key='e1:'+result.payload.sub;
+    var offline=[];try{offline=JSON.parse(localStorage.getItem('mfwOfflineCheckins')||'[]');}catch(_){}
+    if(offline.indexOf(key)>=0){
+      state.scannerState='duplicate';state.scannerReason='duplicate detected in this device offline cache';render();return;
+    }
+    offline.push(key);localStorage.setItem('mfwOfflineCheckins',JSON.stringify(offline));
+    state.scannerState='offline';
+    state.scannerReason='ES256 valid · revocation cache checked · queued for sync';
+    render();
+  }
+
+  function stopCameraScanner(){
+    if(scannerFrame){cancelAnimationFrame(scannerFrame);scannerFrame=null;}
+    if(scannerStream){scannerStream.getTracks().forEach(function(t){t.stop();});scannerStream=null;}
+  }
+
+  async function cameraScan(){
+    openSheet('<div class="eyebrow">GATE SCANNER · CAMERA</div><h1 style="font-size:40px">НАВЕДИТЕ<br>НА MFW PASS</h1><div class="scanner-camera"><video id="qr-video" playsinline muted></video><div class="frame"></div><div class="scan-line"></div></div><canvas id="qr-canvas" hidden></canvas><div id="camera-status" class="scan-status">Запрашиваем доступ к камере…</div>');
+    var video=document.getElementById('qr-video'),canvas=document.getElementById('qr-canvas'),status=document.getElementById('camera-status');
+    try{
+      scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+      video.srcObject=scannerStream;await video.play();
+      status.textContent='Камера активна · ищем QR';
+      var ctx=canvas.getContext('2d',{willReadFrequently:true});
+      function tick(){
+        if(video.readyState===video.HAVE_ENOUGH_DATA){
+          canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+          ctx.drawImage(video,0,0,canvas.width,canvas.height);
+          var img=ctx.getImageData(0,0,canvas.width,canvas.height);
+          var code=window.jsQR?window.jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;
+          if(code&&code.data){
+            status.textContent='QR найден';
+            var token=String(code.data).replace(/^MFW:/,'');
+            stopCameraScanner();closeSheet();checkinToken(token);return;
+          }
+        }
+        scannerFrame=requestAnimationFrame(tick);
+      }
+      tick();
+    }catch(err){
+      status.textContent='Камера недоступна: '+String(err&&err.message||err);
+    }
+  }
+
+  async function scanImageFile(file){
+    if(!file||!window.jsQR)return;
+    try{
+      var bitmap=await createImageBitmap(file);
+      var canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+      var ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(bitmap,0,0);
+      var img=ctx.getImageData(0,0,canvas.width,canvas.height);
+      var code=window.jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
+      if(!code)throw new Error('QR не найден');
+      checkinToken(String(code.data).replace(/^MFW:/,''));
+    }catch(err){
+      state.scannerState='no';state.scannerReason=String(err&&err.message||err);render();
+    }
   }
 
   async function createMeeting(){
@@ -440,12 +586,16 @@
       else if(a==='route')toast('Demo: маршрут построен');
       else if(a==='toast')toast(el.getAttribute('data-message')||'Готово');
       else if(a==='saved-looks'){state.tab='me';render();}
-      else if(a==='scan'||a==='scan-valid'){verifyCurrentPass(false);}
-      else if(a==='scan-no'){verifyCurrentPass(true);}
+      else if(a==='camera-scan'){cameraScan();}
+      else if(a==='checkin-current'){checkinCurrent(false);}
+      else if(a==='offline-current'){offlineCheckinCurrent();}
+      else if(a==='tamper-current'){checkinCurrent(true);}
       else if(a==='restart-onboarding'){localStorage.removeItem('mfwOnboarded');state.onboarding=false;render();}
       else if(a==='finish-onboarding'){completeOnboarding();}
       else if(a==='upvote')toast('Голос учтён в demo');
     };});
+    var fileInput=document.getElementById('qr-file');
+    if(fileInput)fileInput.onchange=function(){if(fileInput.files&&fileInput.files[0])scanImageFile(fileInput.files[0]);};
   }
 
   if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
