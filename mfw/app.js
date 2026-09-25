@@ -28,8 +28,12 @@
     voted:false,
     scannerState:'idle',
     backendStatus:'checking',
+    authStatus:'local',
+    session:null,
+    userId:null,
     passToken:null,
     passPayload:null,
+    scannerReason:'',
     onboarding:localStorage.getItem('mfwOnboarded') === '1'
   };
 
@@ -43,8 +47,13 @@
 
   async function api(path, options){
     var opts=options||{};
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort();},6500);
+    opts.signal=controller.signal;
     opts.headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});
-    var res=await fetch(API+path,opts);
+    var res;
+    try{ res=await fetch(API+path,opts); }
+    finally{ clearTimeout(timer); }
     var data=await res.json().catch(function(){return {};});
     if(!res.ok) throw new Error(data.error||('api_'+res.status));
     return data;
@@ -73,7 +82,7 @@
       var data=await api('/v1/passes/issue',{
         method:'POST',
         body:JSON.stringify({
-          userId:'demo_'+state.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi,'_').slice(0,40),
+          userId:state.userId||('demo_'+state.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi,'_').slice(0,40)),
           role:state.role,
           entitlements:[entitlementText()]
         })
@@ -246,9 +255,9 @@
 
   function staffPanel(){
     var result='';
-    if(state.scannerState==='valid') result='<div class="access-result valid">VALID · HALL 1 · 21:00</div>';
-    if(state.scannerState==='no') result='<div class="access-result no">NO ACCESS · entitlement missing</div>';
-    return '<h2>Gate scanner</h2><div class="scanner" data-action="scan"></div>'+result+'<div class="action-row"><button class="action primary" data-action="scan-valid">Сканировать VALID</button><button class="action danger" data-action="scan-no">Сценарий NO ACCESS</button></div>';
+    if(state.scannerState==='valid') result='<div class="access-result valid">SERVER VERIFIED · VALID</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'signature + expiry accepted')+'</div>';
+    if(state.scannerState==='no') result='<div class="access-result no">SERVER REJECTED · NO ACCESS</div><div class="sub" style="margin-top:8px">'+esc(state.scannerReason||'invalid token')+'</div>';
+    return '<h2>Gate scanner</h2><div class="scanner" data-action="scan-valid"></div>'+result+'<div class="action-row"><button class="action primary" data-action="scan-valid">Проверить signed pass</button><button class="action danger" data-action="scan-no">Проверить tampered pass</button></div><div class="demo-note">Camera capture — следующий слой. Здесь уже работает серверная cryptographic verification pass.</div>';
   }
 
   function render(){
@@ -356,6 +365,46 @@
     openSheet('<div class="eyebrow">REQUEST MEETING</div><h1 style="font-size:40px">ВЫБЕРИТЕ<br>СЛОТ</h1><div class="action-row"><button class="action ghost" data-action="confirm-meeting">14:10</button><button class="action primary" data-action="confirm-meeting">14:30</button><button class="action ghost" data-action="confirm-meeting">15:20</button></div>');
   }
 
+  async function completeOnboarding(){
+    var input=document.getElementById('onboard-name');
+    if(input&&input.value.trim())state.name=input.value.trim();
+    try{
+      var auth=await api('/v1/auth/demo',{method:'POST',body:JSON.stringify({name:state.name,role:state.role})});
+      state.session=auth.session;
+      state.userId=auth.user.id;
+      state.authStatus='server';
+    }catch(_){
+      state.session=null;
+      state.userId=null;
+      state.authStatus='local';
+    }
+    state.onboarding=true;
+    localStorage.setItem('mfwOnboarded','1');
+    persist();
+    render();
+    toast(state.authStatus==='server'?'MFW ID создан сервером':'MFW ID создан локально · API warming');
+    track('onboarding_completed',{role:state.role,authority:state.authStatus});
+  }
+
+  async function verifyCurrentPass(tamper){
+    if(!state.passToken)await ensurePass();
+    if(!state.passToken){
+      state.scannerState='no';state.scannerReason='pass unavailable';render();return;
+    }
+    var token=state.passToken;
+    if(tamper)token=token.slice(0,-2)+'xx';
+    try{
+      var out=await api('/v1/passes/verify',{method:'POST',body:JSON.stringify({token:token})});
+      state.scannerState=out.ok?'valid':'no';
+      state.scannerReason=out.ok?'HMAC signature + expiry accepted by MFW API':String(out.reason||'rejected');
+    }catch(err){
+      state.scannerState='no';
+      state.scannerReason=tamper?'bad_signature':'API unavailable';
+    }
+    render();
+    track('pass_verification',{result:state.scannerState,tampered:!!tamper});
+  }
+
   async function createMeeting(){
     try{
       await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:'demo_buyer',slot:'14:30'})});
@@ -391,13 +440,10 @@
       else if(a==='route')toast('Demo: маршрут построен');
       else if(a==='toast')toast(el.getAttribute('data-message')||'Готово');
       else if(a==='saved-looks'){state.tab='me';render();}
-      else if(a==='scan'||a==='scan-valid'){state.scannerState='valid';render();}
-      else if(a==='scan-no'){state.scannerState='no';render();}
+      else if(a==='scan'||a==='scan-valid'){verifyCurrentPass(false);}
+      else if(a==='scan-no'){verifyCurrentPass(true);}
       else if(a==='restart-onboarding'){localStorage.removeItem('mfwOnboarded');state.onboarding=false;render();}
-      else if(a==='finish-onboarding'){
-        var input=document.getElementById('onboard-name'); if(input&&input.value.trim())state.name=input.value.trim();
-        state.onboarding=true;localStorage.setItem('mfwOnboarded','1');persist();render();toast('MFW ID создан в demo-режиме');
-      }
+      else if(a==='finish-onboarding'){completeOnboarding();}
       else if(a==='upvote')toast('Голос учтён в demo');
     };});
   }
