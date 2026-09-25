@@ -1,5 +1,5 @@
-const CACHE='mfw-demo-v4';
-const ASSETS=['/','/index.html','/styles.css?v=4','/app.js?v=4','/manifest.webmanifest','/icon.svg'];
+const CACHE='mfw-demo-v5';
+const ASSETS=['/','/index.html','/styles.css?v=5','/vendor/jsQR.js?v=1','/app.js?v=5','/manifest.webmanifest','/icon.svg'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
   self.skipWaiting();
