@@ -331,6 +331,30 @@ async function checkin({token,eventId,scannerId,offline=false}){
   return {ok:true,status:'valid',payload:v.payload,checkedInAt:new Date().toISOString()};
 }
 
+async function runDeepSelfTest(){
+  const testUser='self_'+crypto.randomBytes(5).toString('hex');
+  const pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
+  const verified=verifyToken(pass.token);
+  const svg=await QRCode.toString('MFW:'+pass.token,{type:'svg',errorCorrectionLevel:'M',margin:1,width:256});
+  const first=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
+  const second=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
+  memory.checkins.delete('e1:'+testUser);
+  memory.passes.delete(pass.payload.jti);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate');
+  return {
+    status:ok?'pass':'fail',
+    ok,
+    tests:{
+      issue:!!pass.token,
+      es256Verify:!!verified.ok,
+      qrSvg:svg.indexOf('<svg')>=0,
+      firstCheckin:first.status,
+      duplicateCheckin:second.status
+    },
+    dataMode:pool?'postgres':'memory'
+  };
+}
+
 function overview(){
   const analytics=memory.analytics;
   const count=n=>analytics.filter(x=>x.name===n).length;
@@ -376,26 +400,8 @@ async function router(req,res){
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true
   });
   if(req.method==='GET'&&p==='/health/deep'){
-    var testUser='self_'+crypto.randomBytes(5).toString('hex');
-    var pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
-    var verified=verifyToken(pass.token);
-    var svg=await QRCode.toString('MFW:'+pass.token,{type:'svg',errorCorrectionLevel:'M',margin:1,width:256});
-    var first=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
-    var second=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
-    memory.checkins.delete('e1:'+testUser);
-    memory.passes.delete(pass.payload.jti);
-    var ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate');
-    return json(res,ok?200:500,{
-      status:ok?'pass':'fail',
-      tests:{
-        issue:!!pass.token,
-        es256Verify:!!verified.ok,
-        qrSvg:svg.indexOf('<svg')>=0,
-        firstCheckin:first.status,
-        duplicateCheckin:second.status
-      },
-      dataMode:pool?'postgres':'memory'
-    });
+    const result=await runDeepSelfTest();
+    return json(res,result.ok?200:500,result);
   }
   if(req.method==='GET'&&p==='/v1/authority/public-key') return json(res,200,{
     alg:'ES256',kid:'mfw-demo-2026-01',jwk:publicJwk
@@ -548,6 +554,9 @@ async function router(req,res){
 async function main(){
   await migrate();
   await bootstrapDemoData();
+  const selfTest=await runDeepSelfTest();
+  console.log(JSON.stringify({event:'mfw_deep_self_test',...selfTest}));
+  if(!selfTest.ok)throw new Error('deep_self_test_failed');
   const server=http.createServer((req,res)=>router(req,res).catch(err=>{
     console.error(err);
     json(res,500,{error:'internal_error'});
