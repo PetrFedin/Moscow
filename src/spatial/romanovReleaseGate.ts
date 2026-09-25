@@ -15,6 +15,7 @@ import {
 } from './fieldVerification.ts';
 import {
   isIndependentAnchorResolve,
+  isPersistentAnchorEvidenceConsistent,
   isPersistentAnchorFrameAuthoritative,
   type RomanovPersistentAnchor
 } from './persistentAnchor.ts';
@@ -115,6 +116,7 @@ export function summarizeRomanovReleaseGate(input: {
     && isSameCalibrationSnapshot(anchor.calibration, input.calibration)
     && isCurrentRomanovMetricBinding(anchor.calibration.metricBinding)
     && isPersistentAnchorFrameAuthoritative(anchor)
+    && isPersistentAnchorEvidenceConsistent(anchor)
   );
   const persistentAnchorFrameVerified = anchorsForCurrentCalibration.some((anchor) =>
     Boolean(anchor.hostContinuityPassed && anchor.hostLocalizedAt)
