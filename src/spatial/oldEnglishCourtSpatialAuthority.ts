@@ -1,3 +1,8 @@
+import {
+  validateSpatialModelBinaryReport,
+  type SpatialModelBinaryReport
+} from './spatialModelAssetContract.ts';
+
 export const OLD_ENGLISH_COURT_SOURCE_LEDGER = [
   {
     id: 'zaryadye-old-english-court',
@@ -64,11 +69,14 @@ export type OldEnglishCourtModelCandidate = {
   version: number;
   assetPath: string;
   sourceIds: OldEnglishCourtSourceId[];
+  provenanceEvidenceRef?: string;
   rightsStatus: 'unknown' | 'restricted' | 'verified';
   rightsEvidenceRef?: string;
   modelUnits: 'meters' | 'unknown';
   metricScaleStatus: 'unknown' | 'provisional' | 'verified';
+  metricScaleEvidenceRef?: string;
   checksumSha256?: string;
+  binaryReport?: SpatialModelBinaryReport;
 };
 
 export type OldEnglishCourtSpatialReadiness = {
@@ -87,7 +95,13 @@ export function evaluateOldEnglishCourtModelCandidate(
   if (!candidate) {
     blockers.push('model-asset-missing');
   } else {
-    if (!candidate.id.trim() || !candidate.assetPath.trim() || !Number.isInteger(candidate.version) || candidate.version < 1) {
+    if (
+      !candidate.id.trim()
+      || !candidate.assetPath.trim()
+      || !candidate.assetPath.toLowerCase().endsWith('.glb')
+      || !Number.isInteger(candidate.version)
+      || candidate.version < 1
+    ) {
       blockers.push('model-identity-invalid');
     }
     if (candidate.rightsStatus !== 'verified' || !candidate.rightsEvidenceRef?.trim()) {
@@ -96,17 +110,37 @@ export function evaluateOldEnglishCourtModelCandidate(
     if (candidate.modelUnits !== 'meters') {
       blockers.push('model-units-not-metric');
     }
-    if (candidate.metricScaleStatus !== 'verified') {
+    if (candidate.metricScaleStatus !== 'verified' || !candidate.metricScaleEvidenceRef?.trim()) {
       blockers.push('model-scale-not-verified');
     }
     if (!candidate.checksumSha256 || !SHA256_HEX.test(candidate.checksumSha256)) {
       blockers.push('model-checksum-missing');
     }
 
+    if (!candidate.binaryReport) {
+      blockers.push('model-binary-report-missing');
+    } else {
+      const binary = validateSpatialModelBinaryReport(candidate.binaryReport);
+      for (const blocker of binary.blockers) {
+        blockers.push(`model-binary:${blocker}`);
+      }
+      const assetFilename = candidate.assetPath.split('/').at(-1);
+      if (assetFilename !== candidate.binaryReport.filename) {
+        blockers.push('model-binary-filename-mismatch');
+      }
+      if (
+        candidate.checksumSha256
+        && candidate.binaryReport.sha256.toLowerCase() !== candidate.checksumSha256.toLowerCase()
+      ) {
+        blockers.push('model-binary-checksum-mismatch');
+      }
+    }
+
     const sourceIds = new Set(candidate.sourceIds);
     const provenanceComplete = OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.requiredSourceIds
       .every((sourceId) => sourceIds.has(sourceId));
     if (!provenanceComplete) blockers.push('model-provenance-incomplete');
+    if (!candidate.provenanceEvidenceRef?.trim()) blockers.push('model-provenance-evidence-missing');
   }
 
   return {

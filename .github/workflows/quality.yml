@@ -14,6 +14,10 @@ jobs:
         with:
           node-version: '22.13.1'
       - run: npm install
+      - name: Generic GLB reporter smoke
+        run: |
+          node scripts/report_glb_asset.mjs assets/models/romanov-1857-documented-v1.glb > /tmp/glb-report.json
+          node -e "const fs=require('fs'); const r=JSON.parse(fs.readFileSync('/tmp/glb-report.json','utf8')); if(r.format!=='glb'||r.glbVersion!==2||r.bytes<=0||!/^[a-f0-9]{64}$/.test(r.sha256)) process.exit(1)"
       - name: Romanov model mobile performance gate
         run: node scripts/check_romanov_model_performance.mjs
       - run: npm run test:e2e-contract

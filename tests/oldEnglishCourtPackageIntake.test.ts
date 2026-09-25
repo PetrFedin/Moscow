@@ -22,6 +22,29 @@ import {
   validateSpatialPackageIntake
 } from '../src/spatial/spatialPackageIntake.ts';
 
+function binaryReport(filename: string, sha256: string) {
+  return {
+    schemaVersion: 1 as const,
+    format: 'glb' as const,
+    filename,
+    sha256,
+    bytes: 900_000,
+    glbVersion: 2,
+    declaredLengthMatches: true,
+    nodes: 120,
+    meshes: 80,
+    primitives: 100,
+    triangles: 80_000,
+    materials: 20,
+    textures: 12,
+    images: 12,
+    animations: 0,
+    skins: 0,
+    externalBuffers: 0,
+    externalImages: 0
+  };
+}
+
 test('Old English Court intake is structurally valid while promotion stays honestly blocked', () => {
   assert.equal(oldEnglishCourtPackageIntakeValidation.valid, true);
   assert.equal(oldEnglishCourtPackageIntakeValidation.promotionReady, false);
@@ -91,11 +114,14 @@ test('a model backed only by Romanov provenance cannot pass Old English Court mo
     version: 1,
     assetPath: 'assets/models/borrowed.glb',
     sourceIds: romanovSources.map((source) => source.id),
+    provenanceEvidenceRef: 'test-only/borrowed-provenance',
     rightsStatus: 'verified' as const,
     rightsEvidenceRef: 'test-only-rights-proof',
     modelUnits: 'meters' as const,
     metricScaleStatus: 'verified' as const,
-    checksumSha256: 'a'.repeat(64)
+    metricScaleEvidenceRef: 'test-only/oec-metric-scale-v1',
+    checksumSha256: 'a'.repeat(64),
+    binaryReport: binaryReport('borrowed.glb', 'a'.repeat(64))
   };
 
   const readiness = evaluateOldEnglishCourtModelCandidate(
@@ -112,11 +138,14 @@ test('an accepted model clears only model intake and cannot invent metric or con
     version: 1,
     assetPath: 'assets/models/old-english-court-model-v1.glb',
     sourceIds: [...OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.requiredSourceIds],
+    provenanceEvidenceRef: 'test-only/oec-provenance-v1',
     rightsStatus: 'verified' as const,
     rightsEvidenceRef: 'test-only/oec-model-rights-v1',
     modelUnits: 'meters' as const,
     metricScaleStatus: 'verified' as const,
-    checksumSha256: 'b'.repeat(64)
+    metricScaleEvidenceRef: 'test-only/oec-metric-scale-v1',
+    checksumSha256: 'b'.repeat(64),
+    binaryReport: binaryReport('old-english-court-model-v1.glb', 'b'.repeat(64))
   };
 
   const result = evaluateOldEnglishCourtPackageIntake(candidate);
@@ -129,6 +158,8 @@ test('an accepted model clears only model intake and cannot invent metric or con
   const rightsRequirement = result.intake.requirements.find((item) => item.id === 'oec-model-rights');
   assert.equal(modelRequirement?.status, 'ready');
   assert.equal(rightsRequirement?.status, 'ready');
+  assert.ok(modelRequirement?.evidenceRefs?.includes('test-only/oec-provenance-v1'));
+  assert.ok(modelRequirement?.evidenceRefs?.includes('test-only/oec-metric-scale-v1'));
 
   assert.ok(
     result.validation.promotionBlockers.some((item) =>
