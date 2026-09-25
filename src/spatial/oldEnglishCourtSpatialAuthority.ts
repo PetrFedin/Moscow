@@ -69,10 +69,12 @@ export type OldEnglishCourtModelCandidate = {
   version: number;
   assetPath: string;
   sourceIds: OldEnglishCourtSourceId[];
+  provenanceEvidenceRef?: string;
   rightsStatus: 'unknown' | 'restricted' | 'verified';
   rightsEvidenceRef?: string;
   modelUnits: 'meters' | 'unknown';
   metricScaleStatus: 'unknown' | 'provisional' | 'verified';
+  metricScaleEvidenceRef?: string;
   checksumSha256?: string;
   binaryReport?: SpatialModelBinaryReport;
 };
@@ -108,7 +110,7 @@ export function evaluateOldEnglishCourtModelCandidate(
     if (candidate.modelUnits !== 'meters') {
       blockers.push('model-units-not-metric');
     }
-    if (candidate.metricScaleStatus !== 'verified') {
+    if (candidate.metricScaleStatus !== 'verified' || !candidate.metricScaleEvidenceRef?.trim()) {
       blockers.push('model-scale-not-verified');
     }
     if (!candidate.checksumSha256 || !SHA256_HEX.test(candidate.checksumSha256)) {
@@ -138,6 +140,7 @@ export function evaluateOldEnglishCourtModelCandidate(
     const provenanceComplete = OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.requiredSourceIds
       .every((sourceId) => sourceIds.has(sourceId));
     if (!provenanceComplete) blockers.push('model-provenance-incomplete');
+    if (!candidate.provenanceEvidenceRef?.trim()) blockers.push('model-provenance-evidence-missing');
   }
 
   return {
