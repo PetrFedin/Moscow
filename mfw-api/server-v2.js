@@ -10,11 +10,33 @@ const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
 const VERSION = 'mfw-authority-v2';
 const DATABASE_URL = process.env.DATABASE_URL || '';
-const PRIVATE_KEY = (process.env.MFW_ES256_PRIVATE_KEY || '').replace(/\\n/g,'\n');
-const PUBLIC_KEY = (process.env.MFW_ES256_PUBLIC_KEY || '').replace(/\\n/g,'\n');
-const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'demo-admin-change-before-production';
+const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
+const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
 
-if (!PRIVATE_KEY || !PUBLIC_KEY) throw new Error('MFW ES256 keys are required');
+function deriveKeys(seed){
+  let counter=0;
+  while(counter<100){
+    const material=crypto.createHash('sha256').update(seed+':'+counter).digest();
+    try{
+      const ecdh=crypto.createECDH('prime256v1');
+      ecdh.setPrivateKey(material);
+      const pub=ecdh.getPublicKey(null,'uncompressed');
+      const x=pub.subarray(1,33);
+      const y=pub.subarray(33,65);
+      const privateJwk={kty:'EC',crv:'P-256',x:b64u(x),y:b64u(y),d:b64u(material)};
+      const publicJwk={kty:'EC',crv:'P-256',x:b64u(x),y:b64u(y)};
+      return {
+        privateKey:crypto.createPrivateKey({key:privateJwk,format:'jwk'}),
+        publicKey:crypto.createPublicKey({key:publicJwk,format:'jwk'}),
+        publicJwk
+      };
+    }catch(_){counter++;}
+  }
+  throw new Error('unable_to_derive_es256_key');
+}
+const DERIVED_KEYS=deriveKeys(KEY_SEED);
+const PRIVATE_KEY=DERIVED_KEYS.privateKey;
+const PUBLIC_KEY=DERIVED_KEYS.publicKey;
 
 function b64u(input) {
   return Buffer.from(input).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
@@ -66,8 +88,7 @@ function readBody(req) {
 }
 function adminOk(req){ return req.headers['x-mfw-admin']===ADMIN_TOKEN; }
 
-const keyObj=crypto.createPublicKey(PUBLIC_KEY);
-const publicJwk=keyObj.export({format:'jwk'});
+const publicJwk=DERIVED_KEYS.publicJwk;
 
 function signPayload(payload) {
   const header={alg:'ES256',typ:'MFW-PASS',kid:'mfw-demo-2026-01'};
@@ -330,7 +351,7 @@ async function router(req,res){
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true
   });
   if(req.method==='GET'&&p==='/v1/authority/public-key') return json(res,200,{
-    alg:'ES256',kid:'mfw-demo-2026-01',jwk:publicJwk,pem:PUBLIC_KEY
+    alg:'ES256',kid:'mfw-demo-2026-01',jwk:publicJwk
   });
   if(req.method==='GET'&&p==='/v1/authority/revocations'){
     const revoked=[...memory.revoked.entries()].map(([jti,v])=>({jti,...v}));
