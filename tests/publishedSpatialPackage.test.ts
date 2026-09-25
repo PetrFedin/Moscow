@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -71,28 +73,32 @@ test('model artifact bindings are exact repository objects, not filename-only cl
   const artifactMap = new Map(
     romanovPublishedCandidate.models.map((model) => [
       model.id,
-      { path: model.assetPath, blob: model.repositoryBlobSha, bytes: model.byteSize }
+      { path: model.assetPath, blob: model.repositoryBlobSha, sha256: model.assetSha256, bytes: model.byteSize }
     ])
   );
 
   assert.deepEqual(artifactMap.get('romanov-1857-documented-v1'), {
     path: 'assets/models/romanov-1857-documented-v1.glb',
     blob: 'dc1184e023b2094926c98e5f5c3fe48d1eef9b40',
+    sha256: '9431982ba3131cacd623890b6afde1de9e9b57df5aafa45b7f209bf62f71b24b',
     bytes: 22920
   });
   assert.deepEqual(artifactMap.get('romanov-1857-public-v1'), {
     path: 'assets/models/romanov-1857-public-v1.glb',
     blob: '73dfeb9e1b301349bc7b72ac5d5d3c9566125baa',
+    sha256: '9ea2490079edfb00a12819375848e76faf1aede6b35cf7ddcfc74ad79452f5e9',
     bytes: 22940
   });
   assert.deepEqual(artifactMap.get('romanov-1859-documented-v1'), {
     path: 'assets/models/romanov-1859-documented-v1.glb',
     blob: '6bb05f30b85c04b7fd70a4bee029a6c91205166e',
+    sha256: '69ddc902cb000f83b5b320ba299f1c32d3cb7d539e426cbaa6ef56769720f8ed',
     bytes: 7792
   });
   assert.deepEqual(artifactMap.get('romanov-1859-public-v1'), {
     path: 'assets/models/romanov-1859-public-v1.glb',
     blob: 'e1ad115505089dab312997be586e65e94d459efd',
+    sha256: '7ab8ad9a456ae11fa84baef71aea0d4050d7fa84cc187e41cbc95cce05e0fc6e',
     bytes: 86764
   });
 });
@@ -154,4 +160,26 @@ test('tampered imported package is rejected rather than normalized into truth', 
     () => parsePublishedSpatialPackage(JSON.stringify(tampered)),
     /model-blob-sha-invalid/
   );
+});
+
+
+test('portable SHA-256 matches the actual bundled GLB bytes', () => {
+  for (const model of romanovPublishedCandidate.models) {
+    const bytes = readFileSync(model.assetPath);
+    assert.equal(bytes.byteLength, model.byteSize, `byte size drift: ${model.id}`);
+    assert.equal(
+      createHash('sha256').update(bytes).digest('hex'),
+      model.assetSha256,
+      `SHA-256 drift: ${model.id}`
+    );
+  }
+});
+
+test('tampered portable model checksum is rejected independently of Git blob identity', () => {
+  const tampered = structuredClone(romanovPublishedCandidate);
+  tampered.models[0]!.assetSha256 = 'not-a-portable-checksum';
+
+  const validation = validatePublishedSpatialPackage(tampered);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes(`model-sha256-invalid:${tampered.models[0]!.id}`));
 });

@@ -46,6 +46,7 @@ export type SpatialModelArtifact = {
   elementIds: string[];
   assetPath: string;
   repositoryBlobSha: string;
+  assetSha256: string;
   byteSize: number;
 };
 
@@ -79,6 +80,11 @@ export type SpatialFieldVerification = {
   minimumFieldSessions?: number;
   releaseGateState?: 'production-candidate' | 'field-verified-spatial-scene';
   calibrationVersion?: number;
+  calibrationMetricBinding?: {
+    metricAuthorityId: string;
+    metricAuthorityVersion: number;
+    modelPackVersion: string;
+  };
   surveyVerified?: boolean;
   surveyPacketId?: string;
   multiDeviceMatrixPassed?: boolean;
@@ -236,6 +242,7 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     if (!model.runtimeModes.includes('model3d')) warnings.push(`model3d-runtime-not-enabled:${model.id}`);
     if (!model.assetPath.trim() || !model.assetPath.endsWith('.glb')) blockers.push(`model-asset-path-invalid:${model.id}`);
     if (!/^[a-f0-9]{40}$/i.test(model.repositoryBlobSha)) blockers.push(`model-blob-sha-invalid:${model.id}`);
+    if (!/^[a-f0-9]{64}$/i.test(model.assetSha256)) blockers.push(`model-sha256-invalid:${model.id}`);
     if (!Number.isInteger(model.byteSize) || model.byteSize <= 0) blockers.push(`model-byte-size-invalid:${model.id}`);
     if (artifactPaths.has(model.assetPath)) blockers.push(`duplicate-model-asset-path:${model.assetPath}`);
     artifactPaths.add(model.assetPath);
@@ -272,6 +279,15 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     }
     if (!Number.isInteger(field.calibrationVersion) || (field.calibrationVersion ?? 0) < 1) {
       blockers.push('calibration-version-missing');
+    }
+    if (!field.calibrationMetricBinding) {
+      blockers.push('calibration-metric-binding-missing');
+    } else if (
+      field.calibrationMetricBinding.metricAuthorityId !== pkg.authority.metric.id
+      || field.calibrationMetricBinding.metricAuthorityVersion !== pkg.authority.metric.version
+      || field.calibrationMetricBinding.modelPackVersion !== pkg.authority.metric.modelPackVersion
+    ) {
+      blockers.push('calibration-metric-binding-mismatch');
     }
     if (!field.persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
     if (!uniqueNonEmpty(field.persistentAnchorProofIds)) blockers.push('persistent-anchor-proof-missing');

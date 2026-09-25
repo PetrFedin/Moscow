@@ -92,6 +92,7 @@ export const romanovPublishedCandidate: PublishedSpatialPackage = {
     elementIds: modelElementIds(model.era, model.trustMode),
     assetPath: model.assetPath,
     repositoryBlobSha: model.repositoryBlobSha,
+    assetSha256: model.assetSha256,
     byteSize: model.byteSize
   })),
   authority: {
