@@ -26,7 +26,7 @@ export const romanovModelCatalog: RomanovModelCatalogEntry[] = [
     assetPath: 'assets/models/romanov-1857-documented-v1.glb',
     repositoryBlobSha: 'dc1184e023b2094926c98e5f5c3fe48d1eef9b40',
     byteSize: 22920,
-    sourceIds: ['timm-1857'],
+    sourceIds: ['timm-1857', 'shm-history', 'mos-archaeology', 'mos-plans'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   },
   {
@@ -48,7 +48,7 @@ export const romanovModelCatalog: RomanovModelCatalogEntry[] = [
     assetPath: 'assets/models/romanov-1859-documented-v1.glb',
     repositoryBlobSha: '6bb05f30b85c04b7fd70a4bee029a6c91205166e',
     byteSize: 7792,
-    sourceIds: ['naidenov-46', 'shm-history'],
+    sourceIds: ['shm-history', 'mos-archaeology', 'mos-plans'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   },
   {
