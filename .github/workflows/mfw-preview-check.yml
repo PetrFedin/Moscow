@@ -1,0 +1,45 @@
+name: MFW preview checks
+
+on:
+  push:
+    branches:
+      - mfw-app
+    paths:
+      - 'mfw/**'
+      - 'mfw-api/**'
+      - '.github/workflows/mfw-preview-check.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Check frontend JavaScript syntax
+        run: node --check mfw/app.js
+
+      - name: Check API JavaScript syntax
+        run: node --check mfw-api/server.js
+
+      - name: Validate required PWA files
+        run: |
+          test -f mfw/index.html
+          test -f mfw/manifest.webmanifest
+          test -f mfw/sw.js
+          test -f mfw/icon.svg
+          node -e "JSON.parse(require('fs').readFileSync('mfw/manifest.webmanifest','utf8'))"
+
+      - name: Validate investor-critical UI hooks
+        run: |
+          grep -q "investor-tour" mfw/app.js
+          grep -q "Organizer cockpit" mfw/app.js
+          grep -q "/v1/passes/issue" mfw/app.js
+          grep -q "/v1/meetings" mfw/app.js
