@@ -114,10 +114,12 @@ test('a model backed only by Romanov provenance cannot pass Old English Court mo
     version: 1,
     assetPath: 'assets/models/borrowed.glb',
     sourceIds: romanovSources.map((source) => source.id),
+    provenanceEvidenceRef: 'test-only/borrowed-provenance',
     rightsStatus: 'verified' as const,
     rightsEvidenceRef: 'test-only-rights-proof',
     modelUnits: 'meters' as const,
     metricScaleStatus: 'verified' as const,
+    metricScaleEvidenceRef: 'test-only/oec-metric-scale-v1',
     checksumSha256: 'a'.repeat(64),
     binaryReport: binaryReport('borrowed.glb', 'a'.repeat(64))
   };
@@ -136,6 +138,7 @@ test('an accepted model clears only model intake and cannot invent metric or con
     version: 1,
     assetPath: 'assets/models/old-english-court-model-v1.glb',
     sourceIds: [...OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.requiredSourceIds],
+    provenanceEvidenceRef: 'test-only/oec-provenance-v1',
     rightsStatus: 'verified' as const,
     rightsEvidenceRef: 'test-only/oec-model-rights-v1',
     modelUnits: 'meters' as const,
