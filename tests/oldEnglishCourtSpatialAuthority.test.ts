@@ -86,6 +86,7 @@ test('asset intake rejects unknown rights, non-metric scale, missing checksum an
   assert.ok(result.blockers.includes('model-checksum-missing'));
   assert.ok(result.blockers.includes('model-binary-report-missing'));
   assert.ok(result.blockers.includes('model-provenance-incomplete'));
+  assert.ok(result.blockers.includes('model-provenance-evidence-missing'));
 });
 
 test('a fully evidenced model can pass intake without falsely opening the spatial runtime', () => {
@@ -94,10 +95,12 @@ test('a fully evidenced model can pass intake without falsely opening the spatia
     version: 1,
     assetPath: 'assets/models/old-english-court-model-v1.glb',
     sourceIds: [...OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.requiredSourceIds],
+    provenanceEvidenceRef: 'provenance/oec-model-v1',
     rightsStatus: 'verified',
     rightsEvidenceRef: 'rights-ledger/oec-model-v1',
     modelUnits: 'meters',
     metricScaleStatus: 'verified',
+    metricScaleEvidenceRef: 'metric/oec-model-v1',
     checksumSha256: 'a'.repeat(64),
     binaryReport: binaryReport('old-english-court-model-v1.glb')
   });
