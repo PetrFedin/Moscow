@@ -290,11 +290,10 @@
 
   function organizerPanel(){
     return '<h2>Organizer cockpit</h2>'+
-      '<div class="card"><div class="event-top"><div><div class="eyebrow">SYSTEM AUTHORITY</div><div class="event-name">MFW API</div><div class="sub">Signed pass · meetings · analytics · server authority</div></div><span id="backend-status" class="badge">CHECKING</span></div></div>'+
+      '<div class="card"><div class="event-top"><div><div class="eyebrow">SYSTEM AUTHORITY</div><div class="event-name">MFW Authority</div><div class="sub">ES256 pass · check-in · CMS · accreditation · live operations</div></div><span id="backend-status" class="badge">CHECKING</span></div><div class="action-row"><button class="action primary" data-action="admin-console">Открыть Admin Console</button></div></div>'+
       '<div class="value-grid" style="margin-top:10px"><div class="value-card"><div class="n">8.4K</div><small>demo active users today</small></div><div class="value-card"><div class="n">71%</div><small>demo programme engagement</small></div><div class="value-card"><div class="n">312</div><small>demo buyer actions</small></div></div>'+
-      '<div class="card" style="margin-top:10px"><div class="eyebrow">LIVE OPERATIONS · DEMO</div><div class="metric-row"><b>Opening Runway capacity</b><strong>86%</strong></div><div class="capacity"><span style="width:86%"></span></div><div class="metric-row"><b>Checked in</b><strong>428</strong></div><div class="metric-row"><b>Waitlist</b><strong>37</strong></div><div class="action-row"><button class="action primary" data-action="toast" data-message="Demo: 12 waitlist invitations released">Освободить 12 мест</button><button class="action ghost" data-action="notifications">Отправить push</button></div></div>'+
       '<div class="commercial-card"><div class="eyebrow">PARTNER VALUE · DEMO METRICS</div><div class="event-name">Из показа — в измеримый результат</div><div class="metric-row"><b>Sponsored LIVE reach</b><strong>24.8K</strong></div><div class="metric-row"><b>Brand profile opens</b><strong>6.1K</strong></div><div class="metric-row"><b>Saved looks</b><strong>1.9K</strong></div><div class="metric-row"><b>Shop / showroom intent</b><strong>487</strong></div></div>'+
-      '<div class="card"><div class="eyebrow">WHY THIS SELLS</div><div class="event-name">Один слой данных для всего события</div><div class="sub">Регистрация → доступ → посещение → просмотр → сохранение → встреча → лид → отчёт партнёру.</div><div class="action-row"><button class="action primary" data-action="investor-tour">Открыть investor tour</button></div></div>';
+      '<div class="card"><div class="eyebrow">WHY THIS SELLS</div><div class="event-name">Один слой данных для всего события</div><div class="sub">Регистрация → доступ → посещение → просмотр → сохранение → встреча → лид → отчёт партнёру.</div><div class="action-row"><button class="action ghost" data-action="investor-tour">Investor tour</button></div></div>';
   }
 
   function staffPanel(){
@@ -415,7 +414,7 @@
     setTimeout(function(){if(t.parentNode)t.remove();},1800);
   }
 
-  function setRole(r){state.role=r;state.passToken=null;state.passPayload=null;persist();render();toast('Demo role: '+r);track('role_switched',{role:r});}
+  function setRole(r){state.role=r;state.session=null;state.sessionRole=null;state.passToken=null;state.passPayload=null;persist();render();toast('Demo role: '+r);track('role_switched',{role:r});}
   function toggleEvent(id){
     var i=state.myEvents.indexOf(id);
     if(i>=0){state.myEvents.splice(i,1);toast('Удалено из программы');}
@@ -440,12 +439,70 @@
     openSheet('<div class="eyebrow">REQUEST MEETING</div><h1 style="font-size:40px">ВЫБЕРИТЕ<br>СЛОТ</h1><div class="action-row"><button class="action ghost" data-action="confirm-meeting">14:10</button><button class="action primary" data-action="confirm-meeting">14:30</button><button class="action ghost" data-action="confirm-meeting">15:20</button></div>');
   }
 
+  async function ensureServerSession(roleOverride){
+    var wanted=roleOverride||state.role;
+    if(state.session&&state.sessionRole===wanted)return state.session;
+    var auth=await api('/v1/auth/demo',{method:'POST',body:JSON.stringify({name:state.name,role:wanted})});
+    state.session=auth.session;state.userId=auth.user.id;state.sessionRole=wanted;state.authStatus='server';
+    return state.session;
+  }
+
+  async function adminApi(path, options){
+    var token=await ensureServerSession('Organizer');
+    var opts=options||{};
+    opts.headers=Object.assign({},opts.headers||{},{Authorization:'Bearer '+token});
+    return api('/v1/admin'+path,opts);
+  }
+
+  function adminEventRow(e){
+    return '<div class="card" style="margin-top:10px"><div class="event-top"><div><div class="eyebrow">'+esc(e.id||'EVENT')+' · '+esc(e.status||'')+'</div><div class="event-name">'+esc(e.title||'Untitled')+'</div><div class="sub">'+esc(e.venue||'')+' · '+esc(e.startsAt||'')+'</div></div><span class="badge '+((e.status==='live'||e.status==='published')?'open':'wait')+'">'+esc(String(e.capacity||0))+' cap</span></div><div class="action-row"><button class="action ghost" data-action="admin-delay" data-id="'+esc(e.id)+'">+15 мин</button><button class="action ghost" data-action="admin-move" data-id="'+esc(e.id)+'">Сменить зал</button></div></div>';
+  }
+
+  function adminAccreditationRow(a){
+    return '<div class="card" style="margin-top:10px"><div class="event-top"><div><div class="eyebrow">'+esc(a.kind)+' · '+esc(a.organisation)+'</div><div class="event-name">'+esc(a.name)+'</div><div class="sub">Status: '+esc(a.status)+'</div></div><span class="badge '+(a.status==='approved'?'open':a.status==='pending'?'wait':'live')+'">'+esc(a.status.toUpperCase())+'</span></div>'+(a.status==='pending'?'<div class="action-row"><button class="action primary" data-action="admin-approve" data-id="'+esc(a.id)+'">Approve</button><button class="action danger" data-action="admin-reject" data-id="'+esc(a.id)+'">Reject</button></div>':'')+'</div>';
+  }
+
+  async function openAdminConsole(){
+    openSheet('<div class="eyebrow">MFW ADMIN CONSOLE</div><h1 style="font-size:40px">LIVE<br>OPERATIONS</h1><div class="card"><div class="sub">Загружаем серверное состояние…</div></div>');
+    try{
+      var data=await Promise.all([adminApi('/overview'),adminApi('/events'),adminApi('/accreditations')]);
+      var o=data[0].data,events=data[1].data||[],acc=data[2].data||[];
+      var html='<div class="eyebrow">MFW ADMIN CONSOLE · SERVER</div><h1 style="font-size:40px">LIVE<br>OPERATIONS</h1>'+
+        '<div class="value-grid"><div class="value-card"><div class="n">'+esc(o.activeUsers)+'</div><small>active users</small></div><div class="value-card"><div class="n">'+esc(o.live.occupancyPct)+'%</div><small>occupancy</small></div><div class="value-card"><div class="n">'+esc(o.live.waitlist)+'</div><small>waitlist</small></div></div>'+
+        '<h2>Programme CMS</h2>'+events.map(adminEventRow).join('')+
+        '<div class="card" style="margin-top:10px"><div class="eyebrow">LIVE CONTROL</div><div class="metric-row"><b>Checked in</b><strong>'+esc(o.live.checkedIn)+'</strong></div><div class="metric-row"><b>Waitlist</b><strong>'+esc(o.live.waitlist)+'</strong></div><div class="action-row"><button class="action primary" data-action="admin-release">Release 12</button><button class="action ghost" data-action="admin-push">Critical push</button><button class="action ghost" data-action="admin-invite">Send invite</button></div></div>'+
+        '<h2>Accreditation</h2>'+acc.map(adminAccreditationRow).join('')+
+        '<div class="demo-note"><b>Server-backed demo.</b> Все кнопки выше меняют authority state и повторное открытие Console показывает результат.</div>';
+      openSheet(html);
+    }catch(err){
+      openSheet('<div class="eyebrow">MFW ADMIN CONSOLE</div><h1 style="font-size:40px">CONTROL<br>UNAVAILABLE</h1><div class="card"><div class="sub">'+esc(String(err&&err.message||err))+'</div></div>');
+    }
+  }
+
+  async function adminRelease(){
+    try{await adminApi('/waitlist/release',{method:'POST',body:JSON.stringify({eventId:'e1',count:12})});toast('12 мест освобождены сервером');openAdminConsole();}catch(e){toast('Admin action failed');}
+  }
+  async function adminPush(){
+    try{await adminApi('/notifications',{method:'POST',body:JSON.stringify({category:'critical',title:'Programme update',body:'Opening Runway: updated operational notice'})});toast('Critical push создан');}catch(e){toast('Push failed');}
+  }
+  async function adminInvite(){
+    try{await adminApi('/invitations',{method:'POST',body:JSON.stringify({eventId:'e1',recipient:'investor-demo@mfw.local'})});toast('Invitation sent');}catch(e){toast('Invite failed');}
+  }
+  async function adminChangeEvent(id,kind){
+    var body=kind==='delay'?{startsAt:'2026-09-26T17:15:00+03:00',status:'delayed'}:{venue:'Manege · Hall 3'};
+    try{await adminApi('/events/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});toast(kind==='delay'?'Показ перенесён на +15 мин':'Зал изменён');openAdminConsole();}catch(e){toast('Programme update failed');}
+  }
+  async function adminAccreditation(id,status){
+    try{await adminApi('/accreditations/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:status})});toast('Accreditation '+status);openAdminConsole();}catch(e){toast('Accreditation update failed');}
+  }
+
   async function completeOnboarding(){
     var input=document.getElementById('onboard-name');
     if(input&&input.value.trim())state.name=input.value.trim();
     try{
       var auth=await api('/v1/auth/demo',{method:'POST',body:JSON.stringify({name:state.name,role:state.role})});
       state.session=auth.session;
+      state.sessionRole=state.role;
       state.userId=auth.user.id;
       state.authStatus='server';
     }catch(_){
@@ -576,6 +633,14 @@
       else if(a==='save-brand')saveBrand(el.getAttribute('data-id'));
       else if(a==='notifications')notifications();
       else if(a==='investor-tour')investorTour();
+      else if(a==='admin-console')openAdminConsole();
+      else if(a==='admin-release')adminRelease();
+      else if(a==='admin-push')adminPush();
+      else if(a==='admin-invite')adminInvite();
+      else if(a==='admin-delay')adminChangeEvent(el.getAttribute('data-id'),'delay');
+      else if(a==='admin-move')adminChangeEvent(el.getAttribute('data-id'),'move');
+      else if(a==='admin-approve')adminAccreditation(el.getAttribute('data-id'),'approved');
+      else if(a==='admin-reject')adminAccreditation(el.getAttribute('data-id'),'rejected');
       else if(a==='tour-start'){state.role='Visitor';state.tab='today';persist();closeSheet();render();toast('Investor tour: Visitor experience');}
       else if(a==='tour-organizer'){state.role='Organizer';state.tab='me';persist();closeSheet();render();toast('Investor tour: Organizer cockpit');}
       else if(a==='questions')questions();
