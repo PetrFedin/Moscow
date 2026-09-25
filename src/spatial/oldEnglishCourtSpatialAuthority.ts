@@ -1,3 +1,8 @@
+import {
+  validateSpatialModelBinaryReport,
+  type SpatialModelBinaryReport
+} from './spatialModelAssetContract.ts';
+
 export const OLD_ENGLISH_COURT_SOURCE_LEDGER = [
   {
     id: 'zaryadye-old-english-court',
@@ -69,6 +74,7 @@ export type OldEnglishCourtModelCandidate = {
   modelUnits: 'meters' | 'unknown';
   metricScaleStatus: 'unknown' | 'provisional' | 'verified';
   checksumSha256?: string;
+  binaryReport?: SpatialModelBinaryReport;
 };
 
 export type OldEnglishCourtSpatialReadiness = {
@@ -87,7 +93,13 @@ export function evaluateOldEnglishCourtModelCandidate(
   if (!candidate) {
     blockers.push('model-asset-missing');
   } else {
-    if (!candidate.id.trim() || !candidate.assetPath.trim() || !Number.isInteger(candidate.version) || candidate.version < 1) {
+    if (
+      !candidate.id.trim()
+      || !candidate.assetPath.trim()
+      || !candidate.assetPath.toLowerCase().endsWith('.glb')
+      || !Number.isInteger(candidate.version)
+      || candidate.version < 1
+    ) {
       blockers.push('model-identity-invalid');
     }
     if (candidate.rightsStatus !== 'verified' || !candidate.rightsEvidenceRef?.trim()) {
@@ -101,6 +113,25 @@ export function evaluateOldEnglishCourtModelCandidate(
     }
     if (!candidate.checksumSha256 || !SHA256_HEX.test(candidate.checksumSha256)) {
       blockers.push('model-checksum-missing');
+    }
+
+    if (!candidate.binaryReport) {
+      blockers.push('model-binary-report-missing');
+    } else {
+      const binary = validateSpatialModelBinaryReport(candidate.binaryReport);
+      for (const blocker of binary.blockers) {
+        blockers.push(`model-binary:${blocker}`);
+      }
+      const assetFilename = candidate.assetPath.split('/').at(-1);
+      if (assetFilename !== candidate.binaryReport.filename) {
+        blockers.push('model-binary-filename-mismatch');
+      }
+      if (
+        candidate.checksumSha256
+        && candidate.binaryReport.sha256.toLowerCase() !== candidate.checksumSha256.toLowerCase()
+      ) {
+        blockers.push('model-binary-checksum-mismatch');
+      }
     }
 
     const sourceIds = new Set(candidate.sourceIds);
