@@ -22,6 +22,29 @@ import {
   validateSpatialPackageIntake
 } from '../src/spatial/spatialPackageIntake.ts';
 
+function binaryReport(filename: string, sha256: string) {
+  return {
+    schemaVersion: 1 as const,
+    format: 'glb' as const,
+    filename,
+    sha256,
+    bytes: 900_000,
+    glbVersion: 2,
+    declaredLengthMatches: true,
+    nodes: 120,
+    meshes: 80,
+    primitives: 100,
+    triangles: 80_000,
+    materials: 20,
+    textures: 12,
+    images: 12,
+    animations: 0,
+    skins: 0,
+    externalBuffers: 0,
+    externalImages: 0
+  };
+}
+
 test('Old English Court intake is structurally valid while promotion stays honestly blocked', () => {
   assert.equal(oldEnglishCourtPackageIntakeValidation.valid, true);
   assert.equal(oldEnglishCourtPackageIntakeValidation.promotionReady, false);
@@ -95,7 +118,8 @@ test('a model backed only by Romanov provenance cannot pass Old English Court mo
     rightsEvidenceRef: 'test-only-rights-proof',
     modelUnits: 'meters' as const,
     metricScaleStatus: 'verified' as const,
-    checksumSha256: 'a'.repeat(64)
+    checksumSha256: 'a'.repeat(64),
+    binaryReport: binaryReport('borrowed.glb', 'a'.repeat(64))
   };
 
   const readiness = evaluateOldEnglishCourtModelCandidate(
@@ -116,7 +140,8 @@ test('an accepted model clears only model intake and cannot invent metric or con
     rightsEvidenceRef: 'test-only/oec-model-rights-v1',
     modelUnits: 'meters' as const,
     metricScaleStatus: 'verified' as const,
-    checksumSha256: 'b'.repeat(64)
+    checksumSha256: 'b'.repeat(64),
+    binaryReport: binaryReport('old-english-court-model-v1.glb', 'b'.repeat(64))
   };
 
   const result = evaluateOldEnglishCourtPackageIntake(candidate);
