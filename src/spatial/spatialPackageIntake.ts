@@ -41,6 +41,7 @@ export type SpatialPackageIntakeLayer = {
   titleRu: string;
   titleEn: string;
   claimRu: string;
+  claimEn: string;
   sourceIds: string[];
 };
 
@@ -151,7 +152,8 @@ export function validateSpatialPackageIntake(
     if (periodIds.has(layer.periodId)) blockers.push(`duplicate-layer-period-id:${layer.periodId}`);
     periodIds.add(layer.periodId);
     if (!layer.titleRu.trim() || !layer.titleEn.trim()) blockers.push(`layer-title-missing:${layer.id}`);
-    if (!layer.claimRu.trim()) blockers.push(`layer-claim-missing:${layer.id}`);
+    if (!layer.claimRu.trim()) blockers.push(`layer-claim-ru-missing:${layer.id}`);
+    if (!layer.claimEn.trim()) blockers.push(`layer-claim-en-missing:${layer.id}`);
     if (!nonEmptyUnique(layer.sourceIds)) blockers.push(`layer-source-missing:${layer.id}`);
     for (const sourceId of layer.sourceIds) {
       if (!sourceIds.has(sourceId)) blockers.push(`layer-source-not-found:${layer.id}:${sourceId}`);
