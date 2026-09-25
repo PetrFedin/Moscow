@@ -133,3 +133,5 @@ export function buildPilotAnalyticsReport(records: TouristAnalyticsRecord[]) {
 export function serializePilotAnalyticsReport(records: TouristAnalyticsRecord[]) {
   return JSON.stringify(buildPilotAnalyticsReport(records), null, 2);
 }
+
+export type PilotAnalyticsReport = ReturnType<typeof buildPilotAnalyticsReport>;

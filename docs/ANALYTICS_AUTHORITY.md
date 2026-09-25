@@ -134,6 +134,20 @@ The web QA build shows the aggregate preview but does not pretend to provide the
 
 If the local outbox reaches its 400-event cap, the report marks itself as potentially truncated because earlier events may have been evicted. This prevents a full outbox from being interpreted as a complete longitudinal dataset.
 
+## Cohort rollup for supervised pilot
+
+Multiple manually shared aggregate reports can be combined offline with:
+
+    npm run pilot:cohort -- report-01.json report-02.json --out cohort.json
+
+The cohort tool validates each input against the aggregate-report contract, rejects forbidden raw analytics keys, skips exact duplicate report content and recomputes conversion rates from combined counts rather than averaging percentages.
+
+The cohort output explicitly uses **reported sessions**, not unique people. Because the application deliberately has no cross-report identity, the rollup cannot deduplicate a person across devices, reinstalls or separately exported non-identical snapshots.
+
+Mixed content versions and source reports that hit the 400-event capacity limit are surfaced as interpretation caveats.
+
+The operating procedure for a 20–50 participant supervised test is documented in [PILOT_RESEARCH_PROTOCOL.md](./PILOT_RESEARCH_PROTOCOL.md).
+
 ## Retention
 
 The local outbox is capped at 400 newest records.
