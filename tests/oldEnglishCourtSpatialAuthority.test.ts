@@ -16,6 +16,29 @@ import {
   getPlaceExperienceCapabilities
 } from '../src/spatial/placeExperienceRegistry.ts';
 
+function binaryReport(filename: string, sha256 = 'a'.repeat(64)) {
+  return {
+    schemaVersion: 1 as const,
+    format: 'glb' as const,
+    filename,
+    sha256,
+    bytes: 900_000,
+    glbVersion: 2,
+    declaredLengthMatches: true,
+    nodes: 120,
+    meshes: 80,
+    primitives: 100,
+    triangles: 80_000,
+    materials: 20,
+    textures: 12,
+    images: 12,
+    animations: 0,
+    skins: 0,
+    externalBuffers: 0,
+    externalImages: 0
+  };
+}
+
 test('Old English Court has its own spatial authority and remains fail-closed without an asset', () => {
   const capabilities = getPlaceExperienceCapabilities('old-english-court');
 
@@ -61,6 +84,7 @@ test('asset intake rejects unknown rights, non-metric scale, missing checksum an
   assert.ok(result.blockers.includes('model-units-not-metric'));
   assert.ok(result.blockers.includes('model-scale-not-verified'));
   assert.ok(result.blockers.includes('model-checksum-missing'));
+  assert.ok(result.blockers.includes('model-binary-report-missing'));
   assert.ok(result.blockers.includes('model-provenance-incomplete'));
 });
 
@@ -74,11 +98,40 @@ test('a fully evidenced model can pass intake without falsely opening the spatia
     rightsEvidenceRef: 'rights-ledger/oec-model-v1',
     modelUnits: 'meters',
     metricScaleStatus: 'verified',
-    checksumSha256: 'a'.repeat(64)
+    checksumSha256: 'a'.repeat(64),
+    binaryReport: binaryReport('old-english-court-model-v1.glb')
   });
 
   assert.equal(intake.modelCandidateAccepted, true);
   assert.deepEqual(intake.blockers, []);
   assert.equal(canOpenModel3d('old-english-court'), false);
   assert.equal(canOpenSpatial('old-english-court'), false);
+});
+
+
+test('asset intake rejects a checksum/report mismatch and over-budget scene', () => {
+  const sha = 'c'.repeat(64);
+  const report = binaryReport('old-english-court-model-v1.glb', 'd'.repeat(64));
+  report.triangles = 200_000;
+
+  const result = evaluateOldEnglishCourtModelCandidate({
+    id: 'old-english-court-model-v1',
+    version: 1,
+    assetPath: 'assets/models/old-english-court-model-v1.glb',
+    sourceIds: [...OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.requiredSourceIds],
+    rightsStatus: 'verified',
+    rightsEvidenceRef: 'rights-ledger/oec-model-v1',
+    modelUnits: 'meters',
+    metricScaleStatus: 'verified',
+    checksumSha256: sha,
+    binaryReport: report
+  });
+
+  assert.equal(result.modelCandidateAccepted, false);
+  assert.ok(result.blockers.includes('model-binary-checksum-mismatch'));
+  assert.ok(
+    result.blockers.some((item) =>
+      item.startsWith('model-binary:mobile-budget-exceeded:triangles:')
+    )
+  );
 });
