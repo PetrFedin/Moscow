@@ -24,7 +24,12 @@ for (let index = 0; index < args.length; index += 1) {
   inputs.push(arg);
 }
 
-if (inputs.length === 0) {
+if (showHelp) {
+  process.stdout.write(
+    'Usage: npm run pilot:cohort -- report1.json report2.json [--out cohort.json]\n' +
+    'Inputs must be aggregate-only reports exported by the Moscow pilot app.\n'
+  );
+} else if (inputs.length === 0) {
   process.stderr.write(
     'Usage: npm run pilot:cohort -- report1.json report2.json [--out cohort.json]\n'
   );
