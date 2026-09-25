@@ -1,7 +1,10 @@
 (function(){
   'use strict';
 
-  var API='https://moscow-fashion-week-authority.onrender.com';\n  var passRefreshTimer=null;\n  var scannerStream=null;\n  var scannerFrame=null;
+  var API='https://moscow-fashion-week-authority.onrender.com';
+  var passRefreshTimer=null;
+  var scannerStream=null;
+  var scannerFrame=null;
   var demoEvents = [
     {id:'e1',time:'17:00',name:'MFW Opening Runway',type:'Показ',venue:'Манеж · Зал 1',status:'LIVE',access:'OPEN'},
     {id:'e2',time:'18:00',name:'New Names: Moscow',type:'Показ',venue:'Манеж · Зал 2',status:'REGISTRATION',access:'OPEN'},
