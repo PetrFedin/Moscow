@@ -149,6 +149,7 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
 
   const sourceIds = new Set(pkg.sources.map((source) => source.id));
   const elementIds = new Set(pkg.elements.map((element) => element.id));
+  const elementsById = new Map(pkg.elements.map((element) => [element.id, element]));
   const eraIds = new Set(pkg.eras.map((era) => era.id));
 
   if (pkg.schemaVersion !== 1) blockers.push('unsupported-schema-version');
@@ -221,7 +222,16 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
       if (!sourceIds.has(sourceId)) blockers.push(`model-source-not-found:${model.id}:${sourceId}`);
     }
     for (const elementId of model.elementIds) {
-      if (!elementIds.has(elementId)) blockers.push(`model-element-not-found:${model.id}:${elementId}`);
+      if (!elementIds.has(elementId)) {
+        blockers.push(`model-element-not-found:${model.id}:${elementId}`);
+        continue;
+      }
+      const element = elementsById.get(elementId);
+      for (const sourceId of element?.sourceIds ?? []) {
+        if (!model.sourceIds.includes(sourceId)) {
+          blockers.push(`model-source-does-not-cover-element:${model.id}:${elementId}:${sourceId}`);
+        }
+      }
     }
     if (!model.runtimeModes.includes('model3d')) warnings.push(`model3d-runtime-not-enabled:${model.id}`);
     if (!model.assetPath.trim() || !model.assetPath.endsWith('.glb')) blockers.push(`model-asset-path-invalid:${model.id}`);
