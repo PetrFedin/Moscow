@@ -143,6 +143,7 @@ test('an accepted model clears only model intake and cannot invent metric or con
     rightsEvidenceRef: 'test-only/oec-model-rights-v1',
     modelUnits: 'meters' as const,
     metricScaleStatus: 'verified' as const,
+    metricScaleEvidenceRef: 'test-only/oec-metric-scale-v1',
     checksumSha256: 'b'.repeat(64),
     binaryReport: binaryReport('old-english-court-model-v1.glb', 'b'.repeat(64))
   };
@@ -157,6 +158,8 @@ test('an accepted model clears only model intake and cannot invent metric or con
   const rightsRequirement = result.intake.requirements.find((item) => item.id === 'oec-model-rights');
   assert.equal(modelRequirement?.status, 'ready');
   assert.equal(rightsRequirement?.status, 'ready');
+  assert.ok(modelRequirement?.evidenceRefs?.includes('test-only/oec-provenance-v1'));
+  assert.ok(modelRequirement?.evidenceRefs?.includes('test-only/oec-metric-scale-v1'));
 
   assert.ok(
     result.validation.promotionBlockers.some((item) =>
