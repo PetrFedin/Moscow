@@ -307,6 +307,7 @@
       '<div class="action-row"><button class="action primary" data-action="camera-scan">Открыть камеру</button><label class="action ghost file-scan">Фото QR<input id="qr-file" type="file" accept="image/*" capture="environment"></label></div>'+
       '<div class="action-row"><button class="action ghost" data-action="checkin-current">Check-in текущего pass</button><button class="action ghost" data-action="checkin-current">Повторить → duplicate</button></div>'+
       '<div class="action-row"><button class="action ghost" data-action="offline-current">Offline verify</button><button class="action danger" data-action="tamper-current">Tampered</button></div>'+
+      '<div class="action-row"><button class="action danger" data-action="test-revoked">Проверить revoked pass</button></div>'+
       '<div class="demo-note"><b>Authority.</b> ES256 signature · 2-minute rotating token · cached public key · cached revocation delta · server duplicate check-in.</div>';
   }
 
@@ -470,7 +471,7 @@
       var html='<div class="eyebrow">MFW ADMIN CONSOLE · SERVER</div><h1 style="font-size:40px">LIVE<br>OPERATIONS</h1>'+
         '<div class="value-grid"><div class="value-card"><div class="n">'+esc(o.activeUsers)+'</div><small>active users</small></div><div class="value-card"><div class="n">'+esc(o.live.occupancyPct)+'%</div><small>occupancy</small></div><div class="value-card"><div class="n">'+esc(o.live.waitlist)+'</div><small>waitlist</small></div></div>'+
         '<h2>Programme CMS</h2>'+events.map(adminEventRow).join('')+
-        '<div class="card" style="margin-top:10px"><div class="eyebrow">LIVE CONTROL</div><div class="metric-row"><b>Checked in</b><strong>'+esc(o.live.checkedIn)+'</strong></div><div class="metric-row"><b>Waitlist</b><strong>'+esc(o.live.waitlist)+'</strong></div><div class="action-row"><button class="action primary" data-action="admin-release">Release 12</button><button class="action ghost" data-action="admin-push">Critical push</button><button class="action ghost" data-action="admin-invite">Send invite</button></div></div>'+
+        '<div class="card" style="margin-top:10px"><div class="eyebrow">LIVE CONTROL</div><div class="metric-row"><b>Checked in</b><strong>'+esc(o.live.checkedIn)+'</strong></div><div class="metric-row"><b>Waitlist</b><strong>'+esc(o.live.waitlist)+'</strong></div><div class="action-row"><button class="action primary" data-action="admin-release">Release 12</button><button class="action ghost" data-action="admin-push">Critical push</button><button class="action ghost" data-action="admin-invite">Send invite</button></div><div class="action-row"><button class="action danger" data-action="admin-revoke">Revoke current pass</button></div></div>'+
         '<h2>Accreditation</h2>'+acc.map(adminAccreditationRow).join('')+
         '<div class="demo-note"><b>Server-backed demo.</b> Все кнопки выше меняют authority state и повторное открытие Console показывает результат.</div>';
       openSheet(html);
@@ -487,6 +488,21 @@
   }
   async function adminInvite(){
     try{await adminApi('/invitations',{method:'POST',body:JSON.stringify({eventId:'e1',recipient:'investor-demo@mfw.local'})});toast('Invitation sent');}catch(e){toast('Invite failed');}
+  }
+  async function adminRevokeCurrent(){
+    try{
+      if(!state.passToken)await ensurePass();
+      if(!state.passToken||!state.passPayload)throw new Error('pass_unavailable');
+      var revokedToken=state.passToken;
+      var jti=state.passPayload.jti;
+      var session=await ensureServerSession('Organizer');
+      await api('/v1/passes/revoke',{method:'POST',headers:{Authorization:'Bearer '+session},body:JSON.stringify({jti:jti,reason:'investor_demo_revoke'})});
+      localStorage.setItem('mfwRevokedDemoToken',revokedToken);
+      state.passToken=null;state.passPayload=null;
+      await cacheOfflineAuthority();
+      toast('Pass revoked · сохранён для Staff demo');
+      openAdminConsole();
+    }catch(e){toast('Revoke failed');}
   }
   async function adminChangeEvent(id,kind){
     var body=kind==='delay'?{startsAt:'2026-09-26T17:15:00+03:00',status:'delayed'}:{venue:'Manege · Hall 3'};
@@ -541,6 +557,12 @@
     if(!state.passToken){state.scannerState='no';state.scannerReason='pass unavailable';render();return;}
     var token=state.passToken;
     if(tamper)token=token.slice(0,-2)+'xx';
+    await checkinToken(token);
+  }
+
+  async function testRevokedPass(){
+    var token=localStorage.getItem('mfwRevokedDemoToken');
+    if(!token){state.scannerState='no';state.scannerReason='Сначала revoke pass в Organizer → Admin Console';render();return;}
     await checkinToken(token);
   }
 
@@ -637,6 +659,7 @@
       else if(a==='admin-release')adminRelease();
       else if(a==='admin-push')adminPush();
       else if(a==='admin-invite')adminInvite();
+      else if(a==='admin-revoke')adminRevokeCurrent();
       else if(a==='admin-delay')adminChangeEvent(el.getAttribute('data-id'),'delay');
       else if(a==='admin-move')adminChangeEvent(el.getAttribute('data-id'),'move');
       else if(a==='admin-approve')adminAccreditation(el.getAttribute('data-id'),'approved');
@@ -655,6 +678,7 @@
       else if(a==='checkin-current'){checkinCurrent(false);}
       else if(a==='offline-current'){offlineCheckinCurrent();}
       else if(a==='tamper-current'){checkinCurrent(true);}
+      else if(a==='test-revoked'){testRevokedPass();}
       else if(a==='restart-onboarding'){localStorage.removeItem('mfwOnboarded');state.onboarding=false;render();}
       else if(a==='finish-onboarding'){completeOnboarding();}
       else if(a==='upvote')toast('Голос учтён в demo');
