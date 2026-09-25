@@ -14,6 +14,7 @@ import { trackTouristEvent } from './analytics/touristAnalytics';
 import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from './analytics/touristAnalyticsContract';
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
+import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
@@ -805,6 +806,7 @@ export default function MoscowExperienceApp() {
                   <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text></View>
                 </View>
               </View>
+              <PilotAnalyticsReportControl language={language} />
               {savedIds.length === 0 ? (
                 <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
