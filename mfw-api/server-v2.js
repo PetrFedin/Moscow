@@ -15,12 +15,18 @@ const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
 
 function validateInvestorBuild(){
   const frontendPath=path.join(__dirname,'..','mfw','app.js');
+  const adminPath=path.join(__dirname,'..','mfw','admin','admin.js');
   const manifestPath=path.join(__dirname,'..','mfw','manifest.webmanifest');
   const frontend=fs.readFileSync(frontendPath,'utf8');
+  const admin=fs.readFileSync(adminPath,'utf8');
   new Function(frontend);
+  new Function(admin);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
   for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
+  }
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release']){
+    if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
 }
 validateInvestorBuild();
