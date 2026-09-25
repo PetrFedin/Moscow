@@ -249,3 +249,26 @@ test('field-verified promotion requires an explicit publication timestamp', () =
     /publishedAt is required/
   );
 });
+
+
+test('field-session ids bind physical device identity instead of timestamp and distance alone', () => {
+  const survey = approvedSurvey();
+  const ios = measuredSession(
+    survey.id,
+    5,
+    'iPhone 16 Pro #1',
+    'ios',
+    localCalibration(2, 'ios-anchor', 0)
+  );
+  const android = measuredSession(
+    survey.id,
+    5,
+    'Pixel 10 Pro #1',
+    'android',
+    localCalibration(3, 'android-anchor', 1)
+  );
+
+  assert.match(ios.id, /ios-iphone-16-pro-1-5m$/);
+  assert.match(android.id, /android-pixel-10-pro-1-5m$/);
+  assert.notEqual(ios.id, android.id);
+});
