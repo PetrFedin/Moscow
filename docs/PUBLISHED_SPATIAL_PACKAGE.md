@@ -67,7 +67,10 @@ Each GLB is bound to the exact repository object through:
 
 - repository path;
 - Git blob SHA;
+- portable SHA-256 of the binary bytes;
 - byte size.
+
+Git blob SHA is the repository-object identity; SHA-256 is the portable integrity identity that can be checked after the package leaves GitHub. The contract tests read every bundled Romanov GLB and recompute SHA-256, so metadata drift cannot pass CI.
 
 A filename alone is not model authority.
 
@@ -107,9 +110,9 @@ A field-verified package must then carry:
 
 - survey packet ID;
 - at least the required field-session evidence;
-- calibration version;
+- calibration version and its exact metric/model-pack binding;
 - verified persistent-anchor proof ID(s);
-- field-verification timestamp;
+- field-verification timestamp derived only from evidence bound to that calibration;
 - empty release blockers;
 - explicit publication timestamp.
 
@@ -127,6 +130,7 @@ The Romanov package keeps the current P0 release contract:
 - verified calibration placement;
 - metric-authoritative scale;
 - persistent-anchor host continuity;
+- internally consistent anchor evidence;
 - independent resolve on another physical device.
 
 Until those evidence packages exist, the Romanov package remains `production-candidate`.
