@@ -19,7 +19,25 @@ const forbiddenAggregateRawKeys = new Set([
   'occurredat'
 ]);
 
-function findForbiddenAggregateRawKeys(value: unknown, path = 'function isCount(value: unknown): value is number {
+function findForbiddenAggregateRawKeys(value: unknown, path = '$'): string[] {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      findForbiddenAggregateRawKeys(item, path + '[' + index + ']')
+    );
+  }
+
+  const found: string[] = [];
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = key.replace(/[_-]/g, '').toLowerCase();
+    const nextPath = path + '.' + key;
+    if (forbiddenAggregateRawKeys.has(normalized)) found.push(nextPath);
+    found.push(...findForbiddenAggregateRawKeys(nested, nextPath));
+  }
+  return found;
+}
+
+function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
