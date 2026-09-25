@@ -13,6 +13,18 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
 
+function validateInvestorBuild(){
+  const frontendPath=path.join(__dirname,'..','mfw','app.js');
+  const manifestPath=path.join(__dirname,'..','mfw','manifest.webmanifest');
+  const frontend=fs.readFileSync(frontendPath,'utf8');
+  new Function(frontend);
+  JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr']){
+    if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
+  }
+}
+validateInvestorBuild();
+
 function deriveKeys(seed){
   let counter=0;
   while(counter<100){
