@@ -1,0 +1,466 @@
+const http = require('http');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const QRCode = require('qrcode');
+let Pool = null;
+try { ({ Pool } = require('pg')); } catch (_) {}
+
+const PORT = Number(process.env.PORT || 10000);
+const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
+const VERSION = 'mfw-authority-v2';
+const DATABASE_URL = process.env.DATABASE_URL || '';
+const PRIVATE_KEY = (process.env.MFW_ES256_PRIVATE_KEY || '').replace(/\\n/g,'\n');
+const PUBLIC_KEY = (process.env.MFW_ES256_PUBLIC_KEY || '').replace(/\\n/g,'\n');
+const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'demo-admin-change-before-production';
+
+if (!PRIVATE_KEY || !PUBLIC_KEY) throw new Error('MFW ES256 keys are required');
+
+function b64u(input) {
+  return Buffer.from(input).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+}
+function ub64u(input) {
+  input=input.replace(/-/g,'+').replace(/_/g,'/');
+  while(input.length%4) input+='=';
+  return Buffer.from(input,'base64');
+}
+function json(res,status,data,extraHeaders={}) {
+  const body=JSON.stringify(data);
+  res.writeHead(status,Object.assign({
+    'Content-Type':'application/json; charset=utf-8',
+    'Content-Length':Buffer.byteLength(body),
+    'Access-Control-Allow-Origin':ORIGIN,
+    'Access-Control-Allow-Headers':'Content-Type, Authorization, X-MFW-Admin',
+    'Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS',
+    'Vary':'Origin',
+    'Cache-Control':'no-store',
+    'X-Content-Type-Options':'nosniff',
+    'X-Frame-Options':'DENY',
+    'Referrer-Policy':'no-referrer'
+  },extraHeaders));
+  res.end(body);
+}
+function text(res,status,body,type='text/plain; charset=utf-8') {
+  res.writeHead(status,{
+    'Content-Type':type,
+    'Content-Length':Buffer.byteLength(body),
+    'Access-Control-Allow-Origin':ORIGIN,
+    'Cache-Control':'no-store',
+    'X-Content-Type-Options':'nosniff'
+  });
+  res.end(body);
+}
+function readBody(req) {
+  return new Promise((resolve,reject)=>{
+    let data='';
+    req.on('data',chunk=>{
+      data+=chunk;
+      if(data.length>250000) reject(new Error('body_too_large'));
+    });
+    req.on('end',()=>{
+      if(!data) return resolve({});
+      try{ resolve(JSON.parse(data)); } catch(_){ reject(new Error('invalid_json')); }
+    });
+    req.on('error',reject);
+  });
+}
+function adminOk(req){ return req.headers['x-mfw-admin']===ADMIN_TOKEN; }
+
+const keyObj=crypto.createPublicKey(PUBLIC_KEY);
+const publicJwk=keyObj.export({format:'jwk'});
+
+function signPayload(payload) {
+  const header={alg:'ES256',typ:'MFW-PASS',kid:'mfw-demo-2026-01'};
+  const encodedHeader=b64u(JSON.stringify(header));
+  const encodedPayload=b64u(JSON.stringify(payload));
+  const input=encodedHeader+'.'+encodedPayload;
+  const signature=crypto.sign('sha256',Buffer.from(input),{
+    key:PRIVATE_KEY,
+    dsaEncoding:'ieee-p1363'
+  });
+  return input+'.'+b64u(signature);
+}
+function verifyToken(token) {
+  if(!token || typeof token!=='string') return {ok:false,reason:'missing'};
+  const parts=token.split('.');
+  if(parts.length!==3) return {ok:false,reason:'malformed'};
+  const input=parts[0]+'.'+parts[1];
+  let payload;
+  try{ payload=JSON.parse(ub64u(parts[1]).toString('utf8')); }
+  catch(_){ return {ok:false,reason:'bad_payload'}; }
+  const signature=ub64u(parts[2]);
+  const ok=crypto.verify('sha256',Buffer.from(input),{
+    key:PUBLIC_KEY,
+    dsaEncoding:'ieee-p1363'
+  },signature);
+  if(!ok) return {ok:false,reason:'bad_signature',payload};
+  if(payload.exp && Date.now()>=payload.exp) return {ok:false,reason:'expired',payload};
+  return {ok:true,payload};
+}
+
+let pool=null;
+if(DATABASE_URL && Pool){
+  pool=new Pool({connectionString:DATABASE_URL,max:5,connectionTimeoutMillis:5000,idleTimeoutMillis:30000});
+}
+
+const memory={
+  users:new Map(),
+  sessions:new Map(),
+  passes:new Map(),
+  revoked:new Map(),
+  checkins:new Map(),
+  meetings:new Map(),
+  analytics:[],
+  events:[
+    {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
+    {id:'e2',season:'SS27',title:'New Names: Moscow',type:'show',venue:'Manege Hall 2',startsAt:'2026-09-26T18:00:00+03:00',status:'published',accessMode:'registration',capacity:420,checkedIn:0,waitlist:18,demo:true},
+    {id:'e3',season:'SS27',title:'Buyer Perspective',type:'talk',venue:'Lecture Hall',startsAt:'2026-09-26T19:00:00+03:00',status:'published',accessMode:'open',capacity:180,checkedIn:0,waitlist:0,demo:true}
+  ],
+  brands:[
+    {id:'b1',slug:'mfw-new-01',name:'MFW / NEW 01',city:'Moscow',segment:'Emerging Womenswear',demo:true},
+    {id:'b2',slug:'mfw-studio-02',name:'MFW / STUDIO 02',city:'Saint Petersburg',segment:'Contemporary Unisex',demo:true}
+  ]
+};
+
+async function query(sql,params=[]){
+  if(!pool) return null;
+  return pool.query(sql,params);
+}
+
+async function migrate(){
+  if(!pool) return;
+  await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations(
+    filename text PRIMARY KEY,
+    applied_at timestamptz NOT NULL DEFAULT now()
+  )`);
+  const dir=path.join(__dirname,'migrations');
+  const files=fs.readdirSync(dir).filter(f=>f.endsWith('.sql')).sort();
+  for(const file of files){
+    const seen=await pool.query('SELECT 1 FROM schema_migrations WHERE filename=$1',[file]);
+    if(seen.rowCount) continue;
+    const sql=fs.readFileSync(path.join(dir,file),'utf8');
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query('INSERT INTO schema_migrations(filename) VALUES($1)',[file]);
+      await client.query('COMMIT');
+      console.log(JSON.stringify({event:'migration_applied',file}));
+    }catch(err){
+      await client.query('ROLLBACK');
+      throw err;
+    }finally{ client.release(); }
+  }
+}
+
+async function bootstrapDemoData(){
+  if(!pool) return;
+  const venue=await pool.query(`INSERT INTO venues(code,name,address)
+    VALUES('MANEGE','Manege','Moscow')
+    ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name
+    RETURNING id`);
+  const venueId=venue.rows[0].id;
+  const zone=await pool.query(`INSERT INTO zones(venue_id,code,name,capacity)
+    VALUES($1,'HALL1','Hall 1',500)
+    ON CONFLICT(venue_id,code) DO UPDATE SET capacity=EXCLUDED.capacity
+    RETURNING id`,[venueId]);
+  for(const e of memory.events){
+    await pool.query(`INSERT INTO events(external_key,season,title,event_type,venue_id,zone_id,starts_at,status,access_mode,capacity,metadata)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      ON CONFLICT(external_key) DO UPDATE SET title=EXCLUDED.title,starts_at=EXCLUDED.starts_at,status=EXCLUDED.status,access_mode=EXCLUDED.access_mode,capacity=EXCLUDED.capacity,updated_at=now()`,
+      [e.id,e.season,e.title,e.type,venueId,zone.rows[0].id,e.startsAt,e.status,e.accessMode,e.capacity,JSON.stringify({demo:true})]);
+  }
+  for(const b of memory.brands){
+    await pool.query(`INSERT INTO brands(slug,name,city,status,metadata)
+      VALUES($1,$2,$3,'published',$4)
+      ON CONFLICT(slug) DO UPDATE SET name=EXCLUDED.name,city=EXCLUDED.city,updated_at=now()`,
+      [b.slug,b.name,b.city,JSON.stringify({segment:b.segment,demo:true})]);
+  }
+}
+
+async function track(name,props={},userId=null){
+  if(pool && userId && /^[0-9a-f-]{36}$/i.test(userId)){
+    await pool.query('INSERT INTO analytics_events(user_id,event_name,properties) VALUES($1,$2,$3)',[userId,name,props]).catch(()=>{});
+  }else{
+    memory.analytics.push({name,props,userId,at:new Date().toISOString()});
+    if(memory.analytics.length>5000) memory.analytics.shift();
+  }
+}
+
+async function issueDemoUser(name,role){
+  if(pool){
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      const syntheticPhone='+7999'+crypto.createHash('sha256').update(name+role).digest('hex').replace(/[a-f]/g,'').slice(0,7).padEnd(7,'0');
+      const u=await client.query(`INSERT INTO users(phone)
+        VALUES($1)
+        ON CONFLICT(phone) DO UPDATE SET updated_at=now()
+        RETURNING id`,[syntheticPhone]);
+      await client.query(`INSERT INTO profiles(user_id,display_name,primary_role)
+        VALUES($1,$2,$3)
+        ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,primary_role=EXCLUDED.primary_role,updated_at=now()`,
+        [u.rows[0].id,name,role.toLowerCase()]);
+      await client.query('COMMIT');
+      return u.rows[0].id;
+    }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
+  }
+  const id='demo_'+crypto.createHash('sha256').update(name+role).digest('hex').slice(0,12);
+  memory.users.set(id,{id,name,role});
+  return id;
+}
+
+async function issuePass({userId,role,entitlements,eventId}){
+  const now=Date.now();
+  const jti='pass_'+crypto.randomBytes(10).toString('hex');
+  const payload={
+    iss:'mfw',
+    typ:'event-pass',
+    jti,
+    sub:userId,
+    role,
+    eventId:eventId||null,
+    entitlements:Array.isArray(entitlements)?entitlements.slice(0,20):['public_programme'],
+    iat:now,
+    nbf:now-5000,
+    exp:now+120000,
+    rot:Math.floor(now/30000),
+    demo:true
+  };
+  const token=signPayload(payload);
+  if(pool && /^[0-9a-f-]{36}$/i.test(userId)){
+    await pool.query(`INSERT INTO passes(user_id,jti,public_payload,expires_at)
+      VALUES($1,$2,$3,to_timestamp($4/1000.0))`,[userId,jti,payload,payload.exp]).catch(()=>{});
+  }else{
+    memory.passes.set(jti,{payload,token,revoked:false});
+  }
+  return {token,payload,refreshAfterMs:45000,expiresInMs:payload.exp-now};
+}
+
+async function isRevoked(jti){
+  if(pool){
+    const r=await pool.query('SELECT revoked_at,revoke_reason FROM passes WHERE jti=$1',[jti]);
+    if(r.rowCount && r.rows[0].revoked_at) return {revoked:true,reason:r.rows[0].revoke_reason||'revoked'};
+  }
+  const r=memory.revoked.get(jti);
+  return r ? {revoked:true,reason:r.reason||'revoked'} : {revoked:false};
+}
+
+async function revokePass(jti,reason){
+  if(pool){
+    const r=await pool.query('UPDATE passes SET revoked_at=now(),revoke_reason=$2 WHERE jti=$1 RETURNING jti',[jti,reason||'revoked']);
+    if(r.rowCount) return true;
+  }
+  memory.revoked.set(jti,{reason:reason||'revoked',at:Date.now()});
+  return true;
+}
+
+async function checkin({token,eventId,scannerId,offline=false}){
+  const v=verifyToken(token);
+  if(!v.ok) return {ok:false,status:'invalid',reason:v.reason};
+  const revoked=await isRevoked(v.payload.jti);
+  if(revoked.revoked) return {ok:false,status:'revoked',reason:revoked.reason,payload:v.payload};
+  if(v.payload.eventId && eventId && v.payload.eventId!==eventId) return {ok:false,status:'wrong_event',reason:'event_mismatch',payload:v.payload};
+
+  const userId=v.payload.sub;
+  const key=(eventId||v.payload.eventId||'any')+':'+userId;
+  if(pool && /^[0-9a-f-]{36}$/i.test(userId)){
+    const event=await pool.query('SELECT id FROM events WHERE external_key=$1 OR id::text=$1 LIMIT 1',[eventId||v.payload.eventId||'e1']);
+    if(!event.rowCount) return {ok:false,status:'invalid',reason:'event_not_found'};
+    try{
+      const p=await pool.query('SELECT id FROM passes WHERE jti=$1',[v.payload.jti]);
+      const z=await pool.query('SELECT zone_id FROM events WHERE id=$1',[event.rows[0].id]);
+      await pool.query(`INSERT INTO checkins(event_id,user_id,pass_id,zone_id,scanner_id,verified_online,metadata)
+        VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [event.rows[0].id,userId,p.rows[0]?.id||null,z.rows[0]?.zone_id||null,scannerId||'demo-scanner',!offline,JSON.stringify({jti:v.payload.jti})]);
+    }catch(err){
+      if(err && err.code==='23505') return {ok:false,status:'duplicate',reason:'already_checked_in',payload:v.payload};
+      throw err;
+    }
+  }else{
+    if(memory.checkins.has(key)) return {ok:false,status:'duplicate',reason:'already_checked_in',payload:v.payload,first:memory.checkins.get(key)};
+    memory.checkins.set(key,{eventId,userId,jti:v.payload.jti,scannerId,at:new Date().toISOString(),offline:!!offline});
+  }
+  await track('checkin',{eventId,jti:v.payload.jti,offline:!!offline},userId);
+  return {ok:true,status:'valid',payload:v.payload,checkedInAt:new Date().toISOString()};
+}
+
+function overview(){
+  const analytics=memory.analytics;
+  const count=n=>analytics.filter(x=>x.name===n).length;
+  return {
+    demo:true,
+    dataMode:pool?'postgres':'memory',
+    activeUsers:8400,
+    programmeEngagementPct:71,
+    buyerActions:312,
+    savedLooks:1900+count('look_saved'),
+    brandOpens:6100+count('brand_followed'),
+    meetingRequests:48+memory.meetings.size,
+    partnerIntent:487,
+    live:{
+      eventId:'e1',
+      capacity:500,
+      checkedIn:428,
+      waitlist:37,
+      occupancyPct:86
+    }
+  };
+}
+
+const buckets=new Map();
+function rateLimit(req){
+  const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'unknown').split(',')[0].trim();
+  const minute=Math.floor(Date.now()/60000);
+  const key=ip+':'+minute;
+  const n=(buckets.get(key)||0)+1;
+  buckets.set(key,n);
+  if(buckets.size>3000){for(const k of buckets.keys())if(!k.endsWith(':'+minute))buckets.delete(k);}
+  return n<=180;
+}
+
+async function router(req,res){
+  if(req.method==='OPTIONS') return json(res,204,{});
+  if(!rateLimit(req)) return json(res,429,{error:'rate_limited'});
+  const url=new URL(req.url,'http://localhost');
+  const p=url.pathname;
+
+  if(req.method==='GET'&&p==='/health') return json(res,200,{
+    status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
+    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true
+  });
+  if(req.method==='GET'&&p==='/v1/authority/public-key') return json(res,200,{
+    alg:'ES256',kid:'mfw-demo-2026-01',jwk:publicJwk,pem:PUBLIC_KEY
+  });
+  if(req.method==='GET'&&p==='/v1/authority/revocations'){
+    const revoked=[...memory.revoked.entries()].map(([jti,v])=>({jti,...v}));
+    return json(res,200,{generatedAt:new Date().toISOString(),revoked,demo:true});
+  }
+  if(req.method==='GET'&&p==='/v1/events'){
+    if(pool){
+      const r=await pool.query(`SELECT external_key AS id,season,title,event_type AS type,starts_at AS "startsAt",status,access_mode AS "accessMode",capacity,metadata FROM events ORDER BY starts_at`);
+      return json(res,200,{data:r.rows,demo:true,source:'postgres'});
+    }
+    return json(res,200,{data:memory.events,demo:true,source:'memory'});
+  }
+  if(req.method==='GET'&&p==='/v1/brands'){
+    if(pool){
+      const r=await pool.query('SELECT id,slug,name,city,country,description,status,metadata FROM brands WHERE status=$1 ORDER BY name',['published']);
+      return json(res,200,{data:r.rows,demo:true,source:'postgres'});
+    }
+    return json(res,200,{data:memory.brands,demo:true,source:'memory'});
+  }
+
+  if(req.method==='POST'&&p==='/v1/auth/demo'){
+    const b=await readBody(req);
+    const name=String(b.name||'Demo User').slice(0,120);
+    const role=String(b.role||'Visitor').slice(0,40);
+    const userId=await issueDemoUser(name,role);
+    const sessionPayload={typ:'session',sub:userId,role,name,iat:Date.now(),exp:Date.now()+6*60*60*1000,demo:true};
+    const session=signPayload(sessionPayload);
+    memory.sessions.set(userId,{session,sessionPayload});
+    await track('auth_demo',{role},userId);
+    return json(res,200,{user:{id:userId,name,role,demo:true},session,dataMode:pool?'postgres':'memory'});
+  }
+
+  if(req.method==='POST'&&p==='/v1/passes/issue'){
+    const b=await readBody(req);
+    const pass=await issuePass({
+      userId:String(b.userId||'demo_user'),
+      role:String(b.role||'Visitor'),
+      entitlements:b.entitlements,
+      eventId:b.eventId||null
+    });
+    await track('pass_issued',{jti:pass.payload.jti,eventId:pass.payload.eventId},pass.payload.sub);
+    return json(res,201,pass);
+  }
+  if(req.method==='POST'&&p==='/v1/passes/verify'){
+    const b=await readBody(req);
+    const v=verifyToken(b.token);
+    if(!v.ok) return json(res,401,v);
+    const revoked=await isRevoked(v.payload.jti);
+    if(revoked.revoked) return json(res,401,{ok:false,reason:'revoked',payload:v.payload});
+    return json(res,200,{ok:true,payload:v.payload});
+  }
+  if(req.method==='POST'&&p==='/v1/passes/qr'){
+    const b=await readBody(req);
+    const v=verifyToken(b.token);
+    if(!v.ok) return json(res,400,{error:'invalid_pass'});
+    const svg=await QRCode.toString('MFW:'+b.token,{
+      type:'svg',errorCorrectionLevel:'M',margin:1,width:512,
+      color:{dark:'#050505',light:'#ffffff'}
+    });
+    return text(res,200,svg,'image/svg+xml; charset=utf-8');
+  }
+  if(req.method==='POST'&&p==='/v1/passes/revoke'){
+    if(!adminOk(req)) return json(res,403,{error:'admin_required'});
+    const b=await readBody(req);
+    await revokePass(String(b.jti||''),String(b.reason||'revoked'));
+    await track('pass_revoked',{jti:b.jti,reason:b.reason});
+    return json(res,200,{ok:true,jti:b.jti});
+  }
+  if(req.method==='POST'&&p==='/v1/checkins'){
+    const b=await readBody(req);
+    const result=await checkin({
+      token:b.token,eventId:String(b.eventId||'e1'),scannerId:String(b.scannerId||'iphone-demo'),offline:!!b.offline
+    });
+    return json(res,result.ok?201:(result.status==='duplicate'?409:401),result);
+  }
+
+  if(req.method==='POST'&&p==='/v1/meetings'){
+    const b=await readBody(req);
+    const id='mtg_'+crypto.randomBytes(8).toString('hex');
+    const meeting={id,brandId:String(b.brandId||'b1'),buyerId:String(b.buyerId||'demo_buyer'),slot:String(b.slot||'14:30'),status:'confirmed',createdAt:new Date().toISOString(),demo:true};
+    memory.meetings.set(id,meeting);
+    await track('meeting_confirmed',meeting,meeting.buyerId);
+    return json(res,201,{data:meeting});
+  }
+  if(req.method==='POST'&&p==='/v1/analytics/track'){
+    const b=await readBody(req);
+    await track(String(b.type||'unknown').slice(0,100),b.meta||{},b.userId||null);
+    return json(res,202,{accepted:true});
+  }
+  if(req.method==='GET'&&p==='/v1/analytics/overview') return json(res,200,{data:overview()});
+
+  if(p.startsWith('/v1/admin/')){
+    if(!adminOk(req)) return json(res,403,{error:'admin_required'});
+    if(req.method==='GET'&&p==='/v1/admin/overview') return json(res,200,{data:overview()});
+    if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
+    if(req.method==='PATCH'&&p.startsWith('/v1/admin/events/')){
+      const id=p.split('/').pop();
+      const b=await readBody(req);
+      const e=memory.events.find(x=>x.id===id);
+      if(!e) return json(res,404,{error:'event_not_found'});
+      const before={...e};
+      for(const k of ['title','venue','startsAt','status','accessMode','capacity','waitlist','checkedIn']){
+        if(Object.prototype.hasOwnProperty.call(b,k)) e[k]=b[k];
+      }
+      await track('admin_event_updated',{id,before,after:e});
+      return json(res,200,{data:e});
+    }
+    if(req.method==='POST'&&p==='/v1/admin/waitlist/release'){
+      const b=await readBody(req);
+      const e=memory.events.find(x=>x.id===String(b.eventId||'e1'));
+      if(!e) return json(res,404,{error:'event_not_found'});
+      const count=Math.max(0,Math.min(Number(b.count||0),e.waitlist||0));
+      e.waitlist=Math.max(0,(e.waitlist||0)-count);
+      await track('waitlist_released',{eventId:e.id,count});
+      return json(res,200,{released:count,event:e});
+    }
+  }
+
+  return json(res,404,{error:'not_found'});
+}
+
+async function main(){
+  await migrate();
+  await bootstrapDemoData();
+  const server=http.createServer((req,res)=>router(req,res).catch(err=>{
+    console.error(err);
+    json(res,500,{error:'internal_error'});
+  }));
+  server.listen(PORT,'0.0.0.0',()=>{
+    console.log(JSON.stringify({event:'mfw_api_started',version:VERSION,port:PORT,dataMode:pool?'postgres':'memory'}));
+  });
+}
+main().catch(err=>{console.error(err);process.exit(1);});
