@@ -1,7 +1,11 @@
 import { isSameCalibrationSnapshot, type CalibrationProfile } from './calibration.ts';
-import type { RomanovFieldSession } from './fieldVerification.ts';
+import {
+  isFieldSessionEvidenceAuthoritative,
+  type RomanovFieldSession
+} from './fieldVerification.ts';
 import {
   isIndependentAnchorResolve,
+  isPersistentAnchorEvidenceConsistent,
   isPersistentAnchorFrameAuthoritative,
   type RomanovPersistentAnchor
 } from './persistentAnchor.ts';
@@ -10,22 +14,22 @@ import {
   type PublishedSpatialPackage
 } from './publishedSpatialPackage.ts';
 import { romanovPublishedCandidate } from './romanovPublishedCandidate.ts';
+import { isCurrentRomanovMetricBinding } from './romanovMetricAuthority.ts';
 import { summarizeRomanovReleaseGate } from './romanovReleaseGate.ts';
 import type { RomanovSurveyPacket } from './romanovSurvey.ts';
 
-function verifiedAnchorProofIds(
+function verifiedAnchorsForCalibration(
   anchors: RomanovPersistentAnchor[],
   calibration: CalibrationProfile
 ) {
-  return anchors
-    .filter((anchor) =>
-      anchor.state === 'verified'
-      && anchor.calibrationVersion === calibration.version
-      && isSameCalibrationSnapshot(anchor.calibration, calibration)
-      && isPersistentAnchorFrameAuthoritative(anchor)
-      && isIndependentAnchorResolve(anchor)
-    )
-    .map((anchor) => anchor.id);
+  return anchors.filter((anchor) =>
+    anchor.state === 'verified'
+    && anchor.calibrationVersion === calibration.version
+    && isSameCalibrationSnapshot(anchor.calibration, calibration)
+    && isPersistentAnchorFrameAuthoritative(anchor)
+    && isPersistentAnchorEvidenceConsistent(anchor)
+    && isIndependentAnchorResolve(anchor)
+  );
 }
 
 function latestVerificationTimestamp(
@@ -34,7 +38,7 @@ function latestVerificationTimestamp(
 ) {
   const timestamps = [
     calibration.verifiedAt,
-    ...anchors.map((anchor) => anchor.verifiedAt)
+    ...verifiedAnchorsForCalibration(anchors, calibration).map((anchor) => anchor.verifiedAt)
   ].filter((value): value is string => Boolean(value?.trim()));
 
   return timestamps.sort().at(-1);
@@ -62,9 +66,15 @@ export function buildRomanovPublishedPackageFromEvidence(input: {
     anchors: input.anchors
   });
 
-  const verifiedAnchorIds = verifiedAnchorProofIds(input.anchors, input.calibration);
+  const verifiedAnchors = verifiedAnchorsForCalibration(input.anchors, input.calibration);
+  const verifiedAnchorIds = verifiedAnchors.map((anchor) => anchor.id);
   const eligibleSessionIds = input.sessions
-    .filter((session) => session.surveyPacketId === input.survey.id && session.passed)
+    .filter((session) =>
+      session.surveyPacketId === input.survey.id
+      && session.passed
+      && isCurrentRomanovMetricBinding(session.metricBinding)
+      && isFieldSessionEvidenceAuthoritative(session)
+    )
     .map((session) => session.id);
 
   if (gate.state === 'field-verified-spatial-scene' && !input.publishedAt?.trim()) {
@@ -85,6 +95,13 @@ export function buildRomanovPublishedPackageFromEvidence(input: {
       minimumFieldSessions: 12,
       releaseGateState: gate.state,
       calibrationVersion: input.calibration.version,
+      calibrationMetricBinding: input.calibration.metricBinding
+        ? {
+            metricAuthorityId: input.calibration.metricBinding.metricAuthorityId,
+            metricAuthorityVersion: input.calibration.metricBinding.metricAuthorityVersion,
+            modelPackVersion: input.calibration.metricBinding.modelPackVersion
+          }
+        : undefined,
       surveyVerified: gate.surveyComplete,
       surveyPacketId: input.survey.id,
       multiDeviceMatrixPassed: gate.fieldMatrixComplete,
