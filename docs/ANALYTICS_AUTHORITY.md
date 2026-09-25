@@ -103,6 +103,37 @@ The current schema supports:
 
 Not every tourist is expected to produce every event.
 
+## Pilot aggregate report
+
+The local event authority now has a separate aggregate reporting layer for supervised pilot research.
+
+The report deliberately exposes counts and conversion rates, not raw event rows. It includes:
+
+- local session count — explicitly sessions, not people or unique users;
+- route starts, first-stop completion, route completion and post-walk continuation;
+- physical-proximity, audio, transcript, mission, Time Machine, archive, 3D and AR engagement counts;
+- route-start mix by origin, time budget, interest and language;
+- manual vs audio-auto stop completion;
+- recorded vs TTS fallback audio;
+- per-place aggregate engagement.
+
+The main route funnel does not require `stop_arrive`. Physical arrival is kept as a separate evidence metric because a tourist may deny location permission or complete a stop manually.
+
+The report omits raw:
+
+- session IDs;
+- event IDs;
+- event timestamps;
+- coordinates and distance;
+- device or advertising identity;
+- personal data.
+
+On iOS/Android, a tester can manually invoke the system share sheet from **My Moscow**. The exported JSON is regenerated from the local outbox and contains only the aggregate report. Nothing is uploaded automatically.
+
+The web QA build shows the aggregate preview but does not pretend to provide the native share workflow.
+
+If the local outbox reaches its 400-event cap, the report marks itself as potentially truncated because earlier events may have been evicted. This prevents a full outbox from being interpreted as a complete longitudinal dataset.
+
 ## Retention
 
 The local outbox is capped at 400 newest records.
@@ -111,7 +142,7 @@ A new app runtime creates a new ephemeral session id. There is no persistent vis
 
 ## Next step
 
-After real pilot use proves the event semantics, a separate analytics transport can be evaluated. Before enabling upload, define:
+After real pilot use proves the event semantics and the aggregate report is used with the first supervised testers, a separate analytics transport can be evaluated. Before enabling upload, define:
 
 1. lawful/consented collection mode for the target deployment;
 2. retention period;
