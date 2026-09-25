@@ -94,6 +94,8 @@ export default function MoscowExperienceApp() {
   const [routeBudgetMinutes, setRouteBudgetMinutes] = useState<TouristTimeBudget>(45);
   const [routeInterest, setRouteInterest] = useState<TouristInterest>('highlights');
   const [routeStopIds, setRouteStopIds] = useState<string[]>([...pilotRoute.stopIds]);
+  const [routeCompletedStopIds, setRouteCompletedStopIds] = useState<string[]>([]);
+  const [routeFinished, setRouteFinished] = useState(false);
   const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -111,6 +113,7 @@ export default function MoscowExperienceApp() {
   const arrivalTrackedRef = useRef(new Set<string>());
   const routeCompleteTrackedRef = useRef(new Set<string>());
   const timeMachineTrackedRef = useRef(new Set<string>());
+  const recapTrackedRef = useRef(new Set<string>());
 
   const ui = copy[language];
   const tabLabels: Record<Tab, string> = {
@@ -171,6 +174,8 @@ export default function MoscowExperienceApp() {
         setRouteBudgetMinutes(parsed.routeBudgetMinutes);
         setRouteInterest(parsed.routeInterest);
         setRouteStopIds(parsed.routeStopIds);
+        setRouteCompletedStopIds(parsed.routeCompletedStopIds);
+        setRouteFinished(parsed.routeFinished);
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
       })
@@ -195,7 +200,7 @@ export default function MoscowExperienceApp() {
   }, [hydrated, language, tab]);
 
   useEffect(() => {
-    if (!hydrated || tab !== 'walk' || !routePlace) return;
+    if (!hydrated || tab !== 'walk' || routeFinished || !routePlace) return;
     const key = `${analyticsRouteKey}:${routeStep}:${routePlace.id}`;
     if (stopPresentedTrackedRef.current.has(key)) return;
     stopPresentedTrackedRef.current.add(key);
@@ -207,7 +212,7 @@ export default function MoscowExperienceApp() {
       stopCount: activeRoutePlan.stopIds.length,
       language
     });
-  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routePlace, routeStep, tab]);
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routePlace, routeStep, tab]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -226,11 +231,13 @@ export default function MoscowExperienceApp() {
       routeBudgetMinutes,
       routeInterest,
       routeStopIds,
+      routeCompletedStopIds,
+      routeFinished,
       missionDoneIds,
       walkAutoAudio
     };
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -287,8 +294,25 @@ export default function MoscowExperienceApp() {
   const roundedTime = selected ? Math.min(Math.round(timeValue), selected.periods.length) : 0;
   const todaySelected = Boolean(selected && roundedTime === selected.periods.length);
   const activePeriod = selected?.periods[roundedTime];
-  const completedRouteStops = activeRoutePlan.stopIds.filter((id) => visitedIds.includes(id)).length;
+  const completedRouteStops = activeRoutePlan.stopIds.filter((id) => routeCompletedStopIds.includes(id)).length;
+  const routeMissionCount = activeRoutePlan.stopIds.filter((id) => missionDoneIds.includes(`observation:${id}:v1`)).length;
+  const routeSavedCount = activeRoutePlan.stopIds.filter((id) => savedIds.includes(id)).length;
   const progress = Math.round((completedRouteStops / Math.max(1, activeRoutePlan.stopIds.length)) * 100);
+
+  useEffect(() => {
+    if (!hydrated || tab !== 'walk' || !routeFinished) return;
+    const key = `${analyticsRouteKey}:recap`;
+    if (recapTrackedRef.current.has(key)) return;
+    recapTrackedRef.current.add(key);
+    void trackTouristEvent({
+      event: 'walk_recap_view',
+      routeId: pilotRoute.id,
+      stopCount: activeRoutePlan.stopIds.length,
+      missionCount: routeMissionCount,
+      savedCount: routeSavedCount,
+      language
+    });
+  }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routeMissionCount, routeSavedCount, tab]);
 
   const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
     stopPresentedTrackedRef.current.clear();
@@ -296,6 +320,7 @@ export default function MoscowExperienceApp() {
     arrivalTrackedRef.current.clear();
     const nextRouteKey = `${plan.budgetMinutes}:${plan.interest}:${plan.stopIds.join('>')}`;
     routeCompleteTrackedRef.current.delete(nextRouteKey);
+    recapTrackedRef.current.delete(`${nextRouteKey}:recap`);
     void trackTouristEvent({
       event: 'route_start',
       origin,
@@ -308,6 +333,8 @@ export default function MoscowExperienceApp() {
     setRouteBudgetMinutes(plan.budgetMinutes);
     setRouteInterest(plan.interest);
     setRouteStopIds(plan.stopIds);
+    setRouteCompletedStopIds([]);
+    setRouteFinished(false);
     setRouteStep(0);
     setTab('walk');
   };
@@ -325,6 +352,11 @@ export default function MoscowExperienceApp() {
   };
 
   const openWalkFromHero = () => {
+    if (routeFinished) {
+      startTouristPlan(activeRoutePlan, 'hero');
+      return;
+    }
+
     if (completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length) {
       void trackTouristEvent({
         event: 'route_resume',
@@ -372,9 +404,32 @@ export default function MoscowExperienceApp() {
     }
 
     setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    if (!finalStep) {
+    setRouteCompletedStopIds((current) => current.includes(placeId) ? current : [...current, placeId]);
+    if (finalStep) {
+      setRouteFinished(true);
+    } else {
       setRouteStep((current) => current + 1);
     }
+  };
+
+  const continueAfterWalk = (destination: 'map' | 'saved') => {
+    void trackTouristEvent({
+      event: 'continue_explore',
+      routeId: pilotRoute.id,
+      destination,
+      language
+    });
+    setTab(destination);
+  };
+
+  const repeatActiveWalk = () => {
+    void trackTouristEvent({
+      event: 'continue_explore',
+      routeId: pilotRoute.id,
+      destination: 'repeat',
+      language
+    });
+    startTouristPlan(activeRoutePlan, 'recap');
   };
 
   const recordProximityArrival = (placeId: string) => {
@@ -481,11 +536,13 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.heroBody}>{ui.heroBody}</Text>
                 <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
                   <Text style={styles.primaryText}>
-                    {completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
-                      ? (language === 'ru'
-                        ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
-                        : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
-                      : ui.start}
+                    {routeFinished
+                      ? (language === 'ru' ? 'Пройти Варварку ещё раз' : 'Walk Varvarka again')
+                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
+                        ? (language === 'ru'
+                          ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
+                          : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
+                        : ui.start}
                   </Text>
                 </PhysicalPressable>
               </View>
@@ -635,12 +692,74 @@ export default function MoscowExperienceApp() {
                       : routeInterest}
                 </Text>
                 <View style={styles.progress}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
-                <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={language === 'ru' ? 'Поставить прогулку на паузу' : 'Pause walk'}>
-                  <Text style={styles.pauseWalkText}>{language === 'ru' ? 'Пауза · вернуться к обзору' : 'Pause · back to Discover'}</Text>
-                </PhysicalPressable>
+                {!routeFinished && (
+                  <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={language === 'ru' ? 'Поставить прогулку на паузу' : 'Pause walk'}>
+                    <Text style={styles.pauseWalkText}>{language === 'ru' ? 'Пауза · вернуться к обзору' : 'Pause · back to Discover'}</Text>
+                  </PhysicalPressable>
+                )}
               </View>
-              <OfflineRoutePackControl language={language} />
-              {routePlace && (
+              {!routeFinished && <OfflineRoutePackControl language={language} />}
+              {routeFinished ? (
+                <View style={styles.storyCard}>
+                  <Text style={styles.kicker}>{language === 'ru' ? 'МАРШРУТ ЗАВЕРШЁН' : 'WALK COMPLETE'}</Text>
+                  <Text style={styles.storyTitle}>{language === 'ru' ? 'Варварка пройдена' : 'Varvarka complete'}</Text>
+                  <Text style={styles.storyBody}>
+                    {language === 'ru'
+                      ? 'Текущая прогулка закрыта. Открытые места и наблюдения остаются в «Моя Москва», а повтор маршрута сбросит только прогресс этой прогулки.'
+                      : 'This walk is complete. Places and observations stay in My Moscow; repeating the route resets only this walk’s progress.'}
+                  </Text>
+
+                  <View style={styles.statsRow}>
+                    <View style={styles.stat}>
+                      <Text style={styles.statValue}>{activeRoutePlan.stopIds.length}</Text>
+                      <Text style={styles.statLabel}>{language === 'ru' ? 'мест пройдено' : 'stops completed'}</Text>
+                    </View>
+                    <View style={styles.stat}>
+                      <Text style={styles.statValue}>{routeMissionCount}</Text>
+                      <Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'observations'}</Text>
+                    </View>
+                    <View style={styles.stat}>
+                      <Text style={styles.statValue}>{routeSavedCount}</Text>
+                      <Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.factRow}>
+                    <Text style={styles.factNumber}>1</Text>
+                    <Text style={styles.factText}>{language === 'ru' ? 'История открытых мест сохраняется независимо от нового прохождения маршрута.' : 'Your history of opened places is preserved independently of a new route attempt.'}</Text>
+                  </View>
+                  <View style={styles.factRow}>
+                    <Text style={styles.factNumber}>2</Text>
+                    <Text style={styles.factText}>{language === 'ru' ? 'Карта позволяет продолжить исследование с любого объекта пилота.' : 'The map lets you continue exploring from any pilot place.'}</Text>
+                  </View>
+
+                  <PhysicalPressable
+                    style={styles.primary}
+                    contentStyle={styles.center}
+                    strong
+                    onPress={() => continueAfterWalk('map')}
+                    accessibilityLabel={language === 'ru' ? 'Продолжить исследовать на карте' : 'Continue exploring on the map'}
+                  >
+                    <Text style={styles.primaryText}>{language === 'ru' ? 'Продолжить исследовать на карте' : 'Continue exploring on the map'}</Text>
+                  </PhysicalPressable>
+                  <PhysicalPressable
+                    style={styles.secondary}
+                    contentStyle={styles.center}
+                    onPress={() => continueAfterWalk('saved')}
+                    accessibilityLabel={language === 'ru' ? 'Открыть Мою Москву' : 'Open My Moscow'}
+                  >
+                    <Text style={styles.secondaryText}>{language === 'ru' ? 'Открыть «Моя Москва»' : 'Open My Moscow'}</Text>
+                  </PhysicalPressable>
+                  <PhysicalPressable
+                    style={styles.secondary}
+                    contentStyle={styles.center}
+                    onPress={repeatActiveWalk}
+                    accessibilityLabel={language === 'ru' ? 'Пройти маршрут ещё раз' : 'Walk the route again'}
+                  >
+                    <Text style={styles.secondaryText}>{language === 'ru' ? 'Пройти маршрут ещё раз' : 'Walk the route again'}</Text>
+                  </PhysicalPressable>
+                </View>
+              ) : routePlace && (
                 <View style={styles.storyCard}>
                   <Text style={styles.kicker}>{language === 'ru' ? `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}` : `NOW · STOP ${routeStep + 1}`}</Text>
                   <Text style={styles.storyTitle}>{routePlace.title}</Text>

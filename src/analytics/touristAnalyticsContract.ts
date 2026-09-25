@@ -7,7 +7,7 @@ export type TouristAnalyticsLanguage = 'ru' | 'en';
 export type TouristAnalyticsAudioMode = 'recorded' | 'tts-fallback';
 export type TouristAnalyticsRouteInterest = 'highlights' | 'architecture' | 'trade' | 'lost-city' | 'nearby';
 export type TouristAnalyticsRouteBudget = 15 | 30 | 45;
-export type TouristAnalyticsRouteOrigin = 'hero' | 'planner' | 'nearby';
+export type TouristAnalyticsRouteOrigin = 'hero' | 'planner' | 'nearby' | 'recap';
 export type TouristAnalyticsCompletionMode = 'manual' | 'audio-auto';
 
 type LanguageEvent = {
@@ -32,6 +32,8 @@ export type TouristAnalyticsEvent =
   | ({ event: 'stop_arrive'; routeId: string; placeId: string; arrivalEvidence: 'foreground-proximity' } & LanguageEvent)
   | ({ event: 'stop_complete'; routeId: string; placeId: string; completionMode: TouristAnalyticsCompletionMode } & LanguageEvent)
   | ({ event: 'route_complete' } & RouteContext)
+  | ({ event: 'walk_recap_view'; routeId: string; stopCount: number; missionCount: number; savedCount: number } & LanguageEvent)
+  | ({ event: 'continue_explore'; routeId: string; destination: 'map' | 'saved' | 'repeat' } & LanguageEvent)
   | ({ event: 'audio_start'; placeId: string; audioMode: TouristAnalyticsAudioMode } & LanguageEvent)
   | ({ event: 'audio_complete'; placeId: string; audioMode: TouristAnalyticsAudioMode } & LanguageEvent)
   | ({ event: 'transcript_open'; placeId: string } & LanguageEvent)

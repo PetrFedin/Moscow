@@ -138,3 +138,41 @@ test('manual completion and physical arrival remain different facts', () => {
   assert.equal(arrived.event, 'stop_arrive');
   assert.equal(arrived.arrivalEvidence, 'foreground-proximity');
 });
+
+
+test('post-walk retention events remain aggregate and privacy-safe', () => {
+  const recap = createTouristAnalyticsRecord(
+    {
+      event: 'walk_recap_view',
+      routeId: 'varvarka-zaryadye-pilot',
+      stopCount: 5,
+      missionCount: 3,
+      savedCount: 2,
+      language: 'ru'
+    },
+    {
+      sessionId: 'session-test',
+      eventId: 'recap',
+      occurredAt: '2026-09-24T12:10:00.000Z'
+    }
+  );
+  const continueEvent = createTouristAnalyticsRecord(
+    {
+      event: 'continue_explore',
+      routeId: 'varvarka-zaryadye-pilot',
+      destination: 'repeat',
+      language: 'ru'
+    },
+    {
+      sessionId: 'session-test',
+      eventId: 'continue',
+      occurredAt: '2026-09-24T12:11:00.000Z'
+    }
+  );
+
+  assert.equal(recap.event, 'walk_recap_view');
+  assert.equal(recap.stopCount, 5);
+  assert.equal(continueEvent.event, 'continue_explore');
+  assert.equal(continueEvent.destination, 'repeat');
+  assert.deepEqual(findForbiddenAnalyticsKeys([recap, continueEvent]), []);
+});
