@@ -9,6 +9,8 @@ export type RomanovModelCatalogEntry = {
   trustMode: RomanovTrustMode;
   version: number;
   assetPath: string;
+  repositoryBlobSha: string;
+  byteSize: number;
   sourceIds: string[];
   allowedRuntimeModes: RomanovRuntimeMode[];
 };
@@ -22,7 +24,9 @@ export const romanovModelCatalog: RomanovModelCatalogEntry[] = [
     trustMode: 'documented',
     version: 1,
     assetPath: 'assets/models/romanov-1857-documented-v1.glb',
-    sourceIds: ['timm-1857'],
+    repositoryBlobSha: 'dc1184e023b2094926c98e5f5c3fe48d1eef9b40',
+    byteSize: 22920,
+    sourceIds: ['timm-1857', 'shm-history', 'mos-archaeology', 'mos-plans'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   },
   {
@@ -31,7 +35,9 @@ export const romanovModelCatalog: RomanovModelCatalogEntry[] = [
     trustMode: 'public',
     version: 1,
     assetPath: 'assets/models/romanov-1857-public-v1.glb',
-    sourceIds: ['timm-1857'],
+    repositoryBlobSha: '73dfeb9e1b301349bc7b72ac5d5d3c9566125baa',
+    byteSize: 22940,
+    sourceIds: ['timm-1857', 'shm-history', 'mos-archaeology', 'mos-plans'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   },
   {
@@ -40,7 +46,9 @@ export const romanovModelCatalog: RomanovModelCatalogEntry[] = [
     trustMode: 'documented',
     version: 1,
     assetPath: 'assets/models/romanov-1859-documented-v1.glb',
-    sourceIds: ['naidenov-46', 'shm-history'],
+    repositoryBlobSha: '6bb05f30b85c04b7fd70a4bee029a6c91205166e',
+    byteSize: 7792,
+    sourceIds: ['shm-history', 'mos-archaeology', 'mos-plans'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   },
   {
@@ -49,7 +57,9 @@ export const romanovModelCatalog: RomanovModelCatalogEntry[] = [
     trustMode: 'public',
     version: 1,
     assetPath: 'assets/models/romanov-1859-public-v1.glb',
-    sourceIds: ['naidenov-46', 'shm-history'],
+    repositoryBlobSha: 'e1ad115505089dab312997be586e65e94d459efd',
+    byteSize: 86764,
+    sourceIds: ['shm-history', 'mos-archaeology', 'mos-plans', 'shm-1859-graphic', 'naidenov-46'],
     allowedRuntimeModes: ['model3d', 'ar', 'vr']
   }
 ];
