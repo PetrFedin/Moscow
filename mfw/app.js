@@ -1,6 +1,7 @@
 (function(){
   'use strict';
 
+  var API='https://moscow-fashion-week-api.onrender.com';
   var demoEvents = [
     {id:'e1',time:'17:00',name:'MFW Opening Runway',type:'Показ',venue:'Манеж · Зал 1',status:'LIVE',access:'OPEN'},
     {id:'e2',time:'18:00',name:'New Names: Moscow',type:'Показ',venue:'Манеж · Зал 2',status:'REGISTRATION',access:'OPEN'},
@@ -26,6 +27,9 @@
     meeting:false,
     voted:false,
     scannerState:'idle',
+    backendStatus:'checking',
+    passToken:null,
+    passPayload:null,
     onboarding:localStorage.getItem('mfwOnboarded') === '1'
   };
 
@@ -35,6 +39,58 @@
     localStorage.setItem('mfwSavedLooks',JSON.stringify(state.savedLooks));
     localStorage.setItem('mfwSavedBrands',JSON.stringify(state.savedBrands));
     localStorage.setItem('mfwMyEvents',JSON.stringify(state.myEvents));
+  }
+
+  async function api(path, options){
+    var opts=options||{};
+    opts.headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});
+    var res=await fetch(API+path,opts);
+    var data=await res.json().catch(function(){return {};});
+    if(!res.ok) throw new Error(data.error||('api_'+res.status));
+    return data;
+  }
+
+  function updateBackendIndicator(){
+    var el=document.getElementById('backend-status');
+    if(!el)return;
+    el.textContent=state.backendStatus==='online'?'API ONLINE':state.backendStatus==='offline'?'API OFFLINE':'CHECKING';
+    el.className='badge '+(state.backendStatus==='online'?'open':state.backendStatus==='offline'?'live':'');
+  }
+
+  async function checkBackend(){
+    try{
+      await api('/health');
+      state.backendStatus='online';
+    }catch(_){
+      state.backendStatus='offline';
+    }
+    updateBackendIndicator();
+  }
+
+  async function ensurePass(){
+    if(state.passToken)return;
+    try{
+      var data=await api('/v1/passes/issue',{
+        method:'POST',
+        body:JSON.stringify({
+          userId:'demo_'+state.name.toLowerCase().replace(/[^a-z0-9а-я]+/gi,'_').slice(0,40),
+          role:state.role,
+          entitlements:[entitlementText()]
+        })
+      });
+      state.passToken=data.token;
+      state.passPayload=data.payload;
+      generateQR();
+      var el=document.getElementById('pass-authority');
+      if(el)el.textContent='Server-signed · '+String(data.payload.jti||'').slice(-8);
+    }catch(_){
+      var el2=document.getElementById('pass-authority');
+      if(el2)el2.textContent='Local fallback · API unavailable';
+    }
+  }
+
+  function track(type, meta){
+    api('/v1/analytics/track',{method:'POST',body:JSON.stringify({type:type,meta:meta||{},at:new Date().toISOString()})}).catch(function(){});
   }
 
   function esc(s){
@@ -155,7 +211,7 @@
 
     return '<main><div class="eyebrow" style="margin-top:18px">MFW ID</div><h1>ВАШ<br>ПРОФИЛЬ</h1>'+
       '<div class="profile-head"><div class="avatar"></div><div><h3>'+esc(state.name)+'</h3><div class="role">'+esc(state.role.toUpperCase())+'</div><div class="sub">Demo account</div></div></div>'+
-      '<div class="pass-card"><div class="pass-top"><div><div class="pass-title">MOSCOW FASHION WEEK</div><div class="pass-role">'+esc(state.role)+' PASS · DEMO</div></div><b>01</b></div><div id="qr" class="qr" aria-label="Demo QR"></div><div class="pass-top"><div><b>26 SEP — 01 OCT</b><div style="font-size:11px;margin-top:5px">Entitlements: '+entitlementText()+'</div></div><div class="offline"><span class="okdot"></span> Offline ready</div></div></div>'+
+      '<div class="pass-card"><div class="pass-top"><div><div class="pass-title">MOSCOW FASHION WEEK</div><div class="pass-role">'+esc(state.role)+' PASS · DEMO</div></div><b>01</b></div><div id="qr" class="qr" aria-label="Demo pass code"></div><div style="text-align:center;font-size:10px;font-weight:800;margin-top:-10px;margin-bottom:14px" id="pass-authority">Requesting server-signed pass…</div><div class="pass-top"><div><b>26 SEP — 01 OCT</b><div style="font-size:11px;margin-top:5px">Entitlements: '+entitlementText()+'</div></div><div class="offline"><span class="okdot"></span> Offline ready</div></div></div>'+
       '<h2>Demo role</h2><div class="role-switcher">'+['Visitor','Buyer','Media','Designer','Organizer','Staff'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-role="'+r+'">'+r+'</button>';}).join('')+'</div>'+
       '<div class="stat-grid"><div class="stat"><b>'+state.myEvents.length+'</b><small>События</small></div><div class="stat"><b>'+state.savedLooks.length+'</b><small>Образы</small></div><div class="stat"><b>'+state.connections+'</b><small>Контакты</small></div></div>'+
       roleContent+
@@ -181,7 +237,8 @@
 
   function organizerPanel(){
     return '<h2>Organizer cockpit</h2>'+
-      '<div class="value-grid"><div class="value-card"><div class="n">8.4K</div><small>demo active users today</small></div><div class="value-card"><div class="n">71%</div><small>demo programme engagement</small></div><div class="value-card"><div class="n">312</div><small>demo buyer actions</small></div></div>'+
+      '<div class="card"><div class="event-top"><div><div class="eyebrow">SYSTEM AUTHORITY</div><div class="event-name">MFW API</div><div class="sub">Signed pass · meetings · analytics · server authority</div></div><span id="backend-status" class="badge">CHECKING</span></div></div>'+
+      '<div class="value-grid" style="margin-top:10px"><div class="value-card"><div class="n">8.4K</div><small>demo active users today</small></div><div class="value-card"><div class="n">71%</div><small>demo programme engagement</small></div><div class="value-card"><div class="n">312</div><small>demo buyer actions</small></div></div>'+
       '<div class="card" style="margin-top:10px"><div class="eyebrow">LIVE OPERATIONS · DEMO</div><div class="metric-row"><b>Opening Runway capacity</b><strong>86%</strong></div><div class="capacity"><span style="width:86%"></span></div><div class="metric-row"><b>Checked in</b><strong>428</strong></div><div class="metric-row"><b>Waitlist</b><strong>37</strong></div><div class="action-row"><button class="action primary" data-action="toast" data-message="Demo: 12 waitlist invitations released">Освободить 12 мест</button><button class="action ghost" data-action="notifications">Отправить push</button></div></div>'+
       '<div class="commercial-card"><div class="eyebrow">PARTNER VALUE · DEMO METRICS</div><div class="event-name">Из показа — в измеримый результат</div><div class="metric-row"><b>Sponsored LIVE reach</b><strong>24.8K</strong></div><div class="metric-row"><b>Brand profile opens</b><strong>6.1K</strong></div><div class="metric-row"><b>Saved looks</b><strong>1.9K</strong></div><div class="metric-row"><b>Shop / showroom intent</b><strong>487</strong></div></div>'+
       '<div class="card"><div class="eyebrow">WHY THIS SELLS</div><div class="event-name">Один слой данных для всего события</div><div class="sub">Регистрация → доступ → посещение → просмотр → сохранение → встреча → лид → отчёт партнёру.</div><div class="action-row"><button class="action primary" data-action="investor-tour">Открыть investor tour</button></div></div>';
@@ -203,7 +260,7 @@
     }
     var screen=state.tab==='today'?today():state.tab==='schedule'?schedule():state.tab==='live'?live():state.tab==='discover'?discover():me();
     app.innerHTML='<div class="app">'+topbar()+screen+nav()+'</div>';
-    if(state.tab==='me') generateQR();
+    if(state.tab==='me'){ generateQR(); ensurePass(); updateBackendIndicator(); }
     bind();
   }
 
@@ -215,7 +272,7 @@
 
   function generateQR(){
     var el=document.getElementById('qr'); if(!el) return;
-    var seed=(state.name+state.role+'MFW').split('').reduce(function(a,c){return a+c.charCodeAt(0);},0);
+    var seed=((state.passToken||'')+state.name+state.role+'MFW').split('').reduce(function(a,c){return a+c.charCodeAt(0);},0);
     var html='';
     for(var i=0;i<441;i++){
       var x=i%21,y=Math.floor(i/21);
@@ -274,29 +331,38 @@
     setTimeout(function(){if(t.parentNode)t.remove();},1800);
   }
 
-  function setRole(r){state.role=r;persist();render();toast('Demo role: '+r);}
+  function setRole(r){state.role=r;state.passToken=null;state.passPayload=null;persist();render();toast('Demo role: '+r);track('role_switched',{role:r});}
   function toggleEvent(id){
     var i=state.myEvents.indexOf(id);
     if(i>=0){state.myEvents.splice(i,1);toast('Удалено из программы');}
     else{state.myEvents.push(id);toast('Добавлено в вашу программу');}
-    persist();closeSheet();render();
+    persist();closeSheet();render();track(i>=0?'event_removed':'event_saved',{eventId:id});
   }
   function saveLook(id){
     var i=state.savedLooks.indexOf(id);
     if(i>=0){state.savedLooks.splice(i,1);toast('Образ удалён из сохранённых');}
     else{state.savedLooks.push(id);toast('Образ сохранён');}
-    persist();render();
+    persist();render();track(i>=0?'look_unsaved':'look_saved',{lookId:id});
   }
   function saveBrand(id){
     var i=state.savedBrands.indexOf(id);
     if(i>=0){state.savedBrands.splice(i,1);toast('Подписка снята');}
     else{state.savedBrands.push(id);toast('Бренд добавлен');}
-    persist();closeSheet();render();
+    persist();closeSheet();render();track(i>=0?'brand_unfollowed':'brand_followed',{brandId:id});
   }
   function meeting(){
     if(state.role!=='Buyer' && state.role!=='Media'){toast('В demo встреча доступна профессиональным ролям');return;}
     if(state.meeting){openSheet('<div class="eyebrow">PRIVATE NOTE</div><h1 style="font-size:40px">MFW / NEW 01</h1><textarea class="input" style="height:120px" placeholder="Private buyer note"></textarea><button class="action primary" style="margin-top:10px" data-action="toast" data-message="Private note сохранена">Сохранить</button>');return;}
     openSheet('<div class="eyebrow">REQUEST MEETING</div><h1 style="font-size:40px">ВЫБЕРИТЕ<br>СЛОТ</h1><div class="action-row"><button class="action ghost" data-action="confirm-meeting">14:10</button><button class="action primary" data-action="confirm-meeting">14:30</button><button class="action ghost" data-action="confirm-meeting">15:20</button></div>');
+  }
+
+  async function createMeeting(){
+    try{
+      await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:'demo_buyer',slot:'14:30'})});
+      state.meeting=true;closeSheet();render();toast('Встреча подтверждена сервером: 14:30');track('meeting_confirmed',{brandId:'b1',slot:'14:30'});
+    }catch(_){
+      toast('API недоступен — встреча не подтверждена');
+    }
   }
 
   function bind(){
@@ -319,7 +385,7 @@
       else if(a==='tour-organizer'){state.role='Organizer';state.tab='me';persist();closeSheet();render();toast('Investor tour: Organizer cockpit');}
       else if(a==='questions')questions();
       else if(a==='meeting')meeting();
-      else if(a==='confirm-meeting'){state.meeting=true;closeSheet();render();toast('Встреча подтверждена: 14:30');}
+      else if(a==='confirm-meeting'){createMeeting();}
       else if(a==='connect'){state.connections+=1;render();toast('Запрос на связь отправлен');}
       else if(a==='line-sheet')toast('Demo: line sheet открыт');
       else if(a==='route')toast('Demo: маршрут построен');
@@ -338,4 +404,5 @@
 
   if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
   render();
+  checkBackend();
 })();
