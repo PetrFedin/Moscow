@@ -8,9 +8,14 @@ import {
 const args = process.argv.slice(2);
 let outputPath = null;
 const inputs = [];
+let showHelp = false;
 
 for (let index = 0; index < args.length; index += 1) {
   const arg = args[index];
+  if (arg === '--help' || arg === '-h') {
+    showHelp = true;
+    continue;
+  }
   if (arg === '--out') {
     outputPath = args[index + 1] ?? null;
     index += 1;
