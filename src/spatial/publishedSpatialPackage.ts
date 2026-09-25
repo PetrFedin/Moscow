@@ -21,7 +21,7 @@ export type SpatialClaim = {
   summary: string;
   trust: Exclude<SpatialTrustClass, 'artistic'>;
   sourceIds: string[];
-  modelElementIds: string[];
+  modelIds: string[];
   reviewer?: string;
   reviewedAt?: string;
 };
@@ -157,10 +157,23 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     if (source.rights === 'restricted') warnings.push(`restricted-source:${source.id}`);
   }
 
+  if (pkg.releaseState !== 'draft' && pkg.claims.length === 0) blockers.push('claims-missing');
+
   for (const claim of pkg.claims) {
     if (claim.sourceIds.length === 0) blockers.push(`claim-source-missing:${claim.id}`);
+    if (claim.modelIds.length === 0) blockers.push(`claim-model-missing:${claim.id}`);
     for (const sourceId of claim.sourceIds) {
       if (!sourceIds.has(sourceId)) blockers.push(`claim-source-not-found:${claim.id}:${sourceId}`);
+    }
+    for (const modelId of claim.modelIds) {
+      if (!modelIds.has(modelId)) blockers.push(`claim-model-not-found:${claim.id}:${modelId}`);
+    }
+  }
+
+  const claimedModelIds = new Set(pkg.claims.flatMap((claim) => claim.modelIds));
+  if (pkg.releaseState !== 'draft') {
+    for (const model of pkg.models) {
+      if (!claimedModelIds.has(model.id)) blockers.push(`model-claim-missing:${model.id}`);
     }
   }
 
@@ -171,6 +184,7 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     if (!model.runtimeModes.includes('model3d')) warnings.push(`model3d-runtime-not-enabled:${model.id}`);
     if (model.checksum !== undefined && !SHA256_HEX.test(model.checksum)) blockers.push(`model-checksum-invalid:${model.id}`);
     if (model.byteSize !== undefined && (!Number.isInteger(model.byteSize) || model.byteSize <= 0)) blockers.push(`model-byte-size-invalid:${model.id}`);
+    if (pkg.releaseState === 'production-candidate' && !model.checksum) warnings.push(`model-checksum-pending:${model.id}`);
   }
 
   if (modelIds.size !== pkg.models.length) blockers.push('duplicate-model-id');
@@ -184,6 +198,7 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     if (!pkg.fieldVerification.verifiedAt) blockers.push('field-verified-at-missing');
 
     if (!pkg.metricAuthority) blockers.push('metric-authority-missing');
+    if (pkg.metricAuthority?.scaleStatus !== 'survey-verified') blockers.push('metric-scale-not-survey-verified');
     if (!pkg.controlPointAuthority) blockers.push('control-point-authority-missing');
     if (!pkg.calibrationAuthority?.verifiedAt) blockers.push('calibration-authority-not-verified');
     if (!pkg.fieldEvidenceAuthority?.crossPlatformReady) blockers.push('field-evidence-not-cross-platform-ready');
@@ -191,6 +206,10 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     if (!pkg.anchorAuthority?.independentResolvePassed) blockers.push('anchor-independent-resolve-not-passed');
     if (!pkg.anchorAuthority?.verifiedAt) blockers.push('anchor-authority-not-verified');
     if (pkg.audioAuthority && !pkg.audioAuthority.complete) blockers.push('audio-authority-incomplete');
+    for (const model of pkg.models) {
+      if (!model.checksum) blockers.push(`field-verified-model-checksum-missing:${model.id}`);
+      if (!model.byteSize) blockers.push(`field-verified-model-byte-size-missing:${model.id}`);
+    }
 
     if (pkg.metricAuthority && pkg.calibrationAuthority) {
       if (pkg.calibrationAuthority.metricAuthorityId !== pkg.metricAuthority.id
