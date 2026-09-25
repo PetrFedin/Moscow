@@ -147,6 +147,41 @@ export function assertPilotAnalyticsReport(value: unknown): PilotAnalyticsReport
   return value as PilotAnalyticsReport;
 }
 
+
+function stableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableJsonValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, nested]) => [key, stableJsonValue(nested)])
+  );
+}
+
+export function deduplicatePilotAnalyticsReports(inputReports: unknown[]) {
+  const unique: PilotAnalyticsReport[] = [];
+  const seen = new Set<string>();
+  let duplicatesSkipped = 0;
+
+  for (const input of inputReports) {
+    const report = assertPilotAnalyticsReport(input);
+    const identity = JSON.stringify(stableJsonValue(report));
+    if (seen.has(identity)) {
+      duplicatesSkipped += 1;
+      continue;
+    }
+    seen.add(identity);
+    unique.push(report);
+  }
+
+  return {
+    reports: unique,
+    submittedReportCount: inputReports.length,
+    uniqueReportCount: unique.length,
+    duplicatesSkipped
+  };
+}
+
 function sumMap(
   reports: PilotAnalyticsReport[],
   select: (report: PilotAnalyticsReport) => Record<string, number>
@@ -165,7 +200,8 @@ function sum(reports: PilotAnalyticsReport[], select: (report: PilotAnalyticsRep
 }
 
 export function buildPilotCohortReport(inputReports: unknown[]) {
-  const reports = inputReports.map(assertPilotAnalyticsReport);
+  const deduplicated = deduplicatePilotAnalyticsReports(inputReports);
+  const reports = deduplicated.reports;
   const appOpenSessions = sum(reports, (report) => report.funnel.appOpenSessions);
   const routeStartSessions = sum(reports, (report) => report.funnel.routeStartSessions);
   const firstStopCompleteSessions = sum(reports, (report) => report.funnel.firstStopCompleteSessions);
@@ -203,6 +239,8 @@ export function buildPilotCohortReport(inputReports: unknown[]) {
     sourceReportVersion: PILOT_ANALYTICS_REPORT_VERSION,
     privacyMode: 'aggregate-reports-only' as const,
     sourceReportCount: reports.length,
+    submittedReportCount: deduplicated.submittedReportCount,
+    duplicateReportsSkipped: deduplicated.duplicatesSkipped,
     reportedSessionCount: sum(reports, (report) => report.sessionCount),
     reportedRecordCount: sum(reports, (report) => report.recordCount),
     truncatedReportCount,
