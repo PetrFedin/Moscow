@@ -93,6 +93,12 @@ function eligibleObservations(
   }));
 }
 
+function sessionIdDevicePart(input: Pick<RomanovFieldSession, 'devicePlatform' | 'deviceVersion' | 'deviceLabel'>) {
+  const raw = `${input.devicePlatform}-${input.deviceLabel?.trim() || input.deviceVersion}`.toLowerCase();
+  const normalized = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return normalized || 'unknown-device';
+}
+
 export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capturedAt' | 'metricBinding' | 'measurementEligiblePoints' | 'meanResidualCm' | 'maxResidualCm' | 'passed'> & { metricBinding?: RomanovMetricBinding }): RomanovFieldSession {
   const summary = summarizeResiduals(input.observations);
   const surveyIds = [...new Set(input.observations.map((item) => item.evidence?.surveyPacketId).filter(Boolean))] as string[];
@@ -107,7 +113,7 @@ export function createFieldSession(input: Omit<RomanovFieldSession, 'id' | 'capt
 
   return {
     ...input,
-    id: `romanov-field-${capturedAt}-${input.viewingDistanceMeters}m`,
+    id: `romanov-field-${capturedAt}-${sessionIdDevicePart(input)}-${input.viewingDistanceMeters}m`,
     capturedAt,
     metricBinding: input.metricBinding ?? currentRomanovMetricBinding,
     surveyPacketId,
