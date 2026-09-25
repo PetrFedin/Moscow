@@ -1,10 +1,20 @@
 {
-  "name": "Moscow Fashion Week Demo",
+  "id": "/",
+  "name": "Moscow Fashion Week",
   "short_name": "MFW",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
-  "description": "Interactive Moscow Fashion Week product prototype",
-  "icons": []
+  "orientation": "portrait",
+  "background_color": "#070707",
+  "theme_color": "#070707",
+  "description": "Moscow Fashion Week mobile experience concept",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
