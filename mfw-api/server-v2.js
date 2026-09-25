@@ -152,7 +152,8 @@ const memory={
     {id:'acc_02',name:'Alexey Morozov',kind:'Media',organisation:'Fashion Desk',status:'pending'},
     {id:'acc_03',name:'Elena Volkova',kind:'Creator',organisation:'Independent',status:'approved'}
   ],
-  notifications:[]
+  notifications:[],
+  invitations:[]
 };
 
 async function query(sql,params=[]){
@@ -498,6 +499,13 @@ async function router(req,res){
       memory.notifications.unshift(item);
       await track('notification_sent',item);
       return json(res,201,{data:item});
+    }
+    if(req.method==='POST'&&p==='/v1/admin/invitations'){
+      var invitationBody=await readBody(req);
+      var invitation={id:'inv_'+crypto.randomBytes(6).toString('hex'),eventId:String(invitationBody.eventId||'e1'),recipient:String(invitationBody.recipient||'demo@example.com'),status:'sent',sentAt:new Date().toISOString(),demo:true};
+      memory.invitations.unshift(invitation);
+      await track('invitation_sent',invitation);
+      return json(res,201,{data:invitation});
     }
     if(req.method==='PATCH'&&p.startsWith('/v1/admin/events/')){
       const id=p.split('/').pop();
