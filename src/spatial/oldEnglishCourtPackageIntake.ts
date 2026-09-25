@@ -179,7 +179,9 @@ export function evaluateOldEnglishCourtPackageIntake(
         required: true,
         evidenceRefs: [
           candidate.assetPath,
-          `sha256:${candidate.checksumSha256}`
+          `sha256:${candidate.checksumSha256}`,
+          candidate.provenanceEvidenceRef!,
+          candidate.metricScaleEvidenceRef!
         ]
       },
       {
