@@ -226,6 +226,11 @@ test('Romanov promotion builder derives field-verified only from the complete re
   assert.equal(pkg.fieldVerification.multiDeviceMatrixPassed, true);
   assert.equal(pkg.fieldVerification.fieldSessionIds?.length, 12);
   assert.equal(pkg.fieldVerification.calibrationVersion, evidence.calibration.version);
+  assert.deepEqual(pkg.fieldVerification.calibrationMetricBinding, {
+    metricAuthorityId: pkg.authority.metric.id,
+    metricAuthorityVersion: pkg.authority.metric.version,
+    modelPackVersion: pkg.authority.metric.modelPackVersion
+  });
   assert.equal(pkg.fieldVerification.persistentAnchorVerified, true);
   assert.deepEqual(pkg.fieldVerification.persistentAnchorProofIds, [evidence.anchors[0]!.id]);
   assert.deepEqual(pkg.fieldVerification.releaseBlockers, []);
@@ -271,4 +276,46 @@ test('field-session ids bind physical device identity instead of timestamp and d
   assert.match(ios.id, /ios-iphone-16-pro-1-5m$/);
   assert.match(android.id, /android-pixel-10-pro-1-5m$/);
   assert.notEqual(ios.id, android.id);
+});
+
+
+test('malformed verified anchor proof cannot promote or become package verification authority', () => {
+  const evidence = completeReleaseEvidence();
+  const validAnchor = evidence.anchors[0]!;
+  const tamperedAnchor = {
+    ...validAnchor,
+    verifiedByDeviceLabel: 'device-that-did-not-resolve'
+  };
+
+  const pkg = buildRomanovPublishedPackageFromEvidence({
+    ...evidence,
+    anchors: [tamperedAnchor],
+    publishedAt: '2026-09-25T16:00:00.000Z'
+  });
+
+  assert.equal(pkg.releaseState, 'production-candidate');
+  assert.equal(pkg.fieldVerification.persistentAnchorVerified, false);
+  assert.deepEqual(pkg.fieldVerification.persistentAnchorProofIds, []);
+  assert.ok(pkg.fieldVerification.releaseBlockers?.includes('persistent-anchor-not-verified'));
+});
+
+test('serialized field package rejects calibration metric binding drift', () => {
+  const evidence = completeReleaseEvidence();
+  const pkg = buildRomanovPublishedPackageFromEvidence({
+    ...evidence,
+    publishedAt: '2026-09-25T16:10:00.000Z'
+  });
+  assert.equal(pkg.releaseState, 'field-verified');
+  assert.ok(pkg.fieldVerification.calibrationMetricBinding);
+
+  const tampered = structuredClone(pkg);
+  tampered.fieldVerification.calibrationMetricBinding = {
+    metricAuthorityId: 'stale-metric-authority',
+    metricAuthorityVersion: 999,
+    modelPackVersion: 'stale-pack'
+  };
+
+  const validation = validatePublishedSpatialPackage(tampered);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('calibration-metric-binding-mismatch'));
 });
