@@ -86,7 +86,13 @@ function readBody(req) {
     req.on('error',reject);
   });
 }
-function adminOk(req){ return req.headers['x-mfw-admin']===ADMIN_TOKEN; }
+function adminOk(req){
+  if(req.headers['x-mfw-admin']===ADMIN_TOKEN)return true;
+  var auth=String(req.headers.authorization||'');
+  if(!auth.startsWith('Bearer '))return false;
+  var v=verifyToken(auth.slice(7));
+  return !!(v.ok&&v.payload&&v.payload.typ==='session'&&['Organizer','Staff'].indexOf(v.payload.role)>=0);
+}
 
 const publicJwk=DERIVED_KEYS.publicJwk;
 
@@ -140,7 +146,13 @@ const memory={
   brands:[
     {id:'b1',slug:'mfw-new-01',name:'MFW / NEW 01',city:'Moscow',segment:'Emerging Womenswear',demo:true},
     {id:'b2',slug:'mfw-studio-02',name:'MFW / STUDIO 02',city:'Saint Petersburg',segment:'Contemporary Unisex',demo:true}
-  ]
+  ],
+  accreditations:[
+    {id:'acc_01',name:'Maria Petrova',kind:'Buyer',organisation:'Concept Store',status:'pending'},
+    {id:'acc_02',name:'Alexey Morozov',kind:'Media',organisation:'Fashion Desk',status:'pending'},
+    {id:'acc_03',name:'Elena Volkova',kind:'Creator',organisation:'Independent',status:'approved'}
+  ],
+  notifications:[]
 };
 
 async function query(sql,params=[]){
@@ -350,6 +362,28 @@ async function router(req,res){
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true
   });
+  if(req.method==='GET'&&p==='/health/deep'){
+    var testUser='self_'+crypto.randomBytes(5).toString('hex');
+    var pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
+    var verified=verifyToken(pass.token);
+    var svg=await QRCode.toString('MFW:'+pass.token,{type:'svg',errorCorrectionLevel:'M',margin:1,width:256});
+    var first=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
+    var second=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
+    memory.checkins.delete('e1:'+testUser);
+    memory.passes.delete(pass.payload.jti);
+    var ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate');
+    return json(res,ok?200:500,{
+      status:ok?'pass':'fail',
+      tests:{
+        issue:!!pass.token,
+        es256Verify:!!verified.ok,
+        qrSvg:svg.indexOf('<svg')>=0,
+        firstCheckin:first.status,
+        duplicateCheckin:second.status
+      },
+      dataMode:pool?'postgres':'memory'
+    });
+  }
   if(req.method==='GET'&&p==='/v1/authority/public-key') return json(res,200,{
     alg:'ES256',kid:'mfw-demo-2026-01',jwk:publicJwk
   });
@@ -447,6 +481,24 @@ async function router(req,res){
     if(!adminOk(req)) return json(res,403,{error:'admin_required'});
     if(req.method==='GET'&&p==='/v1/admin/overview') return json(res,200,{data:overview()});
     if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
+    if(req.method==='GET'&&p==='/v1/admin/accreditations') return json(res,200,{data:memory.accreditations});
+    if(req.method==='PATCH'&&p.startsWith('/v1/admin/accreditations/')){
+      var accId=p.split('/').pop();
+      var accBody=await readBody(req);
+      var acc=memory.accreditations.find(x=>x.id===accId);
+      if(!acc)return json(res,404,{error:'accreditation_not_found'});
+      if(['pending','approved','rejected','revoked'].indexOf(String(accBody.status))<0)return json(res,400,{error:'invalid_status'});
+      acc.status=String(accBody.status);
+      await track('accreditation_updated',{id:accId,status:acc.status});
+      return json(res,200,{data:acc});
+    }
+    if(req.method==='POST'&&p==='/v1/admin/notifications'){
+      var note=await readBody(req);
+      var item={id:'ntf_'+crypto.randomBytes(6).toString('hex'),category:String(note.category||'critical'),title:String(note.title||'Programme update'),body:String(note.body||''),status:'sent',sentAt:new Date().toISOString(),demo:true};
+      memory.notifications.unshift(item);
+      await track('notification_sent',item);
+      return json(res,201,{data:item});
+    }
     if(req.method==='PATCH'&&p.startsWith('/v1/admin/events/')){
       const id=p.split('/').pop();
       const b=await readBody(req);
