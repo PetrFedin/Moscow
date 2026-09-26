@@ -22,10 +22,10 @@ function validateInvestorBuild(){
   new Function(frontend);
   new Function(admin);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr']){
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
 }
@@ -364,7 +364,12 @@ async function runDeepSelfTest(){
   const second=await checkin({token:pass.token,eventId:'e1',scannerId:'deep-self-test'});
   memory.checkins.delete('e1:'+testUser);
   memory.passes.delete(pass.payload.jti);
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate');
+  const stream=memory.streams[0];
+  const originalLook=stream.currentLook;
+  stream.currentLook=Math.min(stream.totalLooks,originalLook+1);
+  const streamSync=stream.currentLook===Math.min(stream.totalLooks,originalLook+1);
+  stream.currentLook=originalLook;
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -373,7 +378,8 @@ async function runDeepSelfTest(){
       es256Verify:!!verified.ok,
       qrSvg:svg.indexOf('<svg')>=0,
       firstCheckin:first.status,
-      duplicateCheckin:second.status
+      duplicateCheckin:second.status,
+      streamAuthority:streamSync
     },
     dataMode:pool?'postgres':'memory'
   };
@@ -421,7 +427,7 @@ async function router(req,res){
 
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
-    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true
+    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true
   });
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
