@@ -1,6 +1,6 @@
 import type { AppLanguage } from '../i18n';
 import type { Place } from './places';
-import { placeChinese } from './places.zh';
+import { placeChinese } from './places.zh.ts';
 
 export const placeEnglish: Record<string, Partial<Place>> = {
   'church-st-barbara': {
