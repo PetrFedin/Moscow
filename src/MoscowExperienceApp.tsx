@@ -876,7 +876,7 @@ export default function MoscowExperienceApp() {
 
       <Modal visible={modal === 'spatial'} animationType="fade" onRequestClose={() => setModal('model')}>
         <View style={styles.spatialRoot}>
-          <MoscowSpatialNavigator key={`${selectedId}-${era}-${trustMode}`} />
+          <MoscowSpatialNavigator key={`${selectedId}-${era}-${trustMode}`} language={language} fieldToolsEnabled={false} />
           <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
             <PhysicalPressable style={styles.back3d} contentStyle={styles.center} hapticEvent="none" onPress={() => setModal('model')}>
               <Text style={styles.back3dText}>{ui.back3d}</Text>
