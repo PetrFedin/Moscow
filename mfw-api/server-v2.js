@@ -1241,6 +1241,21 @@ async function router(req,res){
     await track('brand_content_'+item.type,{postId:item.postId,surface:item.surface},item.userId);
     return json(res,201,{data:item});
   }
+  if(req.method==='GET'&&p==='/v1/notifications'){
+    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const pref=notificationPrefs(userId);
+    const followed=followSet(userId);
+    const data=memory.notifications.filter(n=>{
+      if(n.category==='critical')return pref.criticalEnabled;
+      if(n.category==='live')return pref.liveEnabled;
+      if(n.category==='brand_news')return pref.followedBrandNewsEnabled&&n.brandId&&followed.has(n.brandId);
+      if(n.category==='loyalty')return pref.loyaltyEnabled;
+      if(n.category==='brand_event')return pref.brandEventsEnabled&&n.brandId&&followed.has(n.brandId);
+      if(n.category==='brand_campaign')return pref.paidPromotionsEnabled;
+      return false;
+    }).slice(0,30);
+    return json(res,200,{data,preferences:pref});
+  }
   if(req.method==='GET'&&p==='/v1/notifications/preferences'){
     const userId=String(url.searchParams.get('userId')||'demo_user');
     return json(res,200,{data:notificationPrefs(userId)});
