@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { localizePlaces } from '../../data/places.en';
 import { places } from '../../data/places';
 import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
@@ -20,6 +21,7 @@ type Props = {
 export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFreeWalk }: Props) {
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [state, setState] = useState<'idle' | 'locating' | 'ready' | 'denied' | 'error'>('idle');
+  const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
 
   const locate = () => {
     const geolocation = globalThis.navigator?.geolocation;
@@ -39,8 +41,8 @@ export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFr
   };
 
   const nearby = useMemo(
-    () => location ? rankNearbyPlaces(location, places, visitedIds).slice(0, 3) : [],
-    [location, visitedIds]
+    () => location ? rankNearbyPlaces(location, localizedPlaces, visitedIds).slice(0, 3) : [],
+    [localizedPlaces, location, visitedIds]
   );
 
   return (
@@ -66,7 +68,7 @@ export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFr
             style={styles.primary}
             contentStyle={styles.center}
             strong
-            onPress={() => location && onStartFreeWalk(buildNearbyWalkPlan(location, places, visitedIds, 45))}
+            onPress={() => location && onStartFreeWalk(buildNearbyWalkPlan(location, localizedPlaces, visitedIds, 45))}
             accessibilityLabel={tr(language, 'Начать свободную прогулку', 'Start free walk', '开始自由路线')}
           >
             <Text style={styles.primaryText}>{tr(language, 'Свободная прогулка отсюда', 'Free walk from here', '从这里开始自由路线')}</Text>
