@@ -59,6 +59,7 @@ import type { SpatialStage } from '../../e2e/experienceContract';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
+import { tr, type AppLanguage } from '../../i18n';
 import RomanovEvidenceTransferPanel from './RomanovEvidenceTransferPanel.native';
 import RomanovFieldTest from './RomanovFieldTest.native';
 import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
@@ -81,6 +82,8 @@ const HIT_PRIORITY: ViroARHitTestResult['type'][] = [
 ];
 
 type Props = {
+  language?: AppLanguage;
+  fieldToolsEnabled?: boolean;
   initialEra?: RomanovEra;
   initialTrustMode?: RomanovTrustMode;
   onBackToModel?: () => void;
@@ -164,6 +167,7 @@ type SceneProps = {
       onCandidate?: (hitType: ViroARHitTestResult['type']) => void;
       onAnchored?: (anchor: LocalAnchor) => void;
       onAnchorError?: (message: string) => void;
+      language?: AppLanguage;
     };
   };
 };
@@ -183,7 +187,7 @@ function pickHit(results: ViroARHitTestResult[]) {
   return null;
 }
 
-function PortalScene() {
+function PortalScene({ language = 'ru' }: { language?: AppLanguage }) {
   return (
     <ViroPortalScene passable position={[2.6, 0, 0]}>
       <ViroPortal position={[0, 0, 0]}>
@@ -195,13 +199,13 @@ function PortalScene() {
       </ViroPortal>
       <ViroAmbientLight color="#dac79f" intensity={520} />
       <ViroText
-        text="ИСТОРИЧЕСКИЙ ПОРТАЛ"
+        text={tr(language, 'ИСТОРИЧЕСКИЙ ПОРТАЛ', 'HISTORICAL PORTAL', '历史门户')}
         position={[0, 0.3, -3]}
         scale={[0.23, 0.23, 0.23]}
         style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
       />
       <ViroText
-        text="Интерьер остаётся demo-layer до отдельной исторической проверки"
+        text={tr(language, 'Интерьер остаётся demo-layer до отдельной исторической проверки', 'The interior remains a demo layer until separate historical review', '室内场景在完成独立历史审核前仍为演示层')}
         position={[0, -0.2, -3]}
         scale={[0.12, 0.12, 0.12]}
         style={{ fontSize: 14, color: '#d2cdc3', textAlign: 'center' }}
@@ -235,6 +239,7 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const onCandidate = sceneNavigator?.viroAppProps?.onCandidate;
   const onAnchored = sceneNavigator?.viroAppProps?.onAnchored;
   const onAnchorError = sceneNavigator?.viroAppProps?.onAnchorError;
+  const language = sceneNavigator?.viroAppProps?.language ?? 'ru';
 
   useEffect(() => {
     if (isQuest || requestId <= 0 || requestId === lastRequest.current) return;
@@ -397,12 +402,12 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
     <>
       <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
       <ViroText
-        text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'}`}
+        text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? tr(language, 'ФАКТ', 'FACT', '事实') : tr(language, 'РЕКОНСТРУКЦИЯ', 'RESEARCH', '重建')}`}
         position={[0, 14.2, 0]}
         scale={[0.22, 0.22, 0.22]}
         style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
       />
-      {portalVisible && <PortalScene />}
+      {portalVisible && <PortalScene language={language} />}
     </>
   );
 
@@ -499,6 +504,8 @@ function CalibrationControl(props: {
 }
 
 export default function MoscowSpatialJourney({
+  language = 'ru',
+  fieldToolsEnabled = __DEV__ || process.env.EXPO_PUBLIC_FIELD_TOOLS === '1',
   initialEra = '1859',
   initialTrustMode = 'public',
   onBackToModel,
@@ -849,7 +856,8 @@ export default function MoscowSpatialJourney({
           onMeasurementError: handleMeasurementError,
           onCandidate: handleCandidate,
           onAnchored: handleAnchored,
-          onAnchorError: handleAnchorError
+          onAnchorError: handleAnchorError,
+          language
         }}
         pbrEnabled
         hdrEnabled
