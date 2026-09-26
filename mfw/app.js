@@ -396,6 +396,7 @@
       '<div class="pass-card"><div class="pass-top"><div><div class="pass-title">MOSCOW FASHION WEEK</div><div class="pass-role">'+esc(state.role)+' PASS · DEMO</div></div><b>01</b></div><div id="qr" class="qr" aria-label="Demo pass code"></div><div style="text-align:center;font-size:10px;font-weight:800;margin-top:-10px;margin-bottom:14px" id="pass-authority">Requesting server-signed pass…</div><div class="pass-top"><div><b>26 SEP — 01 OCT</b><div style="font-size:11px;margin-top:5px">Entitlements: '+entitlementText()+'</div></div><div class="offline"><span class="okdot"></span> Offline ready</div></div></div>'+
       '<h2>Demo role</h2><div class="role-switcher">'+['Visitor','Buyer','Media','Designer','Organizer','Staff'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-role="'+r+'">'+r+'</button>';}).join('')+'</div>'+
       '<div class="stat-grid"><div class="stat"><b>'+state.myEvents.length+'</b><small>'+t('events')+'</small></div><div class="stat"><b>'+state.savedLooks.length+'</b><small>'+t('looks')+'</small></div><div class="stat"><b>'+state.connections+'</b><small>'+t('contacts')+'</small></div></div>'+
+      '<div class="world-feature-grid"><button data-action="contact-qr"><span>⌁</span><b>'+t('connectQr')+'</b></button><button data-action="boards"><span>◫</span><b>'+t('boards')+'</b></button><button data-action="meetups"><span>◎</span><b>'+t('meetups')+'</b></button><button data-action="perks"><span>✦</span><b>'+t('perks')+'</b></button></div>'+
       roleContent+
       '<h2>'+t('passport')+'</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
       '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
@@ -685,9 +686,96 @@
     }catch(_){toast('Follow-up unavailable');}
   }
 
+  function toggleLanguage(){
+    state.lang=state.lang==='ru'?'en':'ru';
+    persist();
+    document.documentElement.lang=state.lang;
+    render();
+    toast(state.lang==='ru'?'Русский язык':'English');
+    track('language_changed',{locale:state.lang});
+  }
+
+  async function contactQr(){
+    openSheet('<div class="eyebrow">MFW NETWORKING</div><h1 style="font-size:42px">'+t('connectTitle')+'</h1><div class="card skeleton" style="height:210px"></div>');
+    try{
+      var out=await api('/v1/networking/qr',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',name:state.name,role:state.role})});
+      openSheet('<div class="eyebrow">MFW NETWORKING · SIGNED</div><h1 style="font-size:42px">'+t('connectTitle')+'</h1><div class="contact-qr">'+out.svg+'</div><p class="sub">'+T('Этот QR обменивает контакт. Он не даёт право входа на события.','This QR exchanges contact details. It never grants event access.')+'</p><div class="demo-note"><b>Separate authority.</b> typ=contact-card · 10 min TTL · ES256.</div>');
+    }catch(_){toast(T('Connect QR недоступен','Connect QR unavailable'));}
+  }
+
+  async function boards(){
+    openSheet('<div class="eyebrow">VOGUE-RUNWAY INSPIRED</div><h1 style="font-size:42px">'+t('boardTitle')+'</h1><div class="card skeleton" style="height:160px"></div>');
+    try{
+      var userId=state.userId||'demo_user';
+      var out=await api('/v1/boards?userId='+encodeURIComponent(userId));
+      var list=out.data||[];
+      if(!list.length){
+        var created=await api('/v1/boards',{method:'POST',body:JSON.stringify({userId:userId,title:state.lang==='ru'?'Мой MFW SS27':'My MFW SS27'})});
+        list=[created.data];
+      }
+      var html=list.map(function(b){return '<div class="board-card"><div><div class="eyebrow">PRIVATE BOARD</div><b>'+esc(b.title)+'</b><p>'+esc(String((b.looks||[]).length))+' '+T('образов','looks')+'</p></div><button class="action primary" data-action="board-add-look" data-id="'+esc(b.id)+'">'+t('addToBoard')+'</button></div>';}).join('');
+      openSheet('<div class="eyebrow">MFW BOARDS</div><h1 style="font-size:42px">'+t('boardTitle')+'</h1>'+html+'<button class="action ghost" data-action="board-new">'+t('newBoard')+'</button>');
+    }catch(_){toast(T('Подборки недоступны','Boards unavailable'));}
+  }
+
+  async function addLookToBoard(boardId){
+    var lookId=state.savedLooks[state.savedLooks.length-1]||'look-14';
+    try{
+      await api('/v1/boards/'+encodeURIComponent(boardId)+'/looks',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',lookId:lookId})});
+      toast(T('Образ добавлен в подборку','Look added to board'));
+      boards();
+    }catch(_){toast(T('Не удалось добавить образ','Could not add look'));}
+  }
+
+  async function createBoard(){
+    try{
+      await api('/v1/boards',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',title:state.lang==='ru'?'Новая подборка':'New board'})});
+      boards();
+    }catch(_){toast(T('Не удалось создать подборку','Could not create board'));}
+  }
+
+  async function meetups(){
+    openSheet('<div class="eyebrow">INTEREST-BASED NETWORKING</div><h1 style="font-size:42px">'+t('meetupTitle')+'</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/meetups');
+      var html=(out.data||[]).map(function(m){
+        var joined=state.joinedMeetups.indexOf(m.id)>=0;
+        return '<div class="meetup-card"><div><div class="eyebrow">'+esc(m.topic)+'</div><b>'+esc(m.title)+'</b><p>'+esc(m.venue)+' · '+new Date(m.startsAt).toLocaleString(state.lang==='ru'?'ru-RU':'en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'</p></div><button class="action '+(joined?'ghost':'primary')+'" data-action="join-meetup" data-id="'+esc(m.id)+'">'+(joined?t('joined'):t('join'))+'</button></div>';
+      }).join('');
+      openSheet('<div class="eyebrow">MFW NETWORKING</div><h1 style="font-size:42px">'+t('meetupTitle')+'</h1>'+html);
+    }catch(_){toast(T('Meetups недоступны','Meetups unavailable'));}
+  }
+
+  async function joinMeetup(id){
+    try{
+      await api('/v1/meetups/'+encodeURIComponent(id)+'/join',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
+      if(state.joinedMeetups.indexOf(id)<0)state.joinedMeetups.push(id);
+      persist();toast(T('Вы присоединились','You joined'));meetups();
+    }catch(_){toast(T('Не удалось присоединиться','Could not join'));}
+  }
+
+  async function perks(){
+    openSheet('<div class="eyebrow">PARTNER & LOYALTY</div><h1 style="font-size:42px">'+t('perksTitle')+'</h1><div class="card skeleton" style="height:160px"></div>');
+    try{
+      var out=await api('/v1/perks');
+      var html=(out.data||[]).map(function(p){return '<div class="perk-card"><span>✦</span><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><p>'+esc(state.lang==='ru'?p.descRu:p.descEn)+'</p></div></div>';}).join('');
+      openSheet('<div class="eyebrow">MFW PRIVILEGES</div><h1 style="font-size:42px">'+t('perksTitle')+'</h1>'+html+'<div class="demo-note">'+T('Привилегии выдаются entitlement-моделью, а не просто ролью.','Perks are entitlement-driven, not role-driven.')+'</div>');
+    }catch(_){toast(T('Привилегии недоступны','Perks unavailable'));}
+  }
+
+  async function proposeReschedule(){
+    if(!state.meeting||!state.meeting.id){toast(T('Сначала создайте встречу','Create a meeting first'));return;}
+    try{
+      var out=await api('/v1/meetings/'+encodeURIComponent(state.meeting.id)+'/proposals',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_buyer',startsAt:'2026-09-26T15:20:00+03:00'})});
+      state.meeting.proposalId=out.data.id;
+      state.meeting.proposedStartsAt=out.data.proposedStartsAt;
+      persist();render();toast(T('Новое время предложено','New time proposed'));
+    }catch(_){toast(T('Перенос недоступен','Reschedule unavailable'));}
+  }
+
   function meeting(){
     if(state.role!=='Buyer' && state.role!=='Media'){toast('В demo встреча доступна профессиональным ролям');return;}
-    if(state.meeting){openSheet('<div class="eyebrow">PRIVATE NOTE</div><h1 style="font-size:40px">MFW / NEW 01</h1><textarea class="input" style="height:120px" placeholder="Private buyer note"></textarea><button class="action primary" style="margin-top:10px" data-action="toast" data-message="Private note сохранена">Сохранить</button>');return;}
+    if(state.meeting){openSheet('<div class="eyebrow">PRIVATE NOTE</div><h1 style="font-size:40px">MFW / NEW 01</h1><textarea class="input" style="height:120px" placeholder="Private buyer note"></textarea><div class="action-row"><button class="action primary" data-action="toast" data-message="'+T('Private note сохранена','Private note saved')+'">'+T('Сохранить','Save')+'</button><button class="action ghost" data-action="reschedule-meeting">'+t('reschedule')+'</button></div>');return;}
     openSheet('<div class="eyebrow">REQUEST MEETING</div><h1 style="font-size:40px">ВЫБЕРИТЕ<br>СЛОТ</h1><div class="action-row"><button class="action ghost" data-action="confirm-meeting">14:10</button><button class="action primary" data-action="confirm-meeting">14:30</button><button class="action ghost" data-action="confirm-meeting">15:20</button></div>');
   }
 
@@ -885,7 +973,7 @@
     try{
       await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',slot:'14:30'})});
       await api('/v1/leads',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',source:'meeting',stage:'meeting',note:'Showroom meeting confirmed'})});
-      state.meeting=true;closeSheet();render();toast('Встреча подтверждена сервером: 14:30');track('meeting_confirmed',{brandId:'b1',slot:'14:30'});
+      state.meeting={id:(await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',slot:'14:30'})})).data.id,slot:'14:30',status:'confirmed'};closeSheet();render();toast(T('Встреча подтверждена сервером: 14:30','Meeting confirmed by server: 14:30'));track('meeting_confirmed',{brandId:'b1',slot:'14:30'});
     }catch(_){
       toast('API недоступен — встреча не подтверждена');
     }
@@ -902,6 +990,7 @@
       var a=el.getAttribute('data-action');
       if(a==='close')closeSheet();
       else if(a==='enter-experience'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');render();}
+      else if(a==='toggle-lang')toggleLanguage();
       else if(a==='event')openEvent(el.getAttribute('data-id'));
       else if(a==='toggle-event')toggleEvent(el.getAttribute('data-id'));
       else if(a==='save-look')saveLook(el.getAttribute('data-look'));
@@ -927,7 +1016,15 @@
       else if(a==='questions')questions();
       else if(a==='meeting')meeting();
       else if(a==='confirm-meeting'){createMeeting();}
-      else if(a==='connect'){state.connections+=1;render();toast('Запрос на связь отправлен');}
+      else if(a==='connect'){state.connections+=1;render();toast(T('Запрос на связь отправлен','Connection request sent'));}
+      else if(a==='contact-qr')contactQr();
+      else if(a==='boards')boards();
+      else if(a==='board-add-look')addLookToBoard(el.getAttribute('data-id'));
+      else if(a==='board-new')createBoard();
+      else if(a==='meetups')meetups();
+      else if(a==='join-meetup')joinMeetup(el.getAttribute('data-id'));
+      else if(a==='perks')perks();
+      else if(a==='reschedule-meeting')proposeReschedule();
       else if(a==='line-sheet')openLineSheet(el.getAttribute('data-id')||'b1');
       else if(a==='toggle-shortlist')toggleShortlist(el.getAttribute('data-id')||'b1');
       else if(a==='buyer-followup')buyerFollowup(el.getAttribute('data-id')||'b1');
