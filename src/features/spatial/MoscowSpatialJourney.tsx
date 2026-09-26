@@ -10,6 +10,7 @@ type TrustMode = 'documented' | 'public';
 
 type Props = {
   language?: AppLanguage;
+  fieldToolsEnabled?: boolean;
   initialEra?: RomanovEra;
   initialTrustMode?: TrustMode;
   onBackToModel?: () => void;
