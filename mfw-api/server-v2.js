@@ -171,7 +171,25 @@ const memory={
     {id:'acc_03',name:'Elena Volkova',kind:'Creator',organisation:'Independent',status:'approved'}
   ],
   notifications:[],
-  invitations:[]
+  invitations:[],
+  streams:[
+    {
+      id:'stream_e1',
+      eventId:'e1',
+      status:'live',
+      title:'MFW Opening Runway',
+      provider:'demo',
+      playbackUrl:'https://videos.pexels.com/video-files/19863106/19863106-uhd_2160_3840_30fps.mp4',
+      posterUrl:'https://images.unsplash.com/photo-1554881070-74595ca2b74c?auto=format&fit=crop&w=1200&q=88',
+      currentLook:14,
+      totalLooks:32,
+      startedAt:'2026-09-26T17:00:00+03:00',
+      captions:['RU','EN'],
+      replayAvailable:true,
+      updatedAt:new Date().toISOString(),
+      demo:true
+    }
+  ]
 };
 
 async function query(sql,params=[]){
@@ -423,6 +441,15 @@ async function router(req,res){
     }
     return json(res,200,{data:memory.events,demo:true,source:'memory'});
   }
+  if(req.method==='GET'&&p==='/v1/streams'){
+    return json(res,200,{data:memory.streams,demo:true});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/streams/')){
+    const id=p.split('/').pop();
+    const stream=memory.streams.find(x=>x.id===id||x.eventId===id);
+    if(!stream)return json(res,404,{error:'stream_not_found'});
+    return json(res,200,{data:stream,demo:true});
+  }
   if(req.method==='GET'&&p==='/v1/brands'){
     if(pool){
       const r=await pool.query('SELECT id,slug,name,city,country,description,status,metadata FROM brands WHERE status=$1 ORDER BY name',['published']);
@@ -507,6 +534,31 @@ async function router(req,res){
     if(req.method==='GET'&&p==='/v1/admin/overview') return json(res,200,{data:overview()});
     if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
     if(req.method==='GET'&&p==='/v1/admin/accreditations') return json(res,200,{data:memory.accreditations});
+    if(req.method==='GET'&&p==='/v1/admin/streams') return json(res,200,{data:memory.streams});
+    if(req.method==='PATCH'&&p.startsWith('/v1/admin/streams/')){
+      const streamId=p.split('/').pop();
+      const body=await readBody(req);
+      const stream=memory.streams.find(x=>x.id===streamId||x.eventId===streamId);
+      if(!stream)return json(res,404,{error:'stream_not_found'});
+      const before={...stream};
+      for(const key of ['status','currentLook','totalLooks','replayAvailable']){
+        if(Object.prototype.hasOwnProperty.call(body,key))stream[key]=body[key];
+      }
+      stream.currentLook=Math.max(1,Math.min(Number(stream.currentLook||1),Number(stream.totalLooks||1)));
+      stream.updatedAt=new Date().toISOString();
+      await track('stream_updated',{streamId,before,after:stream});
+      return json(res,200,{data:stream});
+    }
+    if(req.method==='POST'&&p.startsWith('/v1/admin/streams/')&&p.endsWith('/next-look')){
+      const parts=p.split('/');
+      const streamId=parts[4];
+      const stream=memory.streams.find(x=>x.id===streamId||x.eventId===streamId);
+      if(!stream)return json(res,404,{error:'stream_not_found'});
+      stream.currentLook=Math.min(stream.totalLooks,stream.currentLook+1);
+      stream.updatedAt=new Date().toISOString();
+      await track('stream_look_advanced',{streamId,currentLook:stream.currentLook});
+      return json(res,200,{data:stream});
+    }
     if(req.method==='PATCH'&&p.startsWith('/v1/admin/accreditations/')){
       var accId=p.split('/').pop();
       var accBody=await readBody(req);
