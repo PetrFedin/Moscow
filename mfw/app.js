@@ -15,18 +15,21 @@
   var scannerStream=null;
   var scannerFrame=null;
   var demoEvents = [
-    {id:'e1',time:'17:00',name:'MFW Opening Runway',type:'Показ',venue:'Манеж · Зал 1',status:'LIVE',access:'OPEN'},
-    {id:'e2',time:'18:00',name:'New Names: Moscow',type:'Показ',venue:'Манеж · Зал 2',status:'REGISTRATION',access:'OPEN'},
-    {id:'e3',time:'19:00',name:'Ваш бренд глазами байера',type:'Лекция',venue:'Лекторий',status:'OPEN',access:'OPEN'},
-    {id:'e4',time:'20:30',name:'International Exchange Show',type:'Показ',venue:'Манеж · Зал 1',status:'WAITLIST',access:'REQUEST ACCESS'},
-    {id:'e5',time:'21:30',name:'Private Industry Reception',type:'B2B',venue:'Partner Lounge',status:'INVITE ONLY',access:'INVITE ONLY'}
+    {id:'e1',time:'17:00',nameRu:'MFW Opening Runway',nameEn:'MFW Opening Runway',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 1',venueEn:'Manege · Hall 1',status:'LIVE',accessRu:'Открытый доступ',accessEn:'Open access'},
+    {id:'e2',time:'18:00',nameRu:'New Names: Moscow',nameEn:'New Names: Moscow',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 2',venueEn:'Manege · Hall 2',status:'REGISTRATION',accessRu:'По регистрации',accessEn:'Registration'},
+    {id:'e3',time:'19:00',nameRu:'Ваш бренд глазами байера',nameEn:'Your Brand Through a Buyer’s Eyes',typeRu:'Лекция',typeEn:'Talk',venueRu:'Лекторий',venueEn:'Lecture Hall',status:'OPEN',accessRu:'Открытый доступ',accessEn:'Open access'},
+    {id:'e4',time:'20:30',nameRu:'International Exchange Show',nameEn:'International Exchange Show',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 1',venueEn:'Manege · Hall 1',status:'WAITLIST',accessRu:'Запрос доступа',accessEn:'Request access'},
+    {id:'e5',time:'21:30',nameRu:'Private Industry Reception',nameEn:'Private Industry Reception',typeRu:'B2B',typeEn:'B2B',venueRu:'Partner Lounge',venueEn:'Partner Lounge',status:'INVITE ONLY',accessRu:'Только по приглашению',accessEn:'Invite only'}
   ];
+  function eventField(e,key){var suffix=state.lang==='en'?'En':'Ru';return e[key+suffix]||e[key]||'';}
   var brands = [
-    {id:'b1',name:'MFW / NEW 01',city:'Москва',tag:'Emerging · Womenswear',desc:'Демонстрационная карточка бренда для проверки UX. Здесь будут история бренда, дизайнер, коллекции и точки продаж.'},
-    {id:'b2',name:'MFW / STUDIO 02',city:'Санкт-Петербург',tag:'Contemporary · Unisex',desc:'Пример brand profile с коллекциями, replay, сохранением и профессиональными B2B-действиями.'},
-    {id:'b3',name:'MFW / ATELIER 03',city:'Казань',tag:'Heritage · Couture',desc:'Пример участника с editorial-подачей, медиаматериалами и showroom-механикой.'},
-    {id:'b4',name:'MFW / LAB 04',city:'Москва',tag:'Tech · Accessories',desc:'Пример brand discovery для молодой марки и новых форматов взаимодействия.'}
+    {id:'b1',name:'MFW / NEW 01',cityRu:'Москва',cityEn:'Moscow',tag:'Emerging · Womenswear',descRu:'Демонстрационная карточка бренда для проверки UX. Здесь будут история бренда, дизайнер, коллекции и точки продаж.',descEn:'A demo brand profile for testing the experience: brand story, designer, collections and where-to-buy.'},
+    {id:'b2',name:'MFW / STUDIO 02',cityRu:'Санкт-Петербург',cityEn:'Saint Petersburg',tag:'Contemporary · Unisex',descRu:'Пример brand profile с коллекциями, replay, сохранением и профессиональными B2B-действиями.',descEn:'A contemporary brand profile with collections, replay, saves and professional B2B actions.'},
+    {id:'b3',name:'MFW / ATELIER 03',cityRu:'Казань',cityEn:'Kazan',tag:'Heritage · Couture',descRu:'Пример участника с editorial-подачей, медиаматериалами и showroom-механикой.',descEn:'An editorial participant profile with media assets and showroom mechanics.'},
+    {id:'b4',name:'MFW / LAB 04',cityRu:'Москва',cityEn:'Moscow',tag:'Tech · Accessories',descRu:'Пример brand discovery для молодой марки и новых форматов взаимодействия.',descEn:'A discovery profile for a young label and new interaction formats.'}
   ];
+  function brandCity(b){return state.lang==='en'?b.cityEn:b.cityRu;}
+  function brandDesc(b){return state.lang==='en'?b.descEn:b.descRu;}
   var I18N={
     ru:{
       today:'Сегодня',schedule:'Программа',discover:'Открыть',profile:'Я',investor:'ИНВЕСТОР',
@@ -308,7 +311,7 @@
   }
 
   function eventRow(e){
-    return '<div class="event" data-action="event" data-id="'+e.id+'"><div class="time">'+e.time+'</div><div><h3>'+esc(e.name)+'</h3><div class="meta">'+esc(e.venue)+' · '+esc(e.type)+'</div></div>'+badge(e.status)+'</div>';
+    return '<div class="event" data-action="event" data-id="'+e.id+'"><div class="time">'+e.time+'</div><div><h3>'+esc(eventField(e,'name'))+'</h3><div class="meta">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'type'))+'</div></div>'+badge(e.status)+'</div>';
   }
 
   function schedule(){
@@ -318,7 +321,7 @@
       '<div class="filters">'+[t('all'),t('mine'),t('shows'),t('talks'),'B2B',t('online'),t('available')].map(function(x,i){return '<button class="chip '+(i===0?'active':'')+'">'+x+'</button>';}).join('')+'</div>'+
       demoEvents.map(function(e){
         var mine=state.myEvents.indexOf(e.id)>=0;
-        return '<div class="card event-card" data-action="event" data-id="'+e.id+'"><div class="event-top"><div><div class="eyebrow">'+e.time+' · '+esc(e.type)+'</div><div class="event-name">'+esc(e.name)+'</div><div class="event-details">'+esc(e.venue)+' · '+esc(e.access)+'</div></div>'+badge(e.status)+'</div><div class="mini-actions"><button class="action '+(mine?'ghost':'primary')+'" data-action="toggle-event" data-id="'+e.id+'">'+(mine?t('added'):t('add'))+'</button><button class="action ghost" data-action="route" data-id="'+e.id+'">'+t('route')+'</button></div></div>';
+        return '<div class="card event-card" data-action="event" data-id="'+e.id+'"><div class="event-top"><div><div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+'</div><div class="event-name">'+esc(eventField(e,'name'))+'</div><div class="event-details">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</div></div>'+badge(e.status)+'</div><div class="mini-actions"><button class="action '+(mine?'ghost':'primary')+'" data-action="toggle-event" data-id="'+e.id+'">'+(mine?t('added'):t('add'))+'</button><button class="action ghost" data-action="route" data-id="'+e.id+'">'+t('route')+'</button></div></div>';
       }).join('')+
     '</main>';
   }
@@ -354,7 +357,7 @@
       content='<input class="input editorial-search" placeholder="Бренд, дизайнер, категория" />'+
       '<div class="editorial-brand-grid">'+brands.map(function(b,i){
         var img=[VISUALS.designer,VISUALS.runway,VISUALS.backstage,VISUALS.street][i%4];
-        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span><div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(b.city)+'</div></div></button>';
+        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span><div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(brandCity(b))+'</div></div></button>';
       }).join('')+'</div>';
     } else if(state.discoverTab==='speakers'){
       content='<div class="speaker-card"><div class="speaker-photo" style="background-image:url('+VISUALS.designer+')"></div><div class="speaker-copy"><div class="eyebrow">RETAIL · BUYING</div><div class="event-name">Анна · Buyer Perspective</div><div class="sub">Как байер принимает решение о бренде и коллекции.</div><div class="action-row"><button class="action primary" data-action="questions">Live Q&A</button><button class="action ghost" data-action="toggle-event" data-id="e3">В программу</button></div></div></div>'+
@@ -510,18 +513,18 @@
   function openEvent(id){
     var e=demoEvents.filter(function(x){return x.id===id;})[0]; if(!e)return;
     var mine=state.myEvents.indexOf(id)>=0;
-    openSheet('<div class="eyebrow">'+e.time+' · '+esc(e.type)+'</div><h1 style="font-size:42px">'+esc(e.name)+'</h1><p class="sub">'+esc(e.venue)+' · '+esc(e.access)+'</p>'+badge(e.status)+'<div class="action-row"><button class="action primary" data-action="toggle-event" data-id="'+e.id+'">'+(mine?'✓ В моей программе':'+ Добавить в программу')+'</button><button class="action ghost" data-action="route">Маршрут</button></div><h2>Доступ</h2><div class="card"><b>Credential → Entitlement → Event</b><p class="sub">В production решение о входе будет приниматься серверной моделью прав, а не названием роли пользователя.</p></div>');
+    openSheet('<div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+'</div><h1 style="font-size:42px">'+esc(eventField(e,'name'))+'</h1><p class="sub">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</p>'+badge(e.status)+'<div class="action-row"><button class="action primary" data-action="toggle-event" data-id="'+e.id+'">'+(mine?t('added'):t('add'))+'</button><button class="action ghost" data-action="route">'+t('route')+'</button></div><h2>'+T('Доступ','Access')+'</h2><div class="card"><b>Credential → Entitlement → Event</b><p class="sub">'+T('Решение о входе принимает серверная модель прав, а не название роли пользователя.','Admission is decided by server-side entitlements, not by the user’s role label.')+'</p></div>');
   }
 
   function openBrand(id){
     var b=brands.filter(function(x){return x.id===id;})[0]; if(!b)return;
     var saved=state.savedBrands.indexOf(id)>=0;
     var pro=(state.role==='Buyer'||state.role==='Media');
-    openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(b.city)+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>SS27 · Moscow Fashion Week</p></div></div>'+
-      '<div class="brand-story"><div><div class="eyebrow">THE BRAND</div><h2>Новая российская мода<br>как культурный продукт.</h2><p class="sub">'+esc(b.desc)+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
+    openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(brandCity(b))+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>SS27 · Moscow Fashion Week</p></div></div>'+
+      '<div class="brand-story"><div><div class="eyebrow">THE BRAND</div><h2>'+T('Новая российская мода<br>как культурный продукт.','New Russian fashion<br>as a cultural product.')+'</h2><p class="sub">'+esc(brandDesc(b))+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
       '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ Following':'Follow brand')+'</button><button class="action ghost" data-action="sponsor-experience">Share / Experience</button></div>'+
       '<div class="section-head"><h2>SS27 runway</h2><span class="link">32 looks</span></div><div class="brand-look-grid">'+[1,2,3,4,5,6].map(function(n){return '<button data-action="save-look" data-look="'+b.id+'-look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
-      '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(b.city)+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
+      '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(brandCity(b))+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
       (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE · SERVER</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet" data-id="'+b.id+'">Line sheet</button><button class="action light" data-action="toggle-shortlist" data-id="'+b.id+'">'+(state.buyerShortlist.some(function(x){return x.id===b.id;})?'✓ Shortlisted':'＋ Shortlist')+'</button><button class="action light" data-action="meeting">Встреча</button><button class="action ghost" data-action="buyer-followup" data-id="'+b.id+'">Follow-up</button></div></div>':''));
   }
 
