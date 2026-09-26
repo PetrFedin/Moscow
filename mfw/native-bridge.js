@@ -18,7 +18,7 @@
     return c && c.Plugins ? c.Plugins[name] : null;
   }
 
-  window.MFWNative = {
+  var api = window.MFWNative = {
     isNative:isNative,
 
     async haptic(kind){
@@ -76,6 +76,21 @@
         return true;
       }
       return false;
+    },
+
+    async init(){
+      if(!isNative())return {native:false};
+      var App=plugin('App');
+      if(App && App.addListener){
+        try{
+          await App.addListener('appUrlOpen',function(event){
+            if(event&&event.url)api.routeDeepLink(event.url);
+          });
+        }catch(_){}
+      }
+      return {native:true};
     }
   };
+
+  api.init();
 })();
