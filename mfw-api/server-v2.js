@@ -130,12 +130,24 @@ function readBody(req) {
     req.on('error',reject);
   });
 }
+function sessionFromRequest(req){
+  var auth=String(req.headers.authorization||'');
+  if(!auth.startsWith('Bearer '))return null;
+  var v=verifyToken(auth.slice(7));
+  return v.ok&&v.payload&&v.payload.typ==='session'?v.payload:null;
+}
 function adminOk(req){
   if(req.headers['x-mfw-admin']===ADMIN_TOKEN)return true;
-  var auth=String(req.headers.authorization||'');
-  if(!auth.startsWith('Bearer '))return false;
-  var v=verifyToken(auth.slice(7));
-  return !!(v.ok&&v.payload&&v.payload.typ==='session'&&['Organizer','Staff'].indexOf(v.payload.role)>=0);
+  var p=sessionFromRequest(req);
+  return !!(p&&['Organizer','Staff'].indexOf(p.role)>=0);
+}
+function brandPortalOk(req,brandId){
+  var p=sessionFromRequest(req);
+  if(!p)return false;
+  if(['Organizer','Staff'].includes(p.role))return true;
+  if(p.role!=='Designer')return false;
+  var set=memory.brandAccess.get(String(p.sub));
+  return !!(set&&set.has(String(brandId)));
 }
 
 const publicJwk=DERIVED_KEYS.publicJwk;
@@ -193,6 +205,7 @@ const memory={
   socialConnections:new Map(),
   socialMemberships:new Map(),
   brandFollows:new Map(),
+  brandAccess:new Map(),
   loyaltyClaims:new Map(),
   contentInteractions:[],
   analytics:[],
@@ -1097,6 +1110,51 @@ async function router(req,res){
     await track('brand_content_'+item.type,{postId:item.postId},item.userId);
     return json(res,201,{data:item});
   }
+  if(p.startsWith('/v1/brand-portal/')){
+    const parts=p.split('/').filter(Boolean);
+    const brandId=parts[2];
+    const action=parts[3]||'overview';
+    if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
+    if(!brandPortalOk(req,brandId))return json(res,403,{error:'brand_access_required'});
+    if(req.method==='GET'&&action==='overview'){
+      const followers=[...memory.brandFollows.values()].reduce((n,set)=>n+(set.has(brandId)?1:0),0);
+      const offers=memory.loyaltyOffers.filter(x=>x.brandId===brandId);
+      const posts=memory.brandPosts.filter(x=>x.brandId===brandId).sort((a,b)=>String(b.publishedAt||b.createdAt||'').localeCompare(String(a.publishedAt||a.createdAt||'')));
+      const claims=[...memory.loyaltyClaims.values()].filter(cl=>offers.some(o=>o.id===cl.offerId));
+      const channels=memory.socialChannels.filter(x=>x.brandId===brandId);
+      return json(res,200,{data:{brand:memory.brands.find(x=>x.id===brandId),followers,offers,posts,claims,channels,providers:memory.socialProviderAdapters}});
+    }
+    if(req.method==='POST'&&action==='content'){
+      const b=await readBody(req);
+      const paid=!!b.isPaid||((b.audienceScope&&b.audienceScope.kind)==='all_mfw');
+      const post={id:'bp_'+crypto.randomBytes(6).toString('hex'),brandId,kind:String(b.kind||'news'),titleRu:String(b.titleRu||'Новости бренда'),titleEn:String(b.titleEn||'Brand news'),bodyRu:String(b.bodyRu||''),bodyEn:String(b.bodyEn||''),imageUrl:String(b.imageUrl||''),ctaLabelRu:String(b.ctaLabelRu||'Открыть'),ctaLabelEn:String(b.ctaLabelEn||'Open'),ctaUrl:String(b.ctaUrl||'#'),eventStartsAt:b.eventStartsAt||null,eventEndsAt:b.eventEndsAt||null,audienceScope:b.audienceScope||{kind:'brand_followers'},placementScope:b.placementScope||['brand_profile','discover_feed'],isPaid:paid,sponsorLabelRu:paid?'Реклама бренда':null,sponsorLabelEn:paid?'Brand promotion':null,status:paid?'pending_review':'published',publishedAt:paid?null:new Date().toISOString(),createdAt:new Date().toISOString(),demo:true};
+      memory.brandPosts.unshift(post);
+      await track('brand_portal_content_created',{brandId,postId:post.id,isPaid:paid,status:post.status},sessionFromRequest(req)?.sub||null);
+      return json(res,201,{data:post});
+    }
+    if(req.method==='POST'&&action==='offers'){
+      const b=await readBody(req);
+      const rewardType=String(b.rewardType||'discount_percent');
+      if(!['discount_percent','discount_amount','gift','early_access','experience'].includes(rewardType))return json(res,400,{error:'invalid_reward_type'});
+      const id='lo_'+crypto.randomBytes(6).toString('hex');
+      const offer={id,brandId,titleRu:String(b.titleRu||'Новая привилегия'),titleEn:String(b.titleEn||'New reward'),descriptionRu:String(b.descriptionRu||''),descriptionEn:String(b.descriptionEn||''),rewardType,rewardValue:b.rewardValue==null?null:Number(b.rewardValue),minContinuousDays:Math.max(0,Number(b.minContinuousDays||30)),status:'pending',stockLimit:b.stockLimit==null?null:Number(b.stockLimit),perUserLimit:Math.max(1,Number(b.perUserLimit||1)),termsRu:String(b.termsRu||''),termsEn:String(b.termsEn||''),requirements:Array.isArray(b.requirements)?b.requirements:[],createdAt:new Date().toISOString(),demo:true};
+      memory.loyaltyOffers.push(offer);
+      await track('brand_portal_offer_created',{brandId,offerId:id,rewardType},sessionFromRequest(req)?.sub||null);
+      return json(res,201,{data:offer});
+    }
+    if(req.method==='POST'&&action==='social-channels'){
+      const b=await readBody(req);
+      const platform=String(b.platform||'').toLowerCase();
+      if(!['telegram','vk','instagram'].includes(platform))return json(res,400,{error:'unsupported_platform'});
+      const id='sc_'+crypto.randomBytes(6).toString('hex');
+      const verificationMode=platform==='telegram'?'membership_event':platform==='vk'?'api_current':'unsupported';
+      const channel={id,ownerType:'brand',brandId,platform,externalChannelId:String(b.externalChannelId||''),handle:String(b.handle||''),url:String(b.url||''),verificationMode,status:platform==='instagram'?'paused':'active',verifiedAt:null,demo:true};
+      memory.socialChannels.push(channel);
+      await track('brand_portal_social_channel_added',{brandId,channelId:id,platform},sessionFromRequest(req)?.sub||null);
+      return json(res,201,{data:channel});
+    }
+  }
+
   if(req.method==='GET'&&p==='/v1/perks'){
     return json(res,200,{data:memory.perks});
   }
@@ -1224,6 +1282,11 @@ async function router(req,res){
     const sessionPayload={typ:'session',sub:userId,role,name,iat:Date.now(),exp:Date.now()+6*60*60*1000,demo:true};
     const session=signPayload(sessionPayload);
     memory.sessions.set(userId,{session,sessionPayload});
+    if(role==='Designer'){
+      const access=memory.brandAccess.get(userId)||new Set();
+      access.add('b1');
+      memory.brandAccess.set(userId,access);
+    }
     await track('auth_demo',{role},userId);
     return json(res,200,{user:{id:userId,name,role,demo:true},session,dataMode:pool?'postgres':'memory'});
   }
@@ -1388,10 +1451,32 @@ async function router(req,res){
       const b=await readBody(req);
       const brandId=String(b.brandId||'b1');
       if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
-      const post={id:'bp_'+crypto.randomBytes(6).toString('hex'),brandId,kind:String(b.kind||'news'),titleRu:String(b.titleRu||'Новая публикация'),titleEn:String(b.titleEn||'New post'),bodyRu:String(b.bodyRu||''),bodyEn:String(b.bodyEn||''),imageUrl:String(b.imageUrl||''),ctaLabelRu:String(b.ctaLabelRu||'Открыть'),ctaLabelEn:String(b.ctaLabelEn||'Open'),ctaUrl:String(b.ctaUrl||'#'),audienceScope:b.audienceScope||{kind:'brand_followers'},placementScope:b.placementScope||['brand_profile'],isPaid:!!b.isPaid,sponsorLabelRu:b.isPaid?'Реклама бренда':null,sponsorLabelEn:b.isPaid?'Brand promotion':null,status:'published',publishedAt:new Date().toISOString(),demo:true};
+      const post={id:'bp_'+crypto.randomBytes(6).toString('hex'),brandId,kind:String(b.kind||'news'),titleRu:String(b.titleRu||'Новая публикация'),titleEn:String(b.titleEn||'New post'),bodyRu:String(b.bodyRu||''),bodyEn:String(b.bodyEn||''),imageUrl:String(b.imageUrl||''),ctaLabelRu:String(b.ctaLabelRu||'Открыть'),ctaLabelEn:String(b.ctaLabelEn||'Open'),ctaUrl:String(b.ctaUrl||'#'),audienceScope:b.audienceScope||{kind:'brand_followers'},placementScope:b.placementScope||['brand_profile'],isPaid:!!b.isPaid,sponsorLabelRu:b.isPaid?'Реклама бренда':null,sponsorLabelEn:b.isPaid?'Brand promotion':null,status:'published',publishedAt:new Date().toISOString(),createdAt:new Date().toISOString(),demo:true};
       memory.brandPosts.unshift(post);
       await track('brand_content_published',{brandId,postId:post.id,isPaid:post.isPaid});
       return json(res,201,{data:post});
+    }
+    if(req.method==='PATCH'&&p.startsWith('/v1/admin/brand-content/')){
+      const postId=p.split('/').pop();
+      const post=memory.brandPosts.find(x=>x.id===postId);
+      if(!post)return json(res,404,{error:'post_not_found'});
+      const b=await readBody(req);
+      if(b.status&&!['pending_review','published','rejected','paused','ended'].includes(String(b.status)))return json(res,400,{error:'invalid_status'});
+      if(b.status)post.status=String(b.status);
+      if(post.status==='published'&&!post.publishedAt)post.publishedAt=new Date().toISOString();
+      post.moderationNote=String(b.moderationNote||post.moderationNote||'');
+      await track('brand_content_moderated',{postId,status:post.status});
+      return json(res,200,{data:post});
+    }
+    if(req.method==='PATCH'&&p.startsWith('/v1/admin/loyalty-offers/')){
+      const offerId=p.split('/').pop();
+      const offer=memory.loyaltyOffers.find(x=>x.id===offerId);
+      if(!offer)return json(res,404,{error:'offer_not_found'});
+      const b=await readBody(req);
+      if(b.status&&!['draft','pending','published','paused','ended'].includes(String(b.status)))return json(res,400,{error:'invalid_status'});
+      if(b.status)offer.status=String(b.status);
+      await track('loyalty_offer_moderated',{offerId,status:offer.status});
+      return json(res,200,{data:offer});
     }
     if(req.method==='GET'&&p==='/v1/admin/sponsors'){
       const interactions=memory.sponsorInteractions;
