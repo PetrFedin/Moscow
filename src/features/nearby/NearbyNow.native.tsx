@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { localizePlaces } from '../../data/places.en';
 import { places } from '../../data/places';
 import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
@@ -26,6 +27,7 @@ export default function NearbyNow({
 }: Props) {
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [state, setState] = useState<'idle' | 'locating' | 'ready' | 'denied' | 'error'>('idle');
+  const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
 
   const locate = useCallback(async (prompt = true) => {
     setState('locating');
@@ -53,13 +55,13 @@ export default function NearbyNow({
   }, [locate]);
 
   const nearby = useMemo(
-    () => location ? rankNearbyPlaces(location, places, visitedIds).slice(0, 3) : [],
-    [location, visitedIds]
+    () => location ? rankNearbyPlaces(location, localizedPlaces, visitedIds).slice(0, 3) : [],
+    [localizedPlaces, location, visitedIds]
   );
 
   const startFreeWalk = () => {
     if (!location) return;
-    onStartFreeWalk(buildNearbyWalkPlan(location, places, visitedIds, 45));
+    onStartFreeWalk(buildNearbyWalkPlan(location, localizedPlaces, visitedIds, 45));
   };
 
   return (
