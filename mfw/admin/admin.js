@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],commerce:null};
+var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],commerce:null,sponsors:null};
 
 async function req(path,opts){
   opts=opts||{};
@@ -50,6 +50,7 @@ function nav(){
     ['programme','Programme'],
     ['streaming','Streaming'],
     ['commerce','Commerce'],
+    ['sponsors','Sponsors'],
     ['accreditation','Accreditation'],
     ['communications','Communications'],
     ['access','Access authority']
@@ -64,6 +65,7 @@ function shell(content){
     programme:'Programme CMS',
     streaming:'Streaming control',
     commerce:'Buyer & brand commerce',
+    sponsors:'Sponsor performance',
     accreditation:'Accreditation',
     communications:'Communications',
     access:'Access authority'
@@ -149,6 +151,21 @@ function commerceScreen(){
       ((c.leads||[]).length?(c.leads||[]).slice(0,8).map(function(l){return '<div class="lead-row"><div><b>'+esc(l.brandId)+'</b><span>'+esc(l.source)+' · '+esc(l.stage)+'</span></div><small>'+esc(l.buyerId)+'</small></div>';}).join(''):'<div class="sub">No live leads yet.</div>')+
     '</div></div>';
 }
+function sponsorsScreen(){
+  var data=state.sponsors||{sponsor:{name:'MFW Partner Demo'},campaign:{name:'Backstage Experience'},metrics:{},placements:[],recent:[]};
+  var m=data.metrics||{};
+  return '<div class="eyebrow">Native partner products</div><div class="hero-title">SPONSOR<br>EXPERIENCE</div>'+
+    '<div class="console-banner"><div><b>'+esc(data.sponsor&&data.sponsor.name||'Partner')+'</b><p>'+esc(data.campaign&&data.campaign.name||'Campaign')+' · measurable native activation.</p></div><div class="health"><span class="ok">Attribution live</span><span>Clearly labelled</span></div></div>'+
+    '<div class="grid4"><div class="metric"><div class="eyebrow">Reach</div><strong>'+esc(m.uniqueReach||0)+'</strong><span>unique users</span></div>'+
+    '<div class="metric"><div class="eyebrow">Experience</div><strong>'+esc(m.experienceOpens||0)+'</strong><span>opens</span></div>'+
+    '<div class="metric"><div class="eyebrow">CTA</div><strong>'+esc(m.ctaClicks||0)+'</strong><span>clicks</span></div>'+
+    '<div class="metric"><div class="eyebrow">Intent</div><strong>'+esc(m.attributedIntents||0)+'</strong><span>attributed</span></div></div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">PLACEMENTS</div><h2>Native inventory</h2>'+
+      (data.placements||[]).map(function(p){return '<div class="row"><div><b>'+esc(p.title)+'</b><div class="sub">'+esc(p.surface)+' · '+esc(p.placementType)+'</div></div><span class="badge live">ACTIVE</span></div>';}).join('')+
+    '</div><div class="card"><div class="eyebrow">ATTRIBUTION</div><h2>Recent interactions</h2>'+
+      ((data.recent||[]).length?(data.recent||[]).slice(0,8).map(function(x){return '<div class="lead-row"><div><b>'+esc(x.interactionType)+'</b><span>'+esc(x.placementId)+' · '+esc(x.campaignId)+'</span></div><small>'+esc(x.userId)+'</small></div>';}).join(''):'<div class="sub">Interactions appear here after the mobile Sponsor Experience is opened.</div>')+
+    '</div></div>';
+}
 function accreditationScreen(){
   return '<div class="eyebrow">People & permissions</div><div class="hero-title">ACCREDITATION</div>'+
     '<div class="card"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Organisation</th><th>Status</th><th>Decision</th></tr></thead><tbody>'+
@@ -181,6 +198,7 @@ function render(){
     state.tab==='programme'?programmeScreen():
     state.tab==='streaming'?streamingScreen():
     state.tab==='commerce'?commerceScreen():
+    state.tab==='sponsors'?sponsorsScreen():
     state.tab==='accreditation'?accreditationScreen():
     state.tab==='communications'?communicationsScreen():accessScreen();
   document.getElementById('admin-app').innerHTML=shell(body);
@@ -189,9 +207,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/commerce')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/commerce'),admin('/sponsors')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.commerce=result[6].data||null;
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.commerce=result[6].data||null;state.sponsors=result[7].data||null;
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
