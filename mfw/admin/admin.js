@@ -1,7 +1,8 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null};
+var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null};
+function T(ru,en){return state.lang==='en'?en:ru;}
 
 async function req(path,opts){
   opts=opts||{};
@@ -46,14 +47,14 @@ function toast(message){
 }
 function nav(){
   var tabs=[
-    ['overview','Overview'],
-    ['programme','Programme'],
-    ['streaming','Streaming'],
-    ['commerce','Commerce'],
-    ['sponsors','Sponsors'],
-    ['accreditation','Accreditation'],
-    ['communications','Communications'],
-    ['access','Access authority']
+    ['overview',T('Обзор','Overview')],
+    ['programme',T('Программа','Programme')],
+    ['streaming',T('Трансляции','Streaming')],
+    ['commerce',T('Коммерция','Commerce')],
+    ['sponsors',T('Партнёры','Sponsors')],
+    ['accreditation',T('Аккредитация','Accreditation')],
+    ['communications',T('Коммуникации','Communications')],
+    ['access',T('Контроль доступа','Access authority')]
   ];
   return tabs.map(function(t){
     return '<button class="'+(state.tab===t[0]?'active':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>';
@@ -61,30 +62,30 @@ function nav(){
 }
 function shell(content){
   var title={
-    overview:'Operations overview',
-    programme:'Programme CMS',
-    streaming:'Streaming control',
-    commerce:'Buyer & brand commerce',
-    sponsors:'Sponsor performance',
-    accreditation:'Accreditation',
-    communications:'Communications',
-    access:'Access authority'
+    overview:T('Операционный обзор','Operations overview'),
+    programme:T('Управление программой','Programme CMS'),
+    streaming:T('Управление трансляцией','Streaming control'),
+    commerce:T('Байеры и бренды','Buyer & brand commerce'),
+    sponsors:T('Эффективность партнёров','Sponsor performance'),
+    accreditation:T('Аккредитация','Accreditation'),
+    communications:T('Коммуникации','Communications'),
+    access:T('Контроль доступа','Access authority')
   }[state.tab];
   return '<div class="shell">'+
     '<aside class="sidebar"><div class="brand"><span>MOSCOW</span><span>FASHION WEEK</span></div>'+
       '<div class="season">Admin Console · Investor Build</div><div class="nav">'+nav()+'</div>'+
       '<div class="side-foot">Server-backed demo<br>ES256 · QR · check-in · live operations</div></aside>'+
     '<section class="main"><header class="top"><h1>'+title+'</h1>'+
-      '<div class="status"><span class="dot '+(state.health?'online':'')+'"></span><span>'+(state.health?'AUTHORITY ONLINE':'CONNECTING')+'</span>'+
-      '<button class="btn" data-action="refresh">Refresh</button></div></header>'+
+      '<div class="status"><button class="btn" data-action="toggle-lang">'+(state.lang==='ru'?'RU / EN':'EN / RU')+'</button><span class="dot '+(state.health?'online':'')+'"></span><span>'+(state.health?T('AUTHORITY ONLINE','AUTHORITY ONLINE'):T('ПОДКЛЮЧЕНИЕ','CONNECTING'))+'</span>'+
+      '<button class="btn" data-action="refresh">'+T('Обновить','Refresh')+'</button></div></header>'+
       '<div class="content">'+content+'</div></section></div>';
 }
 function overviewScreen(){
   var o=state.overview||{activeUsers:'—',programmeEngagementPct:'—',buyerActions:'—',live:{occupancyPct:0,checkedIn:'—',waitlist:'—'}};
   var d=state.deep||{};
-  return '<div class="eyebrow">Organizer command layer</div><div class="hero-title">LIVE<br>OPERATIONS</div>'+
-    '<div class="console-banner"><div><b>One operating system for Fashion Week</b>'+
-    '<p>Programme → access → attendance → content → commerce → sponsor reporting.</p></div>'+
+  return '<div class="eyebrow">'+T('Командный слой организатора','Organizer command layer')+'</div><div class="hero-title">'+T('LIVE<br>ОПЕРАЦИИ','LIVE<br>OPERATIONS')+'</div>'+
+    '<div class="console-banner"><div><b>'+T('Единая операционная система Недели моды','One operating system for Fashion Week')+'</b>'+
+    '<p>'+T('Программа → доступ → посещение → контент → коммерция → отчёт партнёру.','Programme → access → attendance → content → commerce → sponsor reporting.')+'</p></div>'+
     '<div class="health"><span class="'+(d.status==='pass'?'ok':'')+'">Deep test '+esc(d.status||'…')+'</span>'+
     '<span class="'+(state.health&&state.health.es256?'ok':'')+'">ES256</span>'+
     '<span class="'+(state.health&&state.health.duplicateCheckin?'ok':'')+'">Duplicate gate</span></div></div>'+
@@ -106,7 +107,7 @@ function overviewScreen(){
       '<div class="row"><span>Persistence</span><b>'+esc(state.health?state.health.dataMode:'—')+'</b></div></div></div>';
 }
 function programmeScreen(){
-  return '<div class="eyebrow">Programme authority</div><div class="hero-title">PROGRAMME<br>CMS</div>'+
+  return '<div class="eyebrow">'+T('Управление программой','Programme authority')+'</div><div class="hero-title">'+T('ПРОГРАММА<br>CMS','PROGRAMME<br>CMS')+'</div>'+
     '<div class="card">'+state.events.map(function(e){
       return '<div class="event"><div class="event-head"><div><div class="eyebrow">'+esc(e.id)+' · '+esc(e.type)+'</div>'+
         '<div class="event-name">'+esc(e.title)+'</div><div class="sub">'+esc(e.venue)+' · '+esc(e.startsAt)+'</div></div>'+badge(e.status)+'</div>'+
@@ -185,7 +186,7 @@ function sponsorsScreen(){
     '</div></div>';
 }
 function accreditationScreen(){
-  return '<div class="eyebrow">People & permissions</div><div class="hero-title">ACCREDITATION</div>'+
+  return '<div class="eyebrow">'+T('Люди и права','People & permissions')+'</div><div class="hero-title">'+T('АККРЕДИТАЦИЯ','ACCREDITATION')+'</div>'+
     '<div class="card"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Organisation</th><th>Status</th><th>Decision</th></tr></thead><tbody>'+
     state.accreditations.map(function(a){
       return '<tr><td><b>'+esc(a.name)+'</b></td><td>'+esc(a.kind)+'</td><td>'+esc(a.organisation)+'</td><td>'+badge(a.status)+'</td><td>'+
@@ -194,7 +195,7 @@ function accreditationScreen(){
     }).join('')+'</tbody></table></div>';
 }
 function communicationsScreen(){
-  return '<div class="eyebrow">Audience operations</div><div class="hero-title">COMMUNICATIONS</div>'+
+  return '<div class="eyebrow">'+T('Работа с аудиторией','Audience operations')+'</div><div class="hero-title">'+T('КОММУНИКАЦИИ','COMMUNICATIONS')+'</div>'+
     '<div class="columns"><div class="card"><div class="eyebrow">Critical update</div><h2>Operational push</h2>'+
     '<p class="sub">Перенос времени, смена зала и срочное сообщение аудитории.</p>'+
     '<div class="actions"><button class="btn primary" data-action="push">Send critical push</button></div></div>'+
@@ -203,7 +204,7 @@ function communicationsScreen(){
     '<div class="actions"><button class="btn primary" data-action="invite">Send demo invite</button></div></div></div>';
 }
 function accessScreen(){
-  return '<div class="eyebrow">Credential authority</div><div class="hero-title">ACCESS<br>CONTROL</div>'+
+  return '<div class="eyebrow">'+T('Контур пропусков','Credential authority')+'</div><div class="hero-title">'+T('КОНТРОЛЬ<br>ДОСТУПА','ACCESS<br>CONTROL')+'</div>'+
     '<div class="grid4"><div class="metric"><div class="eyebrow">Algorithm</div><strong>ES256</strong><span>asymmetric signing</span></div>'+
     '<div class="metric"><div class="eyebrow">Pass TTL</div><strong>120s</strong><span>rotating credential</span></div>'+
     '<div class="metric"><div class="eyebrow">Offline</div><strong>JWK</strong><span>cached public key</span></div>'+
@@ -258,7 +259,7 @@ function bind(){
     b.onclick=function(){state.tab=b.getAttribute('data-tab');render();};
   });
   document.querySelectorAll('[data-action]').forEach(function(b){
-    b.onclick=function(){var a=b.getAttribute('data-action');if(a==='refresh')load();else action(a,b.getAttribute('data-id'));};
+    b.onclick=function(){var a=b.getAttribute('data-action');if(a==='refresh')load();else if(a==='toggle-lang'){state.lang=state.lang==='ru'?'en':'ru';localStorage.setItem('mfwAdminLang',state.lang);render();}else action(a,b.getAttribute('data-id'));};
   });
 }
 load();
