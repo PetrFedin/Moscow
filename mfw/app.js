@@ -48,6 +48,8 @@
     openingSeen:localStorage.getItem('mfwOpeningSeen') === '1',
     stream:null,
     streamLoading:false,
+    buyerShortlist:[],
+    commerceLoading:false,
     onboarding:localStorage.getItem('mfwOnboarded') === '1'
   };
 
@@ -318,6 +320,7 @@
     var roleContent='';
     if(state.role==='Buyer'){
       roleContent=buyerPanel();
+      setTimeout(loadBuyerShortlist,0);
     } else if(state.role==='Media'){
       roleContent='<h2>Press mode</h2><div class="card"><div class="eyebrow">APPROVED ASSETS</div><div class="event-name">Press kit · Opening Runway</div><div class="sub">Press release · 18 approved images · credits · press contact</div><button class="action primary" data-action="toast" data-message="Demo: пакет подготовлен к выгрузке">Получить press kit</button></div>';
     } else if(state.role==='Designer'){
@@ -349,8 +352,11 @@
   }
 
   function buyerPanel(){
+    var shortlist=state.buyerShortlist||[];
     return '<h2>Buyer workspace</h2>'+
-      '<div class="card"><div class="eyebrow">SHORTLIST</div><div class="event-name">3 бренда для просмотра</div><div class="sub">Подборка на основе demo-интересов: premium womenswear / emerging designers.</div><div class="action-row"><button class="action primary" data-action="brand" data-id="b1">Открыть shortlist</button><button class="action ghost" data-action="line-sheet">Line sheets</button></div></div>'+
+      '<div class="buyer-workspace-hero"><div><div class="eyebrow">BUYER MODE</div><b>От интереса<br>к заказу.</b><p>Shortlist → line sheet → meeting → follow-up.</p></div><span>'+shortlist.length+'</span></div>'+
+      '<div class="card"><div class="eyebrow">SHORTLIST · SERVER</div><div class="event-name">'+(shortlist.length?shortlist.length+' бренда сохранено':'Добавьте первый бренд')+'</div>'+
+      '<div class="buyer-shortlist">'+(shortlist.length?shortlist.map(function(b){return '<button data-action="brand" data-id="'+esc(b.id)+'"><b>'+esc(b.name)+'</b><span>'+esc(b.city||'')+'</span></button>';}).join(''):'<div class="premium-empty"><div class="symbol">◇</div><b>Shortlist пуст</b><p>Откройте бренд и добавьте его для коммерческой работы.</p></div>')+'</div></div>'+
       '<div class="card"><div class="eyebrow">MEETING</div><div class="event-name">'+(state.meeting?'14:30 · MFW / NEW 01':'Запросить встречу')+'</div><div class="sub">'+(state.meeting?'Showroom Meeting Point 4 · подтверждено':'Выберите бренд и доступный слот.')+'</div><button class="action '+(state.meeting?'ghost':'primary')+'" data-action="meeting">'+(state.meeting?'Добавить private note':'Выбрать слот')+'</button></div>';
   }
 
@@ -454,7 +460,7 @@
       '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ Following':'Follow brand')+'</button><button class="action ghost" data-action="sponsor-experience">Share / Experience</button></div>'+
       '<div class="section-head"><h2>SS27 runway</h2><span class="link">32 looks</span></div><div class="brand-look-grid">'+[1,2,3,4,5,6].map(function(n){return '<button data-action="save-look" data-look="'+b.id+'-look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
       '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(b.city)+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
-      (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet">Line sheet</button><button class="action light" data-action="meeting">Запросить встречу</button></div></div>':''));
+      (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE · SERVER</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet" data-id="'+b.id+'">Line sheet</button><button class="action light" data-action="toggle-shortlist" data-id="'+b.id+'">'+(state.buyerShortlist.some(function(x){return x.id===b.id;})?'✓ Shortlisted':'＋ Shortlist')+'</button><button class="action light" data-action="meeting">Встреча</button><button class="action ghost" data-action="buyer-followup" data-id="'+b.id+'">Follow-up</button></div></div>':''));
   }
 
   function questions(){
@@ -530,6 +536,71 @@
     else{state.savedBrands.push(id);toast('Бренд добавлен');}
     persist();closeSheet();render();track(i>=0?'brand_unfollowed':'brand_followed',{brandId:id});
   }
+  async function loadBuyerShortlist(){
+    if(state.commerceLoading||state.role!=='Buyer')return;
+    state.commerceLoading=true;
+    try{
+      var buyerId=state.userId||'demo_buyer';
+      var out=await api('/v1/buyer/shortlist?buyerId='+encodeURIComponent(buyerId));
+      state.buyerShortlist=out.data||[];
+      if(state.tab==='me'&&state.role==='Buyer')setTimeout(function(){render();},0);
+    }catch(_){}
+    state.commerceLoading=false;
+  }
+
+  async function toggleShortlist(brandId){
+    try{
+      var exists=state.buyerShortlist.some(function(x){return x.id===brandId;});
+      var out=await api('/v1/buyer/shortlist',{method:'POST',body:JSON.stringify({
+        buyerId:state.userId||'demo_buyer',
+        brandId:brandId,
+        action:exists?'remove':'save'
+      })});
+      await loadBuyerShortlistForce();
+      closeSheet();
+      render();
+      toast(out.saved?'Бренд добавлен в shortlist':'Бренд удалён из shortlist');
+    }catch(err){toast('Shortlist unavailable');}
+  }
+
+  async function loadBuyerShortlistForce(){
+    try{
+      var out=await api('/v1/buyer/shortlist?buyerId='+encodeURIComponent(state.userId||'demo_buyer'));
+      state.buyerShortlist=out.data||[];
+    }catch(_){}
+  }
+
+  async function openLineSheet(brandId){
+    openSheet('<div class="eyebrow">LINE SHEET · SERVER</div><h1 style="font-size:42px">LOADING<br>COLLECTION</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/line-sheets/'+encodeURIComponent(brandId||'b1'));
+      var sheet=out.data;
+      var rows=(sheet.looks||[]).map(function(l){
+        return '<div class="line-sheet-row"><div><b>'+esc(l.title)+'</b><span>Wholesale</span></div><strong>'+Number(l.wholesale||0).toLocaleString('ru-RU')+' ₽</strong><em>RRP '+Number(l.rrp||0).toLocaleString('ru-RU')+' ₽</em></div>';
+      }).join('');
+      openSheet('<div class="eyebrow">LINE SHEET · v'+esc(sheet.version)+'</div><h1 style="font-size:42px">SS27<br>BUYING</h1>'+
+        '<div class="line-sheet-summary"><div><span>CURRENCY</span><b>'+esc(sheet.currency)+'</b></div><div><span>TERMS</span><b>'+esc(sheet.terms)+'</b></div></div>'+
+        '<div class="line-sheet-list">'+rows+'</div>'+
+        '<div class="action-row"><button class="action primary" data-action="toggle-shortlist" data-id="'+esc(brandId||'b1')+'">＋ Shortlist</button><button class="action ghost" data-action="meeting">Meeting</button></div>');
+    }catch(err){
+      openSheet('<div class="eyebrow">LINE SHEET</div><h1 style="font-size:42px">TEMPORARILY<br>UNAVAILABLE</h1><div class="premium-empty"><b>Не удалось загрузить данные</b><p>Server authority недоступен.</p></div>');
+    }
+  }
+
+  async function buyerFollowup(brandId){
+    try{
+      var out=await api('/v1/leads',{method:'POST',body:JSON.stringify({
+        brandId:brandId||'b1',
+        buyerId:state.userId||'demo_buyer',
+        source:'brand_profile',
+        stage:'follow_up',
+        note:'Investor demo follow-up'
+      })});
+      toast('Follow-up lead создан · '+out.data.id.slice(-6));
+      track('buyer_followup',{brandId:brandId});
+    }catch(_){toast('Follow-up unavailable');}
+  }
+
   function meeting(){
     if(state.role!=='Buyer' && state.role!=='Media'){toast('В demo встреча доступна профессиональным ролям');return;}
     if(state.meeting){openSheet('<div class="eyebrow">PRIVATE NOTE</div><h1 style="font-size:40px">MFW / NEW 01</h1><textarea class="input" style="height:120px" placeholder="Private buyer note"></textarea><button class="action primary" style="margin-top:10px" data-action="toast" data-message="Private note сохранена">Сохранить</button>');return;}
@@ -728,7 +799,8 @@
 
   async function createMeeting(){
     try{
-      await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:'demo_buyer',slot:'14:30'})});
+      await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',slot:'14:30'})});
+      await api('/v1/leads',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',source:'meeting',stage:'meeting',note:'Showroom meeting confirmed'})});
       state.meeting=true;closeSheet();render();toast('Встреча подтверждена сервером: 14:30');track('meeting_confirmed',{brandId:'b1',slot:'14:30'});
     }catch(_){
       toast('API недоступен — встреча не подтверждена');
@@ -770,7 +842,9 @@
       else if(a==='meeting')meeting();
       else if(a==='confirm-meeting'){createMeeting();}
       else if(a==='connect'){state.connections+=1;render();toast('Запрос на связь отправлен');}
-      else if(a==='line-sheet')toast('Demo: line sheet открыт');
+      else if(a==='line-sheet')openLineSheet(el.getAttribute('data-id')||'b1');
+      else if(a==='toggle-shortlist')toggleShortlist(el.getAttribute('data-id')||'b1');
+      else if(a==='buyer-followup')buyerFollowup(el.getAttribute('data-id')||'b1');
       else if(a==='route')toast('Demo: маршрут построен');
       else if(a==='toast')toast(el.getAttribute('data-message')||'Готово');
       else if(a==='saved-looks'){state.tab='me';render();}
