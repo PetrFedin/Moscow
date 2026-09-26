@@ -50,6 +50,7 @@
     streamLoading:false,
     buyerShortlist:[],
     commerceLoading:false,
+    commerceLoaded:false,
     onboarding:localStorage.getItem('mfwOnboarded') === '1'
   };
 
@@ -517,7 +518,7 @@
     setTimeout(function(){if(t.parentNode)t.remove();},1800);
   }
 
-  function setRole(r){state.role=r;state.session=null;state.sessionRole=null;state.passToken=null;state.passPayload=null;persist();render();toast('Demo role: '+r);track('role_switched',{role:r});}
+  function setRole(r){state.role=r;state.session=null;state.sessionRole=null;state.passToken=null;state.passPayload=null;state.buyerShortlist=[];state.commerceLoaded=false;persist();render();toast('Demo role: '+r);track('role_switched',{role:r});}
   function toggleEvent(id){
     var i=state.myEvents.indexOf(id);
     if(i>=0){state.myEvents.splice(i,1);toast('Удалено из программы');}
@@ -537,12 +538,13 @@
     persist();closeSheet();render();track(i>=0?'brand_unfollowed':'brand_followed',{brandId:id});
   }
   async function loadBuyerShortlist(){
-    if(state.commerceLoading||state.role!=='Buyer')return;
+    if(state.commerceLoading||state.commerceLoaded||state.role!=='Buyer')return;
     state.commerceLoading=true;
     try{
       var buyerId=state.userId||'demo_buyer';
       var out=await api('/v1/buyer/shortlist?buyerId='+encodeURIComponent(buyerId));
       state.buyerShortlist=out.data||[];
+      state.commerceLoaded=true;
       if(state.tab==='me'&&state.role==='Buyer')setTimeout(function(){render();},0);
     }catch(_){}
     state.commerceLoading=false;
@@ -567,6 +569,7 @@
     try{
       var out=await api('/v1/buyer/shortlist?buyerId='+encodeURIComponent(state.userId||'demo_buyer'));
       state.buyerShortlist=out.data||[];
+      state.commerceLoaded=true;
     }catch(_){}
   }
 
