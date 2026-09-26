@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Share, StyleSheet, Text, View } from 'react-native';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import {
   buildPilotAnalyticsReport,
@@ -15,7 +15,6 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState(false);
-  const ru = language === 'ru';
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -42,7 +41,7 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
       const current = buildPilotAnalyticsReport(records);
       setReport(current);
       await Share.share({
-        title: ru ? 'Агрегированная сводка пилота Moscow' : 'Moscow pilot aggregate report',
+        title: tr(language, 'Агрегированная сводка пилота Moscow', 'Moscow pilot aggregate report', '莫斯科试点聚合报告'),
         message: serializePilotAnalyticsReport(records)
       });
     } catch {
@@ -57,15 +56,13 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
     : `${Math.round(report.funnel.routeCompleteRateFromRouteStart * 100)}%`;
 
   return (
-    <View style={styles.card} accessibilityLabel={ru ? 'Пилотные данные на этом устройстве' : 'Pilot data on this device'}>
+    <View style={styles.card} accessibilityLabel={tr(language, 'Пилотные данные на этом устройстве', 'Pilot data on this device', '本设备上的试点数据')}>
       <View style={styles.top}>
         <View style={styles.copy}>
-          <Text style={styles.kicker}>{ru ? 'ПИЛОТ · ТОЛЬКО ЭТО УСТРОЙСТВО' : 'PILOT · THIS DEVICE ONLY'}</Text>
-          <Text style={styles.title}>{ru ? 'Агрегированная сводка прохождения' : 'Aggregate journey report'}</Text>
+          <Text style={styles.kicker}>{tr(language, 'ПИЛОТ · ТОЛЬКО ЭТО УСТРОЙСТВО', 'PILOT · THIS DEVICE ONLY', '试点 · 仅此设备')}</Text>
+          <Text style={styles.title}>{tr(language, 'Агрегированная сводка прохождения', 'Aggregate journey report', '聚合行程报告')}</Text>
           <Text style={styles.body}>
-            {ru
-              ? 'Локальные события сводятся без координат, истории GPS, идентификатора устройства и персональных данных.'
-              : 'Local events are aggregated without coordinates, GPS history, device identity or personal data.'}
+            {tr(language, 'Локальные события сводятся без координат, истории GPS, идентификатора устройства и персональных данных.', 'Local events are aggregated without coordinates, GPS history, device identity or personal data.', '本地事件会被聚合，不包含坐标、GPS历史、设备标识或个人数据。')}
           </Text>
         </View>
         {loading && <ActivityIndicator color="#d7bb84" />}
@@ -76,39 +73,37 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
           <View style={styles.stats}>
             <View style={styles.stat}>
               <Text style={styles.value}>{report.sessionCount}</Text>
-              <Text style={styles.label}>{ru ? 'сеансов' : 'sessions'}</Text>
+              <Text style={styles.label}>{tr(language, 'сеансов', 'sessions', '会话')}</Text>
             </View>
             <View style={styles.stat}>
               <Text style={styles.value}>{report.funnel.routeStartSessions}</Text>
-              <Text style={styles.label}>{ru ? 'стартов маршрута' : 'route starts'}</Text>
+              <Text style={styles.label}>{tr(language, 'стартов маршрута', 'route starts', '路线开始')}</Text>
             </View>
             <View style={styles.stat}>
               <Text style={styles.value}>{report.funnel.routeCompleteSessions}</Text>
-              <Text style={styles.label}>{ru ? 'завершений' : 'completions'}</Text>
+              <Text style={styles.label}>{tr(language, 'завершений', 'completions', '完成')}</Text>
             </View>
             <View style={styles.stat}>
               <Text style={styles.value}>{completionPercent}</Text>
-              <Text style={styles.label}>{ru ? 'старт → финиш' : 'start → finish'}</Text>
+              <Text style={styles.label}>{tr(language, 'старт → финиш', 'start → finish', '开始 → 完成')}</Text>
             </View>
           </View>
 
           <View style={styles.secondaryStats}>
             <Text style={styles.secondaryText}>
-              {ru ? 'Физическое приближение' : 'Physical arrivals'} · {report.engagement.physicalArrivalSessions}
+              {tr(language, 'Физическое приближение', 'Physical arrivals', '到达地点')} · {report.engagement.physicalArrivalSessions}
             </Text>
             <Text style={styles.secondaryText}>
-              {ru ? 'Аудио завершено' : 'Audio completed'} · {report.engagement.audioCompleteSessions}
+              {tr(language, 'Аудио завершено', 'Audio completed', '音频完成')} · {report.engagement.audioCompleteSessions}
             </Text>
             <Text style={styles.secondaryText}>
-              {ru ? 'Машина времени' : 'Time Machine'} · {report.engagement.timeMachineSessions}
+              {tr(language, 'Машина времени', 'Time Machine', '时光机')} · {report.engagement.timeMachineSessions}
             </Text>
           </View>
 
           {report.outboxAtCapacity && (
             <Text style={styles.warning}>
-              {ru
-                ? 'Локальный журнал достиг лимита 400 событий: ранние события могли быть вытеснены, поэтому сводка может быть неполной.'
-                : 'The local 400-event outbox is at capacity: earlier events may have been evicted, so the report may be incomplete.'}
+              {tr(language, 'Локальный журнал достиг лимита 400 событий: ранние события могли быть вытеснены, поэтому сводка может быть неполной.', 'The local 400-event outbox is at capacity: earlier events may have been evicted, so the report may be incomplete.', '本地日志已达到400条事件上限，较早事件可能已被移除，因此报告可能不完整。')}
             </Text>
           )}
         </>
@@ -121,9 +116,9 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
           hapticEvent="none"
           onPress={() => { void refresh(); }}
           disabled={loading}
-          accessibilityLabel={ru ? 'Обновить пилотную сводку' : 'Refresh pilot report'}
+          accessibilityLabel={tr(language, 'Обновить пилотную сводку', 'Refresh pilot report', '刷新试点报告')}
         >
-          <Text style={styles.secondaryButtonText}>{ru ? 'Обновить' : 'Refresh'}</Text>
+          <Text style={styles.secondaryButtonText}>{tr(language, 'Обновить', 'Refresh', '刷新')}</Text>
         </PhysicalPressable>
         <PhysicalPressable
           style={styles.primary}
@@ -131,22 +126,20 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
           strong
           onPress={() => { void share(); }}
           disabled={loading || sharing || !report}
-          accessibilityLabel={ru ? 'Поделиться агрегированной сводкой' : 'Share aggregate report'}
+          accessibilityLabel={tr(language, 'Поделиться агрегированной сводкой', 'Share aggregate report', '分享聚合报告')}
         >
           <Text style={styles.primaryText}>
-            {sharing ? (ru ? 'Готовим…' : 'Preparing…') : (ru ? 'Поделиться сводкой' : 'Share report')}
+            {sharing ? tr(language, 'Готовим…', 'Preparing…', '正在准备…') : tr(language, 'Поделиться сводкой', 'Share report', '分享报告')}
           </Text>
         </PhysicalPressable>
       </View>
 
       <Text style={styles.privacy}>
-        {ru
-          ? 'Экспорт создаётся только по нажатию и содержит агрегаты, а не сырые события или идентификаторы сеансов.'
-          : 'Export happens only after your tap and contains aggregates, not raw events or session identifiers.'}
+        {tr(language, 'Экспорт создаётся только по нажатию и содержит агрегаты, а не сырые события или идентификаторы сеансов.', 'Export happens only after your tap and contains aggregates, not raw events or session identifiers.', '只有在你主动点击后才会生成导出内容，且仅包含聚合数据，不含原始事件或会话标识。')}
       </Text>
       {error && (
         <Text style={styles.error}>
-          {ru ? 'Не удалось подготовить локальную сводку.' : 'Could not prepare the local report.'}
+          {tr(language, 'Не удалось подготовить локальную сводку.', 'Could not prepare the local report.', '无法生成本地报告。')}
         </Text>
       )}
     </View>
