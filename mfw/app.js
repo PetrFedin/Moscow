@@ -91,6 +91,18 @@
     }catch(_){}
   }
 
+  async function loadStreamAuthority(){
+    if(state.streamLoading)return;
+    state.streamLoading=true;
+    try{
+      var out=await api('/v1/streams/e1');
+      var changed=!state.stream||state.stream.currentLook!==out.data.currentLook||state.stream.status!==out.data.status;
+      state.stream=out.data;
+      if(changed&&state.tab==='live')setTimeout(function(){render();},0);
+    }catch(_){}
+    state.streamLoading=false;
+  }
+
   async function checkBackend(){
     try{
       await api('/health');
@@ -208,23 +220,22 @@
   }
 
   function today(){
-    return '<main>'+
-      '<div class="eyebrow" style="margin-top:18px">26 сентября · День 1</div>'+
-      '<h1>СЕГОДНЯ<br>В MFW</h1>'+
-      demoNote()+
-      '<div class="investor-strip"><div><div class="kicker">Investor demo</div><b>Покажите ценность платформы за 3 минуты</b><p>Audience → commerce → organizer control → measurable partner value.</p></div><button class="action primary" data-action="investor-tour">Старт</button></div>'+
-      '<section class="hero live-glow" style="margin-top:16px">'+
-        '<div><span class="live-tag"><span class="dot"></span> LIVE NOW</span></div>'+
-        '<div><div class="hero-title">OPENING<br>RUNWAY</div><div class="hero-meta">Манеж · Зал 1 · LOOK 14 / 32</div>'+
-        '<div class="action-row"><button class="action light" data-tab="live">Смотреть LIVE</button><button class="action ghost" data-action="save-look" data-look="look-14">'+(state.savedLooks.indexOf('look-14')>=0?'♥ Сохранено':'♡ Сохранить образ')+'</button></div></div>'+
+    var isNight=(new Date().getHours()>=19||new Date().getHours()<6);
+    return '<main class="'+(isNight?'night-state':'day-state')+'">'+
+      '<div class="today-masthead"><div><div class="eyebrow">26 сентября · День 1</div><h1>СЕГОДНЯ<br>В MFW</h1></div><div class="day-orbit">'+(isNight?'NIGHT':'DAY')+'</div></div>'+
+      '<section class="fashion-hero" style="background-image:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.86)),url('+VISUALS.runway+')">'+
+        '<div class="fashion-hero-top"><span class="live-tag"><span class="dot"></span> LIVE NOW</span><span class="native-partner">PARTNER EXPERIENCE · DEMO</span></div>'+
+        '<div class="fashion-hero-bottom"><div class="eyebrow">MFW OPENING RUNWAY · HALL 1</div><div class="fashion-title">THE CITY<br>IS WATCHING.</div><div class="hero-meta">LOOK '+esc(String((state.stream&&state.stream.currentLook)||14).padStart(2,'0'))+' / '+esc((state.stream&&state.stream.totalLooks)||32)+'</div>'+
+        '<div class="action-row"><button class="action light" data-tab="live">Смотреть LIVE</button><button class="action glass" data-action="sponsor-experience">Experience</button></div></div>'+
       '</section>'+
-      '<div class="section-head"><h2>Дальше у вас</h2><span class="link" data-tab="schedule">Вся программа</span></div>'+
-      '<div class="timeline">'+demoEvents.slice(1,4).map(eventRow).join('')+'</div>'+
-      '<div class="section-head"><h2>Trending looks</h2><span class="link" data-action="saved-looks">Сохранённые</span></div>'+
-      '<div class="scroll-row">'+[1,2,3,4,5].map(function(n){
-        var id='look-0'+n; var saved=state.savedLooks.indexOf(id)>=0;
-        return '<div class="look '+(saved?'saved':'')+'" data-action="save-look" data-look="'+id+'"><span>LOOK 0'+n+'</span></div>';
-      }).join('')+'</div>'+
+      '<div class="investor-strip premium"><div><div class="kicker">Investor path</div><b>Audience → access → commerce → organizer</b><p>Весь путь уже собран в одном vertical slice.</p></div><button class="action primary" data-action="investor-tour">3 min</button></div>'+
+      '<div class="section-head"><h2>Ваш вечер</h2><span class="link" data-tab="schedule">Вся программа</span></div>'+
+      '<div class="timeline premium-timeline">'+demoEvents.slice(1,4).map(eventRow).join('')+'</div>'+
+      '<div class="editorial-duo"><button class="editorial-story" data-action="brand" data-id="b1" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url('+VISUALS.backstage+')"><span class="eyebrow">BACKSTAGE</span><b>До выхода<br>30 секунд</b><small>Открыть историю бренда →</small></button>'+
+      '<button class="editorial-story" data-discover="street" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url('+VISUALS.street+')"><span class="eyebrow">STREET STYLE</span><b>Москва<br>между показами</b><small>Смотреть feed →</small></button></div>'+
+      '<div class="section-head"><h2>Runway now</h2><span class="link" data-action="saved-looks">Сохранённые</span></div>'+
+      '<div class="visual-look-rail">'+[11,12,13,14,15].map(function(n){var id='look-'+n;return '<button class="visual-look '+(state.savedLooks.indexOf(id)>=0?'saved':'')+'" data-action="save-look" data-look="'+id+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
+      '<div class="recap-teaser" data-action="post-show-recap"><div><div class="eyebrow">POST-SHOW RECAP</div><b>Ваш день в MFW,<br>собранный автоматически.</b><p>Показы · сохранённые образы · бренды · контакты.</p></div><span>→</span></div>'+
     '</main>';
   }
 
@@ -245,38 +256,57 @@
   }
 
   function live(){
-    var saved=state.savedLooks.indexOf('look-14')>=0;
-    return '<main><div class="eyebrow" style="margin-top:18px">Live runway</div><h1>СЕЙЧАС<br>В ЭФИРЕ</h1>'+
-      '<div class="live-player"><div class="overlay"><div class="eyebrow">MFW OPENING RUNWAY · DEMO</div><div class="look-index">LOOK 14 / 32</div><div class="sub">Structured live metadata synced with runway timeline.</div><div class="player-controls"><button class="action primary" data-action="save-look" data-look="look-14">'+(saved?'♥ Сохранено':'♡ Сохранить')+'</button><button class="action ghost" data-action="brand" data-id="b1">Бренд</button></div></div></div>'+
-      '<div class="section-head"><h2>Далее</h2><span class="link">Все эфиры</span></div>'+
-      '<div class="card"><div class="eyebrow">18:00 · UP NEXT</div><div class="event-name">New Names: Moscow</div><div class="sub">Напомним за 10 минут</div><div class="action-row"><button class="action primary" data-action="toggle-event" data-id="e2">Добавить</button></div></div>'+
-      '<h2>Replay</h2><div class="card"><div class="eyebrow">Вчера · 24 MIN</div><div class="event-name">Fashion Film Selection</div><button class="action ghost" data-action="toast" data-message="Replay открыт в demo-режиме">▶ Смотреть запись</button></div>'+
+    var stream=state.stream||{status:'live',currentLook:14,totalLooks:32,playbackUrl:DEMO_VIDEO,posterUrl:VISUALS.runway,replayAvailable:true};
+    var current=Number(stream.currentLook||14);
+    var saved=state.savedLooks.indexOf('look-'+current)>=0;
+    return '<main class="live-screen"><div class="live-kicker"><span class="live-tag"><span class="dot"></span> '+esc(String(stream.status||'live').toUpperCase())+'</span><span class="stream-authority">STREAM AUTHORITY</span></div>'+
+      '<h1>RUNWAY<br>LIVE</h1>'+
+      '<div class="cinema-player">'+
+        '<video class="runway-video" autoplay muted loop playsinline poster="'+esc(stream.posterUrl||VISUALS.runway)+'"><source src="'+esc(stream.playbackUrl||DEMO_VIDEO)+'" type="video/mp4"></video>'+
+        '<div class="cinema-vignette"></div>'+
+        '<div class="cinema-top"><span>MFW · OPENING RUNWAY</span><span>CC · RU / EN</span></div>'+
+        '<div class="cinema-bottom"><div><div class="look-index">LOOK '+String(current).padStart(2,'0')+' / '+esc(stream.totalLooks||32)+'</div><div class="live-brand">MFW / NEW 01</div></div>'+
+        '<div class="live-actions"><button class="round-action '+(saved?'saved':'')+'" data-action="save-look" data-look="look-'+current+'">'+(saved?'♥':'♡')+'</button><button class="round-action" data-action="brand" data-id="b1">↗</button></div></div>'+
+      '</div>'+
+      '<div class="live-progress"><span style="width:'+(Math.max(4,Math.min(100,(current/Number(stream.totalLooks||32))*100)))+'%"></span></div>'+
+      '<div class="section-head"><h2>Look-by-look</h2><span class="link">Синхронизировано с эфиром</span></div>'+
+      '<div class="visual-look-rail live-rail">'+[current-2,current-1,current,current+1,current+2].filter(function(n){return n>0&&n<=Number(stream.totalLooks||32);}).map(function(n){return '<button class="visual-look '+(n===current?'current':'')+'" data-action="save-look" data-look="look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
+      '<div class="live-editorial-card" style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.22)),url('+VISUALS.backstage+')"><div><div class="eyebrow">BACKSTAGE · LIVE LAYER</div><b>Что происходит<br>за кулисами сейчас</b><button class="action light" data-action="brand" data-id="b1">Открыть бренд</button></div></div>'+
+      '<div class="section-head"><h2>Далее</h2><span class="link">18:00</span></div>'+
+      '<div class="card premium-card"><div class="eyebrow">UP NEXT · HALL 2</div><div class="event-name">New Names: Moscow</div><div class="sub">Персональное напоминание за 10 минут · 4 минуты пешком.</div><div class="action-row"><button class="action primary" data-action="toggle-event" data-id="e2">Добавить</button><button class="action ghost" data-action="route">Маршрут</button></div></div>'+
+      '<div class="replay-state"><div><div class="eyebrow">REPLAY READY</div><b>После показа эфир станет<br>структурированным архивом.</b><p>Видео + looks + captions + brand story.</p></div><span class="replay-icon">▶</span></div>'+
     '</main>';
   }
 
   function discover(){
-    var tabs=['brands','speakers','people','market','map'];
-    var labels={brands:'Бренды',speakers:'Спикеры',people:'Люди',market:'Маркет',map:'Карта'};
+    var tabs=['brands','speakers','people','street','market','map'];
+    var labels={brands:'Бренды',speakers:'Спикеры',people:'Люди',street:'Street',market:'Маркет',map:'Карта'};
     var content='';
     if(state.discoverTab==='brands'){
-      content='<input class="input" placeholder="Поиск бренда, дизайнера, категории" />'+
-      '<div class="grid2" style="margin-top:14px">'+brands.map(function(b){
-        return '<div class="brand-tile" data-action="brand" data-id="'+b.id+'"><div class="brand-tag">'+esc(b.tag)+'</div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(b.city)+'</div></div>';
+      content='<input class="input editorial-search" placeholder="Бренд, дизайнер, категория" />'+
+      '<div class="editorial-brand-grid">'+brands.map(function(b,i){
+        var img=[VISUALS.designer,VISUALS.runway,VISUALS.backstage,VISUALS.street][i%4];
+        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span><div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(b.city)+'</div></div></button>';
       }).join('')+'</div>';
     } else if(state.discoverTab==='speakers'){
-      content='<div class="card"><div class="eyebrow">Retail · Buying</div><div class="event-name">Анна · Buyer Perspective</div><div class="sub">Демонстрационный профиль спикера. Сессия: «Ваш бренд глазами байера».</div><div class="action-row"><button class="action primary" data-action="questions">Задать вопрос</button><button class="action ghost" data-action="toggle-event" data-id="e3">В программу</button></div></div>'+
-      '<div class="card"><div class="eyebrow">Technology · Fashion</div><div class="event-name">AI в fashion-команде</div><div class="sub">Пример профиля с записью, материалами и Q&A.</div><button class="action ghost" data-action="toast" data-message="Материалы будут доступны после сессии">Материалы</button></div>';
+      content='<div class="speaker-card"><div class="speaker-photo" style="background-image:url('+VISUALS.designer+')"></div><div class="speaker-copy"><div class="eyebrow">RETAIL · BUYING</div><div class="event-name">Анна · Buyer Perspective</div><div class="sub">Как байер принимает решение о бренде и коллекции.</div><div class="action-row"><button class="action primary" data-action="questions">Live Q&A</button><button class="action ghost" data-action="toggle-event" data-id="e3">В программу</button></div></div></div>'+
+      '<div class="speaker-card reverse"><div class="speaker-photo" style="background-image:url('+VISUALS.backstage+')"></div><div class="speaker-copy"><div class="eyebrow">TECH · FASHION</div><div class="event-name">AI в fashion-команде</div><div class="sub">Сессия, материалы, запись и ключевые выводы после выступления.</div><button class="action ghost" data-action="toast" data-message="Материалы будут доступны после сессии">Материалы</button></div></div>';
     } else if(state.discoverTab==='people'){
       content='<div class="filters">'+['Buyer','Designer','Retail','Media','Stylist','Creator'].map(function(x,i){return '<button class="chip '+(i===0?'active':'')+'">'+x+'</button>';}).join('')+'</div>'+
-      '<div class="card"><div class="profile-head"><div class="avatar"></div><div><h3>Мария · Buyer</h3><div class="sub">Premium Womenswear · Moscow</div></div></div><div class="action-row"><button class="action primary" data-action="connect">Connect</button><button class="action ghost" data-action="toast" data-message="QR exchange готов к сканированию">QR exchange</button></div></div>';
+      '<div class="people-editorial"><div class="person-photo" style="background-image:url('+VISUALS.street+')"></div><div><div class="eyebrow">BUYER · MOSCOW</div><h2>Мария</h2><p class="sub">Premium Womenswear · ищет новые российские марки.</p><div class="action-row"><button class="action primary" data-action="connect">Connect</button><button class="action ghost" data-action="toast" data-message="QR exchange готов к сканированию">QR exchange</button></div></div></div>';
+    } else if(state.discoverTab==='street'){
+      content='<div class="street-feed">'+
+        '<article class="street-post tall" style="background-image:url('+VISUALS.street+')"><span>STREET 001</span><b>Outside Manege</b></article>'+
+        '<article class="street-post" style="background-image:url('+VISUALS.backstage+')"><span>DETAIL</span><b>Before the show</b></article>'+
+        '<article class="street-post" style="background-image:url('+VISUALS.runway+')"><span>FRONT ROW</span><b>Seen at MFW</b></article>'+
+      '</div><div class="demo-note"><b>Editorial moderation.</b> В production сюда попадают только одобренные official + UGC материалы с правами на публикацию.</div>';
     } else if(state.discoverTab==='market'){
-      content='<div class="card"><div class="eyebrow">MARKET DISCOVERY</div><div class="event-name">Сканируйте QR бренда на стенде</div><div class="sub">Откроется профиль, коллекция, точки продаж и кнопка Follow.</div><button class="action primary" data-action="brand" data-id="b2">Открыть пример</button></div>'+
-      '<div class="grid2" style="margin-top:10px">'+brands.slice(0,2).map(function(b){return '<div class="brand-tile" data-action="brand" data-id="'+b.id+'"><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(b.tag)+'</div></div>';}).join('')+'</div>';
+      content='<div class="market-hero" style="background-image:linear-gradient(90deg,rgba(0,0,0,.84),rgba(0,0,0,.18)),url('+VISUALS.designer+')"><div><div class="eyebrow">MFW MARKET</div><b>Из офлайн-стенда<br>в цифровую витрину.</b><p>QR → бренд → коллекция → Follow → где купить.</p><button class="action light" data-action="brand" data-id="b2">Открыть бренд</button></div></div>';
     } else {
-      content='<div class="card"><div class="eyebrow">MFW MAP · DEMO</div><div class="event-name">Манеж</div><div class="sub">Hall 1 · Hall 2 · Hall 3 · Lecture Hall · Showroom · Market · VIP · Media · Cloakroom</div></div>'+
-      '<div class="card"><div class="eyebrow">Следующее событие</div><div class="event-name">18:00 · New Names: Moscow</div><div class="sub">Hall 2 · ориентировочно 4 минуты пешком</div><button class="action primary" data-action="route">Построить маршрут</button></div>';
+      content='<div class="indoor-map"><div class="map-zone hall1"><b>HALL 1</b><span>LIVE</span></div><div class="map-zone hall2"><b>HALL 2</b><span>18:00</span></div><div class="map-zone hall3"><b>HALL 3</b></div><div class="map-zone lecture"><b>LECTURE</b></div><div class="map-zone showroom"><b>SHOWROOM</b></div><div class="map-zone market"><b>MARKET</b></div><div class="you-are-here">● YOU</div></div>'+
+      '<div class="card premium-card"><div class="eyebrow">NEXT · 18:00</div><div class="event-name">New Names: Moscow</div><div class="sub">Hall 2 · 4 минуты пешком · без конфликта с вашей программой.</div><button class="action primary" data-action="route">Построить маршрут</button></div>';
     }
-    return '<main><div class="eyebrow" style="margin-top:18px">Discover MFW</div><h1>ОТКРЫТЬ</h1><div class="filters">'+tabs.map(function(t){return '<button class="chip '+(state.discoverTab===t?'active':'')+'" data-discover="'+t+'">'+labels[t]+'</button>';}).join('')+'</div>'+content+'</main>';
+    return '<main><div class="eyebrow" style="margin-top:18px">Discover MFW</div><h1>ОТКРЫТЬ</h1><div class="filters discover-tabs">'+tabs.map(function(t){return '<button class="chip '+(state.discoverTab===t?'active':'')+'" data-discover="'+t+'">'+labels[t]+'</button>';}).join('')+'</div>'+content+'</main>';
   }
 
   function me(){
@@ -355,6 +385,7 @@
       return;
     }
     var screen=state.tab==='today'?today():state.tab==='schedule'?schedule():state.tab==='live'?live():state.tab==='discover'?discover():me();
+    if(state.tab==='live')loadStreamAuthority();
     app.innerHTML='<div class="app">'+topbar()+screen+nav()+'</div>';
     if(state.tab==='me'){ ensurePass(); updateBackendIndicator(); }
     bind();
@@ -412,7 +443,12 @@
     var b=brands.filter(function(x){return x.id===id;})[0]; if(!b)return;
     var saved=state.savedBrands.indexOf(id)>=0;
     var pro=(state.role==='Buyer'||state.role==='Media');
-    openSheet('<div class="eyebrow">'+esc(b.city)+' · '+esc(b.tag)+'</div><h1 style="font-size:44px">'+esc(b.name)+'</h1><div class="hero" style="min-height:250px;margin:14px 0"></div><p class="sub">'+esc(b.desc)+'</p><div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ Following':'Follow')+'</button><button class="action ghost" data-action="toast" data-message="Demo: открыта коллекция">Коллекция</button></div><h2>Последний показ</h2><div class="scroll-row">'+[1,2,3].map(function(n){return '<div class="look" data-action="save-look" data-look="'+b.id+'-look-'+n+'"><span>LOOK 0'+n+'</span></div>';}).join('')+'</div>'+(pro?'<h2>Для профессионалов</h2><div class="card"><div class="action-row"><button class="action primary" data-action="line-sheet">Line sheet</button><button class="action ghost" data-action="meeting">Запросить встречу</button></div></div>':''));
+    openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(b.city)+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>SS27 · Moscow Fashion Week</p></div></div>'+
+      '<div class="brand-story"><div><div class="eyebrow">THE BRAND</div><h2>Новая российская мода<br>как культурный продукт.</h2><p class="sub">'+esc(b.desc)+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
+      '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ Following':'Follow brand')+'</button><button class="action ghost" data-action="sponsor-experience">Share / Experience</button></div>'+
+      '<div class="section-head"><h2>SS27 runway</h2><span class="link">32 looks</span></div><div class="brand-look-grid">'+[1,2,3,4,5,6].map(function(n){return '<button data-action="save-look" data-look="'+b.id+'-look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
+      '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(b.city)+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
+      (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet">Line sheet</button><button class="action light" data-action="meeting">Запросить встречу</button></div></div>':''));
   }
 
   function questions(){
@@ -428,6 +464,17 @@
       '<div class="demo-step"><span class="step-num">5</span><b>Scale story</b><p>Объяснение инвестору: текущий стенд — front-end proof. Production подключает MFW ID, PostgreSQL, signed pass, CMS, streaming и analytics без смены UX-модели.</p></div>'+
       '<div class="phone-hint"><div class="symbol">＋</div><div><b>Для показа на iPhone</b><p>Откройте сайт в Safari → Поделиться → На экран «Домой». PWA запускается как отдельное приложение без браузерной панели.</p></div></div>'+
       '<div class="action-row"><button class="action primary" data-action="tour-start">Начать с Visitor</button><button class="action ghost" data-action="tour-organizer">Сразу Organizer</button></div>');
+  }
+
+  function postShowRecap(){
+    openSheet('<div class="recap-hero" style="background-image:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.88)),url('+VISUALS.street+')"><div><div class="eyebrow">YOUR MFW · DAY 1</div><h1>ВАШ ДЕНЬ<br>В МОДЕ.</h1><p>Персональный recap после завершения программы.</p></div></div>'+
+      '<div class="recap-stats"><div><b>'+state.myEvents.length+'</b><span>события</span></div><div><b>'+state.savedLooks.length+'</b><span>looks</span></div><div><b>'+state.savedBrands.length+'</b><span>brands</span></div><div><b>'+state.connections+'</b><span>contacts</span></div></div>'+
+      '<div class="section-head"><h2>Вы сохранили</h2><span class="link">Сегодня</span></div><div class="visual-look-rail">'+[11,14,15].map(function(n){return '<div class="visual-look">'+lookVisual(n)+'</div>';}).join('')+'</div>'+
+      '<div class="card premium-card"><div class="eyebrow">TOMORROW FOR YOU</div><div class="event-name">New Russian Names · 12:00</div><div class="sub">Рекомендация на основе сохранённых вами образов и брендов.</div><button class="action primary" data-action="toast" data-message="Добавлено в программу">Добавить на завтра</button></div>');
+  }
+
+  function sponsorExperience(){
+    openSheet('<div class="sponsor-experience" style="background-image:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.9)),url('+VISUALS.backstage+')"><div class="eyebrow">NATIVE PARTNER EXPERIENCE · DEMO</div><h1>БРЕНД<br>ВНУТРИ<br>СОБЫТИЯ.</h1><p>Не баннер, а отдельный fashion experience: backstage story, challenge, lounge, gift, AR/try-on и измеримый переход к бренду.</p><div class="sponsor-metrics"><span>24.8K reach</span><span>6.1K opens</span><span>487 intent</span></div></div>');
   }
 
   function notifications(){
@@ -684,7 +731,7 @@
 
   function bind(){
     document.querySelectorAll('[data-tab]').forEach(function(el){el.onclick=function(){state.tab=el.getAttribute('data-tab');closeSheet();render();window.scrollTo(0,0);};});
-    document.querySelectorAll('[data-discover]').forEach(function(el){el.onclick=function(){state.discoverTab=el.getAttribute('data-discover');render();};});
+    document.querySelectorAll('[data-discover]').forEach(function(el){el.onclick=function(){state.discoverTab=el.getAttribute('data-discover');state.tab='discover';render();};});
     document.querySelectorAll('[data-role]').forEach(function(el){el.onclick=function(){setRole(el.getAttribute('data-role'));};});
     document.querySelectorAll('[data-onboard-role]').forEach(function(el){el.onclick=function(){state.role=el.getAttribute('data-onboard-role');render();};});
     document.querySelectorAll('[data-action]').forEach(function(el){el.onclick=function(ev){
@@ -700,6 +747,8 @@
       else if(a==='save-brand')saveBrand(el.getAttribute('data-id'));
       else if(a==='notifications')notifications();
       else if(a==='investor-tour')investorTour();
+      else if(a==='post-show-recap')postShowRecap();
+      else if(a==='sponsor-experience')sponsorExperience();
       else if(a==='admin-console')openAdminConsole();
       else if(a==='admin-release')adminRelease();
       else if(a==='admin-push')adminPush();
