@@ -572,6 +572,15 @@ async function router(req,res){
   const url=new URL(req.url,'http://localhost');
   const p=url.pathname;
 
+  if(req.method==='GET'&&p==='/v1/native/readiness') return json(res,200,{data:{
+    shell:{status:'prepared',runtime:'Capacitor v8',bundleId:'placeholder'},
+    haptics:{client:'prepared',activation:'native_shell'},
+    camera:{client:'prepared',webFallback:true,nativePlugin:'pending_generated_ios_target'},
+    push:{client:'prepared',serverNotifications:true,activation:'apple_team_apns_required'},
+    deepLinks:{client:'prepared',routes:['/event/:id','/brand/:id','/pass','/meetup/:id'],activation:'final_domain_aasa_entitlement_required'},
+    wallet:{clientBridge:'prepared',gateCredentialReuse:false,activation:'pass_type_id_and_signing_certificate_required'},
+    testflight:{status:'blocked_by_credentials',requires:['Apple Developer Team','final bundle identifier','App Store Connect record','signing/provisioning']}
+  }});
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,localeAuthority:true,sponsorAuthority:true
@@ -946,6 +955,15 @@ async function router(req,res){
   if(p.startsWith('/v1/admin/')){
     if(!adminOk(req)) return json(res,403,{error:'admin_required'});
     if(req.method==='GET'&&p==='/v1/admin/overview') return json(res,200,{data:overview()});
+    if(req.method==='GET'&&p==='/v1/admin/native-readiness') return json(res,200,{data:{
+      shell:{status:'prepared',runtime:'Capacitor v8'},
+      haptics:'prepared',
+      camera:'prepared_with_web_fallback',
+      push:'awaiting_apns_credentials',
+      universalLinks:'awaiting_final_domain_and_bundle_id',
+      wallet:'awaiting_pass_type_id_certificate',
+      testflight:'awaiting_apple_team_signing'
+    }});
     if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
     if(req.method==='GET'&&p==='/v1/admin/accreditations') return json(res,200,{data:memory.accreditations});
     if(req.method==='GET'&&p==='/v1/admin/streams') return json(res,200,{data:memory.streams});
