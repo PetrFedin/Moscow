@@ -208,6 +208,8 @@ const memory={
   brandAccess:new Map(),
   loyaltyClaims:new Map(),
   contentInteractions:[],
+  notificationPreferences:new Map(),
+  notificationDeliveries:[],
   analytics:[],
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
@@ -406,6 +408,73 @@ async function bootstrapDemoData(){
       ON CONFLICT(slug) DO UPDATE SET name=EXCLUDED.name,city=EXCLUDED.city,updated_at=now()`,
       [b.slug,b.name,b.city,JSON.stringify({segment:b.segment,demo:true})]);
   }
+}
+
+function notificationPrefs(userId){
+  const key=String(userId||'demo_user');
+  if(!memory.notificationPreferences.has(key)){
+    memory.notificationPreferences.set(key,{
+      userId:key,criticalEnabled:true,liveEnabled:true,followedBrandNewsEnabled:true,
+      loyaltyEnabled:true,brandEventsEnabled:true,paidPromotionsEnabled:false,quietHours:{},updatedAt:new Date().toISOString()
+    });
+  }
+  return memory.notificationPreferences.get(key);
+}
+function interactionsInWindow(userId,postId,type,days){
+  const cutoff=Date.now()-(Number(days||7)*86400000);
+  return memory.contentInteractions.filter(x=>
+    x.userId===String(userId)&&x.postId===String(postId)&&x.type===String(type)&&new Date(x.occurredAt).getTime()>=cutoff
+  ).length;
+}
+function brandPushesInWindow(brandId,days){
+  const cutoff=Date.now()-(Number(days||7)*86400000);
+  return memory.notifications.filter(n=>
+    n.category==='brand_news'&&n.brandId===String(brandId)&&['scheduled','sent'].includes(n.status)&&new Date(n.createdAt||n.sentAt||0).getTime()>=cutoff
+  ).length;
+}
+function postFeedScore(userId,post,followed){
+  let score=0,reason='mfw_editorial';
+  const ageHours=Math.max(0,(Date.now()-new Date(post.publishedAt||post.createdAt||Date.now()).getTime())/3600000);
+  const freshness=Math.max(0,30-Math.min(30,ageHours/24));
+  if(followed.has(post.brandId)&&!post.isPaid){score=100;reason='followed_brand';}
+  else if(post.kind==='event'&&followed.has(post.brandId)){score=95;reason='followed_brand_event';}
+  else if(post.kind==='offer'&&followed.has(post.brandId)){score=92;reason='followed_brand_offer';}
+  else if(post.isPaid){score=35;reason='sponsored';}
+  else {score=60;reason='mfw_relevant';}
+  return {score:score+freshness,reason};
+}
+function buildPersonalFeed(userId){
+  const followed=followSet(userId);
+  const eligible=memory.brandPosts.filter(post=>{
+    if(post.status!=='published')return false;
+    const kind=post.audienceScope&&post.audienceScope.kind;
+    if(kind==='brand_followers'&&!followed.has(post.brandId))return false;
+    if(kind==='all_mfw'&&post.isPaid){
+      const cap=Number(post.frequencyCap&&post.frequencyCap.perUserPer7d||2);
+      if(interactionsInWindow(userId,post.id,'impression',7)>=cap)return false;
+      if(!notificationPrefs(userId).paidPromotionsEnabled){
+        // Feed sponsorship stays available even when paid push is disabled.
+        // This preference affects push only, not clearly labelled in-feed ads.
+      }
+    }
+    return kind==='all_mfw'||kind==='brand_followers';
+  }).map(post=>{
+    const rank=postFeedScore(userId,post,followed);
+    return {...post,feedScore:Math.round(rank.score*100)/100,feedReason:rank.reason,frequencyCap:post.frequencyCap||{perUserPer7d:2}};
+  }).sort((a,b)=>b.feedScore-a.feedScore||String(b.publishedAt||'').localeCompare(String(a.publishedAt||'')));
+
+  const result=[];
+  let sincePaid=4;
+  for(const post of eligible){
+    if(post.isPaid){
+      if(sincePaid<3)continue;
+      sincePaid=0;
+    }else{
+      sincePaid++;
+    }
+    result.push(post);
+  }
+  return result;
 }
 
 function daysSince(iso){
@@ -1159,21 +1228,34 @@ async function router(req,res){
   }
   if(req.method==='GET'&&p==='/v1/feed'){
     const userId=String(url.searchParams.get('userId')||'demo_user');
-    const followed=followSet(userId);
-    const data=memory.brandPosts.filter(post=>{
-      if(post.status!=='published')return false;
-      const kind=post.audienceScope&&post.audienceScope.kind;
-      return kind==='all_mfw'||(kind==='brand_followers'&&followed.has(post.brandId));
-    }).sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt)));
-    return json(res,200,{data});
+    const data=buildPersonalFeed(userId);
+    return json(res,200,{data,meta:{ranking:'followed_brand_first',paidFrequencyCap:'2_per_post_per_7d',paidSpacing:'max_1_per_4_slots',generatedAt:new Date().toISOString()}});
   }
   if(req.method==='POST'&&p==='/v1/content/interactions'){
     const b=await readBody(req);
-    const item={id:'ci_'+crypto.randomBytes(6).toString('hex'),userId:String(b.userId||'anonymous'),postId:String(b.postId||''),type:String(b.type||'open'),occurredAt:new Date().toISOString(),demo:true};
+    const type=String(b.type||'open');
+    if(!['impression','open','cta','save','dismiss'].includes(type))return json(res,400,{error:'invalid_interaction_type'});
+    const item={id:'ci_'+crypto.randomBytes(6).toString('hex'),userId:String(b.userId||'anonymous'),postId:String(b.postId||''),type,occurredAt:new Date().toISOString(),surface:String(b.surface||'mfw_365'),demo:true};
     memory.contentInteractions.push(item);
     if(memory.contentInteractions.length>5000)memory.contentInteractions.shift();
-    await track('brand_content_'+item.type,{postId:item.postId},item.userId);
+    await track('brand_content_'+item.type,{postId:item.postId,surface:item.surface},item.userId);
     return json(res,201,{data:item});
+  }
+  if(req.method==='GET'&&p==='/v1/notifications/preferences'){
+    const userId=String(url.searchParams.get('userId')||'demo_user');
+    return json(res,200,{data:notificationPrefs(userId)});
+  }
+  if(req.method==='PATCH'&&p==='/v1/notifications/preferences'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const pref=notificationPrefs(userId);
+    for(const key of ['criticalEnabled','liveEnabled','followedBrandNewsEnabled','loyaltyEnabled','brandEventsEnabled','paidPromotionsEnabled']){
+      if(Object.prototype.hasOwnProperty.call(b,key))pref[key]=!!b[key];
+    }
+    if(b.quietHours&&typeof b.quietHours==='object')pref.quietHours=b.quietHours;
+    pref.updatedAt=new Date().toISOString();
+    await track('notification_preferences_updated',{paidPromotionsEnabled:pref.paidPromotionsEnabled},userId);
+    return json(res,200,{data:pref});
   }
   if(p.startsWith('/v1/brand-portal/')){
     const parts=p.split('/').filter(Boolean);
@@ -1206,6 +1288,22 @@ async function router(req,res){
       memory.loyaltyOffers.push(offer);
       await track('brand_portal_offer_created',{brandId,offerId:id,rewardType},sessionFromRequest(req)?.sub||null);
       return json(res,201,{data:offer});
+    }
+    if(req.method==='POST'&&action==='notify'){
+      const b=await readBody(req);
+      const post=memory.brandPosts.find(x=>x.id===String(b.postId||'')&&x.brandId===brandId);
+      if(!post)return json(res,404,{error:'post_not_found'});
+      if(post.status!=='published')return json(res,409,{error:'post_not_published'});
+      if(post.isPaid||(post.audienceScope&&post.audienceScope.kind)!=='brand_followers')return json(res,403,{error:'mfw_wide_push_requires_organizer'});
+      if(brandPushesInWindow(brandId,7)>=2)return json(res,429,{error:'brand_push_frequency_cap',limit:2,windowDays:7});
+      const item={
+        id:'ntf_'+crypto.randomBytes(6).toString('hex'),category:'brand_news',brandId,postId:post.id,
+        audience:{kind:'brand_followers',brandId},title:post.titleRu,body:post.bodyRu||'',
+        status:'scheduled',createdAt:new Date().toISOString(),scheduledAt:new Date().toISOString(),demo:true
+      };
+      memory.notifications.unshift(item);
+      await track('brand_push_scheduled',{brandId,postId:post.id,notificationId:item.id},sessionFromRequest(req)?.sub||null);
+      return json(res,201,{data:item,policy:{frequencyCap:'2_per_brand_per_7d',audience:'brand_followers_only'}});
     }
     if(req.method==='POST'&&action==='social-channels'){
       const b=await readBody(req);
@@ -1494,6 +1592,17 @@ async function router(req,res){
       memory.streamOutputs.filter(x=>x.streamId===stream.id&&x.outputType==='recording').forEach(x=>x.status='archived');
       await track('stream_archive_ready',{streamId:stream.id,replayId:replay.id});
       return json(res,200,{data:replay,stream});
+    }
+    if(req.method==='GET'&&p==='/v1/admin/retention'){
+      const impressions=memory.contentInteractions.filter(x=>x.type==='impression');
+      const opens=memory.contentInteractions.filter(x=>x.type==='open');
+      const paidImpressions=impressions.filter(i=>memory.brandPosts.find(p=>p.id===i.postId&&p.isPaid)).length;
+      const organicImpressions=impressions.length-paidImpressions;
+      return json(res,200,{data:{
+        feed:{impressions:impressions.length,organicImpressions,paidImpressions,opens:opens.length,openRatePct:impressions.length?Math.round(opens.length/impressions.length*1000)/10:0},
+        push:{scheduled:memory.notifications.filter(x=>x.status==='scheduled').length,sent:memory.notifications.filter(x=>x.status==='sent').length,brandNewsLast7d:memory.notifications.filter(x=>x.category==='brand_news'&&new Date(x.createdAt||x.sentAt||0).getTime()>=Date.now()-7*86400000).length},
+        policy:{organicPriority:true,paidLabelRequired:true,paidFeedFrequencyCap:'2_per_post_per_7d',paidFeedSpacing:'max_1_per_4_slots',brandPushFrequencyCap:'2_per_brand_per_7d',paidPushByBrand:false}
+      }});
     }
     if(req.method==='GET'&&p==='/v1/admin/brand-growth'){
       const claims=[...memory.loyaltyClaims.values()];
