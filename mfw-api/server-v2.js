@@ -12,6 +12,10 @@ const VERSION = 'mfw-authority-v4';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
+const TELEGRAM_BOT_TOKEN = process.env.MFW_TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_WEBHOOK_SECRET = process.env.MFW_TELEGRAM_WEBHOOK_SECRET || '';
+const VK_SERVICE_TOKEN = process.env.MFW_VK_SERVICE_TOKEN || '';
+const VK_API_VERSION = process.env.MFW_VK_API_VERSION || '5.199';
 
 function validateInvestorBuild(){
   const frontendPath=path.join(__dirname,'..','mfw','app.js');
@@ -186,6 +190,7 @@ const memory={
   meetingProposals:new Map(),
   eventRegistrations:new Map(),
   appInstallations:new Map(),
+  socialConnections:new Map(),
   socialMemberships:new Map(),
   brandFollows:new Map(),
   loyaltyClaims:new Map(),
@@ -402,6 +407,67 @@ function followSet(userId){
   if(!memory.brandFollows.has(key))memory.brandFollows.set(key,new Set());
   return memory.brandFollows.get(key);
 }
+function socialConnectionKey(userId,platform){return String(userId)+':'+String(platform);}
+function activeTelegramStatus(member){
+  if(!member)return false;
+  if(['creator','administrator','member'].includes(member.status))return true;
+  if(member.status==='restricted')return member.is_member===true;
+  return false;
+}
+async function verifyProviderMembership(userId,channel){
+  const connection=memory.socialConnections.get(socialConnectionKey(userId,channel.platform));
+  if(!connection)return {ok:false,error:'social_connection_required',platform:channel.platform};
+  if(channel.platform==='telegram'){
+    if(!TELEGRAM_BOT_TOKEN)return {ok:false,error:'provider_not_configured',platform:'telegram'};
+    const chatId=encodeURIComponent(channel.externalChannelId);
+    const externalUserId=encodeURIComponent(connection.externalUserId);
+    const r=await fetch('https://api.telegram.org/bot'+TELEGRAM_BOT_TOKEN+'/getChatMember?chat_id='+chatId+'&user_id='+externalUserId);
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||!data.ok)return {ok:false,error:'provider_verification_failed',platform:'telegram',detail:data.description||r.status};
+    return {ok:true,active:activeTelegramStatus(data.result),source:'telegram_getChatMember',providerJoinedAt:null,rawStatus:data.result&&data.result.status};
+  }
+  if(channel.platform==='vk'){
+    if(!VK_SERVICE_TOKEN)return {ok:false,error:'provider_not_configured',platform:'vk'};
+    const q=new URLSearchParams({
+      group_id:String(channel.externalChannelId),
+      user_id:String(connection.externalUserId),
+      access_token:VK_SERVICE_TOKEN,
+      v:VK_API_VERSION
+    });
+    const r=await fetch('https://api.vk.com/method/groups.isMember?'+q.toString());
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||data.error)return {ok:false,error:'provider_verification_failed',platform:'vk',detail:data.error&&data.error.error_msg||r.status};
+    const member=typeof data.response==='object'&&data.response!==null?Number(data.response.member):Number(data.response);
+    return {ok:true,active:member===1,source:'vk_groups.isMember',providerJoinedAt:null,rawStatus:member};
+  }
+  return {ok:false,error:'verification_not_supported',platform:channel.platform};
+}
+function applyMembershipObservation(userId,channel,result,providerEventAt=null){
+  const key=membershipKey(userId,channel.id);
+  const prior=memory.socialMemberships.get(key)||null;
+  const now=new Date().toISOString();
+  const active=!!result.active;
+  const eventIso=providerEventAt?new Date(providerEventAt).toISOString():null;
+  let continuousSince=null;
+  if(active){
+    continuousSince=(prior&&prior.status==='active'&&(prior.continuousSince||prior.firstVerifiedAt))||eventIso||now;
+  }
+  const membership={
+    id:prior?.id||('sm_'+crypto.randomBytes(6).toString('hex')),
+    userId:String(userId),channelId:channel.id,platform:channel.platform,status:active?'active':'inactive',
+    firstVerifiedAt:prior?.firstVerifiedAt||(active?now:null),
+    providerJoinedAt:eventIso||prior?.providerJoinedAt||null,
+    continuousSince,
+    lastVerifiedAt:now,
+    lastLostAt:active?(prior?.lastLostAt||null):now,
+    proofSource:result.source||channel.verificationMode,
+    providerStatus:result.rawStatus??null,
+    demo:!!result.demo
+  };
+  memory.socialMemberships.set(key,membership);
+  return membership;
+}
+
 function evaluateLoyaltyOffer(userId,offer){
   const progress=(offer.requirements||[]).map(req=>{
     let ok=false,currentDays=0,detail='';
@@ -916,36 +982,59 @@ async function router(req,res){
     const data=memory.socialChannels.filter(x=>!brandId||x.brandId===brandId||x.ownerType==='mfw');
     return json(res,200,{data});
   }
+  if(req.method==='POST'&&p==='/v1/social/connect'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const platform=String(b.platform||'').toLowerCase();
+    if(!['telegram','vk','instagram'].includes(platform))return json(res,400,{error:'unsupported_platform'});
+    return json(res,409,{error:'provider_oauth_or_login_required',platform,detail:'Production connection must be created from a verified provider login callback, never from a client-supplied external user id.'});
+  }
+  if(req.method==='POST'&&p==='/v1/demo/social/connect'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const platform=String(b.platform||'telegram').toLowerCase();
+    const connection={id:'soc_'+crypto.randomBytes(6).toString('hex'),userId,platform,externalUserId:String(b.externalUserId||('demo_'+userId)),externalHandle:String(b.externalHandle||'demo'),status:'active',connectedAt:new Date().toISOString(),demo:true};
+    memory.socialConnections.set(socialConnectionKey(userId,platform),connection);
+    return json(res,201,{data:connection,demo:true});
+  }
   if(req.method==='POST'&&p==='/v1/social/verify'){
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
     const channel=memory.socialChannels.find(x=>x.id===String(b.channelId||''));
     if(!channel)return json(res,404,{error:'social_channel_not_found'});
+    const result=await verifyProviderMembership(userId,channel);
+    if(!result.ok)return json(res,result.error==='social_connection_required'?409:503,result);
+    const membership=applyMembershipObservation(userId,channel,result,null);
+    await track('social_membership_verified',{channelId:channel.id,platform:channel.platform,status:membership.status,source:result.source},userId);
+    return json(res,200,{data:membership,channel,provider:{source:result.source}});
+  }
+  if(req.method==='POST'&&p==='/v1/demo/social/verify'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const channel=memory.socialChannels.find(x=>x.id===String(b.channelId||''));
+    if(!channel)return json(res,404,{error:'social_channel_not_found'});
     if(channel.verificationMode==='unsupported')return json(res,409,{error:'verification_not_supported',platform:channel.platform});
-    const observedActive=b.observedActive!==false;
-    const key=membershipKey(userId,channel.id);
-    const prior=memory.socialMemberships.get(key)||null;
-    const now=new Date().toISOString();
-    const providerJoinedAt=(channel.verificationMode==='membership_event'&&b.providerJoinedAt)?new Date(b.providerJoinedAt).toISOString():null;
-    let continuousSince=null;
-    if(observedActive){
-      if(prior&&prior.status==='active')continuousSince=prior.continuousSince||prior.firstVerifiedAt||now;
-      else continuousSince=providerJoinedAt||now;
-    }
-    const membership={
-      id:prior?.id||('sm_'+crypto.randomBytes(6).toString('hex')),
-      userId,channelId:channel.id,platform:channel.platform,status:observedActive?'active':'inactive',
-      firstVerifiedAt:prior?.firstVerifiedAt||(observedActive?now:null),
-      providerJoinedAt:providerJoinedAt||prior?.providerJoinedAt||null,
-      continuousSince,
-      lastVerifiedAt:now,
-      lastLostAt:observedActive?(prior?.lastLostAt||null):now,
-      proofSource:channel.verificationMode,
-      demo:true
-    };
-    memory.socialMemberships.set(key,membership);
-    await track('social_membership_verified',{channelId:channel.id,platform:channel.platform,status:membership.status,verificationMode:channel.verificationMode},userId);
-    return json(res,200,{data:membership,channel});
+    const days=Math.max(0,Math.min(3650,Number(b.continuousDays||0)));
+    const eventAt=days?new Date(Date.now()-days*86400000).toISOString():null;
+    const membership=applyMembershipObservation(userId,channel,{active:b.active!==false,source:'investor_demo_simulation',rawStatus:'demo',demo:true},eventAt);
+    await track('social_membership_demo_verified',{channelId:channel.id,platform:channel.platform,continuousDays:days},userId);
+    return json(res,200,{data:membership,channel,demo:true});
+  }
+  if(req.method==='POST'&&p==='/v1/integrations/telegram/webhook'){
+    if(!TELEGRAM_WEBHOOK_SECRET||String(req.headers['x-telegram-bot-api-secret-token']||'')!==TELEGRAM_WEBHOOK_SECRET)return json(res,403,{error:'telegram_webhook_secret_invalid'});
+    const update=await readBody(req);
+    const evt=update&&update.chat_member;
+    if(!evt||!evt.chat||!evt.new_chat_member||!evt.new_chat_member.user)return json(res,202,{accepted:true,ignored:true});
+    const externalUserId=String(evt.new_chat_member.user.id);
+    const channel=memory.socialChannels.find(x=>x.platform==='telegram'&&String(x.externalChannelId)===String(evt.chat.id));
+    if(!channel)return json(res,202,{accepted:true,ignored:true,reason:'channel_not_configured'});
+    const connection=[...memory.socialConnections.values()].find(x=>x.platform==='telegram'&&String(x.externalUserId)===externalUserId);
+    if(!connection)return json(res,202,{accepted:true,ignored:true,reason:'user_not_connected'});
+    const active=activeTelegramStatus(evt.new_chat_member);
+    const eventAt=evt.date?new Date(Number(evt.date)*1000).toISOString():new Date().toISOString();
+    const membership=applyMembershipObservation(connection.userId,channel,{active,source:'telegram_chat_member_webhook',rawStatus:evt.new_chat_member.status},active?eventAt:null);
+    await track('telegram_membership_event',{channelId:channel.id,status:membership.status,eventAt},connection.userId);
+    return json(res,200,{accepted:true,status:membership.status});
   }
   if(req.method==='POST'&&p.startsWith('/v1/brands/')&&p.endsWith('/follow')){
     const brandId=p.split('/')[3];
