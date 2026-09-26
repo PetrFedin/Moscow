@@ -744,8 +744,60 @@
     openSheet('<div class="eyebrow">MFW NETWORKING</div><h1 style="font-size:42px">'+t('connectTitle')+'</h1><div class="card skeleton" style="height:210px"></div>');
     try{
       var out=await api('/v1/networking/qr',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',name:state.name,role:state.role})});
-      openSheet('<div class="eyebrow">MFW NETWORKING · SIGNED</div><h1 style="font-size:42px">'+t('connectTitle')+'</h1><div class="contact-qr">'+out.svg+'</div><p class="sub">'+T('Этот QR обменивает контакт. Он не даёт право входа на события.','This QR exchanges contact details. It never grants event access.')+'</p><div class="demo-note"><b>Separate authority.</b> typ=contact-card · 10 min TTL · ES256.</div>');
+      openSheet('<div class="eyebrow">MFW NETWORKING · SIGNED</div><h1 style="font-size:42px">'+t('connectTitle')+'</h1><div class="contact-qr">'+out.svg+'</div><p class="sub">'+T('Этот QR обменивает контакт. Он не даёт право входа на события.','This QR exchanges contact details. It never grants event access.')+'</p><div class="action-row"><button class="action primary" data-action="networking-scan">'+T('Сканировать Connect QR','Scan Connect QR')+'</button></div><div class="demo-note"><b>Separate authority.</b> typ=contact-card · 10 min TTL · ES256.</div>');
     }catch(_){toast(T('Connect QR недоступен','Connect QR unavailable'));}
+  }
+
+  async function connectContactToken(raw){
+    var token=String(raw||'').trim();
+    if(!token.startsWith('MFW-CONTACT:')){
+      toast(T('Это не Connect QR','This is not a Connect QR'));
+      return;
+    }
+    try{
+      var out=await api('/v1/networking/connect',{method:'POST',body:JSON.stringify({
+        token:token,
+        requesterUserId:state.userId||'demo_requester'
+      })});
+      state.connections+=1;
+      closeSheet();render();
+      toast(T('Контакт сохранён: ','Contact saved: ')+String(out.data.name||'MFW guest'));
+      track('networking_qr_connected',{role:out.data.role||null});
+    }catch(err){
+      var reason=err&&err.data&&err.data.error;
+      toast(reason==='cannot_connect_self'?T('Нельзя добавить самого себя','You cannot connect to yourself'):T('Connect QR отклонён','Connect QR rejected'));
+    }
+  }
+
+  async function networkingCameraScan(){
+    openSheet('<div class="eyebrow">MFW NETWORKING · CAMERA</div><h1 style="font-size:40px">'+T('СКАНИРУЙТЕ<br>CONNECT QR','SCAN<br>CONNECT QR')+'</h1><div class="scanner-camera"><video id="network-video" playsinline muted></video><div class="frame"></div><div class="scan-line"></div></div><canvas id="network-canvas" hidden></canvas><div id="network-status" class="scan-status">'+T('Запрашиваем доступ к камере…','Requesting camera access…')+'</div><p class="sub">'+T('Сканер принимает только MFW-CONTACT. Пропуск MFW-PASS здесь никогда не сработает.','This scanner accepts MFW-CONTACT only. An MFW-PASS is never valid here.')+'</p>');
+    var video=document.getElementById('network-video'),canvas=document.getElementById('network-canvas'),status=document.getElementById('network-status');
+    try{
+      scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+      video.srcObject=scannerStream;await video.play();
+      status.textContent=T('Камера активна · ищем Connect QR','Camera active · looking for Connect QR');
+      var ctx=canvas.getContext('2d',{willReadFrequently:true});
+      function tick(){
+        if(video.readyState===video.HAVE_ENOUGH_DATA){
+          canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+          ctx.drawImage(video,0,0,canvas.width,canvas.height);
+          var img=ctx.getImageData(0,0,canvas.width,canvas.height);
+          var code=window.jsQR?window.jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;
+          if(code&&code.data){
+            var value=String(code.data);
+            if(value.startsWith('MFW-CONTACT:')){
+              status.textContent=T('Connect QR найден','Connect QR found');
+              stopCameraScanner();closeSheet();connectContactToken(value);return;
+            }
+            status.textContent=T('Это пропуск или другой QR — нужен Connect QR','Wrong QR type — Connect QR required');
+          }
+        }
+        scannerFrame=requestAnimationFrame(tick);
+      }
+      tick();
+    }catch(err){
+      status.textContent=T('Камера недоступна: ','Camera unavailable: ')+String(err&&err.message||err);
+    }
   }
 
   async function boards(){
@@ -1068,6 +1120,7 @@
       else if(a==='confirm-meeting'){createMeeting();}
       else if(a==='connect'){state.connections+=1;render();toast(T('Запрос на связь отправлен','Connection request sent'));}
       else if(a==='contact-qr')contactQr();
+      else if(a==='networking-scan')networkingCameraScan();
       else if(a==='boards')boards();
       else if(a==='board-add-look')addLookToBoard(el.getAttribute('data-id'));
       else if(a==='board-new')createBoard();
