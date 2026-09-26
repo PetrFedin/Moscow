@@ -162,6 +162,7 @@ const memory={
   boards:new Map(),
   meetupMembers:new Map(),
   meetingProposals:new Map(),
+  eventRegistrations:new Map(),
   analytics:[],
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
@@ -200,6 +201,15 @@ const memory={
     {id:'perk1',titleRu:'Priority lane',titleEn:'Priority lane',descRu:'Ускоренный проход для подтверждённых приглашений и VIP entitlement.',descEn:'Fast entry for confirmed invitations and VIP entitlement.',kind:'access',demo:true},
     {id:'perk2',titleRu:'Partner lounge',titleEn:'Partner lounge',descRu:'Доступ к партнёрской зоне для соответствующих credentials.',descEn:'Partner lounge access for eligible credentials.',kind:'partner',demo:true},
     {id:'perk3',titleRu:'Early registration',titleEn:'Early registration',descRu:'Ранний доступ к регистрации следующего сезона для активных участников.',descEn:'Early registration for the next season for active participants.',kind:'retention',demo:true}
+  ],
+  pressKits:[
+    {id:'pk_e1',eventId:'e1',title:'Opening Runway Press Kit',status:'published',releaseText:'MFW Opening Runway · investor demo press release',credits:'Moscow Fashion Week official published materials',contactEmail:'press@moscowfashion.ru',assets:[
+      {type:'photo',title:'Opening runway',url:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',approved:true},
+      {type:'photo',title:'Runway highlight',url:'https://static.tildacdn.com/tild3633-6561-4664-b432-343062643365/2026-03-16_144258.jpg',approved:true}
+    ],demo:true}
+  ],
+  designerReadiness:[
+    {id:'dr_b1',brandId:'b1',collectionId:'c1',profileComplete:true,lookOrderComplete:false,mediaComplete:true,commercialDataComplete:false,status:'in_progress',issues:['4 look metadata missing','Wholesale terms not confirmed'],demo:true}
   ],
   accreditations:[
     {id:'acc_01',name:'Maria Petrova',kind:'Buyer',organisation:'Concept Store',status:'pending'},
@@ -413,6 +423,38 @@ async function checkin({token,eventId,scannerId,offline=false}){
   return {ok:true,status:'valid',payload:v.payload,checkedInAt:new Date().toISOString()};
 }
 
+async function runRoleGoldenPathSelfTest(){
+  const visitorUser='role_visitor_'+crypto.randomBytes(4).toString('hex');
+  const visitorEvent=memory.events.find(x=>x.id==='e2');
+  const visitorRegistration={id:'self_reg',userId:visitorUser,eventId:'e2',status:'registered'};
+  memory.eventRegistrations.set(visitorUser+':e2',visitorRegistration);
+  const visitorOk=memory.eventRegistrations.get(visitorUser+':e2').status==='registered';
+  memory.eventRegistrations.delete(visitorUser+':e2');
+
+  const buyerOk=memory.lineSheets.some(x=>x.brandId==='b1')&&memory.collections.some(x=>x.brandId==='b1')&&memory.looks.length>0;
+
+  const staffPass=await issuePass({userId:'role_staff_'+crypto.randomBytes(4).toString('hex'),role:'Staff',entitlements:['gate'],eventId:'e1'});
+  const staffFirst=await checkin({token:staffPass.token,eventId:'e1',scannerId:'role-self-test'});
+  const staffSecond=await checkin({token:staffPass.token,eventId:'e1',scannerId:'role-self-test'});
+  memory.checkins.delete('e1:'+staffPass.payload.sub);
+  memory.passes.delete(staffPass.payload.jti);
+  const staffOk=staffFirst.ok&&!staffSecond.ok&&staffSecond.status==='duplicate';
+
+  const organizerEvent=memory.events.find(x=>x.id==='e2');
+  const oldStatus=organizerEvent.status;
+  organizerEvent.status='published';
+  const organizerOk=organizerEvent.status==='published';
+  organizerEvent.status=oldStatus;
+
+  const readiness=memory.designerReadiness.find(x=>x.brandId==='b1');
+  const designerOk=!!(readiness&&memory.collections.find(x=>x.id===readiness.collectionId)&&memory.looks.some(x=>x.collectionId===readiness.collectionId));
+
+  const mediaKit=memory.pressKits.find(x=>x.eventId==='e1'&&x.status==='published');
+  const mediaOk=!!(mediaKit&&mediaKit.assets&&mediaKit.assets.some(x=>x.approved));
+
+  return {visitor:visitorOk,buyer:buyerOk,staff:staffOk,organizer:organizerOk,designer:designerOk,media:mediaOk,all:[visitorOk,buyerOk,staffOk,organizerOk,designerOk,mediaOk].every(Boolean)};
+}
+
 async function runDeepSelfTest(){
   const testUser='self_'+crypto.randomBytes(5).toString('hex');
   const pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
@@ -437,12 +479,14 @@ async function runDeepSelfTest(){
   memory.shortlists.delete(commerceBuyer);
   memory.commerceLeads.delete(commerceLeadId);
 
+  const roles=await runRoleGoldenPathSelfTest();
+
   const sponsorTest={id:'self_spi_'+crypto.randomBytes(4).toString('hex'),campaignId:'cmp1',placementId:'pl1',userId:'self_test',interactionType:'open'};
   memory.sponsorInteractions.push(sponsorTest);
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&commerceAuthority&&sponsorAuthority);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&commerceAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -454,7 +498,8 @@ async function runDeepSelfTest(){
       duplicateCheckin:second.status,
       streamAuthority:streamSync,
       commerceAuthority:commerceAuthority,
-      sponsorAuthority:sponsorAuthority
+      sponsorAuthority:sponsorAuthority,
+      roleGoldenPaths:roles
     },
     dataMode:pool?'postgres':'memory'
   };
@@ -507,6 +552,10 @@ async function router(req,res){
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
     return json(res,result.ok?200:500,result);
+  }
+  if(req.method==='GET'&&p==='/health/roles'){
+    const roles=await runRoleGoldenPathSelfTest();
+    return json(res,roles.all?200:500,{status:roles.all?'pass':'fail',roles});
   }
   if(req.method==='GET'&&p==='/v1/authority/public-key') return json(res,200,{
     alg:'ES256',kid:'mfw-demo-2026-01',jwk:publicJwk
@@ -730,6 +779,67 @@ async function router(req,res){
     return json(res,201,{data:lead});
   }
 
+  if(req.method==='POST'&&p.startsWith('/v1/events/')&&p.endsWith('/register')){
+    const eventId=p.split('/')[3];
+    const event=memory.events.find(x=>x.id===eventId);
+    if(!event)return json(res,404,{error:'event_not_found'});
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const status=(event.status==='WAITLIST'||event.accessMode==='waitlist'||event.waitlist>0&&event.checkedIn>=event.capacity)?'waitlist':'registered';
+    const key=userId+':'+eventId;
+    const item={id:'reg_'+crypto.randomBytes(6).toString('hex'),userId,eventId,status,source:'app',createdAt:new Date().toISOString(),demo:true};
+    memory.eventRegistrations.set(key,item);
+    await track('event_registered',{eventId,status},userId);
+    return json(res,201,{data:item});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/events/')&&p.endsWith('/cancel')){
+    const eventId=p.split('/')[3];
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const key=userId+':'+eventId;
+    const item=memory.eventRegistrations.get(key);
+    if(!item)return json(res,404,{error:'registration_not_found'});
+    item.status='cancelled';item.updatedAt=new Date().toISOString();
+    await track('event_registration_cancelled',{eventId},userId);
+    return json(res,200,{data:item});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/media/press-kit/')){
+    const eventId=p.split('/').pop();
+    const kit=memory.pressKits.find(x=>x.eventId===eventId&&x.status==='published');
+    if(!kit)return json(res,404,{error:'press_kit_not_found'});
+    await track('press_kit_opened',{eventId,kitId:kit.id});
+    return json(res,200,{data:kit});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/designer/workspace/')){
+    const brandId=p.split('/').pop();
+    const brand=memory.brands.find(x=>x.id===brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
+    const readiness=memory.designerReadiness.find(x=>x.brandId===brandId);
+    const collection=memory.collections.find(x=>x.brandId===brandId);
+    const looks=collection?memory.looks.filter(x=>x.collectionId===collection.id).slice(0,8):[];
+    const analytics={profileViews:1840,savedLooks:312,buyerInterest:17,lineSheetRequests:9,meetingRequests:4};
+    return json(res,200,{data:{brand,collection,looks,readiness,analytics}});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/designer/workspace/')&&p.endsWith('/complete-look-order')){
+    const brandId=p.split('/')[4];
+    const readiness=memory.designerReadiness.find(x=>x.brandId===brandId);
+    if(!readiness)return json(res,404,{error:'designer_workspace_not_found'});
+    readiness.lookOrderComplete=true;
+    readiness.issues=readiness.issues.filter(x=>!x.toLowerCase().includes('look metadata'));
+    readiness.status=(readiness.profileComplete&&readiness.lookOrderComplete&&readiness.mediaComplete&&readiness.commercialDataComplete)?'ready':'in_progress';
+    await track('designer_look_order_completed',{brandId});
+    return json(res,200,{data:readiness});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/designer/workspace/')&&p.endsWith('/confirm-commercial')){
+    const brandId=p.split('/')[4];
+    const readiness=memory.designerReadiness.find(x=>x.brandId===brandId);
+    if(!readiness)return json(res,404,{error:'designer_workspace_not_found'});
+    readiness.commercialDataComplete=true;
+    readiness.issues=readiness.issues.filter(x=>!x.toLowerCase().includes('wholesale'));
+    readiness.status=(readiness.profileComplete&&readiness.lookOrderComplete&&readiness.mediaComplete&&readiness.commercialDataComplete)?'ready':'in_progress';
+    await track('designer_commercial_confirmed',{brandId});
+    return json(res,200,{data:readiness});
+  }
   if(req.method==='POST'&&p==='/v1/auth/demo'){
     const b=await readBody(req);
     const name=String(b.name||'Demo User').slice(0,120);
