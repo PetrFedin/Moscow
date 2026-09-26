@@ -2,7 +2,7 @@ import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import type { WalkAudioPlan } from './varvarkaAudioCatalog';
 
-export type AudioGuideLocale = 'ru-RU' | 'en-US';
+export type AudioGuideLocale = 'ru-RU' | 'en-US' | 'zh-CN';
 export type AudioPlaybackMode = WalkAudioPlan['mode'];
 
 let recordedPlayer: ReturnType<typeof createAudioPlayer> | null = null;
