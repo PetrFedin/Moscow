@@ -23,7 +23,7 @@ export const VARVARKA_REQUIRED_BUNDLED_DATA_IDS = [
 ] as const;
 
 export function createVarvarkaRoutePackManifest(
-  locale: 'ru' | 'en',
+  locale: 'ru' | 'en' | 'zh',
   downloadedAt = new Date().toISOString()
 ): RoutePackManifest {
   const archive = romanovSources.find((source) => source.id === 'timm-1857');
