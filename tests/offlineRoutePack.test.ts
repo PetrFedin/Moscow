@@ -103,3 +103,19 @@ test('offline audio assets require SHA-256 authority before the pack can be acce
     files: [{ ...base.files[0]!, sha256: 'a'.repeat(64) }]
   }), []);
 });
+
+
+test('Chinese offline manifest is a valid locale-specific pack and keeps shared heritage assets', () => {
+  const manifest = createVarvarkaRoutePackManifest('zh', '2026-09-26T09:00:00.000Z');
+  const coverage = getVarvarkaOfflineCoverage(manifest);
+
+  assert.equal(manifest.locale, 'zh');
+  assert.deepEqual(validateRoutePackManifest(manifest), []);
+  assert.equal(coverage.complete, true);
+  assert.ok(manifest.files.some((asset) => asset.id === ROMANOV_ARCHIVE_1857_ASSET_ID));
+  assert.equal(
+    manifest.files.some((asset) => asset.kind === 'audio'),
+    false,
+    'Chinese human masters stay outside the offline pack until production-ready'
+  );
+});
