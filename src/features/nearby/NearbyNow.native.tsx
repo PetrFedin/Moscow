@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { places } from '../../data/places';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import type { TouristRoutePlan } from '../planning/touristPlanner';
 import {
@@ -26,7 +26,6 @@ export default function NearbyNow({
 }: Props) {
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [state, setState] = useState<'idle' | 'locating' | 'ready' | 'denied' | 'error'>('idle');
-  const ru = language === 'ru';
 
   const locate = useCallback(async (prompt = true) => {
     setState('locating');
@@ -67,12 +66,10 @@ export default function NearbyNow({
     <View style={styles.card}>
       <View style={styles.top}>
         <View style={styles.copy}>
-          <Text style={styles.kicker}>{ru ? 'РЯДОМ СЕЙЧАС' : 'NEARBY NOW'}</Text>
-          <Text style={styles.title}>{ru ? 'Не выбирайте маршрут — начните отсюда' : 'Skip planning — start from where you are'}</Text>
+          <Text style={styles.kicker}>{tr(language, 'РЯДОМ СЕЙЧАС', 'NEARBY NOW', '附近')}</Text>
+          <Text style={styles.title}>{tr(language, 'Не выбирайте маршрут — начните отсюда', 'Skip planning — start from where you are', '不用先选路线，就从当前位置开始')}</Text>
           <Text style={styles.body}>
-            {ru
-              ? 'Покажем ближайшие исторические точки и соберём свободную прогулку. Геопозиция не сохраняется.'
-              : 'See the nearest historical stops and build a free walk. Your location is not stored.'}
+            {tr(language, 'Покажем ближайшие исторические точки и соберём свободную прогулку. Геопозиция не сохраняется.', 'See the nearest historical stops and build a free walk. Your location is not stored.', '显示最近的历史地点，并生成自由路线。你的定位不会被保存。')}
           </Text>
         </View>
         {state === 'locating' && <ActivityIndicator color="#d7bb84" />}
@@ -87,13 +84,13 @@ export default function NearbyNow({
                 style={styles.row}
                 contentStyle={styles.rowContent}
                 onPress={() => onOpenPlace(item.place.id)}
-                accessibilityLabel={`${ru ? 'Рядом' : 'Nearby'} · ${item.place.title}`}
+                accessibilityLabel={`${tr(language, 'Рядом', 'Nearby', '附近')} · ${item.place.title}`}
               >
                 <View style={styles.number}><Text style={styles.numberText}>{index + 1}</Text></View>
                 <View style={styles.rowCopy}>
                   <Text style={styles.placeTitle}>{item.place.title}</Text>
                   <Text style={styles.meta}>
-                    {Math.round(item.distanceMeters)} {ru ? 'м' : 'm'} · {item.visited ? (ru ? 'уже открыто' : 'seen') : (ru ? 'новое' : 'new')}
+                    {Math.round(item.distanceMeters)} {tr(language, 'м', 'm', '米')} · {item.visited ? tr(language, 'уже открыто', 'seen', '已探索') : tr(language, 'новое', 'new', '新地点')}
                   </Text>
                 </View>
                 <Text style={styles.arrow}>›</Text>
@@ -101,10 +98,10 @@ export default function NearbyNow({
             ))}
           </View>
           <View style={styles.actions}>
-            <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={startFreeWalk} accessibilityLabel={ru ? 'Начать свободную прогулку' : 'Start free walk'}>
-              <Text style={styles.primaryText}>{ru ? 'Свободная прогулка отсюда' : 'Free walk from here'}</Text>
+            <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={startFreeWalk} accessibilityLabel={tr(language, 'Начать свободную прогулку', 'Start free walk', '开始自由路线')}>
+              <Text style={styles.primaryText}>{tr(language, 'Свободная прогулка отсюда', 'Free walk from here', '从这里开始自由路线')}</Text>
             </PhysicalPressable>
-            <PhysicalPressable style={styles.refresh} contentStyle={styles.center} onPress={() => { void locate(true); }} accessibilityLabel={ru ? 'Обновить геопозицию' : 'Refresh location'}>
+            <PhysicalPressable style={styles.refresh} contentStyle={styles.center} onPress={() => { void locate(true); }} accessibilityLabel={tr(language, 'Обновить геопозицию', 'Refresh location', '刷新定位')}>
               <Text style={styles.refreshText}>↻</Text>
             </PhysicalPressable>
           </View>
@@ -116,18 +113,18 @@ export default function NearbyNow({
           strong
           disabled={state === 'locating'}
           onPress={() => { void locate(true); }}
-          accessibilityLabel={ru ? 'Показать что рядом' : 'Show what is nearby'}
+          accessibilityLabel={tr(language, 'Показать что рядом', 'Show what is nearby', '查看附近地点')}
         >
           <Text style={styles.primaryText}>
             {state === 'locating'
-              ? (ru ? 'Определяем место…' : 'Finding you…')
-              : (ru ? 'Показать, что рядом' : 'Show what is nearby')}
+              ? tr(language, 'Определяем место…', 'Finding you…', '正在定位…')
+              : tr(language, 'Показать, что рядом', 'Show what is nearby', '查看附近地点')}
           </Text>
         </PhysicalPressable>
       )}
 
-      {state === 'denied' && <Text style={styles.warning}>{ru ? 'Без геопозиции режим «Рядом» не работает. Обычный планировщик ниже остаётся доступен.' : 'Nearby needs location permission. The regular planner below still works.'}</Text>}
-      {state === 'error' && <Text style={styles.warning}>{ru ? 'Не удалось определить место. Можно повторить или выбрать маршрут вручную.' : 'Could not determine your location. Retry or use the manual planner.'}</Text>}
+      {state === 'denied' && <Text style={styles.warning}>{tr(language, 'Без геопозиции режим «Рядом» не работает. Обычный планировщик ниже остаётся доступен.', 'Nearby needs location permission. The regular planner below still works.', '“附近”功能需要定位权限。你仍可使用下方的普通路线规划器。')}</Text>}
+      {state === 'error' && <Text style={styles.warning}>{tr(language, 'Не удалось определить место. Можно повторить или выбрать маршрут вручную.', 'Could not determine your location. Retry or use the manual planner.', '无法确定当前位置。可以重试或手动选择路线。')}</Text>}
     </View>
   );
 }
