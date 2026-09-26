@@ -47,7 +47,7 @@ function validateInvestorBuild(){
   for(const required of ["appId: 'com.mfw.investor.demo'","webDir: '../mfw'"]){
     if(nativeConfig.indexOf(required)<0)throw new Error('missing_native_config:'+required);
   }
-  for(const required of ['Wallet != live gate credential','Apple Developer Team','Pass Type ID']){
+  for(const required of ['Wallet must not contain the reusable equivalent of the rotating gate token.','Apple Developer Team','Pass Type ID']){
     if(nativeCapabilities.indexOf(required)<0)throw new Error('missing_native_capability_contract:'+required);
   }
 }
