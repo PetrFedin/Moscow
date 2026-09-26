@@ -403,7 +403,7 @@
       '<div class="world-feature-grid"><button data-action="contact-qr"><span>⌁</span><b>'+t('connectQr')+'</b></button><button data-action="boards"><span>◫</span><b>'+t('boards')+'</b></button><button data-action="meetups"><span>◎</span><b>'+t('meetups')+'</b></button><button data-action="perks"><span>✦</span><b>'+t('perks')+'</b></button></div>'+
       roleContent+
       '<h2>'+t('passport')+'</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
-      '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
+      '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><div class="language-setting"><span>Push / APNs</span><button class="action ghost" data-action="native-push">'+T('Подключить','Enable')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
     '</main>';
   }
 
@@ -627,7 +627,11 @@
     document.documentElement.classList.remove('tap-feedback');
     void document.documentElement.offsetWidth;
     document.documentElement.classList.add('tap-feedback');
-    if(navigator.vibrate)navigator.vibrate(8);
+    if(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative()){
+      window.MFWNative.haptic('light').catch(function(){});
+    }else if(navigator.vibrate){
+      navigator.vibrate(8);
+    }
   }
 
   function toast(msg){
@@ -731,6 +735,29 @@
     }catch(_){toast('Follow-up unavailable');}
   }
 
+  async function enableNativePush(){
+    if(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative()){
+      try{
+        var result=await window.MFWNative.registerPush();
+        if(result&&result.granted){
+          toast(T('Push-уведомления подключены','Push notifications enabled'));
+          track('native_push_enabled',{platform:'ios'});
+        }else{
+          toast(T('Разрешение на push не предоставлено','Push permission not granted'));
+        }
+      }catch(_){toast(T('Не удалось подключить push','Could not enable push'));}
+      return;
+    }
+    openSheet('<div class="eyebrow">NATIVE iOS</div><h1 style="font-size:42px">PUSH / APNs</h1><div class="card"><b>'+T('Готово к native shell','Ready for native shell')+'</b><p class="sub">'+T('В PWA push-кнопка не симулирует APNs. В iOS shell она вызывает системное разрешение и регистрацию APNs.','The PWA does not simulate APNs. In the iOS shell this action requests system permission and registers for APNs.')+'</p></div>');
+  }
+
+  window.MFWRoute=function(route){
+    if(!route)return;
+    if(route.kind==='event'&&route.id){state.openingSeen=true;state.onboarding=true;state.tab='schedule';localStorage.setItem('mfwOpeningSeen','1');localStorage.setItem('mfwOnboarded','1');render();setTimeout(function(){openEvent(route.id);},0);return;}
+    if(route.kind==='brand'&&route.id){state.openingSeen=true;state.onboarding=true;state.tab='discover';localStorage.setItem('mfwOpeningSeen','1');localStorage.setItem('mfwOnboarded','1');render();setTimeout(function(){openBrand(route.id);},0);return;}
+    if(route.kind==='profile'){state.openingSeen=true;state.onboarding=true;state.tab='me';localStorage.setItem('mfwOpeningSeen','1');localStorage.setItem('mfwOnboarded','1');render();return;}
+  };
+
   function toggleLanguage(){
     state.lang=state.lang==='ru'?'en':'ru';
     persist();
@@ -770,6 +797,16 @@
   }
 
   async function networkingCameraScan(){
+    if(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative()){
+      try{
+        var nativeResult=await window.MFWNative.openNativeScanner('networking');
+        var nativeValue=nativeResult&&(nativeResult.value||nativeResult.data||nativeResult.text);
+        if(nativeValue){
+          await connectContactToken(String(nativeValue));
+          return;
+        }
+      }catch(_){}
+    }
     openSheet('<div class="eyebrow">MFW NETWORKING · CAMERA</div><h1 style="font-size:40px">'+T('СКАНИРУЙТЕ<br>CONNECT QR','SCAN<br>CONNECT QR')+'</h1><div class="scanner-camera"><video id="network-video" playsinline muted></video><div class="frame"></div><div class="scan-line"></div></div><canvas id="network-canvas" hidden></canvas><div id="network-status" class="scan-status">'+T('Запрашиваем доступ к камере…','Requesting camera access…')+'</div><p class="sub">'+T('Сканер принимает только MFW-CONTACT. Пропуск MFW-PASS здесь никогда не сработает.','This scanner accepts MFW-CONTACT only. An MFW-PASS is never valid here.')+'</p>');
     var video=document.getElementById('network-video'),canvas=document.getElementById('network-canvas'),status=document.getElementById('network-status');
     try{
@@ -1024,6 +1061,16 @@
   }
 
   async function cameraScan(){
+    if(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative()){
+      try{
+        var nativeResult=await window.MFWNative.openNativeScanner('access');
+        var nativeValue=nativeResult&&(nativeResult.value||nativeResult.data||nativeResult.text);
+        if(nativeValue){
+          await checkinToken(String(nativeValue).replace(/^MFW:/,''));
+          return;
+        }
+      }catch(_){}
+    }
     openSheet('<div class="eyebrow">GATE SCANNER · CAMERA</div><h1 style="font-size:40px">НАВЕДИТЕ<br>НА MFW PASS</h1><div class="scanner-camera"><video id="qr-video" playsinline muted></video><div class="frame"></div><div class="scan-line"></div></div><canvas id="qr-canvas" hidden></canvas><div id="camera-status" class="scan-status">Запрашиваем доступ к камере…</div>');
     var video=document.getElementById('qr-video'),canvas=document.getElementById('qr-canvas'),status=document.getElementById('camera-status');
     try{
@@ -1089,6 +1136,7 @@
       if(a==='close')closeSheet();
       else if(a==='enter-experience'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');render();}
       else if(a==='toggle-lang')toggleLanguage();
+      else if(a==='native-push')enableNativePush();
       else if(a==='event')openEvent(el.getAttribute('data-id'));
       else if(a==='toggle-event')toggleEvent(el.getAttribute('data-id'));
       else if(a==='save-look')saveLook(el.getAttribute('data-look'));
