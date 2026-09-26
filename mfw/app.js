@@ -15,11 +15,11 @@
   var scannerStream=null;
   var scannerFrame=null;
   var demoEvents = [
-    {id:'e1',time:'17:00',nameRu:'MFW Opening Runway',nameEn:'MFW Opening Runway',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 1',venueEn:'Manege · Hall 1',status:'LIVE',accessRu:'Открытый доступ',accessEn:'Open access'},
-    {id:'e2',time:'18:00',nameRu:'New Names: Moscow',nameEn:'New Names: Moscow',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 2',venueEn:'Manege · Hall 2',status:'REGISTRATION',accessRu:'По регистрации',accessEn:'Registration'},
-    {id:'e3',time:'19:00',nameRu:'Ваш бренд глазами байера',nameEn:'Your Brand Through a Buyer’s Eyes',typeRu:'Лекция',typeEn:'Talk',venueRu:'Лекторий',venueEn:'Lecture Hall',status:'OPEN',accessRu:'Открытый доступ',accessEn:'Open access'},
-    {id:'e4',time:'20:30',nameRu:'International Exchange Show',nameEn:'International Exchange Show',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 1',venueEn:'Manege · Hall 1',status:'WAITLIST',accessRu:'Запрос доступа',accessEn:'Request access'},
-    {id:'e5',time:'21:30',nameRu:'Private Industry Reception',nameEn:'Private Industry Reception',typeRu:'B2B',typeEn:'B2B',venueRu:'Partner Lounge',venueEn:'Partner Lounge',status:'INVITE ONLY',accessRu:'Только по приглашению',accessEn:'Invite only'}
+    {id:'e1',time:'17:00',nameRu:'MFW Opening Runway',nameEn:'MFW Opening Runway',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 1',venueEn:'Manege · Hall 1',status:'LIVE',accessRu:'Открытый доступ',accessEn:'Open access',format:'PHYSICAL + LIVE'},
+    {id:'e2',time:'18:00',nameRu:'New Names: Moscow',nameEn:'New Names: Moscow',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 2',venueEn:'Manege · Hall 2',status:'REGISTRATION',accessRu:'По регистрации',accessEn:'Registration',format:'PHYSICAL'},
+    {id:'e3',time:'19:00',nameRu:'Ваш бренд глазами байера',nameEn:'Your Brand Through a Buyer’s Eyes',typeRu:'Лекция',typeEn:'Talk',venueRu:'Лекторий',venueEn:'Lecture Hall',status:'OPEN',accessRu:'Открытый доступ',accessEn:'Open access',format:'PHYSICAL + DIGITAL'},
+    {id:'e4',time:'20:30',nameRu:'International Exchange Show',nameEn:'International Exchange Show',typeRu:'Показ',typeEn:'Runway',venueRu:'Манеж · Зал 1',venueEn:'Manege · Hall 1',status:'WAITLIST',accessRu:'Лист ожидания',accessEn:'Waitlist',format:'PHYSICAL'},
+    {id:'e5',time:'21:30',nameRu:'Private Industry Reception',nameEn:'Private Industry Reception',typeRu:'B2B',typeEn:'B2B',venueRu:'Partner Lounge',venueEn:'Partner Lounge',status:'INVITE ONLY',accessRu:'Только по приглашению',accessEn:'Invite only',format:'PHYSICAL'}
   ];
   function eventField(e,key){var suffix=state.lang==='en'?'En':'Ru';return e[key+suffix]||e[key]||'';}
   var brands = [
@@ -314,6 +314,19 @@
     return '<div class="event" data-action="event" data-id="'+e.id+'"><div class="time">'+e.time+'</div><div><h3>'+esc(eventField(e,'name'))+'</h3><div class="meta">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'type'))+'</div></div>'+badge(e.status)+'</div>';
   }
 
+  function eventPrimaryAction(e,mine){
+    if(e.status==='INVITE ONLY'){
+      return '<button class="action ghost" disabled>'+T('Только по приглашению','Invite only')+'</button>';
+    }
+    if(mine){
+      return '<button class="action ghost" data-action="toggle-event" data-id="'+e.id+'">'+t('added')+'</button>';
+    }
+    if(e.status==='WAITLIST'){
+      return '<button class="action primary" data-action="toggle-event" data-id="'+e.id+'">'+T('В лист ожидания','Join waitlist')+'</button>';
+    }
+    return '<button class="action primary" data-action="toggle-event" data-id="'+e.id+'">'+t('add')+'</button>';
+  }
+
   function schedule(){
     return '<main>'+
       '<div class="eyebrow" style="margin-top:18px">'+t('calendar')+'</div><h1>'+t('programmeTitle')+'</h1>'+
@@ -321,7 +334,7 @@
       '<div class="filters">'+[t('all'),t('mine'),t('shows'),t('talks'),'B2B',t('online'),t('available')].map(function(x,i){return '<button class="chip '+(i===0?'active':'')+'">'+x+'</button>';}).join('')+'</div>'+
       demoEvents.map(function(e){
         var mine=state.myEvents.indexOf(e.id)>=0;
-        return '<div class="card event-card" data-action="event" data-id="'+e.id+'"><div class="event-top"><div><div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+'</div><div class="event-name">'+esc(eventField(e,'name'))+'</div><div class="event-details">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</div></div>'+badge(e.status)+'</div><div class="mini-actions"><button class="action '+(mine?'ghost':'primary')+'" data-action="toggle-event" data-id="'+e.id+'">'+(mine?t('added'):t('add'))+'</button><button class="action ghost" data-action="route" data-id="'+e.id+'">'+t('route')+'</button></div></div>';
+        return '<div class="card event-card" data-action="event" data-id="'+e.id+'"><div class="event-top"><div><div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+' · '+esc(e.format||'')+'</div><div class="event-name">'+esc(eventField(e,'name'))+'</div><div class="event-details">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</div></div>'+badge(e.status)+'</div><div class="mini-actions">'+eventPrimaryAction(e,mine)+'<button class="action ghost" data-action="route" data-id="'+e.id+'">'+t('route')+'</button></div></div>';
       }).join('')+
     '</main>';
   }
@@ -513,7 +526,7 @@
   function openEvent(id){
     var e=demoEvents.filter(function(x){return x.id===id;})[0]; if(!e)return;
     var mine=state.myEvents.indexOf(id)>=0;
-    openSheet('<div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+'</div><h1 style="font-size:42px">'+esc(eventField(e,'name'))+'</h1><p class="sub">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</p>'+badge(e.status)+'<div class="action-row"><button class="action primary" data-action="toggle-event" data-id="'+e.id+'">'+(mine?t('added'):t('add'))+'</button><button class="action ghost" data-action="route">'+t('route')+'</button></div><h2>'+T('Доступ','Access')+'</h2><div class="card"><b>Credential → Entitlement → Event</b><p class="sub">'+T('Решение о входе принимает серверная модель прав, а не название роли пользователя.','Admission is decided by server-side entitlements, not by the user’s role label.')+'</p></div>');
+    openSheet('<div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+' · '+esc(e.format||'')+'</div><h1 style="font-size:42px">'+esc(eventField(e,'name'))+'</h1><p class="sub">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</p>'+badge(e.status)+'<div class="action-row">'+eventPrimaryAction(e,mine)+'<button class="action ghost" data-action="route">'+t('route')+'</button></div><h2>'+T('Доступ','Access')+'</h2><div class="card"><b>Credential → Entitlement → Event</b><p class="sub">'+T('Решение о входе принимает серверная модель прав, а не название роли пользователя.','Admission is decided by server-side entitlements, not by the user’s role label.')+'</p></div>');
   }
 
   function openBrand(id){
@@ -652,8 +665,12 @@
         state.myEvents.push(id);toast(out.data.status==='waitlist'?T('Вы добавлены в лист ожидания','Added to waitlist'):T('Регистрация подтверждена','Registration confirmed'));
       }
       persist();closeSheet();render();track(i>=0?'event_removed':'event_registered',{eventId:id});
-    }catch(_){
-      toast(T('Регистрация временно недоступна','Registration temporarily unavailable'));
+    }catch(err){
+      if(err&&err.data&&err.data.error==='invitation_required'){
+        toast(T('Доступ только по приглашению','Invitation required'));
+      }else{
+        toast(T('Регистрация временно недоступна','Registration temporarily unavailable'));
+      }
     }
   }
   function saveLook(id){
