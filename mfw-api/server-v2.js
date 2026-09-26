@@ -8,7 +8,7 @@ try { ({ Pool } = require('pg')); } catch (_) {}
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
-const VERSION = 'mfw-authority-v4';
+const VERSION = 'mfw-authority-v5';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
@@ -36,10 +36,10 @@ function validateInvestorBuild(){
   new Function(nativeBridge);
   JSON.parse(nativePackage);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','/v1/demo/social/verify','/v1/brand-portal/','brand-loyalty','mfw-365','brand-portal','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','/v1/demo/social/verify','/v1/brand-portal/','brand-loyalty','mfw-365','brand-portal','brand-portal-notify','notification-preferences','notification-pref-toggle','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','/social/reverify','brand365','brand-news','brand-paid','brand-approve-post','brand-approve-offer','brand-social-reverify','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','/retention','/social/reverify','brand365','retention','brand-news','brand-paid','brand-approve-post','brand-approve-offer','brand-social-reverify','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
   for(const required of ['registerPush','openNativeScanner','addWalletPass','routeDeepLink','appUrlOpen']){
@@ -436,9 +436,9 @@ function postFeedScore(userId,post,followed){
   let score=0,reason='mfw_editorial';
   const ageHours=Math.max(0,(Date.now()-new Date(post.publishedAt||post.createdAt||Date.now()).getTime())/3600000);
   const freshness=Math.max(0,30-Math.min(30,ageHours/24));
-  if(followed.has(post.brandId)&&!post.isPaid){score=100;reason='followed_brand';}
-  else if(post.kind==='event'&&followed.has(post.brandId)){score=95;reason='followed_brand_event';}
-  else if(post.kind==='offer'&&followed.has(post.brandId)){score=92;reason='followed_brand_offer';}
+  if(post.kind==='event'&&followed.has(post.brandId)&&!post.isPaid){score=108;reason='followed_brand_event';}
+  else if(post.kind==='offer'&&followed.has(post.brandId)&&!post.isPaid){score=105;reason='followed_brand_offer';}
+  else if(followed.has(post.brandId)&&!post.isPaid){score=100;reason='followed_brand';}
   else if(post.isPaid){score=35;reason='sponsored';}
   else {score=60;reason='mfw_relevant';}
   return {score:score+freshness,reason};
@@ -754,6 +754,48 @@ async function runBrand365SelfTest(){
   return {ok,eligibleBefore,eligibleAfterLoss,claimRevoked:claimLookup&&claimLookup.status==='revoked',providerBoundary,moderationFlow};
 }
 
+async function runRetentionSelfTest(){
+  const userId='self_retention_'+crypto.randomBytes(4).toString('hex');
+  followSet(userId).add('b1');
+  const organic={
+    id:'self_org_'+crypto.randomBytes(4).toString('hex'),brandId:'b1',kind:'news',
+    titleRu:'Self organic',titleEn:'Self organic',bodyRu:'',bodyEn:'',audienceScope:{kind:'brand_followers'},
+    placementScope:['discover_feed'],isPaid:false,status:'published',publishedAt:new Date().toISOString(),frequencyCap:{perUserPer7d:2}
+  };
+  const paid={
+    id:'self_paid_'+crypto.randomBytes(4).toString('hex'),brandId:'b1',kind:'campaign',
+    titleRu:'Self paid',titleEn:'Self paid',bodyRu:'',bodyEn:'',audienceScope:{kind:'all_mfw'},
+    placementScope:['discover_feed'],isPaid:true,status:'published',publishedAt:new Date().toISOString(),frequencyCap:{perUserPer7d:2}
+  };
+  memory.brandPosts.unshift(paid);memory.brandPosts.unshift(organic);
+  const firstFeed=buildPersonalFeed(userId);
+  const organicIndex=firstFeed.findIndex(x=>x.id===organic.id);
+  const paidIndex=firstFeed.findIndex(x=>x.id===paid.id);
+  const organicFirst=organicIndex>=0&&paidIndex>=0&&organicIndex<paidIndex&&firstFeed[organicIndex].feedReason==='followed_brand';
+
+  const impressions=[
+    {id:'self_imp_1',userId,postId:paid.id,type:'impression',surface:'mfw_365',occurredAt:new Date().toISOString()},
+    {id:'self_imp_2',userId,postId:paid.id,type:'impression',surface:'mfw_365',occurredAt:new Date().toISOString()}
+  ];
+  memory.contentInteractions.push(...impressions);
+  const secondFeed=buildPersonalFeed(userId);
+  const paidCapped=!secondFeed.some(x=>x.id===paid.id);
+  const defaultPaidPushOff=notificationPrefs(userId).paidPromotionsEnabled===false;
+
+  const push1={id:'self_push_1',category:'brand_news',brandId:'b1',status:'scheduled',createdAt:new Date().toISOString()};
+  const push2={id:'self_push_2',category:'brand_news',brandId:'b1',status:'scheduled',createdAt:new Date().toISOString()};
+  memory.notifications.unshift(push1,push2);
+  const pushCapped=brandPushesInWindow('b1',7)>=2;
+
+  memory.brandPosts=memory.brandPosts.filter(x=>![organic.id,paid.id].includes(x.id));
+  memory.contentInteractions=memory.contentInteractions.filter(x=>!impressions.some(i=>i.id===x.id));
+  memory.notifications=memory.notifications.filter(x=>![push1.id,push2.id].includes(x.id));
+  memory.brandFollows.delete(userId);
+  memory.notificationPreferences.delete(userId);
+
+  return {ok:organicFirst&&paidCapped&&defaultPaidPushOff&&pushCapped,organicFirst,paidCapped,defaultPaidPushOff,pushCapped};
+}
+
 async function runDeepSelfTest(){
   const testUser='self_'+crypto.randomBytes(5).toString('hex');
   const pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
@@ -824,6 +866,7 @@ async function runDeepSelfTest(){
   for(const channelId of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(loyaltyUser,channelId));
 
   const brand365=await runBrand365SelfTest();
+  const retention365=await runRetentionSelfTest();
   const localeAuthority=true;
   const roles=await runRoleGoldenPathSelfTest();
 
@@ -832,7 +875,7 @@ async function runDeepSelfTest(){
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&localeAuthority&&sponsorAuthority&&roles.all);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&retention365.ok&&localeAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -848,6 +891,7 @@ async function runDeepSelfTest(){
       networkingAuthority:networkingAuthority,
       loyalty365Authority:loyalty365Authority,
       brand365Authority:brand365,
+      retention365Authority:retention365,
       localeAuthority:localeAuthority,
       sponsorAuthority:sponsorAuthority,
       roleGoldenPaths:roles
