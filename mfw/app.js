@@ -265,7 +265,7 @@
   }
 
   function demoNote(){
-    return '<div class="demo-note"><b>CONCEPT DEMO.</b> Программа, бренды и права доступа на этом стенде — демонстрационные данные. Архитектура интерфейса предназначена для подключения к официальным данным MFW.</div>';
+    return '<div class="demo-note"><b>CONCEPT DEMO.</b> '+T('Программа, бренды и права доступа на этом стенде — демонстрационные данные. Архитектура интерфейса предназначена для подключения к официальным данным MFW.','Programme, brands and access rights in this build are demo data. The interface architecture is designed to connect to official MFW data.')+'</div>';
   }
 
   function lookVisual(n,label){
@@ -465,9 +465,9 @@
   }
 
   function onboarding(){
-    return '<div class="app"><main style="padding-top:48px"><div class="eyebrow">MOSCOW FASHION WEEK · CONCEPT DEMO</div><h1>ОДИН ID.<br>ВСЯ НЕДЕЛЯ<br>МОДЫ.</h1><p class="sub">Показы, пропуск, LIVE, бренды, networking и личная программа — в одном мобильном опыте.</p>'+demoNote()+
-      '<div class="card" style="margin-top:24px"><label class="eyebrow">Ваше имя</label><input id="onboard-name" class="input" style="margin-top:8px" value="'+esc(state.name)+'" /><div class="eyebrow" style="margin-top:18px">Роль для демо</div><div class="role-switcher">'+['Visitor','Buyer','Media','Designer'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-onboard-role="'+r+'">'+r+'</button>';}).join('')+'</div><div class="eyebrow" style="margin-top:18px">Интересы</div><div class="filters" style="margin-left:0;margin-right:0;padding:0">'+['Russian design','Luxury','Emerging','Retail','Technology'].map(function(x,i){return '<button class="chip '+(i<3?'active':'')+'">'+x+'</button>';}).join('')+'</div><button class="action primary" style="width:100%;margin-top:12px" data-action="finish-onboarding">Войти в MFW</button></div>'+
-      '<p class="sub" style="font-size:11px;margin-top:16px">Продолжая, вы видите демонстрационный интерфейс. Реальные согласия и обработка данных будут подключаться отдельными юридическими сущностями.</p></main></div>';
+    return '<div class="app"><main style="padding-top:48px"><div class="onboarding-lang"><button class="lang-toggle" data-action="toggle-lang">'+(state.lang==='ru'?'RU / EN':'EN / RU')+'</button></div><div class="eyebrow">MOSCOW FASHION WEEK · CONCEPT DEMO</div><h1>'+T('ОДИН ID.<br>ВСЯ НЕДЕЛЯ<br>МОДЫ.','ONE ID.<br>THE WHOLE<br>FASHION WEEK.')+'</h1><p class="sub">'+T('Показы, пропуск, LIVE, бренды, networking и личная программа — в одном мобильном опыте.','Shows, pass, LIVE, brands, networking and your schedule — in one mobile experience.')+'</p>'+demoNote()+
+      '<div class="card" style="margin-top:24px"><label class="eyebrow">'+T('Ваше имя','Your name')+'</label><input id="onboard-name" class="input" style="margin-top:8px" value="'+esc(state.name)+'" /><div class="eyebrow" style="margin-top:18px">'+T('Роль для демо','Demo role')+'</div><div class="role-switcher">'+['Visitor','Buyer','Media','Designer'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-onboard-role="'+r+'">'+r+'</button>';}).join('')+'</div><div class="eyebrow" style="margin-top:18px">'+T('Интересы','Interests')+'</div><div class="filters" style="margin-left:0;margin-right:0;padding:0">'+['Russian design','Luxury','Emerging','Retail','Technology'].map(function(x,i){return '<button class="chip '+(i<3?'active':'')+'">'+x+'</button>';}).join('')+'</div><button class="action primary" style="width:100%;margin-top:12px" data-action="finish-onboarding">'+T('Войти в MFW','Enter MFW')+'</button></div>'+
+      '<p class="sub" style="font-size:11px;margin-top:16px">'+T('Продолжая, вы видите демонстрационный интерфейс. Реальные согласия и обработка данных будут подключаться отдельными юридическими сущностями.','This is a concept demo. Production consent and personal-data processing will use dedicated legal flows.')+'</p></main></div>';
   }
 
   function b64urlBytes(v){
@@ -971,11 +971,12 @@
 
   async function createMeeting(){
     try{
-      await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',slot:'14:30'})});
+      var meetingOut=await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',slot:'14:30'})});
       await api('/v1/leads',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',source:'meeting',stage:'meeting',note:'Showroom meeting confirmed'})});
-      state.meeting={id:(await api('/v1/meetings',{method:'POST',body:JSON.stringify({brandId:'b1',buyerId:state.userId||'demo_buyer',slot:'14:30'})})).data.id,slot:'14:30',status:'confirmed'};closeSheet();render();toast(T('Встреча подтверждена сервером: 14:30','Meeting confirmed by server: 14:30'));track('meeting_confirmed',{brandId:'b1',slot:'14:30'});
+      state.meeting={id:meetingOut.data.id,slot:'14:30',status:'confirmed'};
+      closeSheet();render();toast(T('Встреча подтверждена сервером: 14:30','Meeting confirmed by server: 14:30'));track('meeting_confirmed',{brandId:'b1',slot:'14:30'});
     }catch(_){
-      toast('API недоступен — встреча не подтверждена');
+      toast(T('API недоступен — встреча не подтверждена','API unavailable — meeting not confirmed'));
     }
   }
 
@@ -1044,6 +1045,7 @@
     if(fileInput)fileInput.onchange=function(){if(fileInput.files&&fileInput.files[0])scanImageFile(fileInput.files[0]);};
   }
 
+  document.documentElement.lang=state.lang;
   if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
   render();
   checkBackend();
