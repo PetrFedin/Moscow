@@ -155,6 +155,8 @@ const memory={
   revoked:new Map(),
   checkins:new Map(),
   meetings:new Map(),
+  shortlists:new Map(),
+  commerceLeads:new Map(),
   analytics:[],
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
@@ -162,8 +164,17 @@ const memory={
     {id:'e3',season:'SS27',title:'Buyer Perspective',type:'talk',venue:'Lecture Hall',startsAt:'2026-09-26T19:00:00+03:00',status:'published',accessMode:'open',capacity:180,checkedIn:0,waitlist:0,demo:true}
   ],
   brands:[
-    {id:'b1',slug:'mfw-new-01',name:'MFW / NEW 01',city:'Moscow',segment:'Emerging Womenswear',demo:true},
-    {id:'b2',slug:'mfw-studio-02',name:'MFW / STUDIO 02',city:'Saint Petersburg',segment:'Contemporary Unisex',demo:true}
+    {id:'b1',slug:'mfw-new-01',name:'MFW / NEW 01',city:'Moscow',segment:'Emerging Womenswear',description:'New Russian womenswear label focused on modern tailoring and evening pieces.',demo:true},
+    {id:'b2',slug:'mfw-studio-02',name:'MFW / STUDIO 02',city:'Saint Petersburg',segment:'Contemporary Unisex',description:'Contemporary unisex studio built around texture, movement and modular dressing.',demo:true}
+  ],
+  collections:[
+    {id:'c1',brandId:'b1',season:'SS27',title:'After Light',description:'32-look runway collection',status:'published',demo:true},
+    {id:'c2',brandId:'b2',season:'SS27',title:'Northern Form',description:'24-look presentation',status:'published',demo:true}
+  ],
+  looks:Array.from({length:32},(_,i)=>({id:'l'+(i+1),collectionId:'c1',lookNumber:i+1,title:'Look '+String(i+1).padStart(2,'0'),wholesale:42000+(i*1700),rrp:98000+(i*3900),currency:'RUB',demo:true})),
+  lineSheets:[
+    {id:'ls1',brandId:'b1',collectionId:'c1',version:1,currency:'RUB',status:'published',terms:'MOQ 6 styles · delivery Feb–Mar 2027',demo:true},
+    {id:'ls2',brandId:'b2',collectionId:'c2',version:1,currency:'RUB',status:'published',terms:'MOQ 8 styles · delivery Jan–Feb 2027',demo:true}
   ],
   accreditations:[
     {id:'acc_01',name:'Maria Petrova',kind:'Buyer',organisation:'Concept Store',status:'pending'},
@@ -463,6 +474,76 @@ async function router(req,res){
     }
     return json(res,200,{data:memory.brands,demo:true,source:'memory'});
   }
+  if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/analytics')){
+    const brandId=p.split('/')[3];
+    const brand=memory.brands.find(x=>x.id===brandId||x.slug===brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
+    const leads=[...memory.commerceLeads.values()].filter(x=>x.brandId===brand.id);
+    const meetings=[...memory.meetings.values()].filter(x=>x.brandId===brand.id);
+    const shortlistCount=[...memory.shortlists.values()].filter(x=>x.has(brand.id)).length;
+    return json(res,200,{data:{
+      brandId:brand.id,
+      profileViews:1840,
+      collectionOpens:963,
+      savedLooks:312,
+      shortlistCount:18+shortlistCount,
+      lineSheetRequests:27,
+      meetingRequests:9+meetings.length,
+      qualifiedLeads:4+leads.filter(x=>['qualified','follow_up','meeting'].includes(x.stage)).length,
+      demo:true
+    }});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/brands/')){
+    const brandId=p.split('/')[3];
+    const brand=memory.brands.find(x=>x.id===brandId||x.slug===brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
+    const collections=memory.collections.filter(x=>x.brandId===brand.id);
+    return json(res,200,{data:{...brand,collections}});
+  }
+  if(req.method==='GET'&&p==='/v1/collections'){
+    const brandId=url.searchParams.get('brandId');
+    const data=brandId?memory.collections.filter(x=>x.brandId===brandId):memory.collections;
+    return json(res,200,{data,demo:true});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/collections/')&&p.endsWith('/looks')){
+    const collectionId=p.split('/')[3];
+    return json(res,200,{data:memory.looks.filter(x=>x.collectionId===collectionId),demo:true});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/line-sheets/')){
+    const brandId=p.split('/').pop();
+    const sheet=memory.lineSheets.find(x=>x.brandId===brandId);
+    if(!sheet)return json(res,404,{error:'line_sheet_not_found'});
+    const looks=memory.looks.filter(x=>x.collectionId===sheet.collectionId).slice(0,12);
+    await track('line_sheet_opened',{brandId,sheetId:sheet.id});
+    return json(res,200,{data:{...sheet,looks}});
+  }
+  if(req.method==='GET'&&p==='/v1/buyer/shortlist'){
+    const buyerId=String(url.searchParams.get('buyerId')||'demo_buyer');
+    const set=memory.shortlists.get(buyerId)||new Set();
+    return json(res,200,{data:[...set].map(id=>memory.brands.find(b=>b.id===id)).filter(Boolean)});
+  }
+  if(req.method==='POST'&&p==='/v1/buyer/shortlist'){
+    const b=await readBody(req);
+    const buyerId=String(b.buyerId||'demo_buyer');
+    const brandId=String(b.brandId||'b1');
+    if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
+    const set=memory.shortlists.get(buyerId)||new Set();
+    const saved=b.action==='remove'?false:true;
+    if(saved)set.add(brandId);else set.delete(brandId);
+    memory.shortlists.set(buyerId,set);
+    const leadId='lead_'+crypto.randomBytes(6).toString('hex');
+    if(saved)memory.commerceLeads.set(leadId,{id:leadId,brandId,buyerId,source:'shortlist',stage:'shortlisted',createdAt:new Date().toISOString(),demo:true});
+    await track(saved?'brand_shortlisted':'brand_unshortlisted',{buyerId,brandId});
+    return json(res,200,{saved,data:[...set]});
+  }
+  if(req.method==='POST'&&p==='/v1/leads'){
+    const b=await readBody(req);
+    const id='lead_'+crypto.randomBytes(7).toString('hex');
+    const lead={id,brandId:String(b.brandId||'b1'),buyerId:String(b.buyerId||'demo_buyer'),source:String(b.source||'brand_profile'),stage:String(b.stage||'interest'),note:String(b.note||'').slice(0,500),createdAt:new Date().toISOString(),demo:true};
+    memory.commerceLeads.set(id,lead);
+    await track('commerce_lead_created',lead,lead.buyerId);
+    return json(res,201,{data:lead});
+  }
 
   if(req.method==='POST'&&p==='/v1/auth/demo'){
     const b=await readBody(req);
@@ -541,6 +622,16 @@ async function router(req,res){
     if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
     if(req.method==='GET'&&p==='/v1/admin/accreditations') return json(res,200,{data:memory.accreditations});
     if(req.method==='GET'&&p==='/v1/admin/streams') return json(res,200,{data:memory.streams});
+    if(req.method==='GET'&&p==='/v1/admin/commerce'){
+      const leads=[...memory.commerceLeads.values()];
+      return json(res,200,{data:{
+        shortlistActions:[...memory.shortlists.values()].reduce((n,set)=>n+set.size,0),
+        lineSheetRequests:27+memory.analytics.filter(x=>x.name==='line_sheet_opened').length,
+        meetingRequests:48+memory.meetings.size,
+        leads:leads.slice(-20).reverse(),
+        funnel:{brandViews:6100,collectionOpens:2180,savedLooks:1900,shortlists:312,meetings:48+memory.meetings.size,qualified:14+leads.filter(x=>['qualified','follow_up','meeting'].includes(x.stage)).length}
+      }});
+    }
     if(req.method==='PATCH'&&p.startsWith('/v1/admin/streams/')){
       const streamId=p.split('/').pop();
       const body=await readBody(req);
