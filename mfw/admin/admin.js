@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],commerce:null,sponsors:null};
+var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null};
 
 async function req(path,opts){
   opts=opts||{};
@@ -117,20 +117,38 @@ function programmeScreen(){
 }
 function streamingScreen(){
   var stream=state.streams[0]||{id:'stream_e1',status:'offline',currentLook:0,totalLooks:32,replayAvailable:false};
+  var cp=state.streamControl||{sources:[],outputs:[],captions:[],replay:null,failover:[]};
   var pct=stream.totalLooks?Math.round((Number(stream.currentLook||0)/Number(stream.totalLooks))*100):0;
-  return '<div class="eyebrow">Runway direction</div><div class="hero-title">STREAMING<br>AUTHORITY</div>'+
-    '<div class="stream-console"><div class="stream-preview" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url(https://images.unsplash.com/photo-1742237424056-ea5cbb674d66?auto=format&fit=crop&w=1400&q=86)">'+
+  var active=(cp.sources||[]).find(function(x){return x.id===stream.activeSourceId;})||(cp.sources||[])[0]||null;
+  var backup=(cp.sources||[]).find(function(x){return x.sourceRole==='backup';})||null;
+  function sourceCard(src){
+    if(!src)return '<div class="source-card"><b>No source</b></div>';
+    var h=src.health||{};
+    return '<div class="source-card '+(src.status==='active'?'active':'')+'"><div class="source-head"><div><span>'+esc(src.sourceRole||'source')+'</span><b>'+esc(src.provider&&src.provider.name||src.providerId||'Provider')+'</b></div>'+badge(src.status)+'</div><div class="source-metrics"><span><b>'+esc(h.bitrateKbps||0)+'</b> kbps</span><span><b>'+esc(h.fps||0)+'</b> fps</span><span><b>'+esc(h.latencySec||0)+'</b> sec</span><span><b>'+esc(h.droppedFramesPct||0)+'</b>% drop</span></div></div>';
+  }
+  return '<div class="eyebrow">Runway control plane</div><div class="hero-title">STREAMING<br>AUTHORITY</div>'+
+    '<div class="console-banner"><div><b>Provider boundary</b><p>Ingest → health → active source → outputs → captions → replay.</p></div><div class="health"><span class="ok">'+esc(stream.providerMode||'simulated')+'</span><span>'+esc((active&&active.sourceRole)||'no source')+' active</span></div></div>'+
+    '<div class="stream-console"><div class="stream-preview" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url(https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg)">'+
       '<div class="stream-preview-top">'+badge(stream.status)+'<span>EVENT e1 · HALL 1</span></div>'+
       '<div class="stream-preview-bottom"><div><span>NOW ON RUNWAY</span><strong>LOOK '+String(stream.currentLook||0).padStart(2,'0')+' / '+esc(stream.totalLooks||32)+'</strong></div><b>'+pct+'%</b></div>'+
     '</div>'+
     '<div class="card"><div class="eyebrow">DIRECTOR CONTROLS</div><h2>Opening Runway</h2>'+
       '<div class="row"><span>Status</span>'+badge(stream.status)+'</div>'+
       '<div class="row"><span>Current look</span><strong>'+esc(stream.currentLook||0)+'</strong></div>'+
-      '<div class="row"><span>Replay</span><b>'+(stream.replayAvailable?'READY':'OFF')+'</b></div>'+
+      '<div class="row"><span>Replay</span><b>'+((cp.replay&&cp.replay.status)||'OFF')+'</b></div>'+
       '<div class="actions"><button class="btn primary" data-action="next-look" data-id="'+esc(stream.id)+'">NEXT LOOK</button>'+
       '<button class="btn" data-action="stream-live" data-id="'+esc(stream.id)+'">LIVE</button>'+
-      '<button class="btn" data-action="stream-replay" data-id="'+esc(stream.id)+'">REPLAY</button></div>'+
-      '<div class="capacity"><span style="width:'+pct+'%"></span></div><p class="sub">Изменение currentLook сразу появляется на iPhone LIVE через public stream authority.</p></div></div>';
+      '<button class="btn" data-action="stream-failover" data-id="'+esc(stream.id)+'">FAILOVER → BACKUP</button>'+
+      '<button class="btn" data-action="stream-caption" data-id="'+esc(stream.id)+'">CAPTIONS EN</button>'+
+      '<button class="btn" data-action="stream-archive" data-id="'+esc(stream.id)+'">ARCHIVE / REPLAY</button></div>'+
+      '<div class="capacity"><span style="width:'+pct+'%"></span></div><p class="sub">currentLook syncs to iPhone. Failover changes the active ingest authority without changing the public playback contract.</p></div></div>'+
+    '<div class="source-grid">'+sourceCard(active)+sourceCard(backup)+'</div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">OUTPUTS</div><h2>Delivery</h2>'+
+      (cp.outputs||[]).map(function(o){return '<div class="row"><div><b>'+esc(o.outputType.toUpperCase())+'</b><div class="sub">'+esc(o.resolution||'')+' · '+esc(o.bitrateKbps||0)+' kbps</div></div>'+badge(o.status)+'</div>';}).join('')+
+    '</div><div class="card"><div class="eyebrow">CAPTIONS / REPLAY</div><h2>Archive readiness</h2>'+
+      (cp.captions||[]).map(function(c){return '<div class="row"><span>'+esc(c.label)+' · '+esc(c.source)+'</span>'+badge(c.status)+'</div>';}).join('')+
+      '<div class="row"><span>Replay asset</span>'+badge(cp.replay&&cp.replay.status||'processing')+'</div>'+
+      '<div class="row"><span>Failovers</span><strong>'+esc((cp.failover||[]).length)+'</strong></div></div></div>';
 }
 function commerceScreen(){
   var c=state.commerce||{shortlistActions:0,lineSheetRequests:0,meetingRequests:0,leads:[],funnel:{brandViews:0,collectionOpens:0,savedLooks:0,shortlists:0,meetings:0,qualified:0}};
@@ -207,9 +225,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/commerce'),admin('/sponsors')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.commerce=result[6].data||null;state.sponsors=result[7].data||null;
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
@@ -228,6 +246,9 @@ async function action(name,id){
     if(name==='next-look')await admin('/streams/'+encodeURIComponent(id)+'/next-look',{method:'POST',body:JSON.stringify({})});
     if(name==='stream-live')await admin('/streams/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'live'})});
     if(name==='stream-replay')await admin('/streams/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'replay',replayAvailable:true})});
+    if(name==='stream-failover')await admin('/streams/'+encodeURIComponent(id)+'/failover',{method:'POST',body:JSON.stringify({targetRole:'backup',reason:'investor_demo_manual'})});
+    if(name==='stream-caption')await admin('/streams/'+encodeURIComponent(id)+'/captions',{method:'POST',body:JSON.stringify({language:'en',source:'translation',status:'live'})});
+    if(name==='stream-archive')await admin('/streams/'+encodeURIComponent(id)+'/archive',{method:'POST',body:JSON.stringify({})});
     toast('Server action: '+name);
     await load();
   }catch(err){toast('Action failed: '+err.message);}
