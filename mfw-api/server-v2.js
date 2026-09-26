@@ -157,6 +157,7 @@ const memory={
   meetings:new Map(),
   shortlists:new Map(),
   commerceLeads:new Map(),
+  sponsorInteractions:[],
   analytics:[],
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
@@ -175,6 +176,16 @@ const memory={
   lineSheets:[
     {id:'ls1',brandId:'b1',collectionId:'c1',version:1,currency:'RUB',status:'published',terms:'MOQ 6 styles · delivery Feb–Mar 2027',demo:true},
     {id:'ls2',brandId:'b2',collectionId:'c2',version:1,currency:'RUB',status:'published',terms:'MOQ 8 styles · delivery Jan–Feb 2027',demo:true}
+  ],
+  sponsors:[
+    {id:'sp1',slug:'mfw-partner-demo',name:'MFW Partner Demo',tier:'presenting',status:'active',demo:true}
+  ],
+  sponsorCampaigns:[
+    {id:'cmp1',sponsorId:'sp1',season:'SS27',name:'Backstage Experience',objective:'brand_engagement',status:'active',demo:true}
+  ],
+  sponsorPlacements:[
+    {id:'pl1',campaignId:'cmp1',placementType:'native_story',surface:'today_hero',title:'Backstage Experience',cta:'Open experience',demo:true},
+    {id:'pl2',campaignId:'cmp1',placementType:'challenge',surface:'passport',title:'Fashion Passport Partner Challenge',cta:'Join',demo:true}
   ],
   accreditations:[
     {id:'acc_01',name:'Maria Petrova',kind:'Buyer',organisation:'Concept Store',status:'pending'},
@@ -528,6 +539,28 @@ async function router(req,res){
     await track('line_sheet_opened',{brandId,sheetId:sheet.id});
     return json(res,200,{data:{...sheet,looks}});
   }
+  if(req.method==='GET'&&p==='/v1/sponsors/experiences'){
+    const placements=memory.sponsorPlacements.filter(x=>x.campaignId==='cmp1');
+    return json(res,200,{data:{sponsor:memory.sponsors[0],campaign:memory.sponsorCampaigns[0],placements},demo:true});
+  }
+  if(req.method==='POST'&&p==='/v1/sponsor/interactions'){
+    const b=await readBody(req);
+    const item={
+      id:'spi_'+crypto.randomBytes(7).toString('hex'),
+      campaignId:String(b.campaignId||'cmp1'),
+      placementId:String(b.placementId||'pl1'),
+      userId:String(b.userId||'anonymous'),
+      interactionType:String(b.interactionType||'open').slice(0,80),
+      value:Number(b.value||0),
+      meta:b.meta||{},
+      occurredAt:new Date().toISOString(),
+      demo:true
+    };
+    memory.sponsorInteractions.push(item);
+    if(memory.sponsorInteractions.length>5000)memory.sponsorInteractions.shift();
+    await track('sponsor_'+item.interactionType,{campaignId:item.campaignId,placementId:item.placementId},item.userId);
+    return json(res,201,{data:item});
+  }
   if(req.method==='GET'&&p==='/v1/buyer/shortlist'){
     const buyerId=String(url.searchParams.get('buyerId')||'demo_buyer');
     const set=memory.shortlists.get(buyerId)||new Set();
@@ -633,6 +666,25 @@ async function router(req,res){
     if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
     if(req.method==='GET'&&p==='/v1/admin/accreditations') return json(res,200,{data:memory.accreditations});
     if(req.method==='GET'&&p==='/v1/admin/streams') return json(res,200,{data:memory.streams});
+    if(req.method==='GET'&&p==='/v1/admin/sponsors'){
+      const interactions=memory.sponsorInteractions;
+      const count=t=>interactions.filter(x=>x.interactionType===t).length;
+      return json(res,200,{data:{
+        sponsor:memory.sponsors[0],
+        campaign:memory.sponsorCampaigns[0],
+        placements:memory.sponsorPlacements,
+        metrics:{
+          impressions:24800,
+          uniqueReach:19600,
+          experienceOpens:6100+count('open'),
+          challengeStarts:1280+count('challenge_start'),
+          ctaClicks:487+count('cta_click'),
+          brandProfileOpens:920+count('brand_open'),
+          attributedIntents:214+count('intent')
+        },
+        recent:interactions.slice(-20).reverse()
+      }});
+    }
     if(req.method==='GET'&&p==='/v1/admin/commerce'){
       const leads=[...memory.commerceLeads.values()];
       return json(res,200,{data:{
