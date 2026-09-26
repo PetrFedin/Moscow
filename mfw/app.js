@@ -3,11 +3,12 @@
 
   var API='https://moscow-fashion-week-authority.onrender.com';
   var VISUALS={
-    runway:'https://images.unsplash.com/photo-1742237424056-ea5cbb674d66?auto=format&fit=crop&w=1600&q=88',
-    backstage:'https://images.unsplash.com/photo-1764347120228-947f575f9c82?auto=format&fit=crop&w=1400&q=86',
-    street:'https://images.unsplash.com/photo-1768825136230-34fb80291f19?auto=format&fit=crop&w=1400&q=86',
-    designer:'https://images.unsplash.com/photo-1760022638435-aad7c1e684b6?auto=format&fit=crop&w=1400&q=86'
+    runway:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',
+    backstage:'https://static.tildacdn.com/tild3633-6561-4664-b432-343062643365/2026-03-16_144258.jpg',
+    street:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',
+    designer:'https://static.tildacdn.com/tild3537-3433-4464-a232-383839323139/VB1_09898.jpg'
   };
+  var VISUAL_SOURCE='Moscow Fashion Week official published materials · March 2026';
   var DEMO_VIDEO='https://videos.pexels.com/video-files/19863106/19863106-uhd_2160_3840_30fps.mp4';
   var streamPollTimer=null;
   var passRefreshTimer=null;
@@ -283,7 +284,7 @@
       '<p>'+t('openingText')+'</p>'+
       '<button class="opening-cta" data-action="enter-experience">'+t('enter')+' <span>→</span></button>'+
       '<button class="opening-ghost" data-action="investor-tour">Investor demo · 3 min</button></div>'+
-      '<div class="opening-credit">Investor concept · demo visuals</div></div>';
+      '<div class="opening-credit">Investor concept · '+esc(VISUAL_SOURCE)+'</div></div>';
   }
 
   function today(){
