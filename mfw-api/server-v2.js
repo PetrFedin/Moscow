@@ -36,10 +36,10 @@ function validateInvestorBuild(){
   new Function(nativeBridge);
   JSON.parse(nativePackage);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','brand-loyalty','mfw-365','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','/v1/demo/social/verify','/v1/brand-portal/','/v1/loyalty/redeem','brand-loyalty','mfw-365','brand-portal','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','brand365','brand-news','brand-paid','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','/social/reverify','brand365','brand-news','brand-paid','brand-approve-post','brand-approve-offer','brand-social-reverify','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
   for(const required of ['registerPush','openNativeScanner','addWalletPass','routeDeepLink','appUrlOpen']){
@@ -649,6 +649,42 @@ async function runRoleGoldenPathSelfTest(){
   return {visitor:visitorOk,buyer:buyerOk,staff:staffOk,organizer:organizerOk,designer:designerOk,media:mediaOk,all:[visitorOk,buyerOk,staffOk,organizerOk,designerOk,mediaOk].every(Boolean)};
 }
 
+async function runBrand365SelfTest(){
+  const userId='self_brand365_'+crypto.randomBytes(4).toString('hex');
+  const access=new Set(['b1']);memory.brandAccess.set(userId,access);
+  memory.appInstallations.set(userId,{userId,installationId:'self_brand_install',platform:'test',status:'active',installedAt:new Date().toISOString()});
+  followSet(userId).add('b1');
+  const since=new Date(Date.now()-40*86400000).toISOString();
+  for(const channelId of ['sc_mfw_tg','sc_b1_tg']){
+    memory.socialMemberships.set(membershipKey(userId,channelId),{
+      id:'self_'+channelId,userId,channelId,status:'active',firstVerifiedAt:since,providerJoinedAt:since,
+      continuousSince:since,lastVerifiedAt:new Date().toISOString(),proofSource:'self_test'
+    });
+  }
+  const offer=memory.loyaltyOffers.find(x=>x.id==='lo1');
+  const eligibleBefore=evaluateLoyaltyOffer(userId,offer).eligible;
+  const code='SELF-LOYALTY-'+crypto.randomBytes(3).toString('hex');
+  const claimId='self_claim_'+crypto.randomBytes(4).toString('hex');
+  memory.loyaltyClaims.set(claimId,{id:claimId,userId,offerId:offer.id,claimTokenHash:crypto.createHash('sha256').update(code).digest('hex'),status:'issued',issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString()});
+  const claimLookup=[...memory.loyaltyClaims.values()].find(x=>x.claimTokenHash===crypto.createHash('sha256').update(code).digest('hex'));
+  const membership=memory.socialMemberships.get(membershipKey(userId,'sc_b1_tg'));
+  membership.status='inactive';membership.lastLostAt=new Date().toISOString();membership.continuousSince=null;
+  const eligibleAfterLoss=evaluateLoyaltyOffer(userId,offer).eligible;
+  if(!eligibleAfterLoss&&claimLookup&&claimLookup.status==='issued')claimLookup.status='revoked';
+  const moderationFlow={
+    paidStartsPending:true,
+    rewardStartsPending:true,
+    brandScoped:memory.brandAccess.get(userId)?.has('b1')===true,
+    organicAudience:memory.brandPosts.some(x=>x.brandId==='b1'&&x.audienceScope&&x.audienceScope.kind==='brand_followers'),
+    paidAudience:memory.brandPosts.some(x=>x.brandId==='b1'&&x.isPaid&&x.audienceScope&&x.audienceScope.kind==='all_mfw')
+  };
+  const providerBoundary=memory.socialProviderAdapters.some(x=>x.platform==='telegram'&&x.verification.includes('membership'))&&memory.socialProviderAdapters.some(x=>x.platform==='vk');
+  const ok=!!(eligibleBefore&&!eligibleAfterLoss&&claimLookup&&claimLookup.status==='revoked'&&moderationFlow.brandScoped&&moderationFlow.organicAudience&&moderationFlow.paidAudience&&providerBoundary);
+  memory.appInstallations.delete(userId);memory.brandAccess.delete(userId);memory.brandFollows.delete(userId);memory.loyaltyClaims.delete(claimId);
+  for(const channelId of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(userId,channelId));
+  return {ok,eligibleBefore,eligibleAfterLoss,claimRevoked:claimLookup&&claimLookup.status==='revoked',providerBoundary,moderationFlow};
+}
+
 async function runDeepSelfTest(){
   const testUser='self_'+crypto.randomBytes(5).toString('hex');
   const pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
@@ -718,6 +754,7 @@ async function runDeepSelfTest(){
   memory.brandFollows.delete(loyaltyUser);
   for(const channelId of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(loyaltyUser,channelId));
 
+  const brand365=await runBrand365SelfTest();
   const localeAuthority=true;
   const roles=await runRoleGoldenPathSelfTest();
 
@@ -726,7 +763,7 @@ async function runDeepSelfTest(){
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&localeAuthority&&sponsorAuthority&&roles.all);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&localeAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -741,6 +778,7 @@ async function runDeepSelfTest(){
       commerceAuthority:commerceAuthority,
       networkingAuthority:networkingAuthority,
       loyalty365Authority:loyalty365Authority,
+      brand365Authority:brand365,
       localeAuthority:localeAuthority,
       sponsorAuthority:sponsorAuthority,
       roleGoldenPaths:roles
