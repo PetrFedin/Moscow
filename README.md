@@ -88,6 +88,7 @@ Reference primitives:
 - `docs/CITY_HERITAGE_STUDIO.md`
 - `docs/GOVERNMENT_PILOT_ACCEPTANCE.md`
 - `docs/NATIONAL_TOURISM_PLATFORM.md`
+- `docs/GOVERNMENT_SCALE_AND_FUNDING.md`
 
 
 ## Текущая продуктовая фаза
