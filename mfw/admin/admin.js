@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,brandGrowth:null,nativeReadiness:null};
+var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,brandGrowth:null,retention:null,nativeReadiness:null};
 function T(ru,en){return state.lang==='en'?en:ru;}
 
 async function req(path,opts){
@@ -53,6 +53,7 @@ function nav(){
     ['commerce',T('Коммерция','Commerce')],
     ['sponsors',T('Партнёры','Sponsors')],
     ['brand365',T('Бренды 365','Brand 365')],
+    ['retention',T('Retention 365','Retention 365')],
     ['native',T('iOS готовность','iOS readiness')],
     ['accreditation',T('Аккредитация','Accreditation')],
     ['communications',T('Коммуникации','Communications')],
@@ -70,6 +71,7 @@ function shell(content){
     commerce:T('Байеры и бренды','Buyer & brand commerce'),
     sponsors:T('Эффективность партнёров','Sponsor performance'),
     brand365:T('Бренды 365 / CRM','Brand 365 / CRM'),
+    retention:T('Retention / частота / push','Retention / frequency / push'),
     native:T('Готовность iOS / TestFlight','iOS / TestFlight readiness'),
     accreditation:T('Аккредитация','Accreditation'),
     communications:T('Коммуникации','Communications'),
@@ -212,6 +214,28 @@ function brand365Screen(){
       '<div class="actions"><button class="btn primary" data-action="brand-news">+'+T(' Новость подписчикам',' Follower news')+'</button><button class="btn" data-action="brand-paid">+'+T(' Рекламная кампания',' Paid MFW-wide')+'</button></div>'+
     '</div><div class="card"><div class="eyebrow">AUDIENCE RULES</div><h2>'+T('Не превращаем платформу в рекламный шум','Do not turn MFW into ad noise')+'</h2><div class="row"><span>'+T('Органика','Organic')+'</span><b>brand_followers</b></div><div class="row"><span>'+T('Платное размещение','Paid placement')+'</span><b>all_mfw + label</b></div><div class="row"><span>Frequency cap</span><b>2 / 7 days</b></div><div class="row"><span>Moderation</span><b>required</b></div></div></div>';
 }
+function retentionScreen(){
+  var d=state.retention||{feed:{impressions:0,organicImpressions:0,paidImpressions:0,opens:0,openRatePct:0},push:{scheduled:0,sent:0,brandNewsLast7d:0},policy:{}};
+  var f=d.feed||{},p=d.push||{},policy=d.policy||{};
+  var paidShare=Number(f.impressions||0)?Math.round(Number(f.paidImpressions||0)/Number(f.impressions||1)*1000)/10:0;
+  return '<div class="eyebrow">'+T('Качество аудитории после события','Post-event audience quality')+'</div><div class="hero-title">RETENTION<br>365</div>'+
+    '<div class="console-banner"><div><b>'+T('Аудитория важнее рекламного инвентаря','Audience value comes before ad inventory')+'</b><p>'+T('Органика подписанных брендов выше, реклама ограничена частотой, push контролирует пользователь.','Followed-brand organic content ranks first, ads are capped, and users control marketing push.')+'</p></div><div class="health"><span class="ok">organic first</span><span>paid '+esc(paidShare)+'%</span></div></div>'+
+    '<div class="grid4"><div class="metric"><div class="eyebrow">Impressions</div><strong>'+esc(f.impressions||0)+'</strong><span>MFW 365 feed</span></div>'+
+    '<div class="metric"><div class="eyebrow">Organic</div><strong>'+esc(f.organicImpressions||0)+'</strong><span>'+T('брендовые показы','brand impressions')+'</span></div>'+
+    '<div class="metric"><div class="eyebrow">Paid</div><strong>'+esc(f.paidImpressions||0)+'</strong><span>'+esc(paidShare)+'% share</span></div>'+
+    '<div class="metric"><div class="eyebrow">Open rate</div><strong>'+esc(f.openRatePct||0)+'%</strong><span>'+esc(f.opens||0)+' opens</span></div></div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">FEED POLICY</div><h2>'+T('Почему лента не становится рекламой','Why the feed does not become an ad wall')+'</h2>'+
+      '<div class="row"><span>'+T('Приоритет органики','Organic priority')+'</span><b>'+String(policy.organicPriority!==false)+'</b></div>'+
+      '<div class="row"><span>'+T('Маркировка рекламы','Paid label')+'</span><b>'+String(policy.paidLabelRequired!==false)+'</b></div>'+
+      '<div class="row"><span>'+T('Частота поста','Per-post cap')+'</span><b>'+esc(policy.paidFeedFrequencyCap||'—')+'</b></div>'+
+      '<div class="row"><span>'+T('Плотность рекламы','Paid spacing')+'</span><b>'+esc(policy.paidFeedSpacing||'—')+'</b></div>'+
+    '</div><div class="card"><div class="eyebrow">PUSH POLICY</div><h2>'+T('Контроль возврата аудитории','Return-channel control')+'</h2>'+
+      '<div class="row"><span>Scheduled</span><b>'+esc(p.scheduled||0)+'</b></div><div class="row"><span>Sent</span><b>'+esc(p.sent||0)+'</b></div>'+
+      '<div class="row"><span>'+T('Брендовые push за 7 дней','Brand pushes / 7d')+'</span><b>'+esc(p.brandNewsLast7d||0)+'</b></div>'+
+      '<div class="row"><span>'+T('Лимит бренда','Brand cap')+'</span><b>'+esc(policy.brandPushFrequencyCap||'—')+'</b></div>'+
+      '<div class="row"><span>'+T('Бренд может push всей базе','Brand can push all MFW')+'</span><b>'+String(policy.paidPushByBrand===true)+'</b></div>'+
+    '</div></div>';
+}
 function nativeScreen(){
   var n=state.nativeReadiness||{};
   function statusRow(label,value,kind){
@@ -266,6 +290,7 @@ function render(){
     state.tab==='commerce'?commerceScreen():
     state.tab==='sponsors'?sponsorsScreen():
     state.tab==='brand365'?brand365Screen():
+    state.tab==='retention'?retentionScreen():
     state.tab==='native'?nativeScreen():
     state.tab==='accreditation'?accreditationScreen():
     state.tab==='communications'?communicationsScreen():accessScreen();
@@ -275,9 +300,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors'),admin('/brand-growth'),admin('/native-readiness')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors'),admin('/brand-growth'),admin('/retention'),admin('/native-readiness')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;state.brandGrowth=result[9].data||null;state.nativeReadiness=result[10].data||null;
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;state.brandGrowth=result[9].data||null;state.retention=result[10].data||null;state.nativeReadiness=result[11].data||null;
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
