@@ -167,7 +167,9 @@ const memory={
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
     {id:'e2',season:'SS27',title:'New Names: Moscow',type:'show',venue:'Manege Hall 2',startsAt:'2026-09-26T18:00:00+03:00',status:'published',accessMode:'registration',capacity:420,checkedIn:0,waitlist:18,demo:true},
-    {id:'e3',season:'SS27',title:'Buyer Perspective',type:'talk',venue:'Lecture Hall',startsAt:'2026-09-26T19:00:00+03:00',status:'published',accessMode:'open',capacity:180,checkedIn:0,waitlist:0,demo:true}
+    {id:'e3',season:'SS27',title:'Buyer Perspective',type:'talk',venue:'Lecture Hall',startsAt:'2026-09-26T19:00:00+03:00',status:'published',accessMode:'open',capacity:180,checkedIn:0,waitlist:0,demo:true},
+    {id:'e4',season:'SS27',title:'International Exchange Show',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T20:30:00+03:00',status:'published',accessMode:'waitlist',capacity:360,checkedIn:0,waitlist:42,demo:true},
+    {id:'e5',season:'SS27',title:'Private Industry Reception',type:'b2b',venue:'Partner Lounge',startsAt:'2026-09-26T21:30:00+03:00',status:'published',accessMode:'invite_only',capacity:120,checkedIn:0,waitlist:0,demo:true}
   ],
   brands:[
     {id:'b1',slug:'mfw-new-01',name:'MFW / NEW 01',city:'Moscow',segment:'Emerging Womenswear',description:'New Russian womenswear label focused on modern tailoring and evening pieces.',demo:true},
@@ -203,7 +205,7 @@ const memory={
     {id:'perk3',titleRu:'Early registration',titleEn:'Early registration',descRu:'Ранний доступ к регистрации следующего сезона для активных участников.',descEn:'Early registration for the next season for active participants.',kind:'retention',demo:true}
   ],
   pressKits:[
-    {id:'pk_e1',eventId:'e1',title:'Opening Runway Press Kit',status:'published',releaseText:'MFW Opening Runway · investor demo press release',credits:'Moscow Fashion Week official published materials',contactEmail:'press@moscowfashion.ru',assets:[
+    {id:'pk_e1',eventId:'e1',title:'Opening Runway Press Kit',status:'published',releaseText:'MFW Opening Runway · investor demo press release',credits:'Moscow Fashion Week official published materials',contactEmail:'press-demo@mfw.local',assets:[
       {type:'photo',title:'Opening runway',url:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',approved:true},
       {type:'photo',title:'Runway highlight',url:'https://static.tildacdn.com/tild3633-6561-4664-b432-343062643365/2026-03-16_144258.jpg',approved:true}
     ],demo:true}
@@ -810,7 +812,8 @@ async function router(req,res){
     if(!event)return json(res,404,{error:'event_not_found'});
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
-    const status=(event.status==='WAITLIST'||event.accessMode==='waitlist'||event.waitlist>0&&event.checkedIn>=event.capacity)?'waitlist':'registered';
+    if(event.accessMode==='invite_only')return json(res,403,{error:'invitation_required',eventId});
+    const status=(event.accessMode==='waitlist'||(event.waitlist>0&&event.checkedIn>=event.capacity))?'waitlist':'registered';
     const key=userId+':'+eventId;
     const item={id:'reg_'+crypto.randomBytes(6).toString('hex'),userId,eventId,status,source:'app',createdAt:new Date().toISOString(),demo:true};
     memory.eventRegistrations.set(key,item);
