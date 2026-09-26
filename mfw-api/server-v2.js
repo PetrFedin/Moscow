@@ -797,9 +797,13 @@ async function router(req,res){
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
     const key=userId+':'+eventId;
-    const item=memory.eventRegistrations.get(key);
-    if(!item)return json(res,404,{error:'registration_not_found'});
-    item.status='cancelled';item.updatedAt=new Date().toISOString();
+    let item=memory.eventRegistrations.get(key);
+    if(!item){
+      item={id:'reg_'+crypto.randomBytes(6).toString('hex'),userId,eventId,status:'cancelled',source:'app',createdAt:new Date().toISOString(),demo:true};
+      memory.eventRegistrations.set(key,item);
+    }else{
+      item.status='cancelled';item.updatedAt=new Date().toISOString();
+    }
     await track('event_registration_cancelled',{eventId},userId);
     return json(res,200,{data:item});
   }
