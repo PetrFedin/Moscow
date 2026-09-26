@@ -312,12 +312,12 @@
 
   function schedule(){
     return '<main>'+
-      '<div class="eyebrow" style="margin-top:18px">Ваш персональный календарь</div><h1>ПРОГРАММА</h1>'+
+      '<div class="eyebrow" style="margin-top:18px">'+t('calendar')+'</div><h1>'+t('programmeTitle')+'</h1>'+
       '<div class="filters">'+['26 SEP','27','28','29','30','01 OCT'].map(function(x,i){return '<button class="chip '+(i===0?'active':'')+'">'+x+'</button>';}).join('')+'</div>'+
-      '<div class="filters">'+['Все','Мои','Показы','Лекции','B2B','Онлайн','Доступно мне'].map(function(x,i){return '<button class="chip '+(i===0?'active':'')+'">'+x+'</button>';}).join('')+'</div>'+
+      '<div class="filters">'+[t('all'),t('mine'),t('shows'),t('talks'),'B2B',t('online'),t('available')].map(function(x,i){return '<button class="chip '+(i===0?'active':'')+'">'+x+'</button>';}).join('')+'</div>'+
       demoEvents.map(function(e){
         var mine=state.myEvents.indexOf(e.id)>=0;
-        return '<div class="card event-card" data-action="event" data-id="'+e.id+'"><div class="event-top"><div><div class="eyebrow">'+e.time+' · '+esc(e.type)+'</div><div class="event-name">'+esc(e.name)+'</div><div class="event-details">'+esc(e.venue)+' · '+esc(e.access)+'</div></div>'+badge(e.status)+'</div><div class="mini-actions"><button class="action '+(mine?'ghost':'primary')+'" data-action="toggle-event" data-id="'+e.id+'">'+(mine?'✓ В моей программе':'+ Добавить')+'</button><button class="action ghost" data-action="route" data-id="'+e.id+'">Маршрут</button></div></div>';
+        return '<div class="card event-card" data-action="event" data-id="'+e.id+'"><div class="event-top"><div><div class="eyebrow">'+e.time+' · '+esc(e.type)+'</div><div class="event-name">'+esc(e.name)+'</div><div class="event-details">'+esc(e.venue)+' · '+esc(e.access)+'</div></div>'+badge(e.status)+'</div><div class="mini-actions"><button class="action '+(mine?'ghost':'primary')+'" data-action="toggle-event" data-id="'+e.id+'">'+(mine?t('added'):t('add'))+'</button><button class="action ghost" data-action="route" data-id="'+e.id+'">'+t('route')+'</button></div></div>';
       }).join('')+
     '</main>';
   }
@@ -327,7 +327,7 @@
     var current=Number(stream.currentLook||14);
     var saved=state.savedLooks.indexOf('look-'+current)>=0;
     return '<main class="live-screen"><div class="live-kicker"><span class="live-tag"><span class="dot"></span> '+esc(String(stream.status||'live').toUpperCase())+'</span><span class="stream-authority">STREAM AUTHORITY</span></div>'+
-      '<h1>RUNWAY<br>LIVE</h1>'+
+      '<h1>'+t('liveTitle')+'</h1>'+
       '<div class="cinema-player">'+
         '<video class="runway-video" autoplay muted loop playsinline poster="'+esc(stream.posterUrl||VISUALS.runway)+'"><source src="'+esc(stream.playbackUrl||DEMO_VIDEO)+'" type="video/mp4"></video>'+
         '<div class="cinema-vignette"></div>'+
@@ -336,18 +336,18 @@
         '<div class="live-actions"><button class="round-action '+(saved?'saved':'')+'" data-action="save-look" data-look="look-'+current+'">'+(saved?'♥':'♡')+'</button><button class="round-action" data-action="brand" data-id="b1">↗</button></div></div>'+
       '</div>'+
       '<div class="live-progress"><span style="width:'+(Math.max(4,Math.min(100,(current/Number(stream.totalLooks||32))*100)))+'%"></span></div>'+
-      '<div class="section-head"><h2>Look-by-look</h2><span class="link">Синхронизировано с эфиром</span></div>'+
+      '<div class="section-head"><h2>'+t('lookByLook')+'</h2><span class="link">'+t('synced')+'</span></div>'+
       '<div class="visual-look-rail live-rail">'+[current-2,current-1,current,current+1,current+2].filter(function(n){return n>0&&n<=Number(stream.totalLooks||32);}).map(function(n){return '<button class="visual-look '+(n===current?'current':'')+'" data-action="save-look" data-look="look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
-      '<div class="live-editorial-card" style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.22)),url('+VISUALS.backstage+')"><div><div class="eyebrow">BACKSTAGE · LIVE LAYER</div><b>Что происходит<br>за кулисами сейчас</b><button class="action light" data-action="brand" data-id="b1">Открыть бренд</button></div></div>'+
-      '<div class="section-head"><h2>Далее</h2><span class="link">18:00</span></div>'+
+      '<div class="live-editorial-card" style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.22)),url('+VISUALS.backstage+')"><div><div class="eyebrow">BACKSTAGE · LIVE LAYER</div><b>'+T('Что происходит<br>за кулисами сейчас','What is happening<br>backstage right now')+'</b><button class="action light" data-action="brand" data-id="b1">'+t('openBrand')+'</button></div></div>'+
+      '<div class="section-head"><h2>'+t('next')+'</h2><span class="link">18:00</span></div>'+
       '<div class="card premium-card"><div class="eyebrow">UP NEXT · HALL 2</div><div class="event-name">New Names: Moscow</div><div class="sub">Персональное напоминание за 10 минут · 4 минуты пешком.</div><div class="action-row"><button class="action primary" data-action="toggle-event" data-id="e2">Добавить</button><button class="action ghost" data-action="route">Маршрут</button></div></div>'+
-      '<div class="replay-state"><div><div class="eyebrow">REPLAY READY</div><b>После показа эфир станет<br>структурированным архивом.</b><p>Видео + looks + captions + brand story.</p></div><span class="replay-icon">▶</span></div>'+
+      '<div class="replay-state"><div><div class="eyebrow">REPLAY READY</div><b>'+t('replayReady')+'</b><p>Video + looks + captions + brand story.</p></div><span class="replay-icon">▶</span></div>'+
     '</main>';
   }
 
   function discover(){
     var tabs=['brands','speakers','people','street','market','map'];
-    var labels={brands:'Бренды',speakers:'Спикеры',people:'Люди',street:'Street',market:'Маркет',map:'Карта'};
+    var labels={brands:t('brands'),speakers:t('speakers'),people:t('people'),street:'Street',market:t('market'),map:t('map')};
     var content='';
     if(state.discoverTab==='brands'){
       content='<input class="input editorial-search" placeholder="Бренд, дизайнер, категория" />'+
@@ -373,7 +373,7 @@
       content='<div class="indoor-map"><div class="map-zone hall1"><b>HALL 1</b><span>LIVE</span></div><div class="map-zone hall2"><b>HALL 2</b><span>18:00</span></div><div class="map-zone hall3"><b>HALL 3</b></div><div class="map-zone lecture"><b>LECTURE</b></div><div class="map-zone showroom"><b>SHOWROOM</b></div><div class="map-zone market"><b>MARKET</b></div><div class="you-are-here">● YOU</div></div>'+
       '<div class="card premium-card"><div class="eyebrow">NEXT · 18:00</div><div class="event-name">New Names: Moscow</div><div class="sub">Hall 2 · 4 минуты пешком · без конфликта с вашей программой.</div><button class="action primary" data-action="route">Построить маршрут</button></div>';
     }
-    return '<main><div class="eyebrow" style="margin-top:18px">Discover MFW</div><h1>ОТКРЫТЬ</h1><div class="filters discover-tabs">'+tabs.map(function(t){return '<button class="chip '+(state.discoverTab===t?'active':'')+'" data-discover="'+t+'">'+labels[t]+'</button>';}).join('')+'</div>'+content+'</main>';
+    return '<main><div class="eyebrow" style="margin-top:18px">Discover MFW</div><h1>'+T('ОТКРЫТЬ','DISCOVER')+'</h1><div class="filters discover-tabs">'+tabs.map(function(tab){return '<button class="chip '+(state.discoverTab===tab?'active':'')+'" data-discover="'+tab+'">'+labels[tab]+'</button>';}).join('')+'</div>'+content+'</main>';
   }
 
   function me(){
@@ -391,14 +391,14 @@
       roleContent=organizerPanel();
     }
 
-    return '<main><div class="eyebrow" style="margin-top:18px">MFW ID</div><h1>ВАШ<br>ПРОФИЛЬ</h1>'+
+    return '<main><div class="eyebrow" style="margin-top:18px">MFW ID</div><h1>'+t('profileTitle')+'</h1>'+
       '<div class="profile-head"><div class="avatar"></div><div><h3>'+esc(state.name)+'</h3><div class="role">'+esc(state.role.toUpperCase())+'</div><div class="sub">Demo account</div></div></div>'+
       '<div class="pass-card"><div class="pass-top"><div><div class="pass-title">MOSCOW FASHION WEEK</div><div class="pass-role">'+esc(state.role)+' PASS · DEMO</div></div><b>01</b></div><div id="qr" class="qr" aria-label="Demo pass code"></div><div style="text-align:center;font-size:10px;font-weight:800;margin-top:-10px;margin-bottom:14px" id="pass-authority">Requesting server-signed pass…</div><div class="pass-top"><div><b>26 SEP — 01 OCT</b><div style="font-size:11px;margin-top:5px">Entitlements: '+entitlementText()+'</div></div><div class="offline"><span class="okdot"></span> Offline ready</div></div></div>'+
       '<h2>Demo role</h2><div class="role-switcher">'+['Visitor','Buyer','Media','Designer','Organizer','Staff'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-role="'+r+'">'+r+'</button>';}).join('')+'</div>'+
-      '<div class="stat-grid"><div class="stat"><b>'+state.myEvents.length+'</b><small>События</small></div><div class="stat"><b>'+state.savedLooks.length+'</b><small>Образы</small></div><div class="stat"><b>'+state.connections+'</b><small>Контакты</small></div></div>'+
+      '<div class="stat-grid"><div class="stat"><b>'+state.myEvents.length+'</b><small>'+t('events')+'</small></div><div class="stat"><b>'+state.savedLooks.length+'</b><small>'+t('looks')+'</small></div><div class="stat"><b>'+state.connections+'</b><small>'+t('contacts')+'</small></div></div>'+
       roleContent+
-      '<h2>MFW Passport</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
-      '<h2>Настройки</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>Уведомления</h3><div class="meta">Критические · LIVE · персональные</div></div><span class="badge open">ON</span></div><button class="action ghost" data-action="restart-onboarding">Перезапустить onboarding</button></div>'+
+      '<h2>'+t('passport')+'</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
+      '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
     '</main>';
   }
 
