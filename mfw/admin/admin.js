@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null};
+var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,nativeReadiness:null};
 function T(ru,en){return state.lang==='en'?en:ru;}
 
 async function req(path,opts){
@@ -52,6 +52,7 @@ function nav(){
     ['streaming',T('Трансляции','Streaming')],
     ['commerce',T('Коммерция','Commerce')],
     ['sponsors',T('Партнёры','Sponsors')],
+    ['native',T('iOS готовность','iOS readiness')],
     ['accreditation',T('Аккредитация','Accreditation')],
     ['communications',T('Коммуникации','Communications')],
     ['access',T('Контроль доступа','Access authority')]
@@ -67,6 +68,7 @@ function shell(content){
     streaming:T('Управление трансляцией','Streaming control'),
     commerce:T('Байеры и бренды','Buyer & brand commerce'),
     sponsors:T('Эффективность партнёров','Sponsor performance'),
+    native:T('Готовность iOS / TestFlight','iOS / TestFlight readiness'),
     accreditation:T('Аккредитация','Accreditation'),
     communications:T('Коммуникации','Communications'),
     access:T('Контроль доступа','Access authority')
@@ -185,6 +187,26 @@ function sponsorsScreen(){
       ((data.recent||[]).length?(data.recent||[]).slice(0,8).map(function(x){return '<div class="lead-row"><div><b>'+esc(x.interactionType)+'</b><span>'+esc(x.placementId)+' · '+esc(x.campaignId)+'</span></div><small>'+esc(x.userId)+'</small></div>';}).join(''):'<div class="sub">Interactions appear here after the mobile Sponsor Experience is opened.</div>')+
     '</div></div>';
 }
+function nativeScreen(){
+  var n=state.nativeReadiness||{};
+  function statusRow(label,value,kind){
+    var ok=String(value||'').indexOf('prepared')>=0;
+    return '<div class="native-readiness-row"><div><span>'+label+'</span><b>'+esc(value||'—')+'</b></div><span class="badge '+(ok?'live':'wait')+'">'+(ok?'PREPARED':'DEPENDENCY')+'</span></div>';
+  }
+  return '<div class="eyebrow">'+T('Native execution layer','Native execution layer')+'</div><div class="hero-title">iOS /<br>TESTFLIGHT</div>'+
+    '<div class="console-banner"><div><b>'+T('Код готовится отдельно от Apple-учётных данных','Code readiness is separated from Apple credentials')+'</b><p>'+T('Мы не называем TestFlight готовым, пока нет signing/provisioning.','We do not claim TestFlight readiness before signing/provisioning exists.')+'</p></div><div class="health"><span class="ok">Capacitor v8</span><span>RU default · EN</span></div></div>'+
+    '<div class="card"><div class="eyebrow">CAPABILITIES</div><h2>'+T('Нативные возможности','Native capabilities')+'</h2>'+
+      statusRow('Shell',n.shell&&n.shell.status,'shell')+
+      statusRow('Haptics',n.haptics,'haptics')+
+      statusRow('Camera / QR',n.camera,'camera')+
+      statusRow('Push / APNs',n.push,'push')+
+      statusRow('Universal Links',n.universalLinks,'links')+
+      statusRow('Wallet / PassKit',n.wallet,'wallet')+
+      statusRow('TestFlight',n.testflight,'testflight')+
+    '</div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">ROUTES</div><h2>Universal Links</h2><div class="row"><span>/event/:id</span><b>Event</b></div><div class="row"><span>/brand/:id</span><b>Brand</b></div><div class="row"><span>/pass</span><b>MFW ID</b></div><div class="row"><span>/meetup/:id</span><b>Networking</b></div></div>'+
+    '<div class="card"><div class="eyebrow">WALLET RULE</div><h2>'+T('Wallet ≠ live QR','Wallet ≠ live QR')+'</h2><p class="sub">'+T('Wallet хранит безопасную карточку события и deep link. Rotating ES256 gate credential остаётся в приложении.','Wallet holds a safe event card and deep link. The rotating ES256 gate credential stays in the app.')+'</p></div></div>';
+}
 function accreditationScreen(){
   return '<div class="eyebrow">'+T('Люди и права','People & permissions')+'</div><div class="hero-title">'+T('АККРЕДИТАЦИЯ','ACCREDITATION')+'</div>'+
     '<div class="card"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Organisation</th><th>Status</th><th>Decision</th></tr></thead><tbody>'+
@@ -218,6 +240,7 @@ function render(){
     state.tab==='streaming'?streamingScreen():
     state.tab==='commerce'?commerceScreen():
     state.tab==='sponsors'?sponsorsScreen():
+    state.tab==='native'?nativeScreen():
     state.tab==='accreditation'?accreditationScreen():
     state.tab==='communications'?communicationsScreen():accessScreen();
   document.getElementById('admin-app').innerHTML=shell(body);
@@ -226,9 +249,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors'),admin('/native-readiness')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;state.nativeReadiness=result[9].data||null;
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
