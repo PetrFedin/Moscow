@@ -158,6 +158,10 @@ const memory={
   shortlists:new Map(),
   commerceLeads:new Map(),
   sponsorInteractions:[],
+  connections:new Map(),
+  boards:new Map(),
+  meetupMembers:new Map(),
+  meetingProposals:new Map(),
   analytics:[],
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
@@ -186,6 +190,16 @@ const memory={
   sponsorPlacements:[
     {id:'pl1',campaignId:'cmp1',placementType:'native_story',surface:'today_hero',title:'Backstage Experience',cta:'Open experience',demo:true},
     {id:'pl2',campaignId:'cmp1',placementType:'challenge',surface:'passport',title:'Fashion Passport Partner Challenge',cta:'Join',demo:true}
+  ],
+  meetups:[
+    {id:'mu1',title:'Emerging Russian Designers',topic:'emerging_designers',venue:'Manege · Showroom Lounge',startsAt:'2026-09-27T14:00:00+03:00',capacity:24,status:'published',demo:true},
+    {id:'mu2',title:'Buyers × New Brands',topic:'buying',venue:'Manege · Meeting Point 4',startsAt:'2026-09-28T16:30:00+03:00',capacity:18,status:'published',demo:true},
+    {id:'mu3',title:'Fashion Tech Coffee',topic:'technology',venue:'Lecture Hall Café',startsAt:'2026-09-29T11:30:00+03:00',capacity:30,status:'published',demo:true}
+  ],
+  perks:[
+    {id:'perk1',titleRu:'Priority lane',titleEn:'Priority lane',descRu:'Ускоренный проход для подтверждённых приглашений и VIP entitlement.',descEn:'Fast entry for confirmed invitations and VIP entitlement.',kind:'access',demo:true},
+    {id:'perk2',titleRu:'Partner lounge',titleEn:'Partner lounge',descRu:'Доступ к партнёрской зоне для соответствующих credentials.',descEn:'Partner lounge access for eligible credentials.',kind:'partner',demo:true},
+    {id:'perk3',titleRu:'Early registration',titleEn:'Early registration',descRu:'Ранний доступ к регистрации следующего сезона для активных участников.',descEn:'Early registration for the next season for active participants.',kind:'retention',demo:true}
   ],
   accreditations:[
     {id:'acc_01',name:'Maria Petrova',kind:'Buyer',organisation:'Concept Store',status:'pending'},
@@ -544,6 +558,94 @@ async function router(req,res){
     const looks=memory.looks.filter(x=>x.collectionId===sheet.collectionId).slice(0,12);
     await track('line_sheet_opened',{brandId,sheetId:sheet.id});
     return json(res,200,{data:{...sheet,looks}});
+  }
+  if(req.method==='POST'&&p==='/v1/networking/qr'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const name=String(b.name||'MFW Guest').slice(0,120);
+    const role=String(b.role||'Visitor').slice(0,40);
+    const payload={iss:'mfw',typ:'contact-card',sub:userId,name,role,iat:Date.now(),exp:Date.now()+10*60*1000,jti:'contact_'+crypto.randomBytes(8).toString('hex'),demo:true};
+    const token=signPayload(payload);
+    const svg=await QRCode.toString('MFW-CONTACT:'+token,{type:'svg',errorCorrectionLevel:'M',margin:1,width:420,color:{dark:'#050505',light:'#ffffff'}});
+    return json(res,201,{token,payload,svg});
+  }
+  if(req.method==='POST'&&p==='/v1/networking/connect'){
+    const b=await readBody(req);
+    const raw=String(b.token||'').replace(/^MFW-CONTACT:/,'');
+    const v=verifyToken(raw);
+    if(!v.ok||!v.payload||v.payload.typ!=='contact-card')return json(res,401,{error:'invalid_contact_token'});
+    const requester=String(b.requesterUserId||'demo_requester');
+    if(requester===v.payload.sub)return json(res,400,{error:'cannot_connect_self'});
+    const key=requester+'->'+v.payload.sub;
+    memory.connections.set(key,{id:'cn_'+crypto.randomBytes(7).toString('hex'),requesterUserId:requester,recipientUserId:v.payload.sub,name:v.payload.name,role:v.payload.role,status:'connected',source:'qr',createdAt:new Date().toISOString(),demo:true});
+    await track('network_connection',{requester,recipient:v.payload.sub,source:'qr'},requester);
+    return json(res,201,{data:memory.connections.get(key)});
+  }
+  if(req.method==='GET'&&p==='/v1/networking/connections'){
+    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const data=[...memory.connections.values()].filter(x=>x.requesterUserId===userId||x.recipientUserId===userId);
+    return json(res,200,{data});
+  }
+  if(req.method==='GET'&&p==='/v1/boards'){
+    const userId=String(url.searchParams.get('userId')||'demo_user');
+    return json(res,200,{data:memory.boards.get(userId)||[]});
+  }
+  if(req.method==='POST'&&p==='/v1/boards'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const list=memory.boards.get(userId)||[];
+    const board={id:'brd_'+crypto.randomBytes(6).toString('hex'),title:String(b.title||'My Board').slice(0,80),visibility:'private',looks:[],createdAt:new Date().toISOString(),demo:true};
+    list.push(board);memory.boards.set(userId,list);
+    await track('board_created',{boardId:board.id,title:board.title},userId);
+    return json(res,201,{data:board});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/boards/')&&p.endsWith('/looks')){
+    const boardId=p.split('/')[3];
+    const b=await readBody(req);
+    let board=null;
+    for(const list of memory.boards.values()){board=list.find(x=>x.id===boardId);if(board)break;}
+    if(!board)return json(res,404,{error:'board_not_found'});
+    const lookId=String(b.lookId||'look-14');
+    if(!board.looks.includes(lookId))board.looks.push(lookId);
+    await track('board_look_added',{boardId,lookId},b.userId||null);
+    return json(res,200,{data:board});
+  }
+  if(req.method==='GET'&&p==='/v1/meetups'){
+    return json(res,200,{data:memory.meetups});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/meetups/')&&p.endsWith('/join')){
+    const meetupId=p.split('/')[3];
+    const b=await readBody(req);
+    const meetup=memory.meetups.find(x=>x.id===meetupId);
+    if(!meetup)return json(res,404,{error:'meetup_not_found'});
+    const userId=String(b.userId||'demo_user');
+    const key=meetupId+':'+userId;
+    memory.meetupMembers.set(key,{meetupId,userId,status:'joined',joinedAt:new Date().toISOString(),demo:true});
+    await track('meetup_joined',{meetupId},userId);
+    return json(res,201,{data:memory.meetupMembers.get(key)});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/meetings/')&&p.endsWith('/proposals')){
+    const meetingId=p.split('/')[3];
+    const meeting=memory.meetings.get(meetingId);
+    if(!meeting)return json(res,404,{error:'meeting_not_found'});
+    const b=await readBody(req);
+    const id='mpr_'+crypto.randomBytes(6).toString('hex');
+    const proposal={id,meetingId,proposedByUserId:String(b.userId||meeting.buyerId),proposedStartsAt:String(b.startsAt||'2026-09-26T15:20:00+03:00'),status:'pending',createdAt:new Date().toISOString(),demo:true};
+    memory.meetingProposals.set(id,proposal);
+    await track('meeting_reschedule_proposed',{meetingId,proposalId:id},proposal.proposedByUserId);
+    return json(res,201,{data:proposal});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/meeting-proposals/')&&p.endsWith('/accept')){
+    const proposalId=p.split('/')[3];
+    const proposal=memory.meetingProposals.get(proposalId);
+    if(!proposal)return json(res,404,{error:'proposal_not_found'});
+    proposal.status='accepted';
+    const meeting=memory.meetings.get(proposal.meetingId);
+    if(meeting){meeting.slot=proposal.proposedStartsAt;meeting.updatedAt=new Date().toISOString();}
+    return json(res,200,{data:proposal,meeting});
+  }
+  if(req.method==='GET'&&p==='/v1/perks'){
+    return json(res,200,{data:memory.perks});
   }
   if(req.method==='GET'&&p==='/v1/sponsors/experiences'){
     const placements=memory.sponsorPlacements.filter(x=>x.campaignId==='cmp1');
