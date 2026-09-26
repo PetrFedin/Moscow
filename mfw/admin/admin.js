@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,nativeReadiness:null};
+var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,brandGrowth:null,nativeReadiness:null};
 function T(ru,en){return state.lang==='en'?en:ru;}
 
 async function req(path,opts){
@@ -52,6 +52,7 @@ function nav(){
     ['streaming',T('Трансляции','Streaming')],
     ['commerce',T('Коммерция','Commerce')],
     ['sponsors',T('Партнёры','Sponsors')],
+    ['brand365',T('Бренды 365','Brand 365')],
     ['native',T('iOS готовность','iOS readiness')],
     ['accreditation',T('Аккредитация','Accreditation')],
     ['communications',T('Коммуникации','Communications')],
@@ -68,6 +69,7 @@ function shell(content){
     streaming:T('Управление трансляцией','Streaming control'),
     commerce:T('Байеры и бренды','Buyer & brand commerce'),
     sponsors:T('Эффективность партнёров','Sponsor performance'),
+    brand365:T('Бренды 365 / CRM','Brand 365 / CRM'),
     native:T('Готовность iOS / TestFlight','iOS / TestFlight readiness'),
     accreditation:T('Аккредитация','Accreditation'),
     communications:T('Коммуникации','Communications'),
@@ -187,6 +189,28 @@ function sponsorsScreen(){
       ((data.recent||[]).length?(data.recent||[]).slice(0,8).map(function(x){return '<div class="lead-row"><div><b>'+esc(x.interactionType)+'</b><span>'+esc(x.placementId)+' · '+esc(x.campaignId)+'</span></div><small>'+esc(x.userId)+'</small></div>';}).join(''):'<div class="sub">Interactions appear here after the mobile Sponsor Experience is opened.</div>')+
     '</div></div>';
 }
+function brand365Screen(){
+  var d=state.brandGrowth||{brands:[],social:{channels:[],membershipsVerified:0,activeMemberships:0},offers:[],content:{posts:[],recentInteractions:[]},providers:[]};
+  var b=(d.brands||[])[0]||{name:'MFW / NEW 01',followers:0,publishedPosts:0,activeOffers:0,issuedClaims:0};
+  var offers=d.offers||[];
+  var posts=(d.content&&d.content.posts)||[];
+  return '<div class="eyebrow">'+T('Годовая ценность бренда','Year-round brand value')+'</div><div class="hero-title">BRAND<br>365 CRM</div>'+
+    '<div class="console-banner"><div><b>'+T('MFW остаётся полезным после последнего показа','MFW stays useful after the last runway')+'</b><p>'+T('Follow → новости → события → verified loyalty → подарок/скидка → возврат в приложение.','Follow → news → events → verified loyalty → reward → return to the app.')+'</p></div><div class="health"><span class="ok">'+esc(b.name)+'</span><span>'+esc(b.followers)+' followers</span></div></div>'+
+    '<div class="grid4"><div class="metric"><div class="eyebrow">MFW followers</div><strong>'+esc(b.followers)+'</strong><span>'+T('внутренняя аудитория','owned audience')+'</span></div>'+
+    '<div class="metric"><div class="eyebrow">Social verified</div><strong>'+esc(d.social&&d.social.activeMemberships||0)+'</strong><span>'+T('активные проверки','active proofs')+'</span></div>'+
+    '<div class="metric"><div class="eyebrow">Offers</div><strong>'+esc(b.activeOffers)+'</strong><span>'+T('активные механики','active mechanics')+'</span></div>'+
+    '<div class="metric"><div class="eyebrow">Claims</div><strong>'+esc(b.issuedClaims)+'</strong><span>'+T('выданные награды','issued rewards')+'</span></div></div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">LOYALTY ENGINE</div><h2>'+T('Условия и награды','Conditions & rewards')+'</h2>'+
+      offers.map(function(o){return '<div class="brand365-row"><div><b>'+esc(state.lang==='ru'?o.titleRu:o.titleEn)+'</b><span>'+esc(o.rewardType)+' · '+esc(o.rewardValue==null?'gift':o.rewardValue)+'</span></div><span class="badge live">'+esc(o.status.toUpperCase())+'</span></div>';}).join('')+
+      '<div class="brand365-note">'+T('Дата подписки не придумывается: provider timestamp → иначе first_verified_at MFW.','Subscription age is never invented: provider timestamp → otherwise MFW first_verified_at.')+'</div>'+
+    '</div><div class="card"><div class="eyebrow">SOCIAL ADAPTERS</div><h2>'+T('Что реально можно проверить','What can actually be verified')+'</h2>'+
+      (d.providers||[]).map(function(p){return '<div class="brand365-row"><div><b>'+esc(p.platform.toUpperCase())+'</b><span>'+esc(p.verification)+'</span></div><span class="badge '+(p.status==='ready_for_credentials'?'live':'wait')+'">'+esc(p.status)+'</span></div>';}).join('')+
+    '</div></div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">YEAR-ROUND CONTENT</div><h2>'+T('Контент бренда','Brand content')+'</h2>'+
+      posts.slice(0,6).map(function(p){return '<div class="brand365-row"><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><span>'+esc(p.kind)+' · '+(p.isPaid?T('платное MFW-wide','paid MFW-wide'):T('органическое','organic'))+'</span></div><span class="badge live">'+esc(p.status.toUpperCase())+'</span></div>';}).join('')+
+      '<div class="actions"><button class="btn primary" data-action="brand-news">+'+T(' Новость подписчикам',' Follower news')+'</button><button class="btn" data-action="brand-paid">+'+T(' Рекламная кампания',' Paid MFW-wide')+'</button></div>'+
+    '</div><div class="card"><div class="eyebrow">AUDIENCE RULES</div><h2>'+T('Не превращаем платформу в рекламный шум','Do not turn MFW into ad noise')+'</h2><div class="row"><span>'+T('Органика','Organic')+'</span><b>brand_followers</b></div><div class="row"><span>'+T('Платное размещение','Paid placement')+'</span><b>all_mfw + label</b></div><div class="row"><span>Frequency cap</span><b>2 / 7 days</b></div><div class="row"><span>Moderation</span><b>required</b></div></div></div>';
+}
 function nativeScreen(){
   var n=state.nativeReadiness||{};
   function statusRow(label,value,kind){
@@ -240,6 +264,7 @@ function render(){
     state.tab==='streaming'?streamingScreen():
     state.tab==='commerce'?commerceScreen():
     state.tab==='sponsors'?sponsorsScreen():
+    state.tab==='brand365'?brand365Screen():
     state.tab==='native'?nativeScreen():
     state.tab==='accreditation'?accreditationScreen():
     state.tab==='communications'?communicationsScreen():accessScreen();
@@ -249,9 +274,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors'),admin('/native-readiness')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/streams/stream_e1/control-plane'),admin('/commerce'),admin('/sponsors'),admin('/brand-growth'),admin('/native-readiness')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;state.nativeReadiness=result[9].data||null;
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.streamControl=result[6].data||null;state.commerce=result[7].data||null;state.sponsors=result[8].data||null;state.brandGrowth=result[9].data||null;state.nativeReadiness=result[10].data||null;
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
@@ -273,6 +298,8 @@ async function action(name,id){
     if(name==='stream-failover')await admin('/streams/'+encodeURIComponent(id)+'/failover',{method:'POST',body:JSON.stringify({targetRole:'backup',reason:'investor_demo_manual'})});
     if(name==='stream-caption')await admin('/streams/'+encodeURIComponent(id)+'/captions',{method:'POST',body:JSON.stringify({language:'en',source:'translation',status:'live'})});
     if(name==='stream-archive')await admin('/streams/'+encodeURIComponent(id)+'/archive',{method:'POST',body:JSON.stringify({})});
+    if(name==='brand-news')await admin('/brand-content',{method:'POST',body:JSON.stringify({brandId:'b1',kind:'news',titleRu:'Новости бренда для подписчиков',titleEn:'Brand news for followers',bodyRu:'Органическая публикация для аудитории, которая подписалась на бренд внутри MFW.',bodyEn:'Organic update for people who follow the brand inside MFW.',audienceScope:{kind:'brand_followers'},placementScope:['brand_profile','discover_feed'],isPaid:false})});
+    if(name==='brand-paid')await admin('/brand-content',{method:'POST',body:JSON.stringify({brandId:'b1',kind:'campaign',titleRu:'MFW Select · новая кампания',titleEn:'MFW Select · new campaign',bodyRu:'Платное нативное размещение для широкой аудитории MFW с обязательной маркировкой.',bodyEn:'Paid native placement for the wider MFW audience with mandatory labelling.',audienceScope:{kind:'all_mfw'},placementScope:['discover_feed','today'],isPaid:true})});
     toast('Server action: '+name);
     await load();
   }catch(err){toast('Action failed: '+err.message);}
