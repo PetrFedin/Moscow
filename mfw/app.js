@@ -46,7 +46,7 @@
       profileTitle:'ВАШ<br>ПРОФИЛЬ',events:'События',looks:'Образы',contacts:'Контакты',
       settings:'Настройки',notifications:'Уведомления',passport:'MFW Passport',
       buyerWorkspace:'Buyer workspace',shortlist:'SHORTLIST · SERVER',meeting:'Встреча',
-      connect:'Связаться',connectQr:'QR знакомства',boards:'Подборки',meetups:'Встречи по интересам',perks:'Привилегии',
+      connect:'Связаться',connectQr:'QR знакомства',boards:'Подборки',meetups:'Встречи по интересам',perks:'Привилегии',club:'MFW Club',brand365:'MFW 365',
       language:'Язык',russian:'Русский',english:'English',
       openCamera:'Открыть камеру',photoQr:'Фото QR',gateScanner:'Сканер прохода',
       adminConsole:'Открыть Admin Console',pressMode:'Press mode',brandDashboard:'Brand dashboard',
@@ -70,7 +70,7 @@
       profileTitle:'YOUR<br>PROFILE',events:'Events',looks:'Looks',contacts:'Contacts',
       settings:'Settings',notifications:'Notifications',passport:'MFW Passport',
       buyerWorkspace:'Buyer workspace',shortlist:'SHORTLIST · SERVER',meeting:'Meeting',
-      connect:'Connect',connectQr:'Connect QR',boards:'Boards',meetups:'Meetups',perks:'Perks',
+      connect:'Connect',connectQr:'Connect QR',boards:'Boards',meetups:'Meetups',perks:'Perks',club:'MFW Club',brand365:'MFW 365',
       language:'Language',russian:'Русский',english:'English',
       openCamera:'Open camera',photoQr:'QR photo',gateScanner:'Gate scanner',
       adminConsole:'Open Admin Console',pressMode:'Press mode',brandDashboard:'Brand dashboard',
@@ -413,7 +413,7 @@
       '<div class="pass-card"><div class="pass-top"><div><div class="pass-title">MOSCOW FASHION WEEK</div><div class="pass-role">'+esc(state.role)+' PASS · DEMO</div></div><b>01</b></div><div id="qr" class="qr" aria-label="Demo pass code"></div><div style="text-align:center;font-size:10px;font-weight:800;margin-top:-10px;margin-bottom:14px" id="pass-authority">Requesting server-signed pass…</div><div class="pass-top"><div><b>26 SEP — 01 OCT</b><div style="font-size:11px;margin-top:5px">Entitlements: '+entitlementText()+'</div></div><div class="offline"><span class="okdot"></span> Offline ready</div></div></div>'+
       '<h2>Demo role</h2><div class="role-switcher">'+['Visitor','Buyer','Media','Designer','Organizer','Staff'].map(function(r){return '<button class="role-btn '+(state.role===r?'active':'')+'" data-role="'+r+'">'+r+'</button>';}).join('')+'</div>'+
       '<div class="stat-grid"><div class="stat"><b>'+state.myEvents.length+'</b><small>'+t('events')+'</small></div><div class="stat"><b>'+state.savedLooks.length+'</b><small>'+t('looks')+'</small></div><div class="stat"><b>'+state.connections+'</b><small>'+t('contacts')+'</small></div></div>'+
-      '<div class="world-feature-grid"><button data-action="contact-qr"><span>⌁</span><b>'+t('connectQr')+'</b></button><button data-action="boards"><span>◫</span><b>'+t('boards')+'</b></button><button data-action="meetups"><span>◎</span><b>'+t('meetups')+'</b></button><button data-action="perks"><span>✦</span><b>'+t('perks')+'</b></button></div>'+
+      '<div class="world-feature-grid"><button data-action="contact-qr"><span>⌁</span><b>'+t('connectQr')+'</b></button><button data-action="boards"><span>◫</span><b>'+t('boards')+'</b></button><button data-action="meetups"><span>◎</span><b>'+t('meetups')+'</b></button><button data-action="perks"><span>✦</span><b>'+t('perks')+'</b></button><button data-action="mfw-365"><span>365</span><b>'+t('brand365')+'</b></button><button data-action="brand-loyalty" data-id="b1"><span>−10%</span><b>'+t('club')+'</b></button></div>'+
       roleContent+
       '<h2>'+t('passport')+'</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
       '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><div class="language-setting"><span>Push / APNs</span><button class="action ghost" data-action="native-push">'+T('Подключить','Enable')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
@@ -535,7 +535,7 @@
     var pro=(state.role==='Buyer'||state.role==='Media');
     openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(brandCity(b))+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>SS27 · Moscow Fashion Week</p></div></div>'+
       '<div class="brand-story"><div><div class="eyebrow">THE BRAND</div><h2>'+T('Новая российская мода<br>как культурный продукт.','New Russian fashion<br>as a cultural product.')+'</h2><p class="sub">'+esc(brandDesc(b))+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
-      '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ Following':'Follow brand')+'</button><button class="action ghost" data-action="sponsor-experience">Share / Experience</button></div>'+
+      '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ '+T('Подписан в MFW','Following in MFW'):T('Подписаться в MFW','Follow in MFW'))+'</button><button class="action ghost" data-action="brand-loyalty" data-id="'+b.id+'">✦ '+t('club')+'</button><button class="action ghost" data-action="brand-365" data-id="'+b.id+'">'+t('brand365')+'</button></div>'+
       '<div class="section-head"><h2>SS27 runway</h2><span class="link">32 looks</span></div><div class="brand-look-grid">'+[1,2,3,4,5,6].map(function(n){return '<button data-action="save-look" data-look="'+b.id+'-look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
       '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(brandCity(b))+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
       (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE · SERVER</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet" data-id="'+b.id+'">Line sheet</button><button class="action light" data-action="toggle-shortlist" data-id="'+b.id+'">'+(state.buyerShortlist.some(function(x){return x.id===b.id;})?'✓ Shortlisted':'＋ Shortlist')+'</button><button class="action light" data-action="meeting">Встреча</button><button class="action ghost" data-action="buyer-followup" data-id="'+b.id+'">Follow-up</button></div></div>':''));
@@ -679,11 +679,18 @@
     else{state.savedLooks.push(id);toast('Образ сохранён');}
     persist();render();track(i>=0?'look_unsaved':'look_saved',{lookId:id});
   }
-  function saveBrand(id){
+  async function saveBrand(id){
     var i=state.savedBrands.indexOf(id);
-    if(i>=0){state.savedBrands.splice(i,1);toast('Подписка снята');}
-    else{state.savedBrands.push(id);toast('Бренд добавлен');}
-    persist();closeSheet();render();track(i>=0?'brand_unfollowed':'brand_followed',{brandId:id});
+    var following=i<0;
+    if(following)state.savedBrands.push(id);else state.savedBrands.splice(i,1);
+    persist();
+    try{
+      await api('/v1/brands/'+encodeURIComponent(id)+'/follow',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',action:following?'save':'remove'})});
+      toast(following?T('Вы подписались на бренд в MFW','Following brand in MFW'):T('Подписка в MFW снята','Brand unfollowed in MFW'));
+    }catch(_){
+      toast(T('Изменение сохранено локально — сервер временно недоступен','Saved locally — server temporarily unavailable'));
+    }
+    closeSheet();render();track(following?'brand_followed':'brand_unfollowed',{brandId:id});
   }
   async function loadBuyerShortlist(){
     if(state.commerceLoading||state.commerceLoaded||state.role!=='Buyer')return;
@@ -903,6 +910,131 @@
       if(state.joinedMeetups.indexOf(id)<0)state.joinedMeetups.push(id);
       persist();toast(T('Вы присоединились','You joined'));meetups();
     }catch(_){toast(T('Не удалось присоединиться','Could not join'));}
+  }
+
+  function requirementLabel(req){
+    if(req.type==='registered_user')return T('Регистрация MFW','MFW registration');
+    if(req.type==='app_installed')return T('Приложение установлено','App installed');
+    if(req.type==='mfw_social_follow')return T('Подписка на соцсеть MFW','MFW social follow');
+    if(req.type==='brand_social_follow')return T('Подписка на соцсеть бренда','Brand social follow');
+    if(req.type==='brand_follow_in_mfw')return T('Подписка на бренд внутри MFW','Follow brand in MFW');
+    if(req.type==='event_attended')return T('Посещение события','Event attended');
+    return req.type;
+  }
+
+  function isStandaloneApp(){
+    return !!((window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative())||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true);
+  }
+
+  async function registerLoyaltyInstall(forceDemo){
+    if(!forceDemo&&!isStandaloneApp()){
+      toast(T('Для этого условия откройте установленное приложение MFW','Open the installed MFW app to satisfy this condition'));
+      return false;
+    }
+    try{
+      await api('/v1/app/install',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',platform:(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative())?'ios':(forceDemo?'investor_demo':'pwa'),installationId:'mfw-'+(state.userId||'demo')})});
+      toast(T('Установка приложения подтверждена','App installation confirmed'));
+      return true;
+    }catch(_){toast(T('Не удалось подтвердить установку','Could not confirm installation'));return false;}
+  }
+
+  async function openBrandLoyalty(brandId){
+    openSheet('<div class="eyebrow">MFW CLUB · LOYALTY AUTHORITY</div><h1 style="font-size:42px">'+T('БРЕНД<br>ВОЗНАГРАЖДАЕТ','BRAND<br>REWARDS')+'</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var userId=state.userId||'demo_user';
+      var out=await api('/v1/brands/'+encodeURIComponent(brandId)+'/loyalty?userId='+encodeURIComponent(userId));
+      var d=out.data;
+      var channelById={};
+      (d.memberships||[]).forEach(function(x){channelById[x.channel.id]=x;});
+      var offers=(d.offers||[]).map(function(o){
+        var title=state.lang==='ru'?o.titleRu:o.titleEn;
+        var desc=state.lang==='ru'?o.descriptionRu:o.descriptionEn;
+        var terms=state.lang==='ru'?o.termsRu:o.termsEn;
+        var reqs=(o.eligibility.progress||[]).map(function(r){
+          var link=channelById[r.channelId];
+          var ch=link&&link.channel;
+          var unsupported=ch&&ch.verificationMode==='unsupported';
+          var progressText=r.minContinuousDays?Math.min(r.currentDays||0,r.minContinuousDays)+' / '+r.minContinuousDays+' '+T('дней','days'):(r.ok?'OK':T('нужно выполнить','required'));
+          var action='';
+          if((r.type==='mfw_social_follow'||r.type==='brand_social_follow')&&ch&&!r.ok){
+            action=unsupported
+              ? '<span class="loyalty-unavailable">'+T('API не подтверждает автоматически','No automatic API proof')+'</span>'
+              : '<button class="action ghost compact" data-action="loyalty-verify" data-brand="'+esc(brandId)+'" data-channel="'+esc(ch.id)+'" data-mode="'+esc(ch.verificationMode)+'">'+T('Проверить','Verify')+'</button>';
+          }else if(r.type==='app_installed'&&!r.ok){
+            action='<button class="action ghost compact" data-action="loyalty-install" data-brand="'+esc(brandId)+'">'+(isStandaloneApp()?T('Подтвердить','Confirm'):T('DEMO · отметить установку','DEMO · mark installed'))+'</button>';
+          }else if(r.type==='brand_follow_in_mfw'&&!r.ok){
+            action='<button class="action ghost compact" data-action="loyalty-follow-brand" data-brand="'+esc(brandId)+'">'+T('Подписаться','Follow')+'</button>';
+          }
+          return '<div class="loyalty-requirement '+(r.ok?'done':'')+'"><span>'+(r.ok?'✓':'○')+'</span><div><b>'+esc(requirementLabel(r))+(ch?' · '+esc(ch.platform.toUpperCase()):'')+'</b><small>'+esc(progressText)+'</small></div>'+action+'</div>';
+        }).join('');
+        var reward=o.rewardType==='discount_percent'?'−'+esc(o.rewardValue)+'%':T('Подарок','Gift');
+        return '<div class="loyalty-offer '+(o.eligibility.eligible?'eligible':'')+'"><div class="loyalty-offer-head"><div><div class="eyebrow">MFW CLUB · '+esc(o.status.toUpperCase())+'</div><h2>'+esc(title)+'</h2><p>'+esc(desc)+'</p></div><strong>'+reward+'</strong></div>'+reqs+
+          '<div class="loyalty-terms">'+esc(terms)+'</div>'+
+          (o.eligibility.eligible?'<button class="action primary" data-action="loyalty-claim" data-offer="'+esc(o.id)+'" data-brand="'+esc(brandId)+'">'+T('Получить награду','Claim reward')+'</button>':'<div class="loyalty-lock">'+T('Награда откроется автоматически после выполнения всех условий.','Reward unlocks automatically after all conditions are verified.')+'</div>')+
+        '</div>';
+      }).join('');
+      var providerNote=(d.providers||[]).map(function(p){return '<span>'+esc(p.platform)+': '+esc(p.verification)+'</span>';}).join('');
+      openSheet('<div class="eyebrow">MFW CLUB · SERVER</div><h1 style="font-size:42px">'+T('ЛОЯЛЬНОСТЬ<br>БЕЗ СКРИНШОТОВ','LOYALTY<br>WITHOUT SCREENSHOTS')+'</h1>'+
+        '<div class="loyalty-principle"><b>'+T('MFW хранит доказательство и непрерывный срок.','MFW stores proof and continuous duration.')+'</b><p>'+T('Если соцсеть не отдаёт историческую дату подписки, отсчёт начинается с первого подтверждения MFW.','If a social network does not expose historical join time, the clock starts at MFW first verification.')+'</p></div>'+offers+
+        '<div class="provider-foot">'+providerNote+'</div>');
+    }catch(err){toast(T('MFW Club временно недоступен','MFW Club temporarily unavailable'));}
+  }
+
+  async function verifyLoyaltySocial(brandId,channelId,mode){
+    try{
+      var body={userId:state.userId||'demo_user',channelId:channelId,observedActive:true};
+      if(mode==='membership_event'){
+        body.providerJoinedAt=new Date(Date.now()-34*86400000).toISOString();
+        body.demoHistory=true;
+      }
+      await api('/v1/social/verify',{method:'POST',body:JSON.stringify(body)});
+      toast(mode==='membership_event'?T('DEMO: подтверждена непрерывная подписка 34 дня','DEMO: 34 days of continuous membership verified'):T('Текущая подписка подтверждена; срок начинается сегодня','Current membership verified; duration starts today'));
+      openBrandLoyalty(brandId);
+    }catch(err){
+      toast(err&&err.data&&err.data.error==='verification_not_supported'?T('Эта сеть не даёт подтверждение через доступный API','This network cannot be verified through the available API'):T('Проверка не выполнена','Verification failed'));
+    }
+  }
+
+  async function claimLoyaltyReward(brandId,offerId){
+    try{
+      var out=await api('/v1/loyalty/offers/'+encodeURIComponent(offerId)+'/claim',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
+      var code=out.data&&out.data.code;
+      openSheet('<div class="eyebrow">MFW CLUB · CLAIM</div><h1 style="font-size:42px">'+T('НАГРАДА<br>ДОСТУПНА','REWARD<br>UNLOCKED')+'</h1><div class="reward-code"><span>'+T('Одноразовый код','One-time code')+'</span><b>'+esc(code||T('Уже выдано','Already issued'))+'</b></div><p class="sub">'+T('При погашении бренд или касса проверяют claim server-side. Скриншот сам по себе не является подтверждением.','At redemption the brand or POS validates the claim server-side. A screenshot alone is not proof.')+'</p><button class="action ghost" data-action="brand-loyalty" data-id="'+esc(brandId)+'">'+T('Назад в MFW Club','Back to MFW Club')+'</button>');
+    }catch(err){toast(T('Награда пока недоступна','Reward not available yet'));}
+  }
+
+  async function openBrand365(brandId){
+    openSheet('<div class="eyebrow">MFW 365 · BRAND CRM</div><h1 style="font-size:42px">'+T('БРЕНД<br>ПОСЛЕ ПОКАЗА','BRAND<br>AFTER THE SHOW')+'</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/brands/'+encodeURIComponent(brandId)+'/content');
+      var html=(out.data||[]).map(function(p){
+        var title=state.lang==='ru'?p.titleRu:p.titleEn;
+        var body=state.lang==='ru'?p.bodyRu:p.bodyEn;
+        var cta=state.lang==='ru'?p.ctaLabelRu:p.ctaLabelEn;
+        var sponsor=p.isPaid?'<span class="paid-label">'+esc(state.lang==='ru'?(p.sponsorLabelRu||'Реклама'):(p.sponsorLabelEn||'Sponsored'))+'</span>':'';
+        return '<article class="brand-365-post"><div class="brand-365-image" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.7)),url('+esc(p.imageUrl||VISUALS.runway)+')">'+sponsor+'<span>'+esc(String(p.kind||'news').toUpperCase())+'</span></div><div class="brand-365-copy"><b>'+esc(title)+'</b><p>'+esc(body)+'</p><button class="action ghost" data-action="brand-content-open" data-post="'+esc(p.id)+'">'+esc(cta||T('Открыть','Open'))+'</button></div></article>';
+      }).join('');
+      openSheet('<div class="eyebrow">MFW 365 · '+T('ГОДОВАЯ СВЯЗЬ','YEAR-ROUND RELATIONSHIP')+'</div><h1 style="font-size:42px">'+T('НОВОСТИ.<br>СОБЫТИЯ.<br>ЗАПУСКИ.','NEWS.<br>EVENTS.<br>LAUNCHES.')+'</h1>'+html+'<div class="demo-note">'+T('Бренд может публиковать органический контент для своих подписчиков и отдельно покупать MFW-wide placement. Платное размещение всегда маркируется.','Brands can publish organic content to followers and separately buy MFW-wide placement. Paid distribution is always labelled.')+'</div>');
+    }catch(_){toast(T('Контент бренда недоступен','Brand content unavailable'));}
+  }
+
+  async function openMfw365Feed(){
+    openSheet('<div class="eyebrow">MFW 365</div><h1 style="font-size:42px">'+T('ВАША<br>МОДА<br>ВЕСЬ ГОД','YOUR<br>FASHION<br>ALL YEAR')+'</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/feed?userId='+encodeURIComponent(state.userId||'demo_user'));
+      var posts=out.data||[];
+      var html=posts.length?posts.map(function(p){
+        var title=state.lang==='ru'?p.titleRu:p.titleEn;
+        var body=state.lang==='ru'?p.bodyRu:p.bodyEn;
+        return '<article class="brand-365-post"><div class="brand-365-image" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.7)),url('+esc(p.imageUrl||VISUALS.runway)+')">'+(p.isPaid?'<span class="paid-label">'+T('Реклама бренда','Brand promotion')+'</span>':'')+'<span>'+esc(String(p.kind||'news').toUpperCase())+'</span></div><div class="brand-365-copy"><b>'+esc(title)+'</b><p>'+esc(body)+'</p><button class="action ghost" data-action="brand" data-id="'+esc(p.brandId)+'">'+T('Открыть бренд','Open brand')+'</button></div></article>';
+      }).join(''):'<div class="premium-empty"><b>'+T('Лента станет персональной','Your feed will become personal')+'</b><p>'+T('Подпишитесь на бренды MFW — их события, запуски и новости будут жить здесь после недели моды.','Follow MFW brands to keep their events, launches and news here after fashion week.')+'</p></div>';
+      openSheet('<div class="eyebrow">MFW 365 · PERSONAL FEED</div><h1 style="font-size:42px">'+T('МОДА<br>НЕ ЗАКАНЧИВАЕТСЯ','FASHION<br>DOESN’T END')+'</h1>'+html);
+    }catch(_){toast(T('MFW 365 временно недоступен','MFW 365 temporarily unavailable'));}
+  }
+
+  async function recordBrandContentOpen(postId){
+    try{await api('/v1/content/interactions',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',postId:postId,type:'open'})});}catch(_){}
+    toast(T('Взаимодействие учтено','Interaction recorded'));
   }
 
   async function perks(){
@@ -1192,6 +1324,14 @@
       else if(a==='meetups')meetups();
       else if(a==='join-meetup')joinMeetup(el.getAttribute('data-id'));
       else if(a==='perks')perks();
+      else if(a==='mfw-365')openMfw365Feed();
+      else if(a==='brand-365')openBrand365(el.getAttribute('data-id')||'b1');
+      else if(a==='brand-loyalty')openBrandLoyalty(el.getAttribute('data-id')||'b1');
+      else if(a==='loyalty-install'){registerLoyaltyInstall(!isStandaloneApp()).then(function(){openBrandLoyalty(el.getAttribute('data-brand')||'b1');});}
+      else if(a==='loyalty-follow-brand'){saveBrand(el.getAttribute('data-brand')||'b1');setTimeout(function(){openBrandLoyalty(el.getAttribute('data-brand')||'b1');},150);}
+      else if(a==='loyalty-verify')verifyLoyaltySocial(el.getAttribute('data-brand')||'b1',el.getAttribute('data-channel'),el.getAttribute('data-mode'));
+      else if(a==='loyalty-claim')claimLoyaltyReward(el.getAttribute('data-brand')||'b1',el.getAttribute('data-offer'));
+      else if(a==='brand-content-open')recordBrandContentOpen(el.getAttribute('data-post'));
       else if(a==='reschedule-meeting')proposeReschedule();
       else if(a==='line-sheet')openLineSheet(el.getAttribute('data-id')||'b1');
       else if(a==='toggle-shortlist')toggleShortlist(el.getAttribute('data-id')||'b1');
