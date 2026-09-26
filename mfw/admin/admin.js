@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[]};
+var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],commerce:null};
 
 async function req(path,opts){
   opts=opts||{};
@@ -49,6 +49,7 @@ function nav(){
     ['overview','Overview'],
     ['programme','Programme'],
     ['streaming','Streaming'],
+    ['commerce','Commerce'],
     ['accreditation','Accreditation'],
     ['communications','Communications'],
     ['access','Access authority']
@@ -62,6 +63,7 @@ function shell(content){
     overview:'Operations overview',
     programme:'Programme CMS',
     streaming:'Streaming control',
+    commerce:'Buyer & brand commerce',
     accreditation:'Accreditation',
     communications:'Communications',
     access:'Access authority'
@@ -128,6 +130,25 @@ function streamingScreen(){
       '<button class="btn" data-action="stream-replay" data-id="'+esc(stream.id)+'">REPLAY</button></div>'+
       '<div class="capacity"><span style="width:'+pct+'%"></span></div><p class="sub">Изменение currentLook сразу появляется на iPhone LIVE через public stream authority.</p></div></div>';
 }
+function commerceScreen(){
+  var c=state.commerce||{shortlistActions:0,lineSheetRequests:0,meetingRequests:0,leads:[],funnel:{brandViews:0,collectionOpens:0,savedLooks:0,shortlists:0,meetings:0,qualified:0}};
+  var f=c.funnel||{};
+  var max=Math.max(1,Number(f.brandViews||1));
+  function funnelRow(label,value){
+    var pct=Math.max(2,Math.round((Number(value||0)/max)*100));
+    return '<div class="funnel-row"><span>'+label+'</span><div><i style="width:'+pct+'%"></i></div><strong>'+esc(value||0)+'</strong></div>';
+  }
+  return '<div class="eyebrow">Commercial operating layer</div><div class="hero-title">BUYER / BRAND<br>COMMERCE</div>'+
+    '<div class="grid4"><div class="metric"><div class="eyebrow">Shortlists</div><strong>'+esc(c.shortlistActions)+'</strong><span>server actions</span></div>'+
+    '<div class="metric"><div class="eyebrow">Line sheets</div><strong>'+esc(c.lineSheetRequests)+'</strong><span>requests</span></div>'+
+    '<div class="metric"><div class="eyebrow">Meetings</div><strong>'+esc(c.meetingRequests)+'</strong><span>buyer requests</span></div>'+
+    '<div class="metric"><div class="eyebrow">Qualified</div><strong>'+esc(f.qualified||0)+'</strong><span>leads</span></div></div>'+
+    '<div class="columns"><div class="card"><div class="eyebrow">FUNNEL</div><h2>Attention → commercial intent</h2>'+
+      funnelRow('Brand views',f.brandViews)+funnelRow('Collection opens',f.collectionOpens)+funnelRow('Saved looks',f.savedLooks)+funnelRow('Shortlists',f.shortlists)+funnelRow('Meetings',f.meetings)+funnelRow('Qualified',f.qualified)+
+    '</div><div class="card"><div class="eyebrow">LATEST LEADS</div><h2>Buyer actions</h2>'+
+      ((c.leads||[]).length?(c.leads||[]).slice(0,8).map(function(l){return '<div class="lead-row"><div><b>'+esc(l.brandId)+'</b><span>'+esc(l.source)+' · '+esc(l.stage)+'</span></div><small>'+esc(l.buyerId)+'</small></div>';}).join(''):'<div class="sub">No live leads yet.</div>')+
+    '</div></div>';
+}
 function accreditationScreen(){
   return '<div class="eyebrow">People & permissions</div><div class="hero-title">ACCREDITATION</div>'+
     '<div class="card"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Organisation</th><th>Status</th><th>Decision</th></tr></thead><tbody>'+
@@ -159,6 +180,7 @@ function render(){
   var body=state.tab==='overview'?overviewScreen():
     state.tab==='programme'?programmeScreen():
     state.tab==='streaming'?streamingScreen():
+    state.tab==='commerce'?commerceScreen():
     state.tab==='accreditation'?accreditationScreen():
     state.tab==='communications'?communicationsScreen():accessScreen();
   document.getElementById('admin-app').innerHTML=shell(body);
@@ -167,9 +189,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams'),admin('/commerce')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];state.commerce=result[6].data||null;
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
