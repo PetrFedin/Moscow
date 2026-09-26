@@ -3,11 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
+import { tr, type AppLanguage } from '../../i18n';
 
 type RomanovEra = '1857' | '1859';
 type TrustMode = 'documented' | 'public';
 
 type Props = {
+  language?: AppLanguage;
   initialEra?: RomanovEra;
   initialTrustMode?: TrustMode;
   onBackToModel?: () => void;
@@ -19,6 +21,7 @@ const TRUST_KEY = 'moscow:p0:romanov-trust-mode:v1';
 const stages = ['SEARCHING', 'CANDIDATE', 'ANCHORED', 'CALIBRATED', 'VERIFIED'];
 
 export default function MoscowSpatialJourneyFallback({
+  language = 'ru',
   initialEra = '1859',
   initialTrustMode = 'public',
   onBackToModel,
@@ -42,8 +45,8 @@ export default function MoscowSpatialJourneyFallback({
     <View style={styles.root}>
       <View style={styles.card}>
         <Text style={styles.kicker}>SPATIAL STATE · PREVIEW</Text>
-        <Text style={styles.title}>AR runtime проверяется только в нативной сборке</Text>
-        <Text style={styles.body}>Выбрано: {era === '1857' ? '1857' : '1859 / 1883'} · {trustMode === 'documented' ? 'только факты' : '+ реконструкция'}.</Text>
+        <Text style={styles.title}>{tr(language, 'AR runtime проверяется только в нативной сборке', 'AR runtime is verified only in the native build', 'AR运行环境仅在原生版本中验证')}</Text>
+        <Text style={styles.body}>{tr(language, 'Выбрано', 'Selected', '已选择')}: {era === '1857' ? '1857' : '1859 / 1883'} · {trustMode === 'documented' ? tr(language, 'только факты', 'facts only', '仅事实') : tr(language, '+ реконструкция', '+ reconstruction', '+ 重建')}.</Text>
         <View style={styles.rail}>
           {stages.map((stage, index) => (
             <View key={stage} style={styles.railItem}>
@@ -52,26 +55,26 @@ export default function MoscowSpatialJourneyFallback({
             </View>
           ))}
         </View>
-        <Text style={styles.note}>Browser preview не может создать AR anchor и поэтому не имеет права перейти в `verified`. Нативный путь использует hit-test → local anchor → calibration → survey/field gate → persistent anchor.</Text>
+        <Text style={styles.note}>{tr(language, 'Browser preview не может создать AR anchor и поэтому не имеет права перейти в `verified`. Нативный путь использует hit-test → local anchor → calibration → survey/field gate → persistent anchor.', 'Browser preview cannot create an AR anchor and therefore cannot become `verified`. The native path uses hit-test → local anchor → calibration → survey/field gate → persistent anchor.', '浏览器预览无法创建AR锚点，因此不能进入`verified`状态。原生流程使用 hit-test → 本地锚点 → 校准 → 测绘/现场门槛 → 持久锚点。')}</Text>
         {demoPortal && (
           <View style={styles.demoCard}>
             <Text style={styles.demoKicker}>DEMO PORTAL · NOT VERIFIED</Text>
-            <Text style={styles.demoText}>Показывается только сценарий перехода. Это не field-verified spatial scene.</Text>
+            <Text style={styles.demoText}>{tr(language, 'Показывается только сценарий перехода. Это не field-verified spatial scene.', 'Only the transition scenario is shown. This is not a field-verified spatial scene.', '这里只展示过渡场景，并不是经过现场验证的空间场景。')}</Text>
           </View>
         )}
         <View style={styles.portalControl}>
           <PortalTransitionControl
-            label="Потяните → DEMO portal preview"
+            label={tr(language, 'Потяните → DEMO portal preview', 'Pull → DEMO portal preview', '拖动 → DEMO 门户预览')}
             committedLabel="DEMO PORTAL READY · NOT VERIFIED"
             committed={demoPortal}
             onCommit={() => setDemoPortal(true)}
           />
         </View>
         <View style={styles.actions}>
-          {onBackToModel && <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onBackToModel}><Text style={styles.secondaryText}>← 3D-модель</Text></PhysicalPressable>}
-          <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={() => setDemoPortal(false)} disabled={!demoPortal}><Text style={styles.secondaryText}>Сбросить portal preview</Text></PhysicalPressable>
+          {onBackToModel && <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onBackToModel}><Text style={styles.secondaryText}>{tr(language, '← 3D-модель', '← 3D model', '← 3D模型')}</Text></PhysicalPressable>}
+          <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={() => setDemoPortal(false)} disabled={!demoPortal}><Text style={styles.secondaryText}>{tr(language, 'Сбросить portal preview', 'Reset portal preview', '重置门户预览')}</Text></PhysicalPressable>
         </View>
-        {onClose && <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose}><Text style={styles.closeText}>Закрыть</Text></PhysicalPressable>}
+        {onClose && <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose}><Text style={styles.closeText}>{tr(language, 'Закрыть', 'Close', '关闭')}</Text></PhysicalPressable>}
       </View>
     </View>
   );
