@@ -26,8 +26,62 @@
     {id:'b3',name:'MFW / ATELIER 03',city:'Казань',tag:'Heritage · Couture',desc:'Пример участника с editorial-подачей, медиаматериалами и showroom-механикой.'},
     {id:'b4',name:'MFW / LAB 04',city:'Москва',tag:'Tech · Accessories',desc:'Пример brand discovery для молодой марки и новых форматов взаимодействия.'}
   ];
+  var I18N={
+    ru:{
+      today:'Сегодня',schedule:'Программа',discover:'Открыть',profile:'Я',investor:'ИНВЕСТОР',
+      enter:'Войти в Moscow Fashion Week',openingTitle:'МОСКВА<br>ВЫХОДИТ<br>НА ПОДИУМ.',
+      openingText:'Показы, LIVE, бренды, люди и ваш цифровой пропуск — в одном пространстве.',
+      dayOne:'26 сентября · День 1',todayTitle:'СЕГОДНЯ<br>В MFW',watchLive:'Смотреть LIVE',
+      yourEvening:'Ваш вечер',fullProgramme:'Вся программа',saved:'Сохранённые',
+      programmeTitle:'ПРОГРАММА',calendar:'Ваш персональный календарь',
+      all:'Все',mine:'Мои',shows:'Показы',talks:'Лекции',online:'Онлайн',available:'Доступно мне',
+      add:'+ Добавить',added:'✓ В моей программе',route:'Маршрут',
+      liveTitle:'RUNWAY<br>LIVE',lookByLook:'Look-by-look',synced:'Синхронизировано с эфиром',
+      next:'Далее',openBrand:'Открыть бренд',replayReady:'После показа эфир станет<br>структурированным архивом.',
+      brands:'Бренды',speakers:'Спикеры',people:'Люди',market:'Маркет',map:'Карта',
+      profileTitle:'ВАШ<br>ПРОФИЛЬ',events:'События',looks:'Образы',contacts:'Контакты',
+      settings:'Настройки',notifications:'Уведомления',passport:'MFW Passport',
+      buyerWorkspace:'Buyer workspace',shortlist:'SHORTLIST · SERVER',meeting:'Встреча',
+      connect:'Связаться',connectQr:'QR знакомства',boards:'Подборки',meetups:'Встречи по интересам',perks:'Привилегии',
+      language:'Язык',russian:'Русский',english:'English',
+      openCamera:'Открыть камеру',photoQr:'Фото QR',gateScanner:'Сканер прохода',
+      adminConsole:'Открыть Admin Console',pressMode:'Press mode',brandDashboard:'Brand dashboard',
+      continue:'Продолжить',follow:'Подписаться',lineSheet:'Line sheet',followup:'Follow-up',
+      connectTitle:'ОБМЕН<br>КОНТАКТОМ',boardTitle:'ВАШИ<br>ПОДБОРКИ',meetupTitle:'FASHION<br>MEETUPS',perksTitle:'MFW<br>PRIVILEGES',
+      addToBoard:'В подборку',newBoard:'Новая подборка',join:'Присоединиться',joined:'Вы участвуете',
+      reschedule:'Перенести',confirm:'Подтвердить',cancel:'Отменить',showContactQr:'Показать Connect QR'
+    },
+    en:{
+      today:'Today',schedule:'Schedule',discover:'Discover',profile:'Me',investor:'INVESTOR',
+      enter:'Enter Moscow Fashion Week',openingTitle:'MOSCOW<br>TAKES<br>THE RUNWAY.',
+      openingText:'Shows, LIVE, brands, people and your digital pass — in one experience.',
+      dayOne:'September 26 · Day 1',todayTitle:'TODAY<br>AT MFW',watchLive:'Watch LIVE',
+      yourEvening:'Your evening',fullProgramme:'Full schedule',saved:'Saved',
+      programmeTitle:'SCHEDULE',calendar:'Your personal calendar',
+      all:'All',mine:'Mine',shows:'Shows',talks:'Talks',online:'Online',available:'Available to me',
+      add:'+ Add',added:'✓ In my schedule',route:'Route',
+      liveTitle:'RUNWAY<br>LIVE',lookByLook:'Look-by-look',synced:'Synced with the live show',
+      next:'Up next',openBrand:'Open brand',replayReady:'After the show, LIVE becomes<br>a structured archive.',
+      brands:'Brands',speakers:'Speakers',people:'People',market:'Market',map:'Map',
+      profileTitle:'YOUR<br>PROFILE',events:'Events',looks:'Looks',contacts:'Contacts',
+      settings:'Settings',notifications:'Notifications',passport:'MFW Passport',
+      buyerWorkspace:'Buyer workspace',shortlist:'SHORTLIST · SERVER',meeting:'Meeting',
+      connect:'Connect',connectQr:'Connect QR',boards:'Boards',meetups:'Meetups',perks:'Perks',
+      language:'Language',russian:'Русский',english:'English',
+      openCamera:'Open camera',photoQr:'QR photo',gateScanner:'Gate scanner',
+      adminConsole:'Open Admin Console',pressMode:'Press mode',brandDashboard:'Brand dashboard',
+      continue:'Continue',follow:'Follow',lineSheet:'Line sheet',followup:'Follow-up',
+      connectTitle:'EXCHANGE<br>CONTACT',boardTitle:'YOUR<br>BOARDS',meetupTitle:'FASHION<br>MEETUPS',perksTitle:'MFW<br>PRIVILEGES',
+      addToBoard:'Add to board',newBoard:'New board',join:'Join',joined:'Joined',
+      reschedule:'Reschedule',confirm:'Confirm',cancel:'Cancel',showContactQr:'Show Connect QR'
+    }
+  };
+  function t(key){return (I18N[state&&state.lang||'ru']&&I18N[state&&state.lang||'ru'][key])||I18N.ru[key]||key;}
+  function T(ru,en){return (state&&state.lang==='en')?en:ru;}
+
   var state = {
     tab:'today',
+    lang:localStorage.getItem('mfwLang') || 'ru',
     discoverTab:'brands',
     role:localStorage.getItem('mfwRole') || 'Visitor',
     name:localStorage.getItem('mfwName') || 'Пётр Федин',
@@ -51,6 +105,8 @@
     buyerShortlist:[],
     commerceLoading:false,
     commerceLoaded:false,
+    boards:JSON.parse(localStorage.getItem('mfwBoards') || '["Front Row","Buying SS27"]'),
+    joinedMeetups:JSON.parse(localStorage.getItem('mfwMeetups') || '[]'),
     onboarding:localStorage.getItem('mfwOnboarded') === '1'
   };
 
@@ -60,6 +116,9 @@
     localStorage.setItem('mfwSavedLooks',JSON.stringify(state.savedLooks));
     localStorage.setItem('mfwSavedBrands',JSON.stringify(state.savedBrands));
     localStorage.setItem('mfwMyEvents',JSON.stringify(state.myEvents));
+    localStorage.setItem('mfwLang',state.lang);
+    localStorage.setItem('mfwBoards',JSON.stringify(state.boards));
+    localStorage.setItem('mfwMeetups',JSON.stringify(state.joinedMeetups));
   }
 
   async function api(path, options){
@@ -189,16 +248,16 @@
   }
 
   function topbar(){
-    return '<div class="topbar"><div class="wordmark"><span>MOSCOW</span><span>FASHION WEEK</span></div><div class="top-actions"><button class="investor-pill" data-action="investor-tour">INVESTOR</button><button class="icon-btn" data-action="notifications">●</button><button class="icon-btn pass" data-tab="me">QR</button></div></div>';
+    return '<div class="topbar"><div class="wordmark"><span>MOSCOW</span><span>FASHION WEEK</span></div><div class="top-actions"><button class="lang-toggle" data-action="toggle-lang">'+(state.lang==='ru'?'RU / EN':'EN / RU')+'</button><button class="investor-pill" data-action="investor-tour">'+t('investor')+'</button><button class="icon-btn" data-action="notifications">●</button><button class="icon-btn pass" data-tab="me">QR</button></div></div>';
   }
 
   function nav(){
     var items=[
-      ['today','◐','Сегодня'],
-      ['schedule','▦','Программа'],
+      ['today','◐',t('today')],
+      ['schedule','▦',t('schedule')],
       ['live','▶','LIVE'],
-      ['discover','◇','Открыть'],
-      ['me','◎','Я']
+      ['discover','◇',t('discover')],
+      ['me','◎',t('profile')]
     ];
     return '<nav class="bottom-nav">'+items.map(function(x){
       return '<button class="nav-btn '+(state.tab===x[0]?'active':'')+'" data-tab="'+x[0]+'"><b>'+x[1]+'</b>'+x[2]+'</button>';
@@ -220,9 +279,9 @@
       '<div class="opening-grain"></div>'+
       '<div class="opening-copy"><div class="opening-mark"><span>MOSCOW</span><span>FASHION WEEK</span></div>'+
       '<div class="opening-season">26 SEP — 01 OCT · 2026</div>'+
-      '<h1>МОСКВА<br>ВЫХОДИТ<br>НА ПОДИУМ.</h1>'+
-      '<p>Показы, LIVE, бренды, люди и ваш цифровой пропуск — в одном пространстве.</p>'+
-      '<button class="opening-cta" data-action="enter-experience">Войти в Moscow Fashion Week <span>→</span></button>'+
+      '<h1>'+t('openingTitle')+'</h1>'+
+      '<p>'+t('openingText')+'</p>'+
+      '<button class="opening-cta" data-action="enter-experience">'+t('enter')+' <span>→</span></button>'+
       '<button class="opening-ghost" data-action="investor-tour">Investor demo · 3 min</button></div>'+
       '<div class="opening-credit">Investor concept · demo visuals</div></div>';
   }
@@ -230,18 +289,18 @@
   function today(){
     var isNight=(new Date().getHours()>=19||new Date().getHours()<6);
     return '<main class="'+(isNight?'night-state':'day-state')+'">'+
-      '<div class="today-masthead"><div><div class="eyebrow">26 сентября · День 1</div><h1>СЕГОДНЯ<br>В MFW</h1></div><div class="day-orbit">'+(isNight?'NIGHT':'DAY')+'</div></div>'+
+      '<div class="today-masthead"><div><div class="eyebrow">'+t('dayOne')+'</div><h1>'+t('todayTitle')+'</h1></div><div class="day-orbit">'+(isNight?'NIGHT':'DAY')+'</div></div>'+
       '<section class="fashion-hero" style="background-image:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.86)),url('+VISUALS.runway+')">'+
         '<div class="fashion-hero-top"><span class="live-tag"><span class="dot"></span> LIVE NOW</span><span class="native-partner">PARTNER EXPERIENCE · DEMO</span></div>'+
         '<div class="fashion-hero-bottom"><div class="eyebrow">MFW OPENING RUNWAY · HALL 1</div><div class="fashion-title">THE CITY<br>IS WATCHING.</div><div class="hero-meta">LOOK '+esc(String((state.stream&&state.stream.currentLook)||14).padStart(2,'0'))+' / '+esc((state.stream&&state.stream.totalLooks)||32)+'</div>'+
-        '<div class="action-row"><button class="action light" data-tab="live">Смотреть LIVE</button><button class="action glass" data-action="sponsor-experience">Experience</button></div></div>'+
+        '<div class="action-row"><button class="action light" data-tab="live">'+t('watchLive')+'</button><button class="action glass" data-action="sponsor-experience">Experience</button></div></div>'+
       '</section>'+
       '<div class="investor-strip premium"><div><div class="kicker">Investor path</div><b>Audience → access → commerce → organizer</b><p>Весь путь уже собран в одном vertical slice.</p></div><button class="action primary" data-action="investor-tour">3 min</button></div>'+
-      '<div class="section-head"><h2>Ваш вечер</h2><span class="link" data-tab="schedule">Вся программа</span></div>'+
+      '<div class="section-head"><h2>'+t('yourEvening')+'</h2><span class="link" data-tab="schedule">'+t('fullProgramme')+'</span></div>'+
       '<div class="timeline premium-timeline">'+demoEvents.slice(1,4).map(eventRow).join('')+'</div>'+
       '<div class="editorial-duo"><button class="editorial-story" data-action="brand" data-id="b1" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url('+VISUALS.backstage+')"><span class="eyebrow">BACKSTAGE</span><b>До выхода<br>30 секунд</b><small>Открыть историю бренда →</small></button>'+
       '<button class="editorial-story" data-discover="street" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url('+VISUALS.street+')"><span class="eyebrow">STREET STYLE</span><b>Москва<br>между показами</b><small>Смотреть feed →</small></button></div>'+
-      '<div class="section-head"><h2>Runway now</h2><span class="link" data-action="saved-looks">Сохранённые</span></div>'+
+      '<div class="section-head"><h2>Runway now</h2><span class="link" data-action="saved-looks">'+t('saved')+'</span></div>'+
       '<div class="visual-look-rail">'+[11,12,13,14,15].map(function(n){var id='look-'+n;return '<button class="visual-look '+(state.savedLooks.indexOf(id)>=0?'saved':'')+'" data-action="save-look" data-look="'+id+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
       '<div class="recap-teaser" data-action="post-show-recap"><div><div class="eyebrow">POST-SHOW RECAP</div><b>Ваш день в MFW,<br>собранный автоматически.</b><p>Показы · сохранённые образы · бренды · контакты.</p></div><span>→</span></div>'+
     '</main>';
