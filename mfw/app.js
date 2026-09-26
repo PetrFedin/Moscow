@@ -401,7 +401,7 @@
     } else if(state.role==='Media'){
       roleContent='<h2>'+t('pressMode')+'</h2><div class="card"><div class="eyebrow">APPROVED ASSETS · SERVER</div><div class="event-name">Press kit · Opening Runway</div><div class="sub">'+T('Press release · approved images · credits · press contact','Press release · approved images · credits · press contact')+'</div><button class="action primary" data-action="press-kit" data-id="e1">'+T('Открыть press kit','Open press kit')+'</button></div>';
     } else if(state.role==='Designer'){
-      roleContent='<h2>'+t('brandDashboard')+'</h2><div class="stat-grid"><div class="stat"><b>82%</b><small>'+T('Профиль','Profile')+'</small></div><div class="stat"><b>148</b><small>'+T('Сохранения','Saves')+'</small></div><div class="stat"><b>17</b><small>Buyer interest</small></div></div><div class="card" style="margin-top:10px"><h3>'+T('Готовность коллекции','Collection readiness')+'</h3><div class="sub">'+T('Проверить порядок look, медиа и коммерческие данные перед публикацией.','Validate look order, media and commercial data before publishing.')+'</div><button class="action primary" data-action="designer-workspace" data-id="b1">'+t('continue')+'</button></div>';
+      roleContent='<h2>'+t('brandDashboard')+'</h2><div class="stat-grid"><div class="stat"><b>82%</b><small>'+T('Профиль','Profile')+'</small></div><div class="stat"><b>148</b><small>'+T('Сохранения','Saves')+'</small></div><div class="stat"><b>17</b><small>Buyer interest</small></div></div><div class="card" style="margin-top:10px"><h3>'+T('Готовность коллекции','Collection readiness')+'</h3><div class="sub">'+T('Проверить порядок look, медиа и коммерческие данные перед публикацией.','Validate look order, media and commercial data before publishing.')+'</div><div class="action-row"><button class="action primary" data-action="designer-workspace" data-id="b1">'+t('continue')+'</button><button class="action ghost" data-action="brand-portal" data-id="b1">'+T('Brand 365 Studio','Brand 365 Studio')+'</button></div></div>';
     } else if(state.role==='Staff'){
       roleContent=staffPanel();
     } else if(state.role==='Organizer'){
@@ -549,6 +549,69 @@
       var assets=(kit.assets||[]).map(function(a){return '<div class="press-asset"><div class="press-thumb" style="background-image:url('+esc(a.url)+')"></div><div><b>'+esc(a.title)+'</b><p>'+esc(a.type)+' · '+(a.approved?'APPROVED':'DRAFT')+'</p></div></div>';}).join('');
       openSheet('<div class="eyebrow">MEDIA AUTHORITY · APPROVED</div><h1 style="font-size:42px">PRESS<br>KIT</h1><div class="card"><div class="event-name">'+esc(kit.title)+'</div><p class="sub">'+esc(kit.releaseText)+'</p><div class="press-meta"><span>'+esc(kit.credits)+'</span><span>'+esc(kit.contactEmail)+'</span></div></div>'+assets+'<div class="demo-note">'+T('В production сюда входят только утверждённые файлы с правами и обязательными credits.','Production exposes only approved assets with rights and required credits.')+'</div>');
     }catch(_){toast(T('Press kit недоступен','Press kit unavailable'));}
+  }
+
+  async function brandPortalApi(brandId,path,options){
+    var token=await ensureServerSession('Designer');
+    var opts=options||{};
+    opts.headers=Object.assign({},opts.headers||{},{Authorization:'Bearer '+token});
+    return api('/v1/brand-portal/'+encodeURIComponent(brandId)+(path||''),opts);
+  }
+
+  async function openBrandPortal(brandId){
+    openSheet('<div class="eyebrow">BRAND 365 STUDIO</div><h1 style="font-size:42px">'+T('ВАША<br>АУДИТОРИЯ<br>ВЕСЬ ГОД','YOUR<br>AUDIENCE<br>ALL YEAR')+'</h1><div class="card skeleton" style="height:190px"></div>');
+    try{
+      var out=await brandPortalApi(brandId,'/overview');
+      var d=out.data||{},offers=d.offers||[],posts=d.posts||[],channels=d.channels||[];
+      var offerRows=offers.slice(0,5).map(function(o){return '<div class="brand-portal-row"><div><b>'+esc(state.lang==='ru'?o.titleRu:o.titleEn)+'</b><small>'+esc(o.rewardType)+' · '+esc(o.status)+'</small></div><span>'+esc(o.rewardValue==null?T('подарок','gift'):o.rewardValue)+'</span></div>';}).join('');
+      var postRows=posts.slice(0,5).map(function(p){return '<div class="brand-portal-row"><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><small>'+esc(p.kind)+' · '+esc(p.status)+'</small></div><span>'+(p.isPaid?'AD':'ORG')+'</span></div>';}).join('');
+      var channelRows=channels.map(function(ch){return '<div class="brand-portal-row"><div><b>'+esc(ch.platform.toUpperCase())+' · '+esc(ch.handle||ch.externalChannelId)+'</b><small>'+esc(ch.verificationMode)+'</small></div><span>'+esc(ch.status)+'</span></div>';}).join('');
+      openSheet('<div class="eyebrow">BRAND 365 STUDIO · SERVER</div><h1 style="font-size:42px">'+T('СОБСТВЕННАЯ<br>АУДИТОРИЯ','OWNED<br>AUDIENCE')+'</h1>'+
+        '<div class="stat-grid"><div class="stat"><b>'+esc(d.followers||0)+'</b><small>MFW followers</small></div><div class="stat"><b>'+esc(posts.length)+'</b><small>'+T('Публикации','Posts')+'</small></div><div class="stat"><b>'+esc(offers.length)+'</b><small>Offers</small></div></div>'+
+        '<div class="brand-portal-actions"><button class="action primary" data-action="brand-portal-news" data-id="'+esc(brandId)+'">'+T('+ Новость подписчикам','+ Follower news')+'</button><button class="action ghost" data-action="brand-portal-paid" data-id="'+esc(brandId)+'">'+T('+ Реклама на MFW','+ MFW-wide ad')+'</button><button class="action ghost" data-action="brand-portal-discount" data-id="'+esc(brandId)+'">'+T('+ Скидка 10%','+ 10% reward')+'</button><button class="action ghost" data-action="brand-portal-gift" data-id="'+esc(brandId)+'">'+T('+ Подарок','+ Gift')+'</button></div>'+
+        '<h2>'+T('Контент','Content')+'</h2>'+postRows+
+        '<h2>'+T('Привилегии','Rewards')+'</h2>'+offerRows+
+        '<h2>'+T('Соцсети бренда','Brand social channels')+'</h2>'+channelRows+
+        '<div class="demo-note">'+T('Органический контент публикуется для своих подписчиков. MFW-wide реклама и новые reward-механики проходят модерацию организатора.','Organic content goes to brand followers. MFW-wide ads and new reward mechanics require organizer moderation.')+'</div>');
+    }catch(err){toast(T('Brand 365 Studio недоступен','Brand 365 Studio unavailable'));}
+  }
+
+  async function brandPortalPublish(brandId,paid){
+    try{
+      await brandPortalApi(brandId,'/content',{method:'POST',body:JSON.stringify({
+        kind:paid?'campaign':'news',
+        titleRu:paid?'Новая рекламная кампания бренда':'Новости бренда для подписчиков',
+        titleEn:paid?'New brand campaign':'Brand news for followers',
+        bodyRu:paid?'Платное размещение для аудитории MFW после модерации.':'Органическая публикация для тех, кто подписан на бренд внутри MFW.',
+        bodyEn:paid?'Paid placement for the MFW audience after moderation.':'Organic update for people following the brand inside MFW.',
+        audienceScope:{kind:paid?'all_mfw':'brand_followers'},
+        placementScope:paid?['discover_feed','today']:['brand_profile','discover_feed'],
+        isPaid:!!paid
+      })});
+      toast(paid?T('Кампания отправлена на модерацию','Campaign sent for review'):T('Новость опубликована подписчикам','News published to followers'));
+      openBrandPortal(brandId);
+    }catch(_){toast(T('Публикация не создана','Could not create post'));}
+  }
+
+  async function brandPortalCreateOffer(brandId,kind){
+    try{
+      var gift=kind==='gift';
+      await brandPortalApi(brandId,'/offers',{method:'POST',body:JSON.stringify({
+        titleRu:gift?'Подарок постоянному подписчику':'−10% после 30 дней',
+        titleEn:gift?'Gift for a loyal follower':'10% off after 30 days',
+        descriptionRu:gift?'Подарок после подтверждённой подписки на бренд 45 дней.':'Скидка после подтверждённых подписок на MFW и бренд в течение 30 дней.',
+        descriptionEn:gift?'Gift after 45 verified days following the brand.':'Discount after 30 verified days following MFW and the brand.',
+        rewardType:gift?'gift':'discount_percent',
+        rewardValue:gift?null:10,
+        minContinuousDays:gift?45:30,
+        stockLimit:gift?100:1000,
+        requirements:gift
+          ?[{type:'brand_follow_in_mfw',required:true,minContinuousDays:0},{type:'brand_social_follow',channelId:'sc_b1_tg',required:true,minContinuousDays:45}]
+          :[{type:'registered_user',required:true,minContinuousDays:0},{type:'app_installed',required:true,minContinuousDays:0},{type:'mfw_social_follow',channelId:'sc_mfw_tg',required:true,minContinuousDays:30},{type:'brand_social_follow',channelId:'sc_b1_tg',required:true,minContinuousDays:30}]
+      })});
+      toast(T('Новая механика отправлена на модерацию','New reward sent for review'));
+      openBrandPortal(brandId);
+    }catch(_){toast(T('Не удалось создать механику','Could not create reward'));}
   }
 
   async function openDesignerWorkspace(brandId){
@@ -1307,6 +1370,11 @@
       else if(a==='questions')questions();
       else if(a==='press-kit')openPressKit(el.getAttribute('data-id')||'e1');
       else if(a==='designer-workspace')openDesignerWorkspace(el.getAttribute('data-id')||'b1');
+      else if(a==='brand-portal')openBrandPortal(el.getAttribute('data-id')||'b1');
+      else if(a==='brand-portal-news')brandPortalPublish(el.getAttribute('data-id')||'b1',false);
+      else if(a==='brand-portal-paid')brandPortalPublish(el.getAttribute('data-id')||'b1',true);
+      else if(a==='brand-portal-discount')brandPortalCreateOffer(el.getAttribute('data-id')||'b1','discount');
+      else if(a==='brand-portal-gift')brandPortalCreateOffer(el.getAttribute('data-id')||'b1','gift');
       else if(a==='designer-look-order')designerAction(el.getAttribute('data-id')||'b1','look');
       else if(a==='designer-commercial')designerAction(el.getAttribute('data-id')||'b1','commercial');
       else if(a==='meeting')meeting();
