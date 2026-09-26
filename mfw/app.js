@@ -2,6 +2,13 @@
   'use strict';
 
   var API='https://moscow-fashion-week-authority.onrender.com';
+  var VISUALS={
+    runway:'https://images.unsplash.com/photo-1742237424056-ea5cbb674d66?auto=format&fit=crop&w=1600&q=88',
+    backstage:'https://images.unsplash.com/photo-1764347120228-947f575f9c82?auto=format&fit=crop&w=1400&q=86',
+    street:'https://images.unsplash.com/photo-1768825136230-34fb80291f19?auto=format&fit=crop&w=1400&q=86',
+    designer:'https://images.unsplash.com/photo-1760022638435-aad7c1e684b6?auto=format&fit=crop&w=1400&q=86'
+  };
+  var DEMO_VIDEO='https://videos.pexels.com/video-files/19863106/19863106-uhd_2160_3840_30fps.mp4';
   var passRefreshTimer=null;
   var scannerStream=null;
   var scannerFrame=null;
@@ -37,6 +44,9 @@
     passToken:null,
     passPayload:null,
     scannerReason:'',
+    openingSeen:localStorage.getItem('mfwOpeningSeen') === '1',
+    stream:null,
+    streamLoading:false,
     onboarding:localStorage.getItem('mfwOnboarded') === '1'
   };
 
@@ -179,6 +189,24 @@
     return '<div class="demo-note"><b>CONCEPT DEMO.</b> Программа, бренды и права доступа на этом стенде — демонстрационные данные. Архитектура интерфейса предназначена для подключения к официальным данным MFW.</div>';
   }
 
+  function lookVisual(n,label){
+    var urls=[VISUALS.runway,VISUALS.backstage,VISUALS.street,VISUALS.designer];
+    return '<div class="look-photo" style="background-image:url('+urls[(n-1)%urls.length]+')"><span class="look-number">'+esc(label||('LOOK '+String(n).padStart(2,'0')))+'</span></div>';
+  }
+
+  function openingExperience(){
+    return '<div class="opening-experience">'+
+      '<div class="opening-media" style="background-image:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.82)),url('+VISUALS.runway+')"></div>'+
+      '<div class="opening-grain"></div>'+
+      '<div class="opening-copy"><div class="opening-mark"><span>MOSCOW</span><span>FASHION WEEK</span></div>'+
+      '<div class="opening-season">26 SEP — 01 OCT · 2026</div>'+
+      '<h1>МОСКВА<br>ВЫХОДИТ<br>НА ПОДИУМ.</h1>'+
+      '<p>Показы, LIVE, бренды, люди и ваш цифровой пропуск — в одном пространстве.</p>'+
+      '<button class="opening-cta" data-action="enter-experience">Войти в Moscow Fashion Week <span>→</span></button>'+
+      '<button class="opening-ghost" data-action="investor-tour">Investor demo · 3 min</button></div>'+
+      '<div class="opening-credit">Investor concept · demo visuals</div></div>';
+  }
+
   function today(){
     return '<main>'+
       '<div class="eyebrow" style="margin-top:18px">26 сентября · День 1</div>'+
@@ -316,6 +344,11 @@
 
   function render(){
     var app=document.getElementById('app');
+    if(!state.openingSeen){
+      app.innerHTML=openingExperience();
+      bind();
+      return;
+    }
     if(!state.onboarding){
       app.innerHTML=onboarding();
       bind();
@@ -410,6 +443,13 @@
   function closeSheet(){
     stopCameraScanner();
     var m=document.getElementById('modal');if(m)m.remove();
+  }
+
+  function softHaptic(){
+    document.documentElement.classList.remove('tap-feedback');
+    void document.documentElement.offsetWidth;
+    document.documentElement.classList.add('tap-feedback');
+    if(navigator.vibrate)navigator.vibrate(8);
   }
 
   function toast(msg){
@@ -649,8 +689,10 @@
     document.querySelectorAll('[data-onboard-role]').forEach(function(el){el.onclick=function(){state.role=el.getAttribute('data-onboard-role');render();};});
     document.querySelectorAll('[data-action]').forEach(function(el){el.onclick=function(ev){
       ev.stopPropagation();
+      softHaptic();
       var a=el.getAttribute('data-action');
       if(a==='close')closeSheet();
+      else if(a==='enter-experience'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');render();}
       else if(a==='event')openEvent(el.getAttribute('data-id'));
       else if(a==='toggle-event')toggleEvent(el.getAttribute('data-id'));
       else if(a==='save-look')saveLook(el.getAttribute('data-look'));
