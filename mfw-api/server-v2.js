@@ -554,7 +554,8 @@ function evaluateLoyaltyOffer(userId,offer){
   const progress=(offer.requirements||[]).map(req=>{
     let ok=false,currentDays=0,detail='';
     if(req.type==='registered_user'){
-      ok=!!userId;detail='registered';
+      ok=memory.users.has(String(userId))||/^[0-9a-f-]{36}$/i.test(String(userId));
+      detail=ok?'registered':'mfw_id_required';
     }else if(req.type==='app_installed'){
       const install=memory.appInstallations.get(String(userId));
       ok=!!(install&&install.status==='active');detail=install?'active_installation':'install_required';
@@ -1131,9 +1132,13 @@ async function router(req,res){
     return json(res,200,{data:proposal,meeting});
   }
   if(req.method==='POST'&&p==='/v1/app/install'){
+    const session=sessionFromRequest(req);
+    if(!session)return json(res,401,{error:'authenticated_mfw_id_required'});
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
-    const item={userId,installationId:String(b.installationId||('inst_'+crypto.randomBytes(6).toString('hex'))),platform:String(b.platform||'web'),status:'active',installedAt:new Date().toISOString(),demo:true};
+    const userId=String(session.sub);
+    const platform=String(b.platform||'web');
+    if(!['ios','android','pwa','investor_demo'].includes(platform))return json(res,400,{error:'invalid_installation_platform'});
+    const item={userId,installationId:String(b.installationId||('inst_'+crypto.randomBytes(6).toString('hex'))),platform,status:'active',installedAt:new Date().toISOString(),demo:platform==='investor_demo'};
     memory.appInstallations.set(userId,item);
     await track('app_installation_registered',{platform:item.platform},userId);
     return json(res,201,{data:item});
