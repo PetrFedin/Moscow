@@ -9,6 +9,7 @@
     designer:'https://images.unsplash.com/photo-1760022638435-aad7c1e684b6?auto=format&fit=crop&w=1400&q=86'
   };
   var DEMO_VIDEO='https://videos.pexels.com/video-files/19863106/19863106-uhd_2160_3840_30fps.mp4';
+  var streamPollTimer=null;
   var passRefreshTimer=null;
   var scannerStream=null;
   var scannerFrame=null;
@@ -96,11 +97,15 @@
     state.streamLoading=true;
     try{
       var out=await api('/v1/streams/e1');
-      var changed=!state.stream||state.stream.currentLook!==out.data.currentLook||state.stream.status!==out.data.status;
+      var changed=!state.stream||state.stream.currentLook!==out.data.currentLook||state.stream.status!==out.data.status||state.stream.replayAvailable!==out.data.replayAvailable;
       state.stream=out.data;
       if(changed&&state.tab==='live')setTimeout(function(){render();},0);
     }catch(_){}
     state.streamLoading=false;
+    if(state.tab==='live'){
+      if(streamPollTimer)clearTimeout(streamPollTimer);
+      streamPollTimer=setTimeout(loadStreamAuthority,3500);
+    }
   }
 
   async function checkBackend(){
@@ -386,6 +391,7 @@
     }
     var screen=state.tab==='today'?today():state.tab==='schedule'?schedule():state.tab==='live'?live():state.tab==='discover'?discover():me();
     if(state.tab==='live')loadStreamAuthority();
+    else if(streamPollTimer){clearTimeout(streamPollTimer);streamPollTimer=null;}
     app.innerHTML='<div class="app">'+topbar()+screen+nav()+'</div>';
     if(state.tab==='me'){ ensurePass(); updateBackendIndicator(); }
     bind();
@@ -758,8 +764,8 @@
       else if(a==='admin-move')adminChangeEvent(el.getAttribute('data-id'),'move');
       else if(a==='admin-approve')adminAccreditation(el.getAttribute('data-id'),'approved');
       else if(a==='admin-reject')adminAccreditation(el.getAttribute('data-id'),'rejected');
-      else if(a==='tour-start'){state.role='Visitor';state.tab='today';persist();closeSheet();render();toast('Investor tour: Visitor experience');}
-      else if(a==='tour-organizer'){state.role='Organizer';state.tab='me';persist();closeSheet();render();toast('Investor tour: Organizer cockpit');}
+      else if(a==='tour-start'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');state.role='Visitor';state.tab='today';persist();closeSheet();render();toast('Investor tour: Visitor experience');}
+      else if(a==='tour-organizer'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');state.role='Organizer';state.tab='me';persist();closeSheet();render();toast('Investor tour: Organizer cockpit');}
       else if(a==='questions')questions();
       else if(a==='meeting')meeting();
       else if(a==='confirm-meeting'){createMeeting();}
