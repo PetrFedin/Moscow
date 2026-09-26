@@ -8,7 +8,7 @@ try { ({ Pool } = require('pg')); } catch (_) {}
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
-const VERSION = 'mfw-authority-v2';
+const VERSION = 'mfw-authority-v3';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
@@ -16,17 +16,39 @@ const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
 function validateInvestorBuild(){
   const frontendPath=path.join(__dirname,'..','mfw','app.js');
   const adminPath=path.join(__dirname,'..','mfw','admin','admin.js');
+  const nativeBridgePath=path.join(__dirname,'..','mfw','native-bridge.js');
+  const nativePackagePath=path.join(__dirname,'..','mfw-native','package.json');
+  const nativeConfigPath=path.join(__dirname,'..','mfw-native','capacitor.config.ts');
+  const nativeCapabilitiesPath=path.join(__dirname,'..','mfw-native','NATIVE_CAPABILITIES.md');
   const manifestPath=path.join(__dirname,'..','mfw','manifest.webmanifest');
   const frontend=fs.readFileSync(frontendPath,'utf8');
   const admin=fs.readFileSync(adminPath,'utf8');
+  const nativeBridge=fs.readFileSync(nativeBridgePath,'utf8');
+  const nativePackage=fs.readFileSync(nativePackagePath,'utf8');
+  const nativeConfig=fs.readFileSync(nativeConfigPath,'utf8');
+  const nativeCapabilities=fs.readFileSync(nativeCapabilitiesPath,'utf8');
   new Function(frontend);
   new Function(admin);
+  new Function(nativeBridge);
+  JSON.parse(nativePackage);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','toggle-lang','mfwLang','I18N','static.tildacdn.com']){
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','control-plane','stream-failover','toggle-lang','mfwAdminLang']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
+  }
+  for(const required of ['registerPush','openNativeScanner','addWalletPass','routeDeepLink','appUrlOpen']){
+    if(nativeBridge.indexOf(required)<0)throw new Error('missing_native_bridge_hook:'+required);
+  }
+  for(const required of ['@capacitor/core','@capacitor/ios','@capacitor/push-notifications','@capacitor/haptics']){
+    if(nativePackage.indexOf(required)<0)throw new Error('missing_native_package:'+required);
+  }
+  for(const required of ["appId: 'com.mfw.investor.demo'","webDir: '../mfw'"]){
+    if(nativeConfig.indexOf(required)<0)throw new Error('missing_native_config:'+required);
+  }
+  for(const required of ['Wallet != live gate credential','Apple Developer Team','Pass Type ID']){
+    if(nativeCapabilities.indexOf(required)<0)throw new Error('missing_native_capability_contract:'+required);
   }
 }
 validateInvestorBuild();
