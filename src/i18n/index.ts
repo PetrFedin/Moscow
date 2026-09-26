@@ -76,3 +76,10 @@ export function speechLocale(language: AppLanguage) {
 export function t(language: AppLanguage) {
   return copy[language];
 }
+
+
+export function tr<T>(language: AppLanguage, ru: T, en: T, zh: T): T {
+  if (language === 'zh') return zh;
+  if (language === 'en') return en;
+  return ru;
+}
