@@ -85,3 +85,18 @@ Reference primitives:
 - `docs/MOSCOW_INTERACTION_PHYSICS_V1.md`
 - `docs/GITHUB_TECH_RADAR_AND_CITY_PRODUCT.md`
 - `docs/CITY_HERITAGE_INTEROPERABILITY.md`
+- `docs/CITY_HERITAGE_STUDIO.md`
+- `docs/GOVERNMENT_PILOT_ACCEPTANCE.md`
+
+
+## Текущая продуктовая фаза
+
+После формирования пользовательского Varvarka flow приоритет смещён с расширения consumer-функций на доказательство и поставляемость:
+
+1. Romanov physical field proof;
+2. Old English Court как второй независимый spatial object;
+3. City Heritage Studio как authority публикации;
+4. supervised Varvarka user pilot;
+5. government-ready evidence / acceptance package.
+
+До фактического прохождения physical release gate production candidate не описывается как field-verified.
