@@ -383,9 +383,9 @@
       roleContent=buyerPanel();
       setTimeout(loadBuyerShortlist,0);
     } else if(state.role==='Media'){
-      roleContent='<h2>Press mode</h2><div class="card"><div class="eyebrow">APPROVED ASSETS</div><div class="event-name">Press kit · Opening Runway</div><div class="sub">Press release · 18 approved images · credits · press contact</div><button class="action primary" data-action="toast" data-message="Demo: пакет подготовлен к выгрузке">Получить press kit</button></div>';
+      roleContent='<h2>'+t('pressMode')+'</h2><div class="card"><div class="eyebrow">APPROVED ASSETS · SERVER</div><div class="event-name">Press kit · Opening Runway</div><div class="sub">'+T('Press release · approved images · credits · press contact','Press release · approved images · credits · press contact')+'</div><button class="action primary" data-action="press-kit" data-id="e1">'+T('Открыть press kit','Open press kit')+'</button></div>';
     } else if(state.role==='Designer'){
-      roleContent='<h2>Brand dashboard</h2><div class="stat-grid"><div class="stat"><b>82%</b><small>Профиль</small></div><div class="stat"><b>148</b><small>Сохранения</small></div><div class="stat"><b>17</b><small>Buyer interest</small></div></div><div class="card" style="margin-top:10px"><h3>До показа</h3><div class="sub">Нужно загрузить 4 look metadata и проверить порядок выхода.</div><button class="action primary" data-action="toast" data-message="Demo: открыта подготовка коллекции">Продолжить подготовку</button></div>';
+      roleContent='<h2>'+t('brandDashboard')+'</h2><div class="stat-grid"><div class="stat"><b>82%</b><small>'+T('Профиль','Profile')+'</small></div><div class="stat"><b>148</b><small>'+T('Сохранения','Saves')+'</small></div><div class="stat"><b>17</b><small>Buyer interest</small></div></div><div class="card" style="margin-top:10px"><h3>'+T('Готовность коллекции','Collection readiness')+'</h3><div class="sub">'+T('Проверить порядок look, медиа и коммерческие данные перед публикацией.','Validate look order, media and commercial data before publishing.')+'</div><button class="action primary" data-action="designer-workspace" data-id="b1">'+t('continue')+'</button></div>';
     } else if(state.role==='Staff'){
       roleContent=staffPanel();
     } else if(state.role==='Organizer'){
@@ -525,6 +525,38 @@
       (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE · SERVER</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet" data-id="'+b.id+'">Line sheet</button><button class="action light" data-action="toggle-shortlist" data-id="'+b.id+'">'+(state.buyerShortlist.some(function(x){return x.id===b.id;})?'✓ Shortlisted':'＋ Shortlist')+'</button><button class="action light" data-action="meeting">Встреча</button><button class="action ghost" data-action="buyer-followup" data-id="'+b.id+'">Follow-up</button></div></div>':''));
   }
 
+  async function openPressKit(eventId){
+    openSheet('<div class="eyebrow">MEDIA AUTHORITY</div><h1 style="font-size:42px">PRESS<br>KIT</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/media/press-kit/'+encodeURIComponent(eventId||'e1'));
+      var kit=out.data;
+      var assets=(kit.assets||[]).map(function(a){return '<div class="press-asset"><div class="press-thumb" style="background-image:url('+esc(a.url)+')"></div><div><b>'+esc(a.title)+'</b><p>'+esc(a.type)+' · '+(a.approved?'APPROVED':'DRAFT')+'</p></div></div>';}).join('');
+      openSheet('<div class="eyebrow">MEDIA AUTHORITY · APPROVED</div><h1 style="font-size:42px">PRESS<br>KIT</h1><div class="card"><div class="event-name">'+esc(kit.title)+'</div><p class="sub">'+esc(kit.releaseText)+'</p><div class="press-meta"><span>'+esc(kit.credits)+'</span><span>'+esc(kit.contactEmail)+'</span></div></div>'+assets+'<div class="demo-note">'+T('В production сюда входят только утверждённые файлы с правами и обязательными credits.','Production exposes only approved assets with rights and required credits.')+'</div>');
+    }catch(_){toast(T('Press kit недоступен','Press kit unavailable'));}
+  }
+
+  async function openDesignerWorkspace(brandId){
+    openSheet('<div class="eyebrow">DESIGNER WORKSPACE</div><h1 style="font-size:42px">COLLECTION<br>READINESS</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/designer/workspace/'+encodeURIComponent(brandId||'b1'));
+      var d=out.data,r=d.readiness||{},a=d.analytics||{};
+      var issues=(r.issues||[]).map(function(x){return '<div class="readiness-issue">! '+esc(x)+'</div>';}).join('');
+      openSheet('<div class="eyebrow">DESIGNER WORKSPACE · SERVER</div><h1 style="font-size:42px">'+esc(d.collection&&d.collection.season||'SS27')+'<br>'+esc(d.collection&&d.collection.title||'COLLECTION')+'</h1>'+
+        '<div class="readiness-grid"><div class="'+(r.profileComplete?'done':'')+'"><span>01</span><b>'+T('Профиль','Profile')+'</b></div><div class="'+(r.lookOrderComplete?'done':'')+'"><span>02</span><b>Look order</b></div><div class="'+(r.mediaComplete?'done':'')+'"><span>03</span><b>Media</b></div><div class="'+(r.commercialDataComplete?'done':'')+'"><span>04</span><b>'+T('Коммерция','Commercial')+'</b></div></div>'+
+        issues+
+        '<div class="stat-grid"><div class="stat"><b>'+esc(a.profileViews||0)+'</b><small>Views</small></div><div class="stat"><b>'+esc(a.savedLooks||0)+'</b><small>Saves</small></div><div class="stat"><b>'+esc(a.buyerInterest||0)+'</b><small>Buyer interest</small></div></div>'+
+        '<div class="action-row"><button class="action primary" data-action="designer-look-order" data-id="'+esc(brandId||'b1')+'">'+T('Подтвердить look order','Confirm look order')+'</button><button class="action ghost" data-action="designer-commercial" data-id="'+esc(brandId||'b1')+'">'+T('Подтвердить коммерческие данные','Confirm commercial data')+'</button></div>');
+    }catch(_){toast(T('Designer workspace недоступен','Designer workspace unavailable'));}
+  }
+
+  async function designerAction(brandId,kind){
+    try{
+      await api('/v1/designer/workspace/'+encodeURIComponent(brandId)+'/'+(kind==='look'?'complete-look-order':'confirm-commercial'),{method:'POST',body:JSON.stringify({userId:state.userId||'demo_designer'})});
+      toast(kind==='look'?T('Look order подтверждён','Look order confirmed'):T('Коммерческие данные подтверждены','Commercial data confirmed'));
+      openDesignerWorkspace(brandId);
+    }catch(_){toast(T('Не удалось обновить готовность','Could not update readiness'));}
+  }
+
   function questions(){
     openSheet('<div class="eyebrow">LIVE Q&A · DEMO</div><h1 style="font-size:42px">ВОПРОСЫ<br>СПИКЕРУ</h1><div class="question"><button class="vote" data-action="upvote">▲ 127</button><b>Что байер оценивает в первые пять минут встречи?</b></div><div class="question"><button class="vote" data-action="upvote">▲ 84</button><b>Какие ошибки чаще всего мешают бренду получить заказ?</b></div><input class="input" style="margin-top:16px" placeholder="Ваш вопрос" /><button class="action primary" style="margin-top:10px" data-action="toast" data-message="Вопрос отправлен модератору">Отправить</button>');
   }
@@ -602,11 +634,20 @@
   }
 
   function setRole(r){state.role=r;state.session=null;state.sessionRole=null;state.passToken=null;state.passPayload=null;state.buyerShortlist=[];state.commerceLoaded=false;persist();render();toast('Demo role: '+r);track('role_switched',{role:r});}
-  function toggleEvent(id){
+  async function toggleEvent(id){
     var i=state.myEvents.indexOf(id);
-    if(i>=0){state.myEvents.splice(i,1);toast('Удалено из программы');}
-    else{state.myEvents.push(id);toast('Добавлено в вашу программу');}
-    persist();closeSheet();render();track(i>=0?'event_removed':'event_saved',{eventId:id});
+    try{
+      if(i>=0){
+        await api('/v1/events/'+encodeURIComponent(id)+'/cancel',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
+        state.myEvents.splice(i,1);toast(T('Удалено из программы','Removed from schedule'));
+      }else{
+        var out=await api('/v1/events/'+encodeURIComponent(id)+'/register',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
+        state.myEvents.push(id);toast(out.data.status==='waitlist'?T('Вы добавлены в лист ожидания','Added to waitlist'):T('Регистрация подтверждена','Registration confirmed'));
+      }
+      persist();closeSheet();render();track(i>=0?'event_removed':'event_registered',{eventId:id});
+    }catch(_){
+      toast(T('Регистрация временно недоступна','Registration temporarily unavailable'));
+    }
   }
   function saveLook(id){
     var i=state.savedLooks.indexOf(id);
@@ -1016,6 +1057,10 @@
       else if(a==='tour-start'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');state.role='Visitor';state.tab='today';persist();closeSheet();render();toast('Investor tour: Visitor experience');}
       else if(a==='tour-organizer'){state.openingSeen=true;localStorage.setItem('mfwOpeningSeen','1');state.role='Organizer';state.tab='me';persist();closeSheet();render();toast('Investor tour: Organizer cockpit');}
       else if(a==='questions')questions();
+      else if(a==='press-kit')openPressKit(el.getAttribute('data-id')||'e1');
+      else if(a==='designer-workspace')openDesignerWorkspace(el.getAttribute('data-id')||'b1');
+      else if(a==='designer-look-order')designerAction(el.getAttribute('data-id')||'b1','look');
+      else if(a==='designer-commercial')designerAction(el.getAttribute('data-id')||'b1','commercial');
       else if(a==='meeting')meeting();
       else if(a==='confirm-meeting'){createMeeting();}
       else if(a==='connect'){state.connections+=1;render();toast(T('Запрос на связь отправлен','Connection request sent'));}
