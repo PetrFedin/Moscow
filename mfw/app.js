@@ -416,7 +416,7 @@
       '<div class="world-feature-grid"><button data-action="contact-qr"><span>⌁</span><b>'+t('connectQr')+'</b></button><button data-action="boards"><span>◫</span><b>'+t('boards')+'</b></button><button data-action="meetups"><span>◎</span><b>'+t('meetups')+'</b></button><button data-action="perks"><span>✦</span><b>'+t('perks')+'</b></button><button data-action="mfw-365"><span>365</span><b>'+t('brand365')+'</b></button><button data-action="brand-loyalty" data-id="b1"><span>−10%</span><b>'+t('club')+'</b></button></div>'+
       roleContent+
       '<h2>'+t('passport')+'</h2><div class="progress"><span style="width:60%"></span></div><div class="passport" style="margin-top:10px"><div class="stamp done"><div class="symbol">✓</div><b>Первый показ</b><div class="sub">Получено</div></div><div class="stamp done"><div class="symbol">◇</div><b>Открыть бренд</b><div class="sub">Получено</div></div><div class="stamp"><div class="symbol">□</div><b>Fashion Film</b><div class="sub">Ещё не получено</div></div><div class="stamp done"><div class="symbol">◎</div><b>Лекция</b><div class="sub">Получено</div></div></div>'+
-      '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><div class="language-setting"><span>Push / APNs</span><button class="action ghost" data-action="native-push">'+T('Подключить','Enable')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
+      '<h2>'+t('settings')+'</h2><div class="card"><div class="event" style="grid-template-columns:1fr auto;padding-top:0"><div><h3>'+t('notifications')+'</h3><div class="meta">'+T('Критические · LIVE · персональные','Critical · LIVE · personal')+'</div></div><span class="badge open">ON</span></div><div class="language-setting"><span>'+t('language')+'</span><button class="action ghost" data-action="toggle-lang">'+(state.lang==='ru'?'RU → EN':'EN → RU')+'</button></div><div class="language-setting"><span>Push / APNs</span><button class="action ghost" data-action="native-push">'+T('Подключить','Enable')+'</button></div><div class="language-setting"><span>MFW 365 push</span><button class="action ghost" data-action="notification-preferences">'+T('Настроить','Configure')+'</button></div><button class="action ghost" data-action="restart-onboarding">'+T('Перезапустить onboarding','Restart onboarding')+'</button></div>'+
     '</main>';
   }
 
@@ -564,7 +564,7 @@
       var out=await brandPortalApi(brandId,'/overview');
       var d=out.data||{},offers=d.offers||[],posts=d.posts||[],channels=d.channels||[];
       var offerRows=offers.slice(0,5).map(function(o){return '<div class="brand-portal-row"><div><b>'+esc(state.lang==='ru'?o.titleRu:o.titleEn)+'</b><small>'+esc(o.rewardType)+' · '+esc(o.status)+'</small></div><span>'+esc(o.rewardValue==null?T('подарок','gift'):o.rewardValue)+'</span></div>';}).join('');
-      var postRows=posts.slice(0,5).map(function(p){return '<div class="brand-portal-row"><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><small>'+esc(p.kind)+' · '+esc(p.status)+'</small></div><span>'+(p.isPaid?'AD':'ORG')+'</span></div>';}).join('');
+      var postRows=posts.slice(0,5).map(function(p){var canPush=!p.isPaid&&p.status==='published'&&p.audienceScope&&p.audienceScope.kind==='brand_followers';return '<div class="brand-portal-row"><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><small>'+esc(p.kind)+' · '+esc(p.status)+'</small></div><div class="brand-portal-tools"><span>'+(p.isPaid?'AD':'ORG')+'</span>'+(canPush?'<button class="action ghost compact" data-action="brand-portal-notify" data-brand="'+esc(brandId)+'" data-post="'+esc(p.id)+'">'+T('Push подписчикам','Push followers')+'</button>':'')+'</div></div>';}).join('');
       var channelRows=channels.map(function(ch){return '<div class="brand-portal-row"><div><b>'+esc(ch.platform.toUpperCase())+' · '+esc(ch.handle||ch.externalChannelId)+'</b><small>'+esc(ch.verificationMode)+'</small></div><span>'+esc(ch.status)+'</span></div>';}).join('');
       openSheet('<div class="eyebrow">BRAND 365 STUDIO · SERVER</div><h1 style="font-size:42px">'+T('СОБСТВЕННАЯ<br>АУДИТОРИЯ','OWNED<br>AUDIENCE')+'</h1>'+
         '<div class="stat-grid"><div class="stat"><b>'+esc(d.followers||0)+'</b><small>MFW followers</small></div><div class="stat"><b>'+esc(posts.length)+'</b><small>'+T('Публикации','Posts')+'</small></div><div class="stat"><b>'+esc(offers.length)+'</b><small>Offers</small></div></div>'+
@@ -574,6 +574,17 @@
         '<h2>'+T('Соцсети бренда','Brand social channels')+'</h2>'+channelRows+
         '<div class="demo-note">'+T('Органический контент публикуется для своих подписчиков. MFW-wide реклама и новые reward-механики проходят модерацию организатора.','Organic content goes to brand followers. MFW-wide ads and new reward mechanics require organizer moderation.')+'</div>');
     }catch(err){toast(T('Brand 365 Studio недоступен','Brand 365 Studio unavailable'));}
+  }
+
+  async function brandPortalNotify(brandId,postId){
+    try{
+      var out=await brandPortalApi(brandId,'/notify',{method:'POST',body:JSON.stringify({postId:postId})});
+      toast(T('Push поставлен в очередь подписчикам бренда','Push queued for brand followers'));
+      openBrandPortal(brandId);
+    }catch(err){
+      if(err&&err.data&&err.data.error==='brand_push_frequency_cap')toast(T('Лимит: не более 2 брендовых push за 7 дней','Limit: max 2 brand pushes per 7 days'));
+      else toast(T('Push не создан','Push could not be created'));
+    }
   }
 
   async function brandPortalPublish(brandId,paid){
@@ -684,8 +695,39 @@
     track('sponsor_cta',{campaignId:'cmp1'});
   }
 
-  function notifications(){
-    openSheet('<div class="eyebrow">Notification center</div><h1 style="font-size:42px">СЕГОДНЯ</h1><div class="card"><b>Критическое</b><p class="sub">Demo: при переносе зала или времени уведомление появится здесь и в push.</p></div><div class="card"><b>LIVE</b><p class="sub">Opening Runway уже в эфире.</p></div><div class="card"><b>Персональное</b><p class="sub">До сохранённой вами лекции 45 минут.</p></div>');
+  async function notificationPreferences(){
+    openSheet('<div class="eyebrow">MFW 365 · NOTIFICATIONS</div><h1 style="font-size:42px">'+T('ЧТО<br>ВАМ<br>ПРИСЫЛАТЬ','WHAT<br>TO<br>SEND YOU')+'</h1><div class="card skeleton" style="height:180px"></div>');
+    try{
+      var out=await api('/v1/notifications/preferences?userId='+encodeURIComponent(state.userId||'demo_user'));
+      var p=out.data||{};
+      function row(key,label,value){
+        return '<div class="notification-pref"><div><b>'+label+'</b><small>'+(value?T('Включено','On'):T('Выключено','Off'))+'</small></div><button class="action '+(value?'primary':'ghost')+' compact" data-action="notification-pref-toggle" data-key="'+key+'" data-value="'+(value?'0':'1')+'">'+(value?'ON':'OFF')+'</button></div>';
+      }
+      openSheet('<div class="eyebrow">MFW 365 · NOTIFICATIONS</div><h1 style="font-size:42px">'+T('КОНТРОЛЬ<br>У ВАС','YOU<br>CONTROL IT')+'</h1>'+
+        row('followedBrandNewsEnabled',T('Новости брендов, на которые я подписан','News from brands I follow'),!!p.followedBrandNewsEnabled)+
+        row('loyaltyEnabled',T('Скидки и подарки','Discounts and gifts'),!!p.loyaltyEnabled)+
+        row('brandEventsEnabled',T('События брендов','Brand events'),!!p.brandEventsEnabled)+
+        row('paidPromotionsEnabled',T('Рекламные push MFW','Paid promotional pushes'),!!p.paidPromotionsEnabled)+
+        '<div class="demo-note">'+T('Критические изменения программы и безопасности не смешиваются с рекламными сообщениями. Рекламные push выключены по умолчанию.','Critical programme and safety updates are separate from marketing. Paid promotional pushes are off by default.')+'</div>');
+    }catch(_){toast(T('Настройки уведомлений недоступны','Notification settings unavailable'));}
+  }
+
+  async function toggleNotificationPreference(key,value){
+    try{
+      var body={userId:state.userId||'demo_user'};body[key]=value==='1';
+      await api('/v1/notifications/preferences',{method:'PATCH',body:JSON.stringify(body)});
+      notificationPreferences();
+    }catch(_){toast(T('Не удалось сохранить настройку','Could not save preference'));}
+  }
+
+  async function notifications(){
+    openSheet('<div class="eyebrow">Notification center</div><h1 style="font-size:42px">'+T('УВЕДОМЛЕНИЯ','NOTIFICATIONS')+'</h1><div class="card skeleton" style="height:150px"></div>');
+    try{
+      var out=await api('/v1/notifications?userId='+encodeURIComponent(state.userId||'demo_user'));
+      var items=out.data||[];
+      var html=items.length?items.map(function(n){return '<div class="card"><div class="eyebrow">'+esc(String(n.category||'update').toUpperCase())+'</div><b>'+esc(n.title||'MFW')+'</b><p class="sub">'+esc(n.body||'')+'</p></div>';}).join(''):'<div class="premium-empty"><b>'+T('Сейчас всё спокойно','Nothing needs your attention')+'</b><p>'+T('Здесь появятся изменения программы, LIVE и новости брендов по вашим настройкам.','Programme changes, LIVE and followed-brand updates appear here according to your preferences.')+'</p></div>';
+      openSheet('<div class="eyebrow">Notification center</div><h1 style="font-size:42px">'+T('УВЕДОМЛЕНИЯ','NOTIFICATIONS')+'</h1>'+html+'<button class="action ghost" data-action="notification-preferences">'+T('Настроить MFW 365 push','Configure MFW 365 push')+'</button>');
+    }catch(_){toast(T('Уведомления недоступны','Notifications unavailable'));}
   }
 
   function openSheet(html){
@@ -1085,10 +1127,16 @@
       var html=posts.length?posts.map(function(p){
         var title=state.lang==='ru'?p.titleRu:p.titleEn;
         var body=state.lang==='ru'?p.bodyRu:p.bodyEn;
-        return '<article class="brand-365-post"><div class="brand-365-image" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.7)),url('+esc(p.imageUrl||VISUALS.runway)+')">'+(p.isPaid?'<span class="paid-label">'+T('Реклама бренда','Brand promotion')+'</span>':'')+'<span>'+esc(String(p.kind||'news').toUpperCase())+'</span></div><div class="brand-365-copy"><b>'+esc(title)+'</b><p>'+esc(body)+'</p><button class="action ghost" data-action="brand" data-id="'+esc(p.brandId)+'">'+T('Открыть бренд','Open brand')+'</button></div></article>';
+        var reason=p.feedReason==='followed_brand'?T('Вы подписаны на бренд','You follow this brand'):p.feedReason==='followed_brand_event'?T('Событие бренда, на который вы подписаны','Event from a followed brand'):p.feedReason==='sponsored'?T('Платное размещение MFW','Paid MFW placement'):T('Рекомендация MFW','MFW recommendation');
+        return '<article class="brand-365-post"><div class="brand-365-image" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.7)),url('+esc(p.imageUrl||VISUALS.runway)+')">'+(p.isPaid?'<span class="paid-label">'+T('Реклама бренда','Brand promotion')+'</span>':'')+'<span>'+esc(String(p.kind||'news').toUpperCase())+'</span></div><div class="brand-365-copy"><div class="feed-reason">'+esc(reason)+'</div><b>'+esc(title)+'</b><p>'+esc(body)+'</p><div class="action-row"><button class="action ghost" data-action="brand" data-id="'+esc(p.brandId)+'">'+T('Открыть бренд','Open brand')+'</button><button class="action ghost" data-action="brand-content-open" data-post="'+esc(p.id)+'">'+T('Подробнее','Details')+'</button></div></div></article>';
       }).join(''):'<div class="premium-empty"><b>'+T('Лента станет персональной','Your feed will become personal')+'</b><p>'+T('Подпишитесь на бренды MFW — их события, запуски и новости будут жить здесь после недели моды.','Follow MFW brands to keep their events, launches and news here after fashion week.')+'</p></div>';
-      openSheet('<div class="eyebrow">MFW 365 · PERSONAL FEED</div><h1 style="font-size:42px">'+T('МОДА<br>НЕ ЗАКАНЧИВАЕТСЯ','FASHION<br>DOESN’T END')+'</h1>'+html);
+      openSheet('<div class="eyebrow">MFW 365 · PERSONAL FEED</div><h1 style="font-size:42px">'+T('МОДА<br>НЕ ЗАКАНЧИВАЕТСЯ','FASHION<br>DOESN’T END')+'</h1><div class="feed-policy">'+T('Сначала — бренды, на которые вы подписаны. Реклама ограничена по частоте и всегда маркируется.','Followed brands come first. Ads are frequency-capped and always labelled.')+'</div>'+html);
+      posts.forEach(function(p){recordBrandContentImpression(p.id);});
     }catch(_){toast(T('MFW 365 временно недоступен','MFW 365 temporarily unavailable'));}
+  }
+
+  async function recordBrandContentImpression(postId){
+    try{await api('/v1/content/interactions',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',postId:postId,type:'impression',surface:'mfw_365'})});}catch(_){}
   }
 
   async function recordBrandContentOpen(postId){
@@ -1351,6 +1399,8 @@
       else if(a==='brand')openBrand(el.getAttribute('data-id'));
       else if(a==='save-brand')saveBrand(el.getAttribute('data-id'));
       else if(a==='notifications')notifications();
+      else if(a==='notification-preferences')notificationPreferences();
+      else if(a==='notification-pref-toggle')toggleNotificationPreference(el.getAttribute('data-key'),el.getAttribute('data-value'));
       else if(a==='investor-tour')investorTour();
       else if(a==='post-show-recap')postShowRecap();
       else if(a==='sponsor-experience')sponsorExperience();
@@ -1372,6 +1422,7 @@
       else if(a==='designer-workspace')openDesignerWorkspace(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal')openBrandPortal(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal-news')brandPortalPublish(el.getAttribute('data-id')||'b1',false);
+      else if(a==='brand-portal-notify')brandPortalNotify(el.getAttribute('data-brand')||'b1',el.getAttribute('data-post'));
       else if(a==='brand-portal-paid')brandPortalPublish(el.getAttribute('data-id')||'b1',true);
       else if(a==='brand-portal-discount')brandPortalCreateOffer(el.getAttribute('data-id')||'b1','discount');
       else if(a==='brand-portal-gift')brandPortalCreateOffer(el.getAttribute('data-id')||'b1','gift');
