@@ -87,6 +87,7 @@ Reference primitives:
 - `docs/CITY_HERITAGE_INTEROPERABILITY.md`
 - `docs/CITY_HERITAGE_STUDIO.md`
 - `docs/GOVERNMENT_PILOT_ACCEPTANCE.md`
+- `docs/NATIONAL_TOURISM_PLATFORM.md`
 
 
 ## Текущая продуктовая фаза
@@ -100,3 +101,10 @@ Reference primitives:
 5. government-ready evidence / acceptance package.
 
 До фактического прохождения physical release gate production candidate не описывается как field-verified.
+
+
+## Масштабирование за пределы Москвы
+
+Москва является первым reference destination, а не жёстко зашитой границей продукта. Общий `DestinationPackage` описывает региональные туристические сущности, маршруты, booking handoff и явно маркированные коммерческие размещения. В текущем reference package опубликованы только уже source-backed точки Варварки; рестораны, live events, гостиницы и бронирование не подменяются демонстрационными данными до подключения authority providers.
+
+Целевая последовательность: `Moscow proof → Moscow destination journey → external region → interregional route → federal interoperability`. Федеральная стратегия не предполагает дублировать Russpass или «Путешествуем.рф»; продукт развивает live journey + historical immersion layer и должен интегрироваться с существующей туристической инфраструктурой.
