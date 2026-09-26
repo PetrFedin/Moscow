@@ -8,7 +8,7 @@ try { ({ Pool } = require('pg')); } catch (_) {}
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
-const VERSION = 'mfw-authority-v3';
+const VERSION = 'mfw-authority-v4';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
@@ -32,10 +32,10 @@ function validateInvestorBuild(){
   new Function(nativeBridge);
   JSON.parse(nativePackage);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','brand-loyalty','mfw-365','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','brand365','brand-news','brand-paid','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
   for(const required of ['registerPush','openNativeScanner','addWalletPass','routeDeepLink','appUrlOpen']){
@@ -615,6 +615,30 @@ async function runDeepSelfTest(){
     memory.boards instanceof Map&&memory.connections instanceof Map
   );
 
+  const loyaltyUser='self_loyalty_'+crypto.randomBytes(4).toString('hex');
+  memory.appInstallations.set(loyaltyUser,{userId:loyaltyUser,installationId:'self_install',platform:'test',status:'active',installedAt:new Date().toISOString()});
+  followSet(loyaltyUser).add('b1');
+  const loyaltySince=new Date(Date.now()-35*86400000).toISOString();
+  for(const channelId of ['sc_mfw_tg','sc_b1_tg']){
+    memory.socialMemberships.set(membershipKey(loyaltyUser,channelId),{
+      id:'self_'+channelId,userId:loyaltyUser,channelId,status:'active',firstVerifiedAt:loyaltySince,
+      providerJoinedAt:loyaltySince,continuousSince:loyaltySince,lastVerifiedAt:new Date().toISOString(),proofSource:'self_test'
+    });
+  }
+  const loyaltyOffer=memory.loyaltyOffers.find(x=>x.id==='lo1');
+  const loyaltyEval=evaluateLoyaltyOffer(loyaltyUser,loyaltyOffer);
+  const loyalty365Authority=!!(
+    loyaltyEval.eligible&&
+    memory.brandPosts.some(x=>x.brandId==='b1'&&x.status==='published')&&
+    memory.socialProviderAdapters.some(x=>x.platform==='telegram')&&
+    memory.socialProviderAdapters.some(x=>x.platform==='vk')&&
+    memory.socialChannels.some(x=>x.ownerType==='mfw')&&
+    memory.socialChannels.some(x=>x.brandId==='b1')
+  );
+  memory.appInstallations.delete(loyaltyUser);
+  memory.brandFollows.delete(loyaltyUser);
+  for(const channelId of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(loyaltyUser,channelId));
+
   const localeAuthority=true;
   const roles=await runRoleGoldenPathSelfTest();
 
@@ -623,7 +647,7 @@ async function runDeepSelfTest(){
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&localeAuthority&&sponsorAuthority&&roles.all);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&localeAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -637,6 +661,7 @@ async function runDeepSelfTest(){
       streamingBoundary:streamingBoundary,
       commerceAuthority:commerceAuthority,
       networkingAuthority:networkingAuthority,
+      loyalty365Authority:loyalty365Authority,
       localeAuthority:localeAuthority,
       sponsorAuthority:sponsorAuthority,
       roleGoldenPaths:roles
