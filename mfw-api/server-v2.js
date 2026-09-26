@@ -214,9 +214,10 @@ const memory={
       eventId:'e1',
       status:'live',
       title:'MFW Opening Runway',
-      provider:'demo',
+      providerMode:'simulated',
+      activeSourceId:'src_primary',
       playbackUrl:'https://videos.pexels.com/video-files/19863106/19863106-uhd_2160_3840_30fps.mp4',
-      posterUrl:'https://images.unsplash.com/photo-1554881070-74595ca2b74c?auto=format&fit=crop&w=1200&q=88',
+      posterUrl:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',
       currentLook:14,
       totalLooks:32,
       startedAt:'2026-09-26T17:00:00+03:00',
@@ -225,7 +226,28 @@ const memory={
       updatedAt:new Date().toISOString(),
       demo:true
     }
-  ]
+  ],
+  streamProviders:[
+    {id:'prv_primary',code:'mfw-primary',name:'MFW Ingest Primary',providerType:'generic',mode:'simulated',priority:10},
+    {id:'prv_backup',code:'mfw-backup',name:'MFW Ingest Backup',providerType:'generic',mode:'simulated',priority:20}
+  ],
+  streamSources:[
+    {id:'src_primary',streamId:'stream_e1',providerId:'prv_primary',sourceRole:'primary',ingestProtocol:'srt',status:'active',lastHeartbeatAt:new Date().toISOString(),health:{bitrateKbps:8400,fps:30,droppedFramesPct:0.08,latencySec:4.2,audioDb:-12.4}},
+    {id:'src_backup',streamId:'stream_e1',providerId:'prv_backup',sourceRole:'backup',ingestProtocol:'rtmp',status:'standby',lastHeartbeatAt:new Date().toISOString(),health:{bitrateKbps:6200,fps:30,droppedFramesPct:0.12,latencySec:6.8,audioDb:-13.1}}
+  ],
+  streamOutputs:[
+    {id:'out_hls',streamId:'stream_e1',outputType:'hls',resolution:'1080p',bitrateKbps:6500,status:'live',url:'demo://hls/master.m3u8'},
+    {id:'out_llhls',streamId:'stream_e1',outputType:'ll_hls',resolution:'720p',bitrateKbps:3600,status:'live',url:'demo://ll-hls/master.m3u8'},
+    {id:'out_recording',streamId:'stream_e1',outputType:'recording',resolution:'1080p',bitrateKbps:8000,status:'live',url:'demo://recording/opening-runway'}
+  ],
+  captionTracks:[
+    {id:'cap_ru',streamId:'stream_e1',language:'ru',label:'Русский',source:'operator',status:'live'},
+    {id:'cap_en',streamId:'stream_e1',language:'en',label:'English',source:'translation',status:'live'}
+  ],
+  replayAssets:[
+    {id:'rep_e1',streamId:'stream_e1',assetType:'full_show',status:'processing',durationSeconds:null,playbackUrl:null,posterUrl:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',publishedAt:null,demo:true}
+  ],
+  failoverEvents:[]
 };
 
 async function query(sql,params=[]){
@@ -503,6 +525,17 @@ async function router(req,res){
   if(req.method==='GET'&&p==='/v1/streams'){
     return json(res,200,{data:memory.streams,demo:true});
   }
+  if(req.method==='GET'&&p.startsWith('/v1/streams/')&&p.endsWith('/control-plane')){
+    const streamId=p.split('/')[3];
+    const stream=memory.streams.find(x=>x.id===streamId||x.eventId===streamId);
+    if(!stream)return json(res,404,{error:'stream_not_found'});
+    const sources=memory.streamSources.filter(x=>x.streamId===stream.id).map(src=>({...src,provider:memory.streamProviders.find(p=>p.id===src.providerId)}));
+    const outputs=memory.streamOutputs.filter(x=>x.streamId===stream.id);
+    const captions=memory.captionTracks.filter(x=>x.streamId===stream.id);
+    const replay=memory.replayAssets.find(x=>x.streamId===stream.id)||null;
+    const failover=memory.failoverEvents.filter(x=>x.streamId===stream.id).slice(-10).reverse();
+    return json(res,200,{data:{stream,sources,outputs,captions,replay,failover,providerMode:stream.providerMode}});
+  }
   if(req.method==='GET'&&p.startsWith('/v1/streams/')){
     const id=p.split('/').pop();
     const stream=memory.streams.find(x=>x.id===id||x.eventId===id);
@@ -774,6 +807,71 @@ async function router(req,res){
     if(req.method==='GET'&&p==='/v1/admin/events') return json(res,200,{data:memory.events});
     if(req.method==='GET'&&p==='/v1/admin/accreditations') return json(res,200,{data:memory.accreditations});
     if(req.method==='GET'&&p==='/v1/admin/streams') return json(res,200,{data:memory.streams});
+    if(req.method==='GET'&&p.startsWith('/v1/admin/streams/')&&p.endsWith('/control-plane')){
+      const streamId=p.split('/')[4];
+      const stream=memory.streams.find(x=>x.id===streamId||x.eventId===streamId);
+      if(!stream)return json(res,404,{error:'stream_not_found'});
+      return json(res,200,{data:{
+        stream,
+        sources:memory.streamSources.filter(x=>x.streamId===stream.id).map(src=>({...src,provider:memory.streamProviders.find(p=>p.id===src.providerId)})),
+        outputs:memory.streamOutputs.filter(x=>x.streamId===stream.id),
+        captions:memory.captionTracks.filter(x=>x.streamId===stream.id),
+        replay:memory.replayAssets.find(x=>x.streamId===stream.id)||null,
+        failover:memory.failoverEvents.filter(x=>x.streamId===stream.id).slice(-20).reverse()
+      }});
+    }
+    if(req.method==='POST'&&p.startsWith('/v1/admin/streams/')&&p.endsWith('/failover')){
+      const streamId=p.split('/')[4];
+      const stream=memory.streams.find(x=>x.id===streamId||x.eventId===streamId);
+      if(!stream)return json(res,404,{error:'stream_not_found'});
+      const b=await readBody(req);
+      const targetRole=String(b.targetRole||'backup');
+      const target=memory.streamSources.find(x=>x.streamId===stream.id&&x.sourceRole===targetRole);
+      const current=memory.streamSources.find(x=>x.id===stream.activeSourceId);
+      if(!target)return json(res,404,{error:'target_source_not_found'});
+      if(current)current.status='standby';
+      target.status='active';
+      const event={id:'fo_'+crypto.randomBytes(6).toString('hex'),streamId:stream.id,fromSourceId:current?.id||null,toSourceId:target.id,reason:String(b.reason||'manual_operator'),occurredAt:new Date().toISOString(),demo:true};
+      memory.failoverEvents.push(event);
+      stream.activeSourceId=target.id;stream.updatedAt=new Date().toISOString();
+      await track('stream_failover',event);
+      return json(res,200,{data:{stream,event,target}});
+    }
+    if(req.method==='POST'&&p.startsWith('/v1/admin/streams/')&&p.endsWith('/heartbeat')){
+      const streamId=p.split('/')[4];
+      const b=await readBody(req);
+      const source=memory.streamSources.find(x=>x.streamId===streamId&&x.id===String(b.sourceId||'src_primary'));
+      if(!source)return json(res,404,{error:'source_not_found'});
+      source.lastHeartbeatAt=new Date().toISOString();
+      source.health={...source.health,...(b.health||{})};
+      if(Number(source.health.droppedFramesPct||0)>2||Number(source.health.latencySec||0)>15)source.status='degraded';
+      return json(res,200,{data:source});
+    }
+    if(req.method==='POST'&&p.startsWith('/v1/admin/streams/')&&p.endsWith('/captions')){
+      const streamId=p.split('/')[4];
+      const b=await readBody(req);
+      const language=String(b.language||'en').toLowerCase();
+      let track=memory.captionTracks.find(x=>x.streamId===streamId&&x.language===language);
+      if(!track){
+        track={id:'cap_'+crypto.randomBytes(5).toString('hex'),streamId,language,label:language.toUpperCase(),source:String(b.source||'operator'),status:'live'};
+        memory.captionTracks.push(track);
+      }else{
+        track.status=String(b.status||track.status);track.source=String(b.source||track.source);
+      }
+      return json(res,200,{data:track});
+    }
+    if(req.method==='POST'&&p.startsWith('/v1/admin/streams/')&&p.endsWith('/archive')){
+      const streamId=p.split('/')[4];
+      const stream=memory.streams.find(x=>x.id===streamId||x.eventId===streamId);
+      if(!stream)return json(res,404,{error:'stream_not_found'});
+      let replay=memory.replayAssets.find(x=>x.streamId===stream.id);
+      if(!replay){replay={id:'rep_'+crypto.randomBytes(6).toString('hex'),streamId:stream.id,assetType:'full_show',demo:true};memory.replayAssets.push(replay);}
+      replay.status='ready';replay.durationSeconds=1440;replay.playbackUrl=stream.playbackUrl;replay.publishedAt=new Date().toISOString();
+      stream.replayAvailable=true;stream.status='replay';stream.updatedAt=new Date().toISOString();
+      memory.streamOutputs.filter(x=>x.streamId===stream.id&&x.outputType==='recording').forEach(x=>x.status='archived');
+      await track('stream_archive_ready',{streamId:stream.id,replayId:replay.id});
+      return json(res,200,{data:replay,stream});
+    }
     if(req.method==='GET'&&p==='/v1/admin/sponsors'){
       const interactions=memory.sponsorInteractions;
       const count=t=>interactions.filter(x=>x.interactionType===t).length;
