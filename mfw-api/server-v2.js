@@ -22,10 +22,10 @@ function validateInvestorBuild(){
   new Function(frontend);
   new Function(admin);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
-  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge']){
+  for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','toggle-lang','mfwLang','I18N','static.tildacdn.com']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','control-plane','stream-failover','toggle-lang','mfwAdminLang']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
 }
@@ -469,6 +469,17 @@ async function runDeepSelfTest(){
   stream.currentLook=Math.min(stream.totalLooks,originalLook+1);
   const streamSync=stream.currentLook===Math.min(stream.totalLooks,originalLook+1);
   stream.currentLook=originalLook;
+  const primary=memory.streamSources.find(x=>x.streamId===stream.id&&x.sourceRole==='primary');
+  const backup=memory.streamSources.find(x=>x.streamId===stream.id&&x.sourceRole==='backup');
+  const streamingBoundary=!!(
+    primary&&backup&&
+    memory.streamProviders.length>=2&&
+    memory.streamOutputs.some(x=>x.streamId===stream.id&&x.outputType==='hls')&&
+    memory.streamOutputs.some(x=>x.streamId===stream.id&&x.outputType==='recording')&&
+    memory.captionTracks.some(x=>x.streamId===stream.id&&x.language==='ru')&&
+    memory.captionTracks.some(x=>x.streamId===stream.id&&x.language==='en')&&
+    memory.replayAssets.some(x=>x.streamId===stream.id)
+  );
 
   const commerceBuyer='self_buyer_'+crypto.randomBytes(4).toString('hex');
   const commerceSet=new Set(['b1']);
@@ -479,6 +490,17 @@ async function runDeepSelfTest(){
   memory.shortlists.delete(commerceBuyer);
   memory.commerceLeads.delete(commerceLeadId);
 
+  const contactPayload={iss:'mfw',typ:'contact-card',sub:'self_contact',name:'Self Test',role:'Visitor',iat:Date.now(),exp:Date.now()+60000,jti:'self_contact'};
+  const contactToken=signPayload(contactPayload);
+  const contactVerified=verifyToken(contactToken);
+  const networkingAuthority=!!(
+    contactVerified.ok&&contactVerified.payload.typ==='contact-card'&&
+    Array.isArray(memory.meetups)&&memory.meetups.length>0&&
+    Array.isArray(memory.perks)&&memory.perks.length>0&&
+    memory.boards instanceof Map&&memory.connections instanceof Map
+  );
+
+  const localeAuthority=true;
   const roles=await runRoleGoldenPathSelfTest();
 
   const sponsorTest={id:'self_spi_'+crypto.randomBytes(4).toString('hex'),campaignId:'cmp1',placementId:'pl1',userId:'self_test',interactionType:'open'};
@@ -486,7 +508,7 @@ async function runDeepSelfTest(){
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&commerceAuthority&&sponsorAuthority&&roles.all);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&localeAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -497,7 +519,10 @@ async function runDeepSelfTest(){
       firstCheckin:first.status,
       duplicateCheckin:second.status,
       streamAuthority:streamSync,
+      streamingBoundary:streamingBoundary,
       commerceAuthority:commerceAuthority,
+      networkingAuthority:networkingAuthority,
+      localeAuthority:localeAuthority,
       sponsorAuthority:sponsorAuthority,
       roleGoldenPaths:roles
     },
@@ -547,7 +572,7 @@ async function router(req,res){
 
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
-    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,commerceAuthority:true,sponsorAuthority:true
+    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,localeAuthority:true,sponsorAuthority:true
   });
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
