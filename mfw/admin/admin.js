@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[]};
+var state={tab:'overview',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[]};
 
 async function req(path,opts){
   opts=opts||{};
@@ -48,6 +48,7 @@ function nav(){
   var tabs=[
     ['overview','Overview'],
     ['programme','Programme'],
+    ['streaming','Streaming'],
     ['accreditation','Accreditation'],
     ['communications','Communications'],
     ['access','Access authority']
@@ -60,6 +61,7 @@ function shell(content){
   var title={
     overview:'Operations overview',
     programme:'Programme CMS',
+    streaming:'Streaming control',
     accreditation:'Accreditation',
     communications:'Communications',
     access:'Access authority'
@@ -109,6 +111,23 @@ function programmeScreen(){
         '<button class="btn primary" data-action="golive" data-id="'+esc(e.id)+'">Go live</button></div></div>';
     }).join('')+'</div>';
 }
+function streamingScreen(){
+  var stream=state.streams[0]||{id:'stream_e1',status:'offline',currentLook:0,totalLooks:32,replayAvailable:false};
+  var pct=stream.totalLooks?Math.round((Number(stream.currentLook||0)/Number(stream.totalLooks))*100):0;
+  return '<div class="eyebrow">Runway direction</div><div class="hero-title">STREAMING<br>AUTHORITY</div>'+
+    '<div class="stream-console"><div class="stream-preview" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.78)),url(https://images.unsplash.com/photo-1742237424056-ea5cbb674d66?auto=format&fit=crop&w=1400&q=86)">'+
+      '<div class="stream-preview-top">'+badge(stream.status)+'<span>EVENT e1 · HALL 1</span></div>'+
+      '<div class="stream-preview-bottom"><div><span>NOW ON RUNWAY</span><strong>LOOK '+String(stream.currentLook||0).padStart(2,'0')+' / '+esc(stream.totalLooks||32)+'</strong></div><b>'+pct+'%</b></div>'+
+    '</div>'+
+    '<div class="card"><div class="eyebrow">DIRECTOR CONTROLS</div><h2>Opening Runway</h2>'+
+      '<div class="row"><span>Status</span>'+badge(stream.status)+'</div>'+
+      '<div class="row"><span>Current look</span><strong>'+esc(stream.currentLook||0)+'</strong></div>'+
+      '<div class="row"><span>Replay</span><b>'+(stream.replayAvailable?'READY':'OFF')+'</b></div>'+
+      '<div class="actions"><button class="btn primary" data-action="next-look" data-id="'+esc(stream.id)+'">NEXT LOOK</button>'+
+      '<button class="btn" data-action="stream-live" data-id="'+esc(stream.id)+'">LIVE</button>'+
+      '<button class="btn" data-action="stream-replay" data-id="'+esc(stream.id)+'">REPLAY</button></div>'+
+      '<div class="capacity"><span style="width:'+pct+'%"></span></div><p class="sub">Изменение currentLook сразу появляется на iPhone LIVE через public stream authority.</p></div></div>';
+}
 function accreditationScreen(){
   return '<div class="eyebrow">People & permissions</div><div class="hero-title">ACCREDITATION</div>'+
     '<div class="card"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Organisation</th><th>Status</th><th>Decision</th></tr></thead><tbody>'+
@@ -139,6 +158,7 @@ function accessScreen(){
 function render(){
   var body=state.tab==='overview'?overviewScreen():
     state.tab==='programme'?programmeScreen():
+    state.tab==='streaming'?streamingScreen():
     state.tab==='accreditation'?accreditationScreen():
     state.tab==='communications'?communicationsScreen():accessScreen();
   document.getElementById('admin-app').innerHTML=shell(body);
@@ -147,9 +167,9 @@ function render(){
 async function load(){
   document.getElementById('admin-app').innerHTML=shell('<div class="loading">Loading MFW authority…</div>');
   try{
-    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations')]);
+    var result=await Promise.all([req('/health'),req('/health/deep'),admin('/overview'),admin('/events'),admin('/accreditations'),admin('/streams')]);
     state.health=result[0];state.deep=result[1];state.overview=result[2].data;
-    state.events=result[3].data||[];state.accreditations=result[4].data||[];
+    state.events=result[3].data||[];state.accreditations=result[4].data||[];state.streams=result[5].data||[];
     render();
   }catch(err){
     document.getElementById('admin-app').innerHTML=shell('<div class="card"><h2>Authority unavailable</h2><div class="sub">'+esc(err.message)+'</div></div>');
@@ -165,6 +185,9 @@ async function action(name,id){
     if(name==='move')await admin('/events/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({venue:'Manege · Hall 3'})});
     if(name==='golive')await admin('/events/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'live'})});
     if(name==='approve'||name==='reject')await admin('/accreditations/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:name==='approve'?'approved':'rejected'})});
+    if(name==='next-look')await admin('/streams/'+encodeURIComponent(id)+'/next-look',{method:'POST',body:JSON.stringify({})});
+    if(name==='stream-live')await admin('/streams/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'live'})});
+    if(name==='stream-replay')await admin('/streams/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'replay',replayAvailable:true})});
     toast('Server action: '+name);
     await load();
   }catch(err){toast('Action failed: '+err.message);}
