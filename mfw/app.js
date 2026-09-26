@@ -959,7 +959,7 @@
           if((r.type==='mfw_social_follow'||r.type==='brand_social_follow')&&ch&&!r.ok){
             action=unsupported
               ? '<span class="loyalty-unavailable">'+T('API не подтверждает автоматически','No automatic API proof')+'</span>'
-              : '<button class="action ghost compact" data-action="loyalty-verify" data-brand="'+esc(brandId)+'" data-channel="'+esc(ch.id)+'" data-mode="'+esc(ch.verificationMode)+'">'+T('Проверить','Verify')+'</button>';
+              : '<button class="action ghost compact" data-action="loyalty-verify" data-brand="'+esc(brandId)+'" data-channel="'+esc(ch.id)+'" data-mode="'+esc(ch.verificationMode)+'">'+T('DEMO · проверить','DEMO · verify')+'</button>';
           }else if(r.type==='app_installed'&&!r.ok){
             action='<button class="action ghost compact" data-action="loyalty-install" data-brand="'+esc(brandId)+'">'+(isStandaloneApp()?T('Подтвердить','Confirm'):T('DEMO · отметить установку','DEMO · mark installed'))+'</button>';
           }else if(r.type==='brand_follow_in_mfw'&&!r.ok){
@@ -982,13 +982,9 @@
 
   async function verifyLoyaltySocial(brandId,channelId,mode){
     try{
-      var body={userId:state.userId||'demo_user',channelId:channelId,observedActive:true};
-      if(mode==='membership_event'){
-        body.providerJoinedAt=new Date(Date.now()-34*86400000).toISOString();
-        body.demoHistory=true;
-      }
-      await api('/v1/social/verify',{method:'POST',body:JSON.stringify(body)});
-      toast(mode==='membership_event'?T('DEMO: подтверждена непрерывная подписка 34 дня','DEMO: 34 days of continuous membership verified'):T('Текущая подписка подтверждена; срок начинается сегодня','Current membership verified; duration starts today'));
+      var days=mode==='membership_event'?34:0;
+      await api('/v1/demo/social/verify',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',channelId:channelId,active:true,continuousDays:days})});
+      toast(days?T('DEMO: подтверждена непрерывная подписка 34 дня','DEMO: 34 days of continuous membership verified'):T('DEMO: текущая подписка подтверждена; срок начинается сегодня','DEMO: current membership verified; duration starts today'));
       openBrandLoyalty(brandId);
     }catch(err){
       toast(err&&err.data&&err.data.error==='verification_not_supported'?T('Эта сеть не даёт подтверждение через доступный API','This network cannot be verified through the available API'):T('Проверка не выполнена','Verification failed'));
