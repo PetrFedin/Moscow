@@ -24,7 +24,7 @@ import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import WalkCompanion from './features/walk/WalkCompanion';
-import { detectLanguage, type AppLanguage } from './i18n';
+import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
 import {
   canOpenArchiveLens,
@@ -78,11 +78,28 @@ const copy = {
     openStory: 'Open story', next: 'Discovered · next', finish: 'Finish walk',
     noSaved: 'Nothing saved yet', back3d: '← 3D model', close: 'Close'
   }
+,
+  zh: {
+    discover: '发现', map: '地图', walk: '路线', savedTab: '我的莫斯科',
+    cityTime: '把城市变成时光机',
+    hero: '莫斯科就在你身边逐层展开',
+    heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
+    start: '开始瓦尔瓦尔卡路线 · 45分钟',
+    places: '试点地点', story: '地点故事', time: '时光机',
+    today: '今天', facts: '现场观察重点', sources: '来源',
+    open3d: '打开3D', lens: '档案叠加相机', save: '收藏', savedAction: '已收藏',
+    onlyFacts: '仅事实', research: '事实 + 重建',
+    lensPreparing: '时间之镜 · 准备中', modelPreparing: '3D · 准备中',
+    mapHint: '拖动卡片：收起 · 预览 · 展开',
+    openStory: '打开故事', next: '已探索 · 下一站', finish: '完成路线',
+    noSaved: '暂时没有收藏', back3d: '← 3D模型', close: '关闭'
+  }
 } as const;
 
 const evidenceLabel = {
   ru: { documented: 'Подтверждено источником', reconstructed: 'Исследовательская реконструкция', hypothesis: 'Гипотеза' },
-  en: { documented: 'Documented evidence', reconstructed: 'Research reconstruction', hypothesis: 'Hypothesis' }
+  en: { documented: 'Documented evidence', reconstructed: 'Research reconstruction', hypothesis: 'Hypothesis' },
+  zh: { documented: '有文献依据', reconstructed: '学术重建', hypothesis: '假设' }
 } as const;
 
 export default function MoscowExperienceApp() {
@@ -484,7 +501,7 @@ export default function MoscowExperienceApp() {
         <PhysicalPressable
           style={styles.language}
           contentStyle={styles.center}
-          onPress={() => setLanguage(language === 'ru' ? 'en' : 'ru')}
+          onPress={() => setLanguage(nextLanguage(language))}
           accessibilityLabel="Change language"
         >
           <Text style={styles.languageText}>{language.toUpperCase()}</Text>
@@ -538,7 +555,7 @@ export default function MoscowExperienceApp() {
                 <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
                   <Text style={styles.primaryText}>
                     {routeFinished
-                      ? (language === 'ru' ? 'Пройти Варварку ещё раз' : 'Walk Varvarka again')
+                      ? tr(language, 'Пройти Варварку ещё раз', 'Walk Varvarka again', '再次体验瓦尔瓦尔卡')
                       : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
                         ? (language === 'ru'
                           ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
@@ -611,10 +628,10 @@ export default function MoscowExperienceApp() {
                         onValueChange={onTimeChange}
                         startLabel={selected.periods[0]?.year}
                         endLabel={ui.today}
-                        accessibilityLabel={language === 'ru' ? 'Выберите историческую эпоху' : 'Choose historical period'}
+                        accessibilityLabel={tr(language, 'Выберите историческую эпоху', 'Choose historical period', '选择历史时期')}
                       />
                       <Text style={styles.periodTitle}>{todaySelected ? selected.subtitle : activePeriod?.label}</Text>
-                      <Text style={styles.periodBody}>{todaySelected ? (language === 'ru' ? 'Современное состояние — точка сравнения с историческими слоями.' : 'The current state is the comparison point for historical layers.') : activePeriod?.summary}</Text>
+                      <Text style={styles.periodBody}>{todaySelected ? tr(language, 'Современное состояние — точка сравнения с историческими слоями.', 'The current state is the comparison point for historical layers.', '当代状态是与历史层进行比较的参照点。') : activePeriod?.summary}</Text>
                       {!todaySelected && activePeriod && <Text style={styles.evidence}>{evidenceLabel[language][activePeriod.confidence]}</Text>}
 
                       {selectedExperience.modelEraMap && (
@@ -684,26 +701,26 @@ export default function MoscowExperienceApp() {
             <>
               <View style={styles.hero}>
                 <Text style={styles.kicker}>WALK · 01</Text>
-                <Text style={styles.heroTitle}>{language === 'ru' ? pilotRoute.title : 'Varvarka: a street that remembers several Moscows'}</Text>
+                <Text style={styles.heroTitle}>{tr(language, pilotRoute.title, 'Varvarka: a street that remembers several Moscows', '瓦尔瓦尔卡：一条记住多个时代莫斯科的街道')}</Text>
                 <Text style={styles.heroBody}>
-                  ≈{activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {language === 'ru' ? 'ост.' : 'stops'} · {routeInterest === 'highlights'
-                    ? (language === 'ru' ? 'главное' : 'highlights')
+                  ≈{activeRoutePlan.estimatedMinutes} min · {activeRoutePlan.stopIds.length} {tr(language, 'ост.', 'stops', '站')} · {routeInterest === 'highlights'
+                    ? tr(language, 'главное', 'highlights', '精选')
                     : routeInterest === 'nearby'
-                      ? (language === 'ru' ? 'свободная прогулка' : 'free walk')
+                      ? tr(language, 'свободная прогулка', 'free walk', '自由路线')
                       : routeInterest}
                 </Text>
                 <View style={styles.progress}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
                 {!routeFinished && (
-                  <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={language === 'ru' ? 'Поставить прогулку на паузу' : 'Pause walk'}>
-                    <Text style={styles.pauseWalkText}>{language === 'ru' ? 'Пауза · вернуться к обзору' : 'Pause · back to Discover'}</Text>
+                  <PhysicalPressable style={styles.pauseWalk} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab('discover')} accessibilityLabel={tr(language, 'Поставить прогулку на паузу', 'Pause walk', '暂停路线')}>
+                    <Text style={styles.pauseWalkText}>{tr(language, 'Пауза · вернуться к обзору', 'Pause · back to Discover', '暂停 · 返回发现')}</Text>
                   </PhysicalPressable>
                 )}
               </View>
               {!routeFinished && <OfflineRoutePackControl language={language} />}
               {routeFinished ? (
                 <View style={styles.storyCard}>
-                  <Text style={styles.kicker}>{language === 'ru' ? 'МАРШРУТ ЗАВЕРШЁН' : 'WALK COMPLETE'}</Text>
-                  <Text style={styles.storyTitle}>{language === 'ru' ? 'Варварка пройдена' : 'Varvarka complete'}</Text>
+                  <Text style={styles.kicker}>{tr(language, 'МАРШРУТ ЗАВЕРШЁН', 'WALK COMPLETE', '路线已完成')}</Text>
+                  <Text style={styles.storyTitle}>{tr(language, 'Варварка пройдена', 'Varvarka complete', '瓦尔瓦尔卡路线完成')}</Text>
                   <Text style={styles.storyBody}>
                     {language === 'ru'
                       ? 'Текущая прогулка закрыта. Открытые места и наблюдения остаются в «Моя Москва», а повтор маршрута сбросит только прогресс этой прогулки.'
@@ -713,25 +730,25 @@ export default function MoscowExperienceApp() {
                   <View style={styles.statsRow}>
                     <View style={styles.stat}>
                       <Text style={styles.statValue}>{activeRoutePlan.stopIds.length}</Text>
-                      <Text style={styles.statLabel}>{language === 'ru' ? 'мест пройдено' : 'stops completed'}</Text>
+                      <Text style={styles.statLabel}>{tr(language, 'мест пройдено', 'stops completed', '已完成站点')}</Text>
                     </View>
                     <View style={styles.stat}>
                       <Text style={styles.statValue}>{routeMissionCount}</Text>
-                      <Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'observations'}</Text>
+                      <Text style={styles.statLabel}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text>
                     </View>
                     <View style={styles.stat}>
                       <Text style={styles.statValue}>{routeSavedCount}</Text>
-                      <Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text>
+                      <Text style={styles.statLabel}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text>
                     </View>
                   </View>
 
                   <View style={styles.factRow}>
                     <Text style={styles.factNumber}>1</Text>
-                    <Text style={styles.factText}>{language === 'ru' ? 'История открытых мест сохраняется независимо от нового прохождения маршрута.' : 'Your history of opened places is preserved independently of a new route attempt.'}</Text>
+                    <Text style={styles.factText}>{tr(language, 'История открытых мест сохраняется независимо от нового прохождения маршрута.', 'Your history of opened places is preserved independently of a new route attempt.', '已探索地点的历史会独立保存，不会因重新开始路线而丢失。')}</Text>
                   </View>
                   <View style={styles.factRow}>
                     <Text style={styles.factNumber}>2</Text>
-                    <Text style={styles.factText}>{language === 'ru' ? 'Карта позволяет продолжить исследование с любого объекта пилота.' : 'The map lets you continue exploring from any pilot place.'}</Text>
+                    <Text style={styles.factText}>{tr(language, 'Карта позволяет продолжить исследование с любого объекта пилота.', 'The map lets you continue exploring from any pilot place.', '可以从地图上的任意试点地点继续探索。')}</Text>
                   </View>
 
                   <PhysicalPressable
@@ -739,30 +756,30 @@ export default function MoscowExperienceApp() {
                     contentStyle={styles.center}
                     strong
                     onPress={() => continueAfterWalk('map')}
-                    accessibilityLabel={language === 'ru' ? 'Продолжить исследовать на карте' : 'Continue exploring on the map'}
+                    accessibilityLabel={tr(language, 'Продолжить исследовать на карте', 'Continue exploring on the map', '在地图上继续探索')}
                   >
-                    <Text style={styles.primaryText}>{language === 'ru' ? 'Продолжить исследовать на карте' : 'Continue exploring on the map'}</Text>
+                    <Text style={styles.primaryText}>{tr(language, 'Продолжить исследовать на карте', 'Continue exploring on the map', '在地图上继续探索')}</Text>
                   </PhysicalPressable>
                   <PhysicalPressable
                     style={styles.secondary}
                     contentStyle={styles.center}
                     onPress={() => continueAfterWalk('saved')}
-                    accessibilityLabel={language === 'ru' ? 'Открыть Мою Москву' : 'Open My Moscow'}
+                    accessibilityLabel={tr(language, 'Открыть Мою Москву', 'Open My Moscow', '打开“我的莫斯科”')}
                   >
-                    <Text style={styles.secondaryText}>{language === 'ru' ? 'Открыть «Моя Москва»' : 'Open My Moscow'}</Text>
+                    <Text style={styles.secondaryText}>{tr(language, 'Открыть «Моя Москва»', 'Open My Moscow', '打开“我的莫斯科”')}</Text>
                   </PhysicalPressable>
                   <PhysicalPressable
                     style={styles.secondary}
                     contentStyle={styles.center}
                     onPress={repeatActiveWalk}
-                    accessibilityLabel={language === 'ru' ? 'Пройти маршрут ещё раз' : 'Walk the route again'}
+                    accessibilityLabel={tr(language, 'Пройти маршрут ещё раз', 'Walk the route again', '再次体验路线')}
                   >
-                    <Text style={styles.secondaryText}>{language === 'ru' ? 'Пройти маршрут ещё раз' : 'Walk the route again'}</Text>
+                    <Text style={styles.secondaryText}>{tr(language, 'Пройти маршрут ещё раз', 'Walk the route again', '再次体验路线')}</Text>
                   </PhysicalPressable>
                 </View>
               ) : routePlace && (
                 <View style={styles.storyCard}>
-                  <Text style={styles.kicker}>{language === 'ru' ? `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}` : `NOW · STOP ${routeStep + 1}`}</Text>
+                  <Text style={styles.kicker}>{tr(language, `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}`, `NOW · STOP ${routeStep + 1}`, `现在 · 第${routeStep + 1}站`)}</Text>
                   <Text style={styles.storyTitle}>{routePlace.title}</Text>
                   <Text style={styles.storyBody}>{routePlace.shortStory}</Text>
                   <WalkCompanion
@@ -799,11 +816,11 @@ export default function MoscowExperienceApp() {
             <>
               <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
               <View style={styles.myMoscowStats}>
-                <Text style={styles.kicker}>{language === 'ru' ? 'МОЯ ИСТОРИЯ МОСКВЫ' : 'MY MOSCOW HISTORY'}</Text>
+                <Text style={styles.kicker}>{tr(language, 'МОЯ ИСТОРИЯ МОСКВЫ', 'MY MOSCOW HISTORY', '我的莫斯科足迹')}</Text>
                 <View style={styles.statsRow}>
-                  <View style={styles.stat}><Text style={styles.statValue}>{visitedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'мест открыто' : 'places seen'}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'наблюдений' : 'observations'}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text></View>
+                  <View style={styles.stat}><Text style={styles.statValue}>{visitedIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'мест открыто', 'places seen', '已探索地点')}</Text></View>
+                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text></View>
+                  <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text></View>
                 </View>
               </View>
               <PilotAnalyticsReportControl language={language} />
