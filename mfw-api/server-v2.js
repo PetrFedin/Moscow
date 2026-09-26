@@ -721,6 +721,7 @@ async function runRoleGoldenPathSelfTest(){
 
 async function runBrand365SelfTest(){
   const userId='self_brand365_'+crypto.randomBytes(4).toString('hex');
+  memory.users.set(userId,{id:userId,name:'Brand 365 Self Test',role:'Visitor'});
   const access=new Set(['b1']);memory.brandAccess.set(userId,access);
   memory.appInstallations.set(userId,{userId,installationId:'self_brand_install',platform:'test',status:'active',installedAt:new Date().toISOString()});
   followSet(userId).add('b1');
@@ -750,7 +751,7 @@ async function runBrand365SelfTest(){
   };
   const providerBoundary=memory.socialProviderAdapters.some(x=>x.platform==='telegram'&&x.verification.includes('membership'))&&memory.socialProviderAdapters.some(x=>x.platform==='vk');
   const ok=!!(eligibleBefore&&!eligibleAfterLoss&&claimLookup&&claimLookup.status==='revoked'&&moderationFlow.brandScoped&&moderationFlow.organicAudience&&moderationFlow.paidAudience&&providerBoundary);
-  memory.appInstallations.delete(userId);memory.brandAccess.delete(userId);memory.brandFollows.delete(userId);memory.loyaltyClaims.delete(claimId);
+  memory.appInstallations.delete(userId);memory.brandAccess.delete(userId);memory.brandFollows.delete(userId);memory.loyaltyClaims.delete(claimId);memory.users.delete(userId);
   for(const channelId of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(userId,channelId));
   return {ok,eligibleBefore,eligibleAfterLoss,claimRevoked:claimLookup&&claimLookup.status==='revoked',providerBoundary,moderationFlow};
 }
@@ -843,6 +844,7 @@ async function runDeepSelfTest(){
   );
 
   const loyaltyUser='self_loyalty_'+crypto.randomBytes(4).toString('hex');
+  memory.users.set(loyaltyUser,{id:loyaltyUser,name:'Loyalty Self Test',role:'Visitor'});
   memory.appInstallations.set(loyaltyUser,{userId:loyaltyUser,installationId:'self_install',platform:'test',status:'active',installedAt:new Date().toISOString()});
   followSet(loyaltyUser).add('b1');
   const loyaltySince=new Date(Date.now()-35*86400000).toISOString();
@@ -864,6 +866,7 @@ async function runDeepSelfTest(){
   );
   memory.appInstallations.delete(loyaltyUser);
   memory.brandFollows.delete(loyaltyUser);
+  memory.users.delete(loyaltyUser);
   for(const channelId of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(loyaltyUser,channelId));
 
   const brand365=await runBrand365SelfTest();
