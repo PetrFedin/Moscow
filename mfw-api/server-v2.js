@@ -1088,6 +1088,33 @@ async function router(req,res){
     await track('loyalty_claim_issued',{offerId,claimId:id,rewardType:offer.rewardType},userId);
     return json(res,201,{data:{...claim,code}});
   }
+  if(req.method==='POST'&&p==='/v1/loyalty/redeem'){
+    const b=await readBody(req);
+    const code=String(b.code||'').trim();
+    if(!code)return json(res,400,{error:'claim_code_required'});
+    const hash=crypto.createHash('sha256').update(code).digest('hex');
+    const claim=[...memory.loyaltyClaims.values()].find(x=>x.claimTokenHash===hash);
+    if(!claim)return json(res,404,{error:'claim_not_found'});
+    const offer=memory.loyaltyOffers.find(x=>x.id===claim.offerId);
+    if(!offer)return json(res,404,{error:'offer_not_found'});
+    if(!brandPortalOk(req,offer.brandId)&&!adminOk(req))return json(res,403,{error:'brand_redemption_access_required'});
+    if(claim.status==='redeemed')return json(res,409,{error:'already_redeemed',redeemedAt:claim.redeemedAt});
+    if(claim.status==='revoked')return json(res,409,{error:'claim_revoked'});
+    if(claim.expiresAt&&Date.now()>=new Date(claim.expiresAt).getTime()){
+      claim.status='expired';
+      return json(res,409,{error:'claim_expired'});
+    }
+    const eligibility=evaluateLoyaltyOffer(claim.userId,offer);
+    if(!eligibility.eligible){
+      claim.status='revoked';
+      await track('loyalty_claim_revoked',{claimId:claim.id,offerId:offer.id,reason:'eligibility_lost'},claim.userId);
+      return json(res,409,{error:'eligibility_lost',eligibility});
+    }
+    claim.status='redeemed';claim.redeemedAt=new Date().toISOString();claim.redeemedBy=sessionFromRequest(req)?.sub||'admin';
+    await track('loyalty_claim_redeemed',{claimId:claim.id,offerId:offer.id,brandId:offer.brandId},claim.userId);
+    return json(res,200,{data:{id:claim.id,offerId:offer.id,status:claim.status,redeemedAt:claim.redeemedAt,rewardType:offer.rewardType,rewardValue:offer.rewardValue}});
+  }
+
   if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/content')){
     const brandId=p.split('/')[3];
     return json(res,200,{data:memory.brandPosts.filter(x=>x.brandId===brandId&&x.status==='published').sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt)))});
@@ -1446,6 +1473,39 @@ async function router(req,res){
         content:{posts:memory.brandPosts,recentInteractions:memory.contentInteractions.slice(-20).reverse()},
         providers:memory.socialProviderAdapters
       }});
+    }
+    if(req.method==='POST'&&p==='/v1/admin/social/reverify'){
+      const memberships=[...memory.socialMemberships.values()].filter(x=>x.status==='active');
+      const result={checked:0,active:0,inactive:0,skipped:0,errors:[]};
+      for(const membership of memberships.slice(0,250)){
+        const channel=memory.socialChannels.find(x=>x.id===membership.channelId);
+        if(!channel){result.skipped++;continue;}
+        try{
+          const verification=await verifyProviderMembership(membership.userId,channel);
+          if(!verification.ok){
+            result.skipped++;
+            result.errors.push({userId:membership.userId,channelId:channel.id,error:verification.error});
+            continue;
+          }
+          result.checked++;
+          const updated=applyMembershipObservation(membership.userId,channel,verification,null);
+          if(updated.status==='active')result.active++;else result.inactive++;
+          if(updated.status!=='active'){
+            for(const claim of memory.loyaltyClaims.values()){
+              if(claim.userId!==membership.userId||claim.status!=='issued')continue;
+              const offer=memory.loyaltyOffers.find(o=>o.id===claim.offerId);
+              if(offer&&!evaluateLoyaltyOffer(claim.userId,offer).eligible){
+                claim.status='revoked';
+                await track('loyalty_claim_revoked',{claimId:claim.id,offerId:offer.id,reason:'social_reverification_failed'},claim.userId);
+              }
+            }
+          }
+        }catch(err){
+          result.errors.push({userId:membership.userId,channelId:channel.id,error:String(err&&err.message||err)});
+        }
+      }
+      await track('social_reverification_batch',result);
+      return json(res,200,{data:result});
     }
     if(req.method==='POST'&&p==='/v1/admin/brand-content'){
       const b=await readBody(req);
