@@ -185,6 +185,11 @@ const memory={
   meetupMembers:new Map(),
   meetingProposals:new Map(),
   eventRegistrations:new Map(),
+  appInstallations:new Map(),
+  socialMemberships:new Map(),
+  brandFollows:new Map(),
+  loyaltyClaims:new Map(),
+  contentInteractions:[],
   analytics:[],
   events:[
     {id:'e1',season:'SS27',title:'MFW Opening Runway',type:'show',venue:'Manege Hall 1',startsAt:'2026-09-26T17:00:00+03:00',status:'live',accessMode:'open',capacity:500,checkedIn:428,waitlist:37,demo:true},
@@ -225,6 +230,51 @@ const memory={
     {id:'perk1',titleRu:'Priority lane',titleEn:'Priority lane',descRu:'Ускоренный проход для подтверждённых приглашений и VIP entitlement.',descEn:'Fast entry for confirmed invitations and VIP entitlement.',kind:'access',demo:true},
     {id:'perk2',titleRu:'Partner lounge',titleEn:'Partner lounge',descRu:'Доступ к партнёрской зоне для соответствующих credentials.',descEn:'Partner lounge access for eligible credentials.',kind:'partner',demo:true},
     {id:'perk3',titleRu:'Early registration',titleEn:'Early registration',descRu:'Ранний доступ к регистрации следующего сезона для активных участников.',descEn:'Early registration for the next season for active participants.',kind:'retention',demo:true}
+  ],
+  socialProviderAdapters:[
+    {platform:'telegram',status:'ready_for_credentials',verification:'current_membership_and_membership_events',dateAuthority:'provider_event_when_observed_else_first_verified_at'},
+    {platform:'vk',status:'ready_for_credentials',verification:'current_membership',dateAuthority:'first_verified_at_unless_provider_event_history_available'},
+    {platform:'instagram',status:'capability_not_assumed',verification:'manual_or_future_provider_capability',dateAuthority:'none'}
+  ],
+  socialChannels:[
+    {id:'sc_mfw_tg',ownerType:'mfw',brandId:null,platform:'telegram',externalChannelId:'mfw_telegram_demo',handle:'@moscowfashionweek',url:'https://t.me/moscowfashionweek',verificationMode:'membership_event',status:'active',demo:true},
+    {id:'sc_mfw_vk',ownerType:'mfw',brandId:null,platform:'vk',externalChannelId:'mfw_vk_demo',handle:'Moscow Fashion Week',url:'https://vk.com/moscowfashionweek',verificationMode:'api_current',status:'active',demo:true},
+    {id:'sc_b1_tg',ownerType:'brand',brandId:'b1',platform:'telegram',externalChannelId:'brand_b1_tg_demo',handle:'@mfw_new_01',url:'https://t.me/mfw_new_01',verificationMode:'membership_event',status:'active',demo:true},
+    {id:'sc_b1_vk',ownerType:'brand',brandId:'b1',platform:'vk',externalChannelId:'brand_b1_vk_demo',handle:'MFW / NEW 01',url:'https://vk.com/mfw_new_01',verificationMode:'api_current',status:'active',demo:true},
+    {id:'sc_b1_ig',ownerType:'brand',brandId:'b1',platform:'instagram',externalChannelId:'brand_b1_ig_demo',handle:'@mfw_new_01',url:'https://instagram.com/mfw_new_01',verificationMode:'unsupported',status:'paused',demo:true}
+  ],
+  loyaltyOffers:[
+    {
+      id:'lo1',brandId:'b1',titleRu:'−10% после месяца вместе с MFW',titleEn:'10% off after one month with MFW',
+      descriptionRu:'Установите приложение, зарегистрируйтесь и сохраняйте активную подписку на MFW и бренд не менее 30 дней.',
+      descriptionEn:'Install the app, register and keep verified MFW and brand social memberships active for at least 30 days.',
+      rewardType:'discount_percent',rewardValue:10,minContinuousDays:30,status:'published',stockLimit:1000,perUserLimit:1,
+      termsRu:'Скидка предоставляется брендом. MFW подтверждает выполнение цифровых условий; условия применения и исключения задаёт бренд.',
+      termsEn:'Discount is funded by the brand. MFW verifies digital eligibility; redemption terms and exclusions are set by the brand.',
+      requirements:[
+        {id:'rq1',type:'registered_user',required:true,minContinuousDays:0},
+        {id:'rq2',type:'app_installed',required:true,minContinuousDays:0},
+        {id:'rq3',type:'mfw_social_follow',channelId:'sc_mfw_tg',required:true,minContinuousDays:30},
+        {id:'rq4',type:'brand_social_follow',channelId:'sc_b1_tg',required:true,minContinuousDays:30}
+      ],demo:true
+    },
+    {
+      id:'lo2',brandId:'b1',titleRu:'Подарок от бренда за 45 дней',titleEn:'Brand gift after 45 days',
+      descriptionRu:'Для подписчиков бренда в MFW и подтверждённого Telegram-канала бренда.',
+      descriptionEn:'For MFW brand followers with a verified brand Telegram membership.',
+      rewardType:'gift',rewardValue:null,minContinuousDays:45,status:'published',stockLimit:100,perUserLimit:1,
+      termsRu:'Количество подарков ограничено. Получение подтверждается одноразовым кодом.',
+      termsEn:'Limited inventory. Redemption uses a one-time claim code.',
+      requirements:[
+        {id:'rq5',type:'brand_follow_in_mfw',required:true,minContinuousDays:0},
+        {id:'rq6',type:'brand_social_follow',channelId:'sc_b1_tg',required:true,minContinuousDays:45}
+      ],demo:true
+    }
+  ],
+  brandPosts:[
+    {id:'bp1',brandId:'b1',kind:'event',titleRu:'Закрытый примерочный день',titleEn:'Private fitting day',bodyRu:'Бренд приглашает подписчиков MFW на закрытый примерочный день в Москве.',bodyEn:'The brand invites MFW followers to a private fitting day in Moscow.',imageUrl:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',ctaLabelRu:'Записаться',ctaLabelEn:'Book',ctaUrl:'#brand-event',eventStartsAt:'2026-10-17T12:00:00+03:00',audienceScope:{kind:'brand_followers'},placementScope:['brand_profile','discover_feed'],isPaid:false,status:'published',publishedAt:'2026-09-26T08:00:00Z',demo:true},
+    {id:'bp2',brandId:'b1',kind:'launch',titleRu:'Новая капсула после MFW',titleEn:'New capsule after MFW',bodyRu:'Первый доступ к капсуле для аудитории бренда внутри MFW.',bodyEn:'Early access to the post-MFW capsule for the brand audience inside MFW.',imageUrl:'https://static.tildacdn.com/tild3633-6561-4664-b432-343062643365/2026-03-16_144258.jpg',ctaLabelRu:'Смотреть',ctaLabelEn:'View',ctaUrl:'#capsule',audienceScope:{kind:'brand_followers'},placementScope:['brand_profile','discover_feed'],isPaid:false,status:'published',publishedAt:'2026-09-25T12:00:00Z',demo:true},
+    {id:'bp3',brandId:'b1',kind:'campaign',titleRu:'MFW Select · бренд недели',titleEn:'MFW Select · Brand of the week',bodyRu:'Нативное платное размещение бренда для широкой аудитории MFW с прозрачной маркировкой.',bodyEn:'Native paid placement for the wider MFW audience with clear sponsorship labelling.',imageUrl:'https://static.tildacdn.com/tild3538-3661-4962-a431-363531303736/2026-03-15_215933.jpg',ctaLabelRu:'Открыть бренд',ctaLabelEn:'Open brand',ctaUrl:'#brand-b1',audienceScope:{kind:'all_mfw'},placementScope:['discover_feed','today'],isPaid:true,sponsorLabelRu:'Реклама бренда',sponsorLabelEn:'Brand promotion',status:'published',publishedAt:'2026-09-24T12:00:00Z',demo:true}
   ],
   pressKits:[
     {id:'pk_e1',eventId:'e1',title:'Opening Runway Press Kit',status:'published',releaseText:'MFW Opening Runway · investor demo press release',credits:'Moscow Fashion Week official published materials',contactEmail:'press-demo@mfw.local',assets:[
@@ -338,6 +388,47 @@ async function bootstrapDemoData(){
       ON CONFLICT(slug) DO UPDATE SET name=EXCLUDED.name,city=EXCLUDED.city,updated_at=now()`,
       [b.slug,b.name,b.city,JSON.stringify({segment:b.segment,demo:true})]);
   }
+}
+
+function daysSince(iso){
+  if(!iso)return 0;
+  const ms=Date.now()-new Date(iso).getTime();
+  if(!Number.isFinite(ms)||ms<0)return 0;
+  return Math.floor(ms/86400000);
+}
+function membershipKey(userId,channelId){return String(userId)+':'+String(channelId);}
+function followSet(userId){
+  const key=String(userId||'demo_user');
+  if(!memory.brandFollows.has(key))memory.brandFollows.set(key,new Set());
+  return memory.brandFollows.get(key);
+}
+function evaluateLoyaltyOffer(userId,offer){
+  const progress=(offer.requirements||[]).map(req=>{
+    let ok=false,currentDays=0,detail='';
+    if(req.type==='registered_user'){
+      ok=!!userId;detail='registered';
+    }else if(req.type==='app_installed'){
+      const install=memory.appInstallations.get(String(userId));
+      ok=!!(install&&install.status==='active');detail=install?'active_installation':'install_required';
+    }else if(req.type==='brand_follow_in_mfw'){
+      ok=followSet(userId).has(offer.brandId);detail=ok?'following_in_mfw':'follow_brand_in_mfw';
+    }else if(req.type==='mfw_social_follow'||req.type==='brand_social_follow'){
+      const membership=memory.socialMemberships.get(membershipKey(userId,req.channelId));
+      currentDays=membership&&membership.status==='active'?daysSince(membership.continuousSince):0;
+      ok=!!(membership&&membership.status==='active'&&currentDays>=Number(req.minContinuousDays||0));
+      detail=membership?membership.status:'verification_required';
+    }
+    return {...req,ok,currentDays,detail};
+  });
+  const eligible=progress.filter(x=>x.required!==false).every(x=>x.ok);
+  return {
+    offerId:offer.id,
+    userId:String(userId),
+    status:eligible?'eligible':'progress',
+    eligible,
+    progress,
+    evaluatedAt:new Date().toISOString()
+  };
 }
 
 async function track(name,props={},userId=null){
@@ -605,7 +696,7 @@ async function router(req,res){
   }});
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
-    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,localeAuthority:true,sponsorAuthority:true
+    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,loyalty365Authority:true,localeAuthority:true,sponsorAuthority:true
   });
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
@@ -783,6 +874,114 @@ async function router(req,res){
     const meeting=memory.meetings.get(proposal.meetingId);
     if(meeting){meeting.slot=proposal.proposedStartsAt;meeting.updatedAt=new Date().toISOString();}
     return json(res,200,{data:proposal,meeting});
+  }
+  if(req.method==='POST'&&p==='/v1/app/install'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const item={userId,installationId:String(b.installationId||('inst_'+crypto.randomBytes(6).toString('hex'))),platform:String(b.platform||'web'),status:'active',installedAt:new Date().toISOString(),demo:true};
+    memory.appInstallations.set(userId,item);
+    await track('app_installation_registered',{platform:item.platform},userId);
+    return json(res,201,{data:item});
+  }
+  if(req.method==='GET'&&p==='/v1/social/providers'){
+    return json(res,200,{data:memory.socialProviderAdapters});
+  }
+  if(req.method==='GET'&&p==='/v1/social/channels'){
+    const brandId=url.searchParams.get('brandId');
+    const data=memory.socialChannels.filter(x=>!brandId||x.brandId===brandId||x.ownerType==='mfw');
+    return json(res,200,{data});
+  }
+  if(req.method==='POST'&&p==='/v1/social/verify'){
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const channel=memory.socialChannels.find(x=>x.id===String(b.channelId||''));
+    if(!channel)return json(res,404,{error:'social_channel_not_found'});
+    if(channel.verificationMode==='unsupported')return json(res,409,{error:'verification_not_supported',platform:channel.platform});
+    const observedActive=b.observedActive!==false;
+    const key=membershipKey(userId,channel.id);
+    const prior=memory.socialMemberships.get(key)||null;
+    const now=new Date().toISOString();
+    const providerJoinedAt=(channel.verificationMode==='membership_event'&&b.providerJoinedAt)?new Date(b.providerJoinedAt).toISOString():null;
+    let continuousSince=null;
+    if(observedActive){
+      if(prior&&prior.status==='active')continuousSince=prior.continuousSince||prior.firstVerifiedAt||now;
+      else continuousSince=providerJoinedAt||now;
+    }
+    const membership={
+      id:prior?.id||('sm_'+crypto.randomBytes(6).toString('hex')),
+      userId,channelId:channel.id,platform:channel.platform,status:observedActive?'active':'inactive',
+      firstVerifiedAt:prior?.firstVerifiedAt||(observedActive?now:null),
+      providerJoinedAt:providerJoinedAt||prior?.providerJoinedAt||null,
+      continuousSince,
+      lastVerifiedAt:now,
+      lastLostAt:observedActive?(prior?.lastLostAt||null):now,
+      proofSource:channel.verificationMode,
+      demo:true
+    };
+    memory.socialMemberships.set(key,membership);
+    await track('social_membership_verified',{channelId:channel.id,platform:channel.platform,status:membership.status,verificationMode:channel.verificationMode},userId);
+    return json(res,200,{data:membership,channel});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/brands/')&&p.endsWith('/follow')){
+    const brandId=p.split('/')[3];
+    if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const set=followSet(userId);
+    const following=b.action==='remove'?false:true;
+    if(following)set.add(brandId);else set.delete(brandId);
+    await track(following?'brand_follow_365':'brand_unfollow_365',{brandId},userId);
+    return json(res,200,{following,brandId});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/loyalty')){
+    const brandId=p.split('/')[3];
+    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const offers=memory.loyaltyOffers.filter(x=>x.brandId===brandId&&x.status==='published').map(offer=>({
+      ...offer,
+      eligibility:evaluateLoyaltyOffer(userId,offer)
+    }));
+    const channels=memory.socialChannels.filter(x=>x.ownerType==='mfw'||x.brandId===brandId);
+    const memberships=channels.map(ch=>({channel:ch,membership:memory.socialMemberships.get(membershipKey(userId,ch.id))||null}));
+    return json(res,200,{data:{brandId,userId,followingInMfw:followSet(userId).has(brandId),offers,memberships,providers:memory.socialProviderAdapters}});
+  }
+  if(req.method==='POST'&&p.startsWith('/v1/loyalty/offers/')&&p.endsWith('/claim')){
+    const offerId=p.split('/')[4];
+    const offer=memory.loyaltyOffers.find(x=>x.id===offerId&&x.status==='published');
+    if(!offer)return json(res,404,{error:'offer_not_found'});
+    const b=await readBody(req);
+    const userId=String(b.userId||'demo_user');
+    const eligibility=evaluateLoyaltyOffer(userId,offer);
+    if(!eligibility.eligible)return json(res,409,{error:'not_eligible',eligibility});
+    const existing=[...memory.loyaltyClaims.values()].find(x=>x.userId===userId&&x.offerId===offerId&&['issued','redeemed'].includes(x.status));
+    if(existing)return json(res,200,{data:{...existing,code:undefined},alreadyIssued:true});
+    const code='MFW-'+String(offer.rewardType==='discount_percent'?offer.rewardValue:'GIFT')+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
+    const id='clm_'+crypto.randomBytes(6).toString('hex');
+    const claim={id,userId,offerId,claimTokenHash:crypto.createHash('sha256').update(code).digest('hex'),status:'issued',issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+7*86400000).toISOString(),demo:true};
+    memory.loyaltyClaims.set(id,claim);
+    await track('loyalty_claim_issued',{offerId,claimId:id,rewardType:offer.rewardType},userId);
+    return json(res,201,{data:{...claim,code}});
+  }
+  if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/content')){
+    const brandId=p.split('/')[3];
+    return json(res,200,{data:memory.brandPosts.filter(x=>x.brandId===brandId&&x.status==='published').sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt)))});
+  }
+  if(req.method==='GET'&&p==='/v1/feed'){
+    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const followed=followSet(userId);
+    const data=memory.brandPosts.filter(post=>{
+      if(post.status!=='published')return false;
+      const kind=post.audienceScope&&post.audienceScope.kind;
+      return kind==='all_mfw'||(kind==='brand_followers'&&followed.has(post.brandId));
+    }).sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt)));
+    return json(res,200,{data});
+  }
+  if(req.method==='POST'&&p==='/v1/content/interactions'){
+    const b=await readBody(req);
+    const item={id:'ci_'+crypto.randomBytes(6).toString('hex'),userId:String(b.userId||'anonymous'),postId:String(b.postId||''),type:String(b.type||'open'),occurredAt:new Date().toISOString(),demo:true};
+    memory.contentInteractions.push(item);
+    if(memory.contentInteractions.length>5000)memory.contentInteractions.shift();
+    await track('brand_content_'+item.type,{postId:item.postId},item.userId);
+    return json(res,201,{data:item});
   }
   if(req.method==='GET'&&p==='/v1/perks'){
     return json(res,200,{data:memory.perks});
@@ -1053,6 +1252,32 @@ async function router(req,res){
       memory.streamOutputs.filter(x=>x.streamId===stream.id&&x.outputType==='recording').forEach(x=>x.status='archived');
       await track('stream_archive_ready',{streamId:stream.id,replayId:replay.id});
       return json(res,200,{data:replay,stream});
+    }
+    if(req.method==='GET'&&p==='/v1/admin/brand-growth'){
+      const claims=[...memory.loyaltyClaims.values()];
+      const memberships=[...memory.socialMemberships.values()];
+      return json(res,200,{data:{
+        brands:memory.brands.map(brand=>({
+          id:brand.id,name:brand.name,
+          followers:[...memory.brandFollows.values()].reduce((n,set)=>n+(set.has(brand.id)?1:0),0),
+          publishedPosts:memory.brandPosts.filter(x=>x.brandId===brand.id&&x.status==='published').length,
+          activeOffers:memory.loyaltyOffers.filter(x=>x.brandId===brand.id&&x.status==='published').length,
+          issuedClaims:claims.filter(x=>memory.loyaltyOffers.find(o=>o.id===x.offerId&&o.brandId===brand.id)).length
+        })),
+        social:{channels:memory.socialChannels,membershipsVerified:memberships.length,activeMemberships:memberships.filter(x=>x.status==='active').length},
+        offers:memory.loyaltyOffers.map(o=>({id:o.id,brandId:o.brandId,titleRu:o.titleRu,titleEn:o.titleEn,rewardType:o.rewardType,rewardValue:o.rewardValue,status:o.status,requirements:o.requirements})),
+        content:{posts:memory.brandPosts,recentInteractions:memory.contentInteractions.slice(-20).reverse()},
+        providers:memory.socialProviderAdapters
+      }});
+    }
+    if(req.method==='POST'&&p==='/v1/admin/brand-content'){
+      const b=await readBody(req);
+      const brandId=String(b.brandId||'b1');
+      if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
+      const post={id:'bp_'+crypto.randomBytes(6).toString('hex'),brandId,kind:String(b.kind||'news'),titleRu:String(b.titleRu||'Новая публикация'),titleEn:String(b.titleEn||'New post'),bodyRu:String(b.bodyRu||''),bodyEn:String(b.bodyEn||''),imageUrl:String(b.imageUrl||''),ctaLabelRu:String(b.ctaLabelRu||'Открыть'),ctaLabelEn:String(b.ctaLabelEn||'Open'),ctaUrl:String(b.ctaUrl||'#'),audienceScope:b.audienceScope||{kind:'brand_followers'},placementScope:b.placementScope||['brand_profile'],isPaid:!!b.isPaid,sponsorLabelRu:b.isPaid?'Реклама бренда':null,sponsorLabelEn:b.isPaid?'Brand promotion':null,status:'published',publishedAt:new Date().toISOString(),demo:true};
+      memory.brandPosts.unshift(post);
+      await track('brand_content_published',{brandId,postId:post.id,isPaid:post.isPaid});
+      return json(res,201,{data:post});
     }
     if(req.method==='GET'&&p==='/v1/admin/sponsors'){
       const interactions=memory.sponsorInteractions;
