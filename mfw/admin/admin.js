@@ -205,6 +205,7 @@ function brand365Screen(){
       '<div class="brand365-note">'+T('Дата подписки не придумывается: provider timestamp → иначе first_verified_at MFW.','Subscription age is never invented: provider timestamp → otherwise MFW first_verified_at.')+'</div>'+
     '</div><div class="card"><div class="eyebrow">SOCIAL ADAPTERS</div><h2>'+T('Что реально можно проверить','What can actually be verified')+'</h2>'+
       (d.providers||[]).map(function(p){return '<div class="brand365-row"><div><b>'+esc(p.platform.toUpperCase())+'</b><span>'+esc(p.verification)+'</span></div><span class="badge '+(p.status==='ready_for_credentials'?'live':'wait')+'">'+esc(p.status)+'</span></div>';}).join('')+
+      '<div class="actions"><button class="btn" data-action="brand-social-reverify">'+T('Перепроверить подписки','Reverify memberships')+'</button></div>'+
     '</div></div>'+
     '<div class="columns"><div class="card"><div class="eyebrow">YEAR-ROUND CONTENT</div><h2>'+T('Контент бренда','Brand content')+'</h2>'+
       posts.slice(0,8).map(function(p){return '<div class="brand365-row"><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><span>'+esc(p.kind)+' · '+(p.isPaid?T('платное MFW-wide','paid MFW-wide'):T('органическое','organic'))+'</span></div><div>'+badge(p.status)+(p.status==='pending_review'?'<button class="btn primary small" data-action="brand-approve-post" data-id="'+esc(p.id)+'">'+T('Одобрить','Approve')+'</button>':'')+'</div></div>';}).join('')+
@@ -302,6 +303,7 @@ async function action(name,id){
     if(name==='brand-paid')await admin('/brand-content',{method:'POST',body:JSON.stringify({brandId:'b1',kind:'campaign',titleRu:'MFW Select · новая кампания',titleEn:'MFW Select · new campaign',bodyRu:'Платное нативное размещение для широкой аудитории MFW с обязательной маркировкой.',bodyEn:'Paid native placement for the wider MFW audience with mandatory labelling.',audienceScope:{kind:'all_mfw'},placementScope:['discover_feed','today'],isPaid:true})});
     if(name==='brand-approve-post')await admin('/brand-content/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'published',moderationNote:'Approved in MFW Admin'})});
     if(name==='brand-approve-offer')await admin('/loyalty-offers/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'published'})});
+    if(name==='brand-social-reverify')await admin('/social/reverify',{method:'POST',body:JSON.stringify({})});
     toast('Server action: '+name);
     await load();
   }catch(err){toast('Action failed: '+err.message);}
