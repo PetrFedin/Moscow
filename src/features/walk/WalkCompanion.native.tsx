@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Place } from '../../data/places';
-import type { AppLanguage } from '../../i18n';
+import { speechLocale, tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { playNarrationGuide, stopNarrationGuide, type AudioPlaybackMode } from '../audio/audioGuide';
 import { buildWalkAudioPlan } from '../audio/varvarkaAudioCatalog';
@@ -104,7 +104,7 @@ export default function WalkCompanion({
             setSpeaking(true);
             playNarrationGuide(
               audioPlan,
-              language === 'ru' ? 'ru-RU' : 'en-US',
+              speechLocale(language),
               () => {
                 if (!active) return;
                 setSpeaking(false);
@@ -150,7 +150,7 @@ export default function WalkCompanion({
     setSpeaking(true);
     playNarrationGuide(
       audioPlan,
-      language === 'ru' ? 'ru-RU' : 'en-US',
+      speechLocale(language),
       () => {
         setSpeaking(false);
         onAudioComplete?.(place.id, playbackModeRef.current);
@@ -168,25 +168,25 @@ export default function WalkCompanion({
   };
 
   const distanceLabel = distance == null
-    ? (language === 'ru' ? 'Ищем следующую точку…' : 'Finding the next stop…')
+    ? tr(language, 'Ищем следующую точку…', 'Finding the next stop…', '正在寻找下一站…')
     : distance <= TRIGGER_RADIUS_METERS
-      ? (language === 'ru' ? 'Вы у точки · рассказ запускается' : 'You are at the stop · audio starts')
+      ? tr(language, 'Вы у точки · рассказ запускается', 'You are at the stop · audio starts', '已到达本站 · 音频即将开始')
       : distance > 350
-        ? (language === 'ru' ? `До следующей точки ≈ ${Math.round(distance)} м · откройте карту` : `About ${Math.round(distance)} m to the next stop · open the map`)
-        : (language === 'ru' ? `До точки ≈ ${Math.round(distance)} м` : `About ${Math.round(distance)} m to the stop`);
+        ? tr(language, `До следующей точки ≈ ${Math.round(distance)} м · откройте карту`, `About ${Math.round(distance)} m to the next stop · open the map`, `距下一站约 ${Math.round(distance)} 米 · 打开地图`)
+        : tr(language, `До точки ≈ ${Math.round(distance)} м`, `About ${Math.round(distance)} m to the stop`, `距本站约 ${Math.round(distance)} 米`);
 
   return (
     <View style={styles.card}>
       <View style={styles.top}>
         <View style={styles.copy}>
-          <Text style={styles.kicker}>{language === 'ru' ? 'АУДИО · СМОТРИТЕ ПО СТОРОНАМ' : 'AUDIO · LOOK AROUND'}</Text>
-          <Text style={styles.title}>{language === 'ru' ? 'Телефон можно убрать в карман' : 'You can put the phone away'}</Text>
+          <Text style={styles.kicker}>{tr(language, 'АУДИО · СМОТРИТЕ ПО СТОРОНАМ', 'AUDIO · LOOK AROUND', '音频 · 抬头看看周围')}</Text>
+          <Text style={styles.title}>{tr(language, 'Телефон можно убрать в карман', 'You can put the phone away', '可以把手机收进口袋')}</Text>
         </View>
         <PhysicalPressable
           style={[styles.audio, speaking && styles.audioActive]}
           contentStyle={styles.center}
           onPress={toggleAudio}
-          accessibilityLabel={speaking ? (language === 'ru' ? 'Остановить аудиогид' : 'Stop audio guide') : (language === 'ru' ? 'Слушать остановку' : 'Listen to stop')}
+          accessibilityLabel={speaking ? tr(language, 'Остановить аудиогид', 'Stop audio guide', '停止音频导览') : tr(language, 'Слушать остановку', 'Listen to stop', '收听本站')}
         >
           <Text style={[styles.audioText, speaking && styles.audioTextActive]}>{speaking ? '■' : '▶'}</Text>
         </PhysicalPressable>
@@ -196,7 +196,7 @@ export default function WalkCompanion({
         <Text style={[styles.audioAuthorityText, playbackMode === 'recorded' && styles.audioAuthorityTextReady]}>
           {playbackMode === 'recorded'
             ? 'HUMAN MASTER · VERIFIED'
-            : (language === 'ru' ? 'TTS FALLBACK · ЗАПИСЬ ГОТОВИТСЯ' : 'TTS FALLBACK · RECORDING PENDING')}
+            : tr(language, 'TTS FALLBACK · ЗАПИСЬ ГОТОВИТСЯ', 'TTS FALLBACK · RECORDING PENDING', 'TTS备用 · 真人录音准备中')}
         </Text>
       </View>
 
@@ -210,13 +210,13 @@ export default function WalkCompanion({
           return next;
         })}
         accessibilityLabel={transcriptOpen
-          ? (language === 'ru' ? 'Скрыть текст аудиогида' : 'Hide audio transcript')
-          : (language === 'ru' ? 'Показать текст аудиогида' : 'Show audio transcript')}
+          ? tr(language, 'Скрыть текст аудиогида', 'Hide audio transcript', '隐藏音频文字')
+          : tr(language, 'Показать текст аудиогида', 'Show audio transcript', '显示音频文字')}
       >
         <Text style={styles.transcriptButtonText}>
           {transcriptOpen
-            ? (language === 'ru' ? 'Скрыть текст' : 'Hide transcript')
-            : (language === 'ru' ? 'Текст аудио' : 'Audio transcript')}
+            ? tr(language, 'Скрыть текст', 'Hide transcript', '隐藏文字')
+            : tr(language, 'Текст аудио', 'Audio transcript', '音频文字')}
         </Text>
       </PhysicalPressable>
       {transcriptOpen && (
@@ -229,41 +229,41 @@ export default function WalkCompanion({
         style={[styles.auto, autoEnabled && styles.autoActive]}
         contentStyle={styles.autoContent}
         onPress={() => onAutoEnabledChange(!autoEnabled)}
-        accessibilityLabel={autoEnabled ? (language === 'ru' ? 'Выключить автогид' : 'Disable automatic guide') : (language === 'ru' ? 'Включить автогид по геопозиции' : 'Enable location audio guide')}
+        accessibilityLabel={autoEnabled ? tr(language, 'Выключить автогид', 'Disable automatic guide', '关闭自动导览') : tr(language, 'Включить автогид по геопозиции', 'Enable location audio guide', '开启定位自动导览')}
       >
         <View style={styles.autoCopy}>
           <Text style={[styles.autoTitle, autoEnabled && styles.autoTitleActive]}>
-            {autoEnabled ? (language === 'ru' ? '● Автогид включён' : '● Auto guide on') : (language === 'ru' ? 'Автогид по геопозиции' : 'Location auto guide')}
+            {autoEnabled ? tr(language, '● Автогид включён', '● Auto guide on', '● 自动导览已开启') : tr(language, 'Автогид по геопозиции', 'Location auto guide', '定位自动导览')}
           </Text>
           <Text style={styles.autoBody}>
-            {autoEnabled ? distanceLabel : (language === 'ru' ? 'Рассказ запустится рядом с текущей остановкой.' : 'Audio will start when you reach the current stop.')}
+            {autoEnabled ? distanceLabel : tr(language, 'Рассказ запустится рядом с текущей остановкой.', 'Audio will start when you reach the current stop.', '到达当前站点附近后，音频会自动开始。')}
           </Text>
         </View>
       </PhysicalPressable>
 
       {permissionDenied && (
         <Text style={styles.warning}>
-          {language === 'ru' ? 'Геопозиция недоступна — используйте ручную кнопку аудио.' : 'Location is unavailable — use the manual audio button.'}
+          {tr(language, 'Геопозиция недоступна — используйте ручную кнопку аудио.', 'Location is unavailable — use the manual audio button.', '无法获取定位，请使用手动播放按钮。')}
         </Text>
       )}
 
       <View style={[styles.mission, missionDone && styles.missionDone]}>
-        <Text style={styles.missionKicker}>{language === 'ru' ? 'МИССИЯ НАБЛЮДЕНИЯ' : 'LOOKING MISSION'}</Text>
+        <Text style={styles.missionKicker}>{tr(language, 'МИССИЯ НАБЛЮДЕНИЯ', 'LOOKING MISSION', '观察任务')}</Text>
         <Text style={styles.missionText}>{mission.prompt}</Text>
         <PhysicalPressable
           style={[styles.missionButton, missionDone && styles.missionButtonDone]}
           contentStyle={styles.center}
           disabled={missionDone}
           onPress={() => onMissionComplete(mission.id)}
-          accessibilityLabel={missionDone ? (language === 'ru' ? 'Наблюдение выполнено' : 'Mission completed') : (language === 'ru' ? 'Я нашёл' : 'I found it')}
+          accessibilityLabel={missionDone ? tr(language, 'Наблюдение выполнено', 'Mission completed', '观察任务已完成') : tr(language, 'Я нашёл', 'I found it', '我找到了')}
         >
           <Text style={[styles.missionButtonText, missionDone && styles.missionButtonTextDone]}>
-            {missionDone ? (language === 'ru' ? '✓ Найдено' : '✓ Found') : (language === 'ru' ? 'Я нашёл' : 'I found it')}
+            {missionDone ? tr(language, '✓ Найдено', '✓ Found', '✓ 已找到') : tr(language, 'Я нашёл', 'I found it', '我找到了')}
           </Text>
         </PhysicalPressable>
       </View>
       <Text style={styles.privacy}>
-        {language === 'ru' ? 'Геопозиция используется только во время активной прогулки и не сохраняется.' : 'Location is used only during the active walk and is not stored.'}
+        {tr(language, 'Геопозиция используется только во время активной прогулки и не сохраняется.', 'Location is used only during the active walk and is not stored.', '定位仅在进行中的路线中使用，不会被保存。')}
       </Text>
     </View>
   );
