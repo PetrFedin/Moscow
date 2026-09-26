@@ -486,8 +486,30 @@
       '<div class="card premium-card"><div class="eyebrow">TOMORROW FOR YOU</div><div class="event-name">New Russian Names · 12:00</div><div class="sub">Рекомендация на основе сохранённых вами образов и брендов.</div><button class="action primary" data-action="toast" data-message="Добавлено в программу">Добавить на завтра</button></div>');
   }
 
+  function recordSponsorInteraction(type,placementId){
+    api('/v1/sponsor/interactions',{method:'POST',body:JSON.stringify({
+      campaignId:'cmp1',
+      placementId:placementId||'pl1',
+      userId:state.userId||'anonymous',
+      interactionType:type,
+      meta:{role:state.role,tab:state.tab}
+    })}).catch(function(){});
+  }
+
   function sponsorExperience(){
-    openSheet('<div class="sponsor-experience" style="background-image:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.9)),url('+VISUALS.backstage+')"><div class="eyebrow">NATIVE PARTNER EXPERIENCE · DEMO</div><h1>БРЕНД<br>ВНУТРИ<br>СОБЫТИЯ.</h1><p>Не баннер, а отдельный fashion experience: backstage story, challenge, lounge, gift, AR/try-on и измеримый переход к бренду.</p><div class="sponsor-metrics"><span>24.8K reach</span><span>6.1K opens</span><span>487 intent</span></div></div>');
+    recordSponsorInteraction('open','pl1');
+    openSheet('<div class="sponsor-experience" style="background-image:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.9)),url('+VISUALS.backstage+')"><div class="eyebrow">NATIVE PARTNER EXPERIENCE · DEMO</div><h1>БРЕНД<br>ВНУТРИ<br>СОБЫТИЯ.</h1><p>Не баннер, а отдельный fashion experience: backstage story, challenge, lounge, gift, AR/try-on и измеримый переход к бренду.</p><div class="sponsor-metrics"><span>24.8K reach</span><span>6.1K opens</span><span>487 intent</span></div><div class="action-row"><button class="action light" data-action="sponsor-challenge">Fashion challenge</button><button class="action primary" data-action="sponsor-cta">Открыть партнёра</button></div></div>');
+  }
+
+  function sponsorChallenge(){
+    recordSponsorInteraction('challenge_start','pl2');
+    openSheet('<div class="eyebrow">FASHION PASSPORT · PARTNER</div><h1 style="font-size:44px">BACKSTAGE<br>CHALLENGE</h1><div class="card premium-card"><div class="event-name">3 шага</div><div class="sub">Посмотрите backstage → сохраните look → откройте бренд-партнёр.</div><div class="action-row"><button class="action primary" data-action="sponsor-cta">Завершить challenge</button></div></div><div class="demo-note">В production reward может быть доступ в lounge, подарок, priority registration или digital collectible.</div>');
+  }
+
+  function sponsorCta(){
+    recordSponsorInteraction('cta_click','pl1');
+    toast('Partner intent recorded');
+    track('sponsor_cta',{campaignId:'cmp1'});
   }
 
   function notifications(){
@@ -830,6 +852,8 @@
       else if(a==='investor-tour')investorTour();
       else if(a==='post-show-recap')postShowRecap();
       else if(a==='sponsor-experience')sponsorExperience();
+      else if(a==='sponsor-challenge')sponsorChallenge();
+      else if(a==='sponsor-cta')sponsorCta();
       else if(a==='admin-console')openAdminConsole();
       else if(a==='admin-release')adminRelease();
       else if(a==='admin-push')adminPush();
