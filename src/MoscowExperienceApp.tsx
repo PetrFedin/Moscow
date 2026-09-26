@@ -864,6 +864,7 @@ export default function MoscowExperienceApp() {
 
       <Modal visible={modal === 'model'} animationType="fade" onRequestClose={() => setModal(null)}>
         <HistoricalModelViewer
+          language={language}
           initialEra={era}
           initialTrustMode={trustMode}
           onStateChange={(state) => { setEra(state.era); setTrustMode(state.trustMode); }}
