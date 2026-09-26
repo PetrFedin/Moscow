@@ -1,4 +1,4 @@
-export type VarvarkaAudioLocale = 'ru' | 'en';
+export type VarvarkaAudioLocale = 'ru' | 'en' | 'zh';
 export type VarvarkaAudioStatus = 'script-approved' | 'recording-pending' | 'production-ready';
 
 export type ProductionAudioMaster = {
