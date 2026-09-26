@@ -132,7 +132,7 @@ export function planDestinationJourney(
     .filter((entry) => entry.allRequiredCovered)
     .sort((a, b) =>
       b.score - a.score
-      || b.route.estimatedMinutes - a.route.estimatedMinutes
+      || a.route.estimatedMinutes - b.route.estimatedMinutes
       || a.index - b.index
     );
 
