@@ -1,4 +1,6 @@
 import { pilotRoute, places } from '../data/places.ts';
+import { placeEnglish } from '../data/places.en.ts';
+import { placeChinese } from '../data/places.zh.ts';
 import {
   validateDestinationPackage,
   type DestinationPackage,
@@ -37,16 +39,20 @@ export const moscowVarvarkaDestinationPackage: DestinationPackage = {
     scope: 'route-cluster',
     titleRu: 'Москва · Варварка — Зарядье',
     titleEn: 'Moscow · Varvarka — Zaryadye',
+    titleZh: '莫斯科 · 瓦尔瓦尔卡 — 扎里亚季耶',
     federalSubjectCode: '77',
     countryCode: 'RU'
   },
   publisher: 'Moscow in Time',
-  languages: ['ru', 'en'],
+  primaryLanguage: 'ru',
+  languages: ['ru', 'en', 'zh'],
   sources,
   nodes: places.map((place) => ({
     id: place.id,
     kind: 'heritage',
     titleRu: place.title,
+    titleEn: placeEnglish[place.id]?.title ?? place.title,
+    titleZh: placeChinese[place.id]?.title ?? place.title,
     latitude: place.latitude,
     longitude: place.longitude,
     durationMinutes: place.experienceMinutes,
@@ -63,6 +69,7 @@ export const moscowVarvarkaDestinationPackage: DestinationPackage = {
       id: 'varvarka-45',
       titleRu: 'Варварка во времени',
       titleEn: 'Varvarka Through Time',
+      titleZh: '瓦尔瓦尔卡时光之旅',
       nodeIds: [...pilotRoute.stopIds],
       estimatedMinutes: pilotRoute.durationMinutes,
       themes: ['история Москвы', 'архитектура', 'торговля', 'Зарядье'],

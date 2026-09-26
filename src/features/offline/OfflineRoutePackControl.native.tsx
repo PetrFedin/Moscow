@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import { pilotRoute } from '../../data/places';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import {
@@ -18,7 +18,6 @@ type PackState = 'checking' | 'missing' | 'ready' | 'stale' | 'downloading' | 'e
 export default function OfflineRoutePackControl({ language }: { language: AppLanguage }) {
   const [state, setState] = useState<PackState>('checking');
   const [error, setError] = useState<string | null>(null);
-  const ru = language === 'ru';
 
   const refresh = useCallback(async () => {
     setState('checking');
@@ -66,21 +65,19 @@ export default function OfflineRoutePackControl({ language }: { language: AppLan
   };
 
   const title = state === 'ready'
-    ? (ru ? 'Офлайн-пакет готов' : 'Offline pack ready')
+    ? tr(language, 'Офлайн-пакет готов', 'Offline pack ready', '离线包已准备好')
     : state === 'stale'
-      ? (ru ? 'Офлайн-пакет нужно обновить' : 'Offline pack needs an update')
-      : (ru ? 'Скачать Варварку офлайн' : 'Download Varvarka offline');
+      ? tr(language, 'Офлайн-пакет нужно обновить', 'Offline pack needs an update', '离线包需要更新')
+      : tr(language, 'Скачать Варварку офлайн', 'Download Varvarka offline', '下载瓦尔瓦尔卡离线包');
 
   return (
     <View style={styles.card}>
       <View style={styles.top}>
         <View style={styles.copy}>
-          <Text style={styles.kicker}>{ru ? 'ОФЛАЙН-МАРШРУТ' : 'OFFLINE ROUTE'}</Text>
+          <Text style={styles.kicker}>{tr(language, 'ОФЛАЙН-МАРШРУТ', 'OFFLINE ROUTE', '离线路线')}</Text>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>
-            {ru
-              ? 'GLB и исторические данные уже bundled; архив 1857 сохраняется локально для Time Lens.'
-              : 'GLB models and historical data are bundled; the 1857 archive is stored locally for Time Lens.'}
+            {tr(language, 'GLB и исторические данные уже bundled; архив 1857 сохраняется локально для Time Lens.', 'GLB models and historical data are bundled; the 1857 archive is stored locally for Time Lens.', 'GLB模型与历史数据已随应用提供；1857档案会本地保存供“时间之镜”使用。')}
           </Text>
         </View>
         {(state === 'checking' || state === 'downloading') && <ActivityIndicator color="#d7bb84" />}
@@ -88,9 +85,9 @@ export default function OfflineRoutePackControl({ language }: { language: AppLan
 
       {state === 'ready' ? (
         <View style={styles.actions}>
-          <View style={styles.readyBadge}><Text style={styles.readyText}>{ru ? 'ГОТОВО БЕЗ СЕТИ' : 'READY OFFLINE'}</Text></View>
+          <View style={styles.readyBadge}><Text style={styles.readyText}>{tr(language, 'ГОТОВО БЕЗ СЕТИ', 'READY OFFLINE', '可离线使用')}</Text></View>
           <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={remove}>
-            <Text style={styles.secondaryText}>{ru ? 'Удалить' : 'Remove'}</Text>
+            <Text style={styles.secondaryText}>{tr(language, 'Удалить', 'Remove', '删除')}</Text>
           </PhysicalPressable>
         </View>
       ) : (
@@ -103,15 +100,15 @@ export default function OfflineRoutePackControl({ language }: { language: AppLan
         >
           <Text style={styles.primaryText}>
             {state === 'downloading'
-              ? (ru ? 'Скачиваем…' : 'Downloading…')
+              ? tr(language, 'Скачиваем…', 'Downloading…', '正在下载…')
               : state === 'stale'
-                ? (ru ? 'Обновить пакет' : 'Update pack')
-                : (ru ? 'Скачать офлайн' : 'Download offline')}
+                ? tr(language, 'Обновить пакет', 'Update pack', '更新离线包')
+                : tr(language, 'Скачать офлайн', 'Download offline', '下载离线包')}
           </Text>
         </PhysicalPressable>
       )}
 
-      {error && <Text style={styles.error}>{ru ? 'Не удалось подготовить пакет: ' : 'Could not prepare pack: '}{error}</Text>}
+      {error && <Text style={styles.error}>{tr(language, 'Не удалось подготовить пакет: ', 'Could not prepare pack: ', '无法准备离线包：')}{error}</Text>}
     </View>
   );
 }

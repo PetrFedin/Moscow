@@ -1,4 +1,6 @@
+import type { AppLanguage } from '../i18n';
 import type { Place } from './places';
+import { placeChinese } from './places.zh.ts';
 
 export const placeEnglish: Record<string, Partial<Place>> = {
   'church-st-barbara': {
@@ -150,7 +152,8 @@ export const placeEnglish: Record<string, Partial<Place>> = {
   }
 };
 
-export function localizePlaces(places: Place[], language: 'ru' | 'en'): Place[] {
+export function localizePlaces(places: Place[], language: AppLanguage): Place[] {
   if (language === 'ru') return places;
-  return places.map((place) => ({ ...place, ...(placeEnglish[place.id] ?? {}) }));
+  const translations = language === 'zh' ? placeChinese : placeEnglish;
+  return places.map((place) => ({ ...place, ...(translations[place.id] ?? {}) }));
 }

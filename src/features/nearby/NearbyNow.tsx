@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { localizePlaces } from '../../data/places.en';
 import { places } from '../../data/places';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import type { TouristRoutePlan } from '../planning/touristPlanner';
 import {
@@ -20,7 +21,7 @@ type Props = {
 export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFreeWalk }: Props) {
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [state, setState] = useState<'idle' | 'locating' | 'ready' | 'denied' | 'error'>('idle');
-  const ru = language === 'ru';
+  const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
 
   const locate = () => {
     const geolocation = globalThis.navigator?.geolocation;
@@ -40,15 +41,15 @@ export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFr
   };
 
   const nearby = useMemo(
-    () => location ? rankNearbyPlaces(location, places, visitedIds).slice(0, 3) : [],
-    [location, visitedIds]
+    () => location ? rankNearbyPlaces(location, localizedPlaces, visitedIds).slice(0, 3) : [],
+    [localizedPlaces, location, visitedIds]
   );
 
   return (
     <View style={styles.card}>
-      <Text style={styles.kicker}>{ru ? 'РЯДОМ СЕЙЧАС' : 'NEARBY NOW'}</Text>
-      <Text style={styles.title}>{ru ? 'Начните с того, что действительно рядом' : 'Start with what is actually nearby'}</Text>
-      <Text style={styles.body}>{ru ? 'Браузер запросит геопозицию один раз. Координаты используются только для расчёта расстояния и не сохраняются.' : 'Your browser asks for location once. Coordinates are used only to calculate distance and are not stored.'}</Text>
+      <Text style={styles.kicker}>{tr(language, 'РЯДОМ СЕЙЧАС', 'NEARBY NOW', '附近')}</Text>
+      <Text style={styles.title}>{tr(language, 'Начните с того, что действительно рядом', 'Start with what is actually nearby', '从真正就在附近的地方开始')}</Text>
+      <Text style={styles.body}>{tr(language, 'Браузер запросит геопозицию один раз. Координаты используются только для расчёта расстояния и не сохраняются.', 'Your browser asks for location once. Coordinates are used only to calculate distance and are not stored.', '浏览器会请求一次定位权限。坐标仅用于计算距离，不会被保存。')}</Text>
 
       {state === 'ready' && nearby.length > 0 ? (
         <>
@@ -57,7 +58,7 @@ export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFr
               <PhysicalPressable key={item.place.id} style={styles.row} contentStyle={styles.rowContent} onPress={() => onOpenPlace(item.place.id)}>
                 <View style={styles.rowCopy}>
                   <Text style={styles.placeTitle}>{item.place.title}</Text>
-                  <Text style={styles.meta}>{Math.round(item.distanceMeters)} {ru ? 'м' : 'm'} · {item.visited ? (ru ? 'уже открыто' : 'seen') : (ru ? 'новое' : 'new')}</Text>
+                  <Text style={styles.meta}>{Math.round(item.distanceMeters)} {tr(language, 'м', 'm', '米')} · {item.visited ? tr(language, 'уже открыто', 'seen', '已探索') : tr(language, 'новое', 'new', '新地点')}</Text>
                 </View>
                 <Text style={styles.arrow}>›</Text>
               </PhysicalPressable>
@@ -67,19 +68,19 @@ export default function NearbyNow({ language, visitedIds, onOpenPlace, onStartFr
             style={styles.primary}
             contentStyle={styles.center}
             strong
-            onPress={() => location && onStartFreeWalk(buildNearbyWalkPlan(location, places, visitedIds, 45))}
-            accessibilityLabel={ru ? 'Начать свободную прогулку' : 'Start free walk'}
+            onPress={() => location && onStartFreeWalk(buildNearbyWalkPlan(location, localizedPlaces, visitedIds, 45))}
+            accessibilityLabel={tr(language, 'Начать свободную прогулку', 'Start free walk', '开始自由路线')}
           >
-            <Text style={styles.primaryText}>{ru ? 'Свободная прогулка отсюда' : 'Free walk from here'}</Text>
+            <Text style={styles.primaryText}>{tr(language, 'Свободная прогулка отсюда', 'Free walk from here', '从这里开始自由路线')}</Text>
           </PhysicalPressable>
         </>
       ) : (
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong disabled={state === 'locating'} onPress={locate} accessibilityLabel={ru ? 'Показать что рядом' : 'Show what is nearby'}>
-          {state === 'locating' ? <ActivityIndicator color="#17130d" /> : <Text style={styles.primaryText}>{ru ? 'Показать, что рядом' : 'Show what is nearby'}</Text>}
+        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong disabled={state === 'locating'} onPress={locate} accessibilityLabel={tr(language, 'Показать что рядом', 'Show what is nearby', '查看附近地点')}>
+          {state === 'locating' ? <ActivityIndicator color="#17130d" /> : <Text style={styles.primaryText}>{tr(language, 'Показать, что рядом', 'Show what is nearby', '查看附近地点')}</Text>}
         </PhysicalPressable>
       )}
-      {state === 'denied' && <Text style={styles.warning}>{ru ? 'Доступ к геопозиции не разрешён. Можно использовать обычный планировщик ниже.' : 'Location permission was not granted. Use the regular planner below.'}</Text>}
-      {state === 'error' && <Text style={styles.warning}>{ru ? 'Геопозиция недоступна в этом браузере. Обычный планировщик остаётся доступен.' : 'Location is unavailable in this browser. The regular planner still works.'}</Text>}
+      {state === 'denied' && <Text style={styles.warning}>{tr(language, 'Доступ к геопозиции не разрешён. Можно использовать обычный планировщик ниже.', 'Location permission was not granted. Use the regular planner below.', '未获得定位权限。你仍可使用下方的普通路线规划器。')}</Text>}
+      {state === 'error' && <Text style={styles.warning}>{tr(language, 'Геопозиция недоступна в этом браузере. Обычный планировщик остаётся доступен.', 'Location is unavailable in this browser. The regular planner still works.', '此浏览器无法获取定位。普通路线规划器仍可使用。')}</Text>}
     </View>
   );
 }

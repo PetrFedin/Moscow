@@ -22,6 +22,8 @@ test('Moscow Varvarka is a valid first generic DestinationPackage', () => {
   assert.equal(moscowVarvarkaDestinationPackageValidation.valid, true);
   assert.equal(moscowVarvarkaDestinationPackageValidation.publishable, true);
   assert.equal(moscowVarvarkaDestinationPackage.destination.countryCode, 'RU');
+  assert.equal(moscowVarvarkaDestinationPackage.primaryLanguage, 'ru');
+  assert.deepEqual(moscowVarvarkaDestinationPackage.languages, ['ru', 'en', 'zh']);
   assert.equal(moscowVarvarkaDestinationPackage.nodes.length, 5);
   assert.equal(moscowVarvarkaDestinationPackage.routes.length, 1);
   assert.equal(moscowVarvarkaDestinationPackage.commercialPlacements.length, 0);
@@ -45,12 +47,15 @@ test('a second Russian region can use the same contract without Moscow-specific 
       id: 'test-region',
       scope: 'region',
       titleRu: 'Тестовый регион',
+      titleEn: 'Test Region',
+      titleZh: '测试地区',
       federalSubjectCode: '00',
       countryCode: 'RU'
     },
     publisher: 'Regional DMO',
+    primaryLanguage: 'ru',
     publishedAt: '2026-09-26T12:00:00.000Z',
-    languages: ['ru'],
+    languages: ['ru', 'en', 'zh'],
     sources: [
       {
         id: 'official-tourism-source',
@@ -74,6 +79,8 @@ test('a second Russian region can use the same contract without Moscow-specific 
         id: 'heritage-1',
         kind: 'heritage',
         titleRu: 'Исторический объект',
+        titleEn: 'Heritage Site',
+        titleZh: '历史景点',
         latitude: 55,
         longitude: 40,
         durationMinutes: 30,
@@ -85,6 +92,8 @@ test('a second Russian region can use the same contract without Moscow-specific 
         id: 'food-1',
         kind: 'food',
         titleRu: 'Где поесть',
+        titleEn: 'Where to Eat',
+        titleZh: '用餐地点',
         latitude: 55.001,
         longitude: 40.001,
         durationMinutes: 60,
@@ -102,6 +111,8 @@ test('a second Russian region can use the same contract without Moscow-specific 
       {
         id: 'day-1',
         titleRu: 'Первый день',
+        titleEn: 'Day One',
+        titleZh: '第一天',
         nodeIds: ['heritage-1', 'food-1'],
         estimatedMinutes: 120,
         themes: ['история', 'еда'],
@@ -193,4 +204,19 @@ test('destination package survives validated serialization roundtrip', () => {
   const raw = serializeDestinationPackage(moscowVarvarkaDestinationPackage);
   const restored = parseDestinationPackage(raw);
   assert.deepEqual(restored, moscowVarvarkaDestinationPackage);
+});
+
+
+test('missing Chinese localization blocks public destination publication', () => {
+  const pkg = clone(moscowVarvarkaDestinationPackage);
+  pkg.languages = ['ru', 'en'];
+  pkg.destination.titleZh = undefined;
+  pkg.nodes[0]!.titleZh = undefined;
+
+  const validation = validateDestinationPackage(pkg);
+  assert.equal(validation.valid, true);
+  assert.equal(validation.publishable, false);
+  assert.ok(validation.publicationBlockers.includes('chinese-localization-missing'));
+  assert.ok(validation.publicationBlockers.includes('destination-title-zh-missing'));
+  assert.ok(validation.publicationBlockers.includes(`node-title-zh-missing:${pkg.nodes[0]!.id}`));
 });

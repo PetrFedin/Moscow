@@ -61,6 +61,26 @@ const labels = {
       'lost-city': 'Lost Moscow',
       nearby: 'Nearby now'
     }
+  },
+  zh: {
+    kicker: '为我定制路线',
+    title: '你有多少时间？最想看什么？',
+    body: '根据你的兴趣和时间生成紧凑路线，而不是强制走完所有站点。',
+    time: '时间',
+    interest: '兴趣',
+    minutes: '分钟',
+    stops: '站',
+    start: '开始路线',
+    savedHint: '如果时间允许，已收藏地点会优先纳入路线。',
+    estimate: '在接入权威步行路线数据前的时间估算',
+    route: '路线',
+    interestLabels: {
+      highlights: '精选',
+      architecture: '建筑',
+      trade: '商贸与商人莫斯科',
+      'lost-city': '消失的莫斯科',
+      nearby: '附近'
+    }
   }
 } as const;
 

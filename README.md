@@ -89,6 +89,7 @@ Reference primitives:
 - `docs/GOVERNMENT_PILOT_ACCEPTANCE.md`
 - `docs/NATIONAL_TOURISM_PLATFORM.md`
 - `docs/GOVERNMENT_SCALE_AND_FUNDING.md`
+- `docs/LOCALIZATION_AUTHORITY.md`
 
 
 ## Текущая продуктовая фаза
@@ -109,3 +110,12 @@ Reference primitives:
 Москва является первым reference destination, а не жёстко зашитой границей продукта. Общий `DestinationPackage` описывает региональные туристические сущности, маршруты, booking handoff и явно маркированные коммерческие размещения. В текущем reference package опубликованы только уже source-backed точки Варварки; рестораны, live events, гостиницы и бронирование не подменяются демонстрационными данными до подключения authority providers.
 
 Целевая последовательность: `Moscow proof → Moscow destination journey → external region → interregional route → federal interoperability`. Федеральная стратегия не предполагает дублировать Russpass или «Путешествуем.рф»; продукт развивает live journey + historical immersion layer и должен интегрироваться с существующей туристической инфраструктурой.
+
+
+## Языки
+
+Публичный продукт имеет три обязательные локали: `ru`, `en`, `zh`.
+
+**Русский — master/default и основной редакционный язык.** English и 中文 обязательны для публичной публикации destination. `DestinationPackage` не получает publishable status без полной EN/ZH локализации, а перевод не может менять provenance, trust-classification, rights или field-verification state.
+
+Human audio master проверяется отдельно для каждой обязательной локали; TTS остаётся функциональным fallback, а не подменой production recording.
