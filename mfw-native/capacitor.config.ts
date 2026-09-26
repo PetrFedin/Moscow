@@ -6,7 +6,6 @@ const config: CapacitorConfig = {
   appId: 'com.mfw.investor.demo',
   appName: 'Moscow Fashion Week',
   webDir: '../mfw',
-  bundledWebRuntime: false,
   ios: {
     contentInset: 'automatic',
     scrollEnabled: true,
