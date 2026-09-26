@@ -52,12 +52,11 @@ export const moscowVarvarkaDestinationPackage: DestinationPackage = {
     durationMinutes: place.experienceMinutes,
     tags: [...place.tags],
     sourceIds: place.sources.map((_, index) => sourceId(place.id, index)),
-    heritagePackageId:
-      place.id === 'romanov-chambers'
-        ? 'moscow-romanov-chambers-spatial-v1'
-        : place.id === 'old-english-court'
-          ? 'moscow-old-english-court-spatial-v1'
-          : undefined
+    ...(place.id === 'romanov-chambers'
+      ? { heritagePackageId: 'moscow-romanov-chambers-spatial-v1' }
+      : place.id === 'old-english-court'
+        ? { heritagePackageId: 'moscow-old-english-court-spatial-v1' }
+        : {})
   })),
   routes: [
     {
