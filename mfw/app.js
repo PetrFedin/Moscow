@@ -1031,16 +1031,17 @@
     return !!((window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative())||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true);
   }
 
-  async function registerLoyaltyInstall(forceDemo){
+  async function registerLoyaltyInstall(forceDemo,silent){
     if(!forceDemo&&!isStandaloneApp()){
-      toast(T('Для этого условия откройте установленное приложение MFW','Open the installed MFW app to satisfy this condition'));
+      if(!silent)toast(T('Для этого условия откройте установленное приложение MFW','Open the installed MFW app to satisfy this condition'));
       return false;
     }
     try{
-      await api('/v1/app/install',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',platform:(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative())?'ios':(forceDemo?'investor_demo':'pwa'),installationId:'mfw-'+(state.userId||'demo')})});
-      toast(T('Установка приложения подтверждена','App installation confirmed'));
+      var token=state.session||await ensureServerSession(state.role);
+      await api('/v1/app/install',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({platform:(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative())?'ios':(forceDemo?'investor_demo':'pwa'),installationId:'mfw-'+(state.userId||'demo')})});
+      if(!silent)toast(T('Установка приложения подтверждена','App installation confirmed'));
       return true;
-    }catch(_){toast(T('Не удалось подтвердить установку','Could not confirm installation'));return false;}
+    }catch(_){if(!silent)toast(T('Не удалось подтвердить установку','Could not confirm installation'));return false;}
   }
 
   async function openBrandLoyalty(brandId){
@@ -1258,6 +1259,7 @@
     state.onboarding=true;
     localStorage.setItem('mfwOnboarded','1');
     persist();
+    if(state.authStatus==='server'&&isStandaloneApp())await registerLoyaltyInstall(false,true);
     render();
     toast(state.authStatus==='server'?'MFW ID создан сервером':'MFW ID создан локально · API warming');
     track('onboarding_completed',{role:state.role,authority:state.authStatus});
