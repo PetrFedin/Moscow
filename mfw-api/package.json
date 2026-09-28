@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server-v2.js",
     "check": "node --check server-v2.js",
-    "migrate": "node migrate.js"
+    "migrate": "node migrate.js",
+    "reverify:social": "node reverify-social.js",
+    "check:foundation": "node --check server-v2.js && node --check brand365-store.js && node --check social-providers.js && node --check reverify-social.js"
   },
   "dependencies": {
     "pg": "^8.16.3",
