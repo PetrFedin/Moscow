@@ -196,12 +196,14 @@ function brand365Screen(){
   var b=(d.brands||[])[0]||{name:'MFW / NEW 01',followers:0,publishedPosts:0,activeOffers:0,issuedClaims:0};
   var offers=d.offers||[];
   var posts=(d.content&&d.content.posts)||[];
-  var h=state.health||{},sp=h.socialProviders||{},tg=sp.telegram||{},vk=sp.vk||{},persist=h.brand365Persistence||{},rev=h.reverification||{};
+  var h=state.health||{},sp=h.socialProviders||{},tg=sp.telegram||{},vk=sp.vk||{},persist=h.brand365Persistence||{},schema=h.databaseSchema||{},guard=h.productionGuard||{},rev=h.reverification||{};
   function readyRow(label,ok,detail){
     return '<div class="foundation-row"><div><b>'+label+'</b><span>'+esc(detail||'')+'</span></div><span class="badge '+(ok?'live':'wait')+'">'+(ok?'ACTIVE':'DEPENDENCY')+'</span></div>';
   }
   var foundation='<div class="card foundation-card"><div class="eyebrow">PRODUCTION FOUNDATION</div><h2>'+T('Что реально подключено сейчас','What is actually connected now')+'</h2>'+
     readyRow('PostgreSQL',!!persist.configured,persist.configured?T('authoritative persistence','authoritative persistence'):T('memory demo · отдельная MFW DB ещё нужна','memory demo · dedicated MFW DB still required'))+
+    readyRow('Schema contract',!!schema.ready,schema.ready?((schema.migrations||[]).length+' migrations · ready'):((schema.contractErrors||[])[0]||T('ждёт PostgreSQL','waiting for PostgreSQL')))+
+    readyRow('Production guard',!!guard.satisfied,(guard.requirePostgres?T('PostgreSQL обязателен','PostgreSQL required'):T('demo fallback разрешён','demo fallback allowed')))+
     readyRow('Telegram Login',!!tg.loginConfigured,'OIDC + PKCE')+
     readyRow('Telegram Membership',!!tg.membershipConfigured,'Bot API getChatMember')+
     readyRow('Telegram Webhook',!!tg.webhookSecretConfigured,T('membership events','membership events'))+
