@@ -25,6 +25,7 @@ const bfsHtml=fs.readFileSync(path.join(root,'bfs/index.html'),'utf8');
  ['investor action',html,'id="investorBtn"'],
  ['value action',html,'id="valueBtn"'],
  ['profile form',html,'id="profileForm"'],
+ ['registration role explanation',html,'id="registrationRoleNote"'],
  ['event registration form',html,'id="registrationForm"'],
  ['BFS today',bfsHtml,'data-view="today"'],
  ['BFS programme',bfsHtml,'data-view="programme"'],
@@ -45,6 +46,6 @@ console.log('dual-event interaction contract: PASS');
 
 const mfw=fs.readFileSync(path.resolve('mfw/app.js'),'utf8');
 const mfwCss=fs.readFileSync(path.resolve('mfw/styles.css'),'utf8');
-['favorite-brand','mfwFavoriteBrands','brand-loyalty','loyalty-follow-brand'].forEach(x=>{if(!mfw.includes(x))throw new Error('MFW loyalty/favorite contract missing: '+x)});
+['favorite-brand','mfwFavoriteBrands','brand-loyalty','loyalty-follow-brand','Slava Zaitsev','Ianis Chamalidy','Анна Горбунова'].forEach(x=>{if(!mfw.includes(x))throw new Error('MFW loyalty/favorite contract missing: '+x)});
 ['z-index:9999','visibility:visible!important','100dvh'].forEach(x=>{if(!mfwCss.includes(x))throw new Error('MFW mobile nav hardening missing: '+x)});
 console.log('MFW navigation + loyalty contract: PASS');
