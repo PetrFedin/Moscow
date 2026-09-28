@@ -10,6 +10,7 @@ import {
 import PhysicalPressable from '../ui/PhysicalPressable';
 import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
 import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
+import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollaborationCharterPanel';
 import {
   getGovernmentPilotReadiness,
   governmentPilotOffer,
@@ -280,6 +281,8 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
               body="Нужны конкретные ресурсы, доступы и формальный контур пилота."
             />
             <NumberedCard items={governmentPilotOffer.cityAsk} />
+
+            <GovernmentPilotCollaborationCharterPanel />
 
             <View style={styles.statement}>
               <Text style={styles.statementKicker}>ФОРМУЛА ПЕРВОЙ ВСТРЕЧИ</Text>
