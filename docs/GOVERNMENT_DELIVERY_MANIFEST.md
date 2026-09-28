@@ -41,9 +41,12 @@ Adds:
 - funding/scale playbook;
 - executive one-pager.
 
-Current blocker:
+Current state:
 
-- executive one-pager is not yet a formal deliverable.
+- executive one-pager content authority is ready;
+- CITY PILOT and methodology/acceptance are ready.
+
+Therefore the formal introductory meeting pack is ready at repository/content level.
 
 ### 3. Technical pilot approval pack
 
@@ -154,15 +157,15 @@ The command outputs:
 
 ## Current expected state
 
-The current project should report approximately:
+After the formal pack completion, the project should report:
 
 - demo conversation — ready;
-- formal intro pack — blocked;
-- technical pilot approval — blocked;
-- verified pilot report — blocked;
-- scale/investment decision — blocked;
-- federal expansion — blocked.
+- formal intro pack — ready;
+- technical pilot approval pack — ready at repository/content level;
+- verified pilot report — blocked by real external evidence;
+- scale/investment decision — blocked by real proof/governance/economics;
+- federal expansion — blocked by Moscow decision readiness and first external region proof.
 
-That is a desirable state before the real pilot.
+The remaining missing formal artifact is the actual 10–12 slide decision deck.
 
-It means the demo/productization layer is useful without falsifying external proof.
+Technical pack readiness still does not equal buyer approval. The buyer's IT/security/legal/procurement review remains a real external decision.

@@ -77,24 +77,17 @@ function completeInvestmentEvidence(): PilotInvestmentEvidence {
   };
 }
 
-test('current package is demo-ready but not falsely approval or investment ready', () => {
+test('current formal package is ready for intro and technical pilot approval but not verified or investment ready', () => {
   const readiness = evaluateGovernmentDeliveryReadiness();
   const byId = new Map(readiness.stages.map((stage) => [stage.id, stage]));
 
   assert.equal(byId.get('demo')?.ready, true);
-  assert.equal(byId.get('intro-pack')?.ready, false);
-  assert.deepEqual(
-    byId.get('intro-pack')?.artifactBlockers,
-    ['executive-one-pager']
-  );
+  assert.equal(byId.get('intro-pack')?.ready, true);
+  assert.deepEqual(byId.get('intro-pack')?.artifactBlockers, []);
 
-  assert.equal(byId.get('technical-pilot-approval')?.ready, false);
-  assert.ok(
-    byId.get('technical-pilot-approval')?.artifactBlockers.includes('security-data-flow')
-  );
-  assert.ok(
-    byId.get('technical-pilot-approval')?.artifactBlockers.includes('operations-sla')
-  );
+  assert.equal(byId.get('technical-pilot-approval')?.ready, true);
+  assert.deepEqual(byId.get('technical-pilot-approval')?.artifactBlockers, []);
+  assert.deepEqual(byId.get('technical-pilot-approval')?.evidenceBlockers, []);
 
   assert.equal(byId.get('verified-pilot-report')?.ready, false);
   assert.ok(
@@ -172,12 +165,15 @@ test('manifest rejects ready artifacts without inspectable references', () => {
   );
 });
 
-test('current manifest explicitly distinguishes ready, draft and missing artifacts', () => {
+test('current manifest leaves only the real decision deck artifact missing', () => {
   const readiness = evaluateGovernmentDeliveryReadiness();
 
-  assert.ok(readiness.readyArtifactCount > 0);
-  assert.ok(readiness.draftArtifactCount > 0);
-  assert.ok(readiness.missingArtifactCount > 0);
+  assert.equal(readiness.draftArtifactCount, 0);
+  assert.equal(readiness.missingArtifactCount, 1);
+  assert.equal(
+    readiness.artifacts.find((artifact) => artifact.status === 'missing')?.id,
+    'decision-deck'
+  );
   assert.equal(
     readiness.readyArtifactCount
       + readiness.draftArtifactCount
