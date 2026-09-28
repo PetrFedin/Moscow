@@ -49,3 +49,21 @@ Do not claim that:
 3. On-site test on Varvarka across several supported iOS/Android devices.
 4. Historical expert acceptance of public-visible reconstructed geometry.
 5. Quest/Meta setup and device validation for the VR branch.
+
+
+## Separate CITY PILOT demo
+
+`WOW DEMO` отвечает на вопрос: **что почувствует пользователь?**
+
+Для разговора с городом и инвестором в том же demo shell существует отдельный `CITY PILOT` flow.
+
+Он отвечает на другие вопросы:
+
+- что именно предлагается Москве;
+- какие software authorities уже реализованы;
+- какие physical / user / partner gates ещё не закрыты;
+- что требуется от города для первого пилота;
+- какие механизмы финансирования не следует смешивать;
+- как выглядит масштаб `Варварка → Москва → первый регион → федеральный слой`.
+
+См. `docs/GOVERNMENT_INVESTOR_DEMO_2026.md`.
