@@ -63,3 +63,9 @@ if(!rootHtml.includes('./platform/index.html'))throw new Error('Root does not op
 if(!platformJs.includes("../mfw/index.html"))throw new Error('Platform does not route to dedicated MFW experience');
 if(!mfwDedicated.includes('../styles.css?v=15')||!mfwDedicated.includes('../app.js?v=15'))throw new Error('Dedicated MFW assets are not preserved');
 console.log('dedicated MFW route contract: PASS');
+
+const appSource=fs.readFileSync(path.join(root,'..','app.js'),'utf8');
+if(appSource.includes("favoriteBrands.indexOf(b.id)>=0;\\n"))throw new Error('MFW app contains escaped-newline syntax defect');
+const platformCss=fs.readFileSync(path.join(root,'platform.css'),'utf8');
+if(!platformCss.includes('body:not(.bfs-mode) .hub-card')||!platformCss.includes('#c8ff00'))throw new Error('MFW contextual platform theme missing');
+console.log('MFW runtime + contextual theme regression contract: PASS');
