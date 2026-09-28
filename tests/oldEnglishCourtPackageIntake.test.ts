@@ -73,7 +73,7 @@ test('Old English Court intake is structurally valid while promotion stays hones
   );
 });
 
-test('Old English Court intake reuses the existing bilingual place history instead of duplicating another narrative', () => {
+test('Old English Court intake reuses the existing RU EN ZH place history instead of duplicating another narrative', () => {
   const place = places.find((item) => item.id === 'old-english-court');
   assert.ok(place);
 
@@ -85,6 +85,14 @@ test('Old English Court intake reuses the existing bilingual place history inste
   assert.deepEqual(
     oldEnglishCourtPackageIntake.layers.map((layer) => layer.claimRu),
     place.periods.map((period) => period.summary)
+  );
+  assert.deepEqual(oldEnglishCourtPackageIntake.languages, ['ru', 'en', 'zh']);
+  assert.equal(oldEnglishCourtPackageIntake.titleZh, '老英国商馆');
+  assert.equal(
+    oldEnglishCourtPackageIntake.layers.every((layer) =>
+      layer.titleZh.trim().length > 0 && layer.claimZh.trim().length > 0
+    ),
+    true
   );
   assert.deepEqual(
     oldEnglishCourtPackageIntake.layers.map((layer) => layer.trust),
@@ -197,4 +205,18 @@ test('intake validator rejects a ready promotion requirement with no evidence re
   const validation = validateSpatialPackageIntake(tampered);
   assert.equal(validation.valid, false);
   assert.ok(validation.blockers.includes('ready-requirement-evidence-missing:oec-metric-authority'));
+});
+
+
+test('Old English Court intake rejects missing Chinese localization', () => {
+  const tampered = structuredClone(oldEnglishCourtPackageIntake);
+  tampered.languages = ['ru', 'en'];
+  tampered.titleZh = '';
+  tampered.layers[0]!.claimZh = '';
+
+  const validation = validateSpatialPackageIntake(tampered);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('title-zh-missing'));
+  assert.ok(validation.blockers.includes('chinese-localization-missing'));
+  assert.ok(validation.blockers.includes(`layer-claim-zh-missing:${tampered.layers[0]!.id}`));
 });
