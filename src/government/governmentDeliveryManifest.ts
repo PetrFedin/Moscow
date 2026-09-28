@@ -140,8 +140,11 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
       id: 'technical-specification',
       title: 'Consolidated pilot technical specification',
       status: 'ready',
-      refs: ['docs/GOVERNMENT_PILOT_TECHNICAL_SPECIFICATION.md'],
-      note: 'Consolidates bounded scope, responsibilities, interfaces, evidence and acceptance for buyer review.'
+      refs: [
+        'docs/GOVERNMENT_PILOT_TECHNICAL_SPECIFICATION.md',
+        'docs/GOVERNMENT_PILOT_COLLABORATION_CHARTER.md'
+      ],
+      note: 'Consolidates bounded scope, responsibilities, collaboration roles, interfaces, evidence and acceptance for buyer review.'
     },
     {
       id: 'architecture-integration',
