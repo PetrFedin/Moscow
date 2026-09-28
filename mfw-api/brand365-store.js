@@ -647,6 +647,161 @@ class Brand365Store{
     return result;
   }
 
+
+  async followerCount(brandRef){
+    if(!this.pool){
+      return [...this.memory.brandFollows.values()].reduce((n,set)=>n+(set.has(String(brandRef))?1:0),0);
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return 0;
+    const r=await this.pool.query('SELECT count(*)::int n FROM brand_follows WHERE brand_id=$1',[brand.storageId]);
+    return Number(r.rows[0].n||0);
+  }
+
+  async claimsForBrand(brandRef){
+    if(!this.pool){
+      const offerIds=new Set(this.memory.loyaltyOffers.filter(x=>x.brandId===String(brandRef)).map(x=>x.id));
+      return [...this.memory.loyaltyClaims.values()].filter(x=>offerIds.has(x.offerId));
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return [];
+    const r=await this.pool.query(`SELECT c.*,o.external_key offer_external_key,o.reward_type,o.reward_value
+      FROM loyalty_claims c JOIN loyalty_offers o ON o.id=c.offer_id
+      WHERE o.brand_id=$1 ORDER BY c.issued_at DESC`,[brand.storageId]);
+    return r.rows.map(x=>({id:String(x.id),userId:String(x.user_id),offerId:x.offer_external_key||String(x.offer_id),status:x.status,issuedAt:x.issued_at,expiresAt:x.expires_at,redeemedAt:x.redeemed_at,rewardType:x.reward_type,rewardValue:x.reward_value==null?null:Number(x.reward_value)}));
+  }
+
+  async moderatePost(postRef,status,note){
+    if(!this.pool){
+      const p=this.memory.brandPosts.find(x=>x.id===String(postRef));if(!p)return null;
+      p.status=status||p.status;if(p.status==='published'&&!p.publishedAt)p.publishedAt=new Date().toISOString();
+      p.moderationNote=String(note||p.moderationNote||'');return p;
+    }
+    const r=await this.pool.query(`UPDATE brand_content_posts SET
+      status=COALESCE($2,status),
+      moderation_note=COALESCE(NULLIF($3,''),moderation_note),
+      published_at=CASE WHEN COALESCE($2,status)='published' THEN COALESCE(published_at,now()) ELSE published_at END,
+      updated_at=now()
+      WHERE external_key=$1 OR id::text=$1
+      RETURNING *`,[String(postRef),status||null,String(note||'')]);
+    if(!r.rowCount)return null;
+    const b=await this.pool.query('SELECT external_key,slug FROM brands WHERE id=$1',[r.rows[0].brand_id]);
+    return camelPost({...r.rows[0],brand_external_key:b.rows[0]&&b.rows[0].external_key,brand_slug:b.rows[0]&&b.rows[0].slug});
+  }
+
+  async moderateOffer(offerRef,status){
+    if(!this.pool){
+      const o=this.memory.loyaltyOffers.find(x=>x.id===String(offerRef));if(!o)return null;o.status=status||o.status;return o;
+    }
+    const r=await this.pool.query(`UPDATE loyalty_offers SET status=COALESCE($2,status),updated_at=now()
+      WHERE external_key=$1 OR id::text=$1 RETURNING external_key,id`,[String(offerRef),status||null]);
+    if(!r.rowCount)return null;
+    return this.offerByRef(r.rows[0].external_key||String(r.rows[0].id));
+  }
+
+  async brandPushCount(brandRef,days=7){
+    if(!this.pool){
+      const cutoff=Date.now()-Number(days)*86400000;
+      return this.memory.notifications.filter(n=>n.category==='brand_news'&&n.brandId===String(brandRef)&&['scheduled','sent'].includes(n.status)&&new Date(n.createdAt||n.sentAt||0).getTime()>=cutoff).length;
+    }
+    const r=await this.pool.query(`SELECT count(*)::int n FROM notifications
+      WHERE category='brand_news'
+        AND COALESCE(payload->>'brandRef','')=$1
+        AND status IN ('scheduled','sending','sent')
+        AND created_at>=now()-($2::text||' days')::interval`,[String(brandRef),String(Number(days))]);
+    return Number(r.rows[0].n||0);
+  }
+
+  async createBrandPush(brandRef,postRef){
+    if(!this.pool)return null;
+    const brand=await this.brandByRef(brandRef);if(!brand)return null;
+    const p=await this.pool.query(`SELECT * FROM brand_content_posts
+      WHERE brand_id=$1 AND (external_key=$2 OR id::text=$2) LIMIT 1`,[brand.storageId,String(postRef)]);
+    if(!p.rowCount)return {error:'post_not_found'};
+    const post=camelPost({...p.rows[0],brand_external_key:brand.id,brand_slug:brand.slug});
+    if(post.status!=='published')return {error:'post_not_published'};
+    if(post.isPaid||(post.audienceScope&&post.audienceScope.kind)!=='brand_followers')return {error:'mfw_wide_push_requires_organizer'};
+    const count=await this.brandPushCount(brandRef,7);
+    if(count>=2)return {error:'brand_push_frequency_cap',limit:2,windowDays:7};
+    const r=await this.pool.query(`INSERT INTO notifications(audience,category,title,body,payload,status,scheduled_at)
+      VALUES($1,'brand_news',$2,$3,$4,'scheduled',now()) RETURNING *`,[
+        {kind:'brand_followers',brandRef:String(brandRef)},post.titleRu,post.bodyRu||'',
+        {brandRef:String(brandRef),postRef:String(postRef)}
+      ]);
+    const x=r.rows[0];
+    return {data:{id:String(x.id),category:x.category,brandId:String(brandRef),postId:String(postRef),audience:x.audience,title:x.title,body:x.body,status:x.status,createdAt:x.created_at,scheduledAt:x.scheduled_at},policy:{frequencyCap:'2_per_brand_per_7d',audience:'brand_followers_only'}};
+  }
+
+  async notificationsForUser(userId){
+    if(!this.pool)return null;
+    const pref=await this.preferences(userId);
+    const followed=await this.brandFollowRefs(userId);
+    const r=await this.pool.query(`SELECT * FROM notifications
+      WHERE status IN ('scheduled','sending','sent')
+      ORDER BY COALESCE(sent_at,scheduled_at,created_at) DESC LIMIT 60`);
+    const data=[];
+    for(const n of r.rows){
+      const payload=n.payload||{},aud=n.audience||{};
+      const brandRef=payload.brandRef||aud.brandRef||null;
+      let include=false;
+      if(n.category==='critical')include=!!pref.criticalEnabled;
+      else if(n.category==='live')include=!!pref.liveEnabled;
+      else if(n.category==='brand_news')include=!!pref.followedBrandNewsEnabled&&brandRef&&followed.has(String(brandRef));
+      else if(n.category==='loyalty')include=!!pref.loyaltyEnabled;
+      else if(n.category==='brand_event')include=!!pref.brandEventsEnabled&&brandRef&&followed.has(String(brandRef));
+      else if(n.category==='brand_campaign')include=!!pref.paidPromotionsEnabled;
+      if(include)data.push({id:String(n.id),category:n.category,title:n.title,body:n.body,status:n.status,brandId:brandRef,postId:payload.postRef||null,createdAt:n.created_at,scheduledAt:n.scheduled_at,sentAt:n.sent_at});
+      if(data.length>=30)break;
+    }
+    return {data,preferences:pref};
+  }
+
+  async brandGrowth(){
+    if(!this.pool)return null;
+    const brandsR=await this.pool.query(`SELECT b.id,b.external_key,b.slug,b.name,
+      (SELECT count(*) FROM brand_follows f WHERE f.brand_id=b.id)::int followers,
+      (SELECT count(*) FROM brand_content_posts p WHERE p.brand_id=b.id AND p.status='published')::int published_posts,
+      (SELECT count(*) FROM loyalty_offers o WHERE o.brand_id=b.id AND o.status='published')::int active_offers,
+      (SELECT count(*) FROM loyalty_claims c JOIN loyalty_offers o ON o.id=c.offer_id WHERE o.brand_id=b.id)::int issued_claims
+      FROM brands b WHERE b.status='published' ORDER BY b.name`);
+    const channelsR=await this.pool.query(`SELECT c.*,b.external_key brand_external_key,b.slug brand_slug
+      FROM brand_social_channels c LEFT JOIN brands b ON b.id=c.brand_id ORDER BY c.owner_type,c.platform`);
+    const membersR=await this.pool.query(`SELECT count(*)::int total,
+      count(*) FILTER(WHERE status='active')::int active FROM social_memberships`);
+    const offers=[];
+    for(const b of brandsR.rows){
+      const ref=b.external_key||b.slug||String(b.id);
+      offers.push(...await this.offersForBrand(ref));
+    }
+    const postsR=await this.pool.query(`SELECT p.*,b.external_key brand_external_key,b.slug brand_slug
+      FROM brand_content_posts p JOIN brands b ON b.id=p.brand_id ORDER BY COALESCE(p.published_at,p.created_at) DESC LIMIT 100`);
+    return {
+      brands:brandsR.rows.map(x=>({id:x.external_key||x.slug||String(x.id),name:x.name,followers:Number(x.followers||0),publishedPosts:Number(x.published_posts||0),activeOffers:Number(x.active_offers||0),issuedClaims:Number(x.issued_claims||0)})),
+      social:{channels:channelsR.rows.map(camelChannel),membershipsVerified:Number(membersR.rows[0].total||0),activeMemberships:Number(membersR.rows[0].active||0)},
+      offers,
+      content:{posts:postsR.rows.map(camelPost),recentInteractions:[]}
+    };
+  }
+
+  async retentionMetrics(){
+    if(!this.pool)return null;
+    const feed=await this.pool.query(`SELECT
+      count(*)::int impressions,
+      count(*) FILTER(WHERE p.is_paid=false)::int organic,
+      count(*) FILTER(WHERE p.is_paid=true)::int paid
+      FROM content_impressions i JOIN brand_content_posts p ON p.id=i.post_id`);
+    const opens=await this.pool.query(`SELECT count(*)::int n FROM analytics_events WHERE event_name='brand_content_open'`);
+    const push=await this.pool.query(`SELECT
+      count(*) FILTER(WHERE status='scheduled')::int scheduled,
+      count(*) FILTER(WHERE status='sent')::int sent,
+      count(*) FILTER(WHERE category='brand_news' AND created_at>=now()-interval '7 days')::int brand7
+      FROM notifications`);
+    const impressions=Number(feed.rows[0].impressions||0),openN=Number(opens.rows[0].n||0);
+    return {
+      feed:{impressions,organicImpressions:Number(feed.rows[0].organic||0),paidImpressions:Number(feed.rows[0].paid||0),opens:openN,openRatePct:impressions?Math.round(openN/impressions*1000)/10:0},
+      push:{scheduled:Number(push.rows[0].scheduled||0),sent:Number(push.rows[0].sent||0),brandNewsLast7d:Number(push.rows[0].brand7||0)},
+      policy:{organicPriority:true,paidLabelRequired:true,paidFeedFrequencyCap:'2_per_post_per_7d',paidFeedSpacing:'max_1_per_4_slots',brandPushFrequencyCap:'2_per_brand_per_7d',paidPushByBrand:false}
+    };
+  }
+
   async seedDemo(){
     if(!this.pool)return;
     for(const b of this.memory.brands){
