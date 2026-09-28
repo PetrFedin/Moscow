@@ -648,6 +648,66 @@ class Brand365Store{
   }
 
 
+  async createAuthFlow({userId,platform,state,codeVerifier,nonce,redirectUri,metadata}){
+    if(!this.pool){
+      if(!this.memory.socialAuthFlows)this.memory.socialAuthFlows=new Map();
+      const item={id:'saf_'+Math.random().toString(16).slice(2),userId:String(userId),platform,state,codeVerifier,nonce:nonce||null,redirectUri,status:'pending',metadata:metadata||{},createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+10*60000).toISOString()};
+      this.memory.socialAuthFlows.set(state,item);return item;
+    }
+    const r=await this.pool.query(`INSERT INTO social_auth_flows(user_id,platform,state,code_verifier,nonce,redirect_uri,status,metadata)
+      VALUES($1,$2,$3,$4,$5,$6,'pending',$7) RETURNING *`,[userId,platform,state,codeVerifier,nonce||null,redirectUri,metadata||{}]);
+    const x=r.rows[0];
+    return {id:String(x.id),userId:String(x.user_id),platform:x.platform,state:x.state,codeVerifier:x.code_verifier,nonce:x.nonce,redirectUri:x.redirect_uri,status:x.status,metadata:x.metadata||{},createdAt:x.created_at,expiresAt:x.expires_at};
+  }
+
+  async authFlowByState(platform,state){
+    if(!this.pool){
+      const x=this.memory.socialAuthFlows&&this.memory.socialAuthFlows.get(String(state));
+      if(!x||x.platform!==platform||x.status!=='pending')return null;
+      if(Date.now()>=new Date(x.expiresAt).getTime()){x.status='expired';return null;}
+      return x;
+    }
+    await this.pool.query(`UPDATE social_auth_flows SET status='expired'
+      WHERE status='pending' AND expires_at<=now()`);
+    const r=await this.pool.query(`SELECT * FROM social_auth_flows
+      WHERE platform=$1 AND state=$2 AND status='pending' AND expires_at>now()
+      LIMIT 1`,[platform,String(state)]);
+    if(!r.rowCount)return null;
+    const x=r.rows[0];
+    return {id:String(x.id),userId:String(x.user_id),platform:x.platform,state:x.state,codeVerifier:x.code_verifier,nonce:x.nonce,redirectUri:x.redirect_uri,status:x.status,metadata:x.metadata||{},createdAt:x.created_at,expiresAt:x.expires_at};
+  }
+
+  async finishAuthFlow(flow,status,metadata){
+    if(!flow)return;
+    if(!this.pool){
+      flow.status=status;flow.completedAt=new Date().toISOString();flow.metadata={...(flow.metadata||{}),...(metadata||{})};return;
+    }
+    await this.pool.query(`UPDATE social_auth_flows SET status=$2,metadata=metadata||$3::jsonb,completed_at=now()
+      WHERE id=$1`,[flow.id,status,JSON.stringify(metadata||{})]);
+  }
+
+  async upsertSocialConnection(userId,platform,externalUserId,externalHandle,scopes,metadata){
+    if(!this.pool){
+      const key=String(userId)+':'+String(platform);
+      const item={id:'soc_'+Math.random().toString(16).slice(2),userId:String(userId),platform,externalUserId:String(externalUserId),externalHandle:String(externalHandle||''),status:'active',scopes:scopes||[],connectedAt:new Date().toISOString(),lastSyncedAt:new Date().toISOString(),metadata:metadata||{}};
+      this.memory.socialConnections.set(key,item);return item;
+    }
+    const client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');
+      await client.query(`UPDATE social_connections SET status='revoked',last_synced_at=now()
+        WHERE user_id=$1 AND platform=$2 AND status='active' AND external_user_id<>$3`,[userId,platform,String(externalUserId)]);
+      const r=await client.query(`INSERT INTO social_connections(user_id,platform,external_user_id,external_handle,status,scopes,last_synced_at)
+        VALUES($1,$2,$3,$4,'active',$5,now())
+        ON CONFLICT(user_id,platform,external_user_id)
+        DO UPDATE SET external_handle=EXCLUDED.external_handle,status='active',scopes=EXCLUDED.scopes,last_synced_at=now()
+        RETURNING *`,[userId,platform,String(externalUserId),String(externalHandle||''),scopes||[]]);
+      await client.query('COMMIT');
+      const x=r.rows[0];
+      return {id:String(x.id),userId:String(x.user_id),platform:x.platform,externalUserId:x.external_user_id,externalHandle:x.external_handle,status:x.status,scopes:x.scopes||[],connectedAt:x.connected_at,lastSyncedAt:x.last_synced_at,metadata:metadata||{}};
+    }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
+  }
+
   async followerCount(brandRef){
     if(!this.pool){
       return [...this.memory.brandFollows.values()].reduce((n,set)=>n+(set.has(String(brandRef))?1:0),0);
