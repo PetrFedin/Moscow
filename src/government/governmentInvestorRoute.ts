@@ -29,6 +29,14 @@ export type GovernmentInvestorRouteStep = {
   decision: string;
 };
 
+export type GovernmentInvestorStakeholder = {
+  id: string;
+  role: string;
+  candidateContour: string;
+  responsibility: string;
+  caveat: string;
+};
+
 export type GovernmentInvestorRoute = {
   version: typeof GOVERNMENT_INVESTOR_ROUTE_VERSION;
   title: string;
@@ -37,6 +45,7 @@ export type GovernmentInvestorRoute = {
   firstMeetingGoal: string;
   firstMeetingDoNotAsk: string;
   steps: GovernmentInvestorRouteStep[];
+  stakeholderMap: GovernmentInvestorStakeholder[];
   cityNextAction: string;
   investorNextAction: string;
   federalNextAction: string;
@@ -167,6 +176,50 @@ export const governmentInvestorRoute: GovernmentInvestorRoute = {
         'Зафиксировать форму пилота и его бюджет только после подтверждения внешних inputs.'
       ],
       decision: 'Запустить подготовку ограниченного пилота «Варварка во времени».'
+    }
+  ],
+  stakeholderMap: [
+    {
+      id: 'pilot-operator',
+      role: 'Оператор пилота',
+      candidateContour: 'Фонд «Московский инновационный кластер» / городской pilot track',
+      responsibility: 'Формат апробации, площадка, методология, evidence и итог пилота.',
+      caveat: 'Оператор пилота не считается автоматически конечным заказчиком или инвестором.'
+    },
+    {
+      id: 'tourism-owner',
+      role: 'Владелец туристического journey',
+      candidateContour: 'Профильный туристический контур Москвы / RUSSPASS',
+      responsibility: 'Пользовательский сценарий, городской distribution channel и требования к туристическому продукту.',
+      caveat: 'Конкретный buyer/budget owner должен быть подтверждён на переговорах.'
+    },
+    {
+      id: 'heritage-owner',
+      role: 'Heritage / content authority',
+      candidateContour: 'Профильное учреждение культуры / владелец объекта / исторические эксперты',
+      responsibility: 'Источники, права, historical claims, доступ к объекту, survey и review.',
+      caveat: 'Историческая authority не должна подменяться продуктовой командой.'
+    },
+    {
+      id: 'integration-owner',
+      role: 'Integration / data owner',
+      candidateContour: 'Технический владелец tourism-data / booking / provider integration',
+      responsibility: 'Schema, sandbox/feed, freshness, attribution, booking handoff и эксплуатационные границы.',
+      caveat: 'Без формального доступа приложение не заявляет live Moscow data.'
+    },
+    {
+      id: 'contract-owner',
+      role: 'Договор / бюджет / эксплуатация',
+      candidateContour: 'Определяется вместе с городом после выбора площадки и формы пилота',
+      responsibility: 'Правовая форма этапа, бюджет, закупка/лицензия/интеграция, SLA и handover.',
+      caveat: 'Не назначаем бюджетодержателя из проекта или презентации.'
+    },
+    {
+      id: 'investment-route',
+      role: 'Инвестиционный контур',
+      candidateContour: 'Инвестиционная экспертиза / венчурные и частные соинвесторы',
+      responsibility: 'Финансирование масштабирования после proof и measured economics.',
+      caveat: 'Инвестиционный процесс идёт после evidence, отдельно от городской приёмки пилота.'
     }
   ],
   cityNextAction:
