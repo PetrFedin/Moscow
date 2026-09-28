@@ -104,10 +104,10 @@ Deliver a JSON manifest with:
 - repo-relative `assetPath`;
 - repo-relative `binaryReportPath`;
 - all three required Old English Court source IDs;
-- provenance evidence reference;
-- verified rights status + evidence reference;
+- repo-relative provenance evidence file;
+- verified rights status + repo-relative rights evidence file;
 - `modelUnits = meters`;
-- verified metric-scale status + evidence reference;
+- verified metric-scale status + repo-relative metric-scale evidence file;
 - the SHA-256 produced from the real GLB.
 
 Example structure:
@@ -135,7 +135,7 @@ Example structure:
 }
 ```
 
-Do not use the example evidence paths unless those files actually exist and contain the stated evidence.
+The three evidence references must resolve to real files inside the repository at validation time. Do not use the example paths unless those files actually exist and contain the stated evidence.
 
 ### 7. Automated acceptance
 
@@ -150,8 +150,9 @@ The validator:
 3. reads the declared GLB bytes;
 4. regenerates the binary report from those bytes;
 5. compares every generated report field with the supplied report;
-6. validates SHA-256, mobile budgets, GLB integrity, rights, provenance and metric-scale declarations;
-7. runs the existing Old English Court model intake.
+6. verifies that provenance, rights and metric-scale evidence files actually exist;
+7. validates SHA-256, mobile budgets, GLB integrity and the submission declarations;
+8. runs the existing Old English Court model intake.
 
 Exit code `0` + `accepted: true` clears only model asset / model rights intake.
 
