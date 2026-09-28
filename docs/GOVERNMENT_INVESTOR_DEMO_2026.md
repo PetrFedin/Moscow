@@ -368,6 +368,27 @@ CITY PILOT содержит отдельную вкладку `Решение`.
 
 См. `docs/PILOT_INVESTMENT_DECISION.md`.
 
+## 11.2. Government Delivery Manifest
+
+Для переговоров используется отдельная staged-readiness модель:
+
+- demo conversation;
+- formal intro pack;
+- technical pilot approval;
+- verified pilot report;
+- scale/investment decision;
+- federal expansion.
+
+Каждая стадия имеет собственные artifact/evidence blockers.
+
+Текущий проект может быть готов к demo-разговору, оставаясь честно неготовым к technical approval или scale investment.
+
+Команда:
+
+`npm run government:readiness`
+
+См. `docs/GOVERNMENT_DELIVERY_MANIFEST.md`.
+
 ## 12. Что сейчас не надо делать
 
 До физических доказательств не нужно:
