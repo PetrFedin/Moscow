@@ -131,6 +131,7 @@
     var timer=setTimeout(function(){controller.abort();},6500);
     opts.signal=controller.signal;
     opts.headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});
+    if(state.session&&!opts.headers.Authorization)opts.headers.Authorization='Bearer '+state.session;
     var res;
     try{ res=await fetch(API+path,opts); }
     finally{ clearTimeout(timer); }
