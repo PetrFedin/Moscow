@@ -648,7 +648,36 @@ class Brand365Store{
   }
 
 
+  async cleanupAuthFlows(){
+    if(!this.pool){
+      if(!this.memory.socialAuthFlows)return {expired:0,deleted:0};
+      let expired=0,deleted=0;
+      const now=Date.now();
+      for(const [state,flow] of this.memory.socialAuthFlows.entries()){
+        const expires=new Date(flow.expiresAt||0).getTime();
+        if(flow.status==='pending'&&expires<=now){
+          flow.status='expired';flow.codeVerifier='';flow.nonce=null;flow.completedAt=new Date().toISOString();expired++;
+        }
+        const doneAt=new Date(flow.completedAt||0).getTime();
+        if(['completed','failed','expired'].includes(flow.status)&&doneAt&&doneAt<=now-24*60*60*1000){
+          this.memory.socialAuthFlows.delete(state);deleted++;
+        }
+      }
+      return {expired,deleted};
+    }
+    const expired=await this.pool.query(`UPDATE social_auth_flows SET
+      status='expired',code_verifier='',nonce=NULL,completed_at=COALESCE(completed_at,now())
+      WHERE status='pending' AND expires_at<=now()
+      RETURNING id`);
+    const deleted=await this.pool.query(`DELETE FROM social_auth_flows
+      WHERE status IN ('completed','failed','expired')
+        AND COALESCE(completed_at,expires_at,created_at)<now()-interval '24 hours'
+      RETURNING id`);
+    return {expired:expired.rowCount,deleted:deleted.rowCount};
+  }
+
   async createAuthFlow({userId,platform,state,codeVerifier,nonce,redirectUri,metadata}){
+    await this.cleanupAuthFlows();
     if(!this.pool){
       if(!this.memory.socialAuthFlows)this.memory.socialAuthFlows=new Map();
       const item={id:'saf_'+Math.random().toString(16).slice(2),userId:String(userId),platform,state,codeVerifier,nonce:nonce||null,redirectUri,status:'pending',metadata:metadata||{},createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+10*60000).toISOString()};
@@ -662,16 +691,19 @@ class Brand365Store{
 
   async authFlowByState(platform,state){
     if(!this.pool){
+      await this.cleanupAuthFlows();
       const x=this.memory.socialAuthFlows&&this.memory.socialAuthFlows.get(String(state));
       if(!x||x.platform!==platform||x.status!=='pending')return null;
-      if(Date.now()>=new Date(x.expiresAt).getTime()){x.status='expired';return null;}
-      return x;
+      if(Date.now()>=new Date(x.expiresAt).getTime()){
+        x.status='expired';x.codeVerifier='';x.nonce=null;x.completedAt=new Date().toISOString();return null;
+      }
+      x.status='processing';
+      return {...x};
     }
-    await this.pool.query(`UPDATE social_auth_flows SET status='expired'
-      WHERE status='pending' AND expires_at<=now()`);
-    const r=await this.pool.query(`SELECT * FROM social_auth_flows
+    await this.cleanupAuthFlows();
+    const r=await this.pool.query(`UPDATE social_auth_flows SET status='processing'
       WHERE platform=$1 AND state=$2 AND status='pending' AND expires_at>now()
-      LIMIT 1`,[platform,String(state)]);
+      RETURNING *`,[platform,String(state)]);
     if(!r.rowCount)return null;
     const x=r.rows[0];
     return {id:String(x.id),userId:String(x.user_id),platform:x.platform,state:x.state,codeVerifier:x.code_verifier,nonce:x.nonce,redirectUri:x.redirect_uri,status:x.status,metadata:x.metadata||{},createdAt:x.created_at,expiresAt:x.expires_at};
@@ -679,11 +711,15 @@ class Brand365Store{
 
   async finishAuthFlow(flow,status,metadata){
     if(!flow)return;
+    if(!['completed','failed','expired'].includes(String(status)))throw new Error('invalid_social_auth_terminal_status');
     if(!this.pool){
-      flow.status=status;flow.completedAt=new Date().toISOString();flow.metadata={...(flow.metadata||{}),...(metadata||{})};return;
+      const original=this.memory.socialAuthFlows&&this.memory.socialAuthFlows.get(String(flow.state));
+      if(!original)return;
+      original.status=status;original.codeVerifier='';original.nonce=null;original.completedAt=new Date().toISOString();original.metadata={...(original.metadata||{}),...(metadata||{})};return;
     }
-    await this.pool.query(`UPDATE social_auth_flows SET status=$2,metadata=metadata||$3::jsonb,completed_at=now()
-      WHERE id=$1`,[flow.id,status,JSON.stringify(metadata||{})]);
+    await this.pool.query(`UPDATE social_auth_flows SET
+      status=$2,metadata=metadata||$3::jsonb,completed_at=now(),code_verifier='',nonce=NULL
+      WHERE id=$1 AND status='processing'`,[flow.id,status,JSON.stringify(metadata||{})]);
   }
 
   async upsertSocialConnection(userId,platform,externalUserId,externalHandle,scopes,metadata){
