@@ -15,6 +15,7 @@ import {
   createPersistentAnchorRecord,
   getPersistentAnchorReadiness,
   markAnchorHostLocalized,
+  markAnchorRecoveryResolved,
   markAnchorResolved,
   markAnchorVerified
 } from '../src/spatial/persistentAnchor.ts';
@@ -96,6 +97,12 @@ function session(
     deviceVersion: 'test-os',
     deviceLabel,
     surveyPacketId,
+    fieldConditions: {
+      lighting: 'daylight',
+      trackingLossObserved: false,
+      interruptionObserved: false,
+      notes: 'Daylight release session; tracking stable; no interruption observed.'
+    },
     observations
   });
 }
@@ -193,8 +200,26 @@ test('verified portal stays blocked until independent persistent-anchor proof co
     anchors: [anchor]
   });
   assert.equal(gate.fieldMatrixComplete, true);
+  assert.equal(gate.fieldConditionsComplete, true);
+  assert.equal(gate.daylightEvidence, true);
   assert.equal(gate.persistentAnchorVerified, true);
   assert.equal(gate.independentAnchorResolveVerified, true);
+  assert.equal(gate.restartRecoveryVerified, false);
+  assert.equal(gate.state, 'production-candidate');
+  assert.ok(gate.blockers.includes('restart-recovery-resolve-not-verified'));
+
+  anchor = markAnchorRecoveryResolved(anchor, {
+    recoveredByDeviceLabel: 'android-independent',
+    recoverySessionId: 'resolve-independent-after-app-restart',
+    trigger: 'app-restart'
+  });
+  gate = summarizeRomanovReleaseGate({
+    calibration: verifiedCalibration,
+    survey: measuredSurvey,
+    sessions,
+    anchors: [anchor]
+  });
+  assert.equal(gate.restartRecoveryVerified, true);
   assert.equal(gate.state, 'field-verified-spatial-scene');
   assert.deepEqual(gate.blockers, []);
 });
