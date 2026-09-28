@@ -206,3 +206,5 @@ button{-webkit-tap-highlight-color:transparent}
 .feed-reason{display:inline-flex;border:1px solid #2a2a2a;border-radius:999px;padding:5px 7px;color:#7e7e7e;font-size:8px;margin-bottom:8px}
 .notification-pref{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #242424}.notification-pref:last-of-type{border-bottom:0}.notification-pref b{display:block;font-size:11px}.notification-pref small{display:block;color:#737373;font-size:9px;margin-top:3px}
 .brand-portal-tools{display:flex;flex-direction:column;gap:5px;align-items:flex-end}.brand-portal-tools>span{font-size:9px;color:var(--accent);font-weight:900}
+
+.social-connect-panel{border:1px solid #2b2b2b;background:#0f0f0f;border-radius:18px;padding:14px;margin:12px 0}.social-connect-panel>div:first-child b{display:block;font-size:12px}.social-connect-panel>div:first-child small{display:block;color:#777;font-size:9px;line-height:1.45;margin-top:4px}.social-connect-panel .action-row{margin-top:11px}.loyalty-actions{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
