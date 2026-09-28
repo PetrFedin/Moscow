@@ -24,25 +24,14 @@ import {
   summarizeRomanovSurvey,
   type RomanovSurveyPacket
 } from './romanovSurvey.ts';
+import {
+  summarizeHeritageSpatialReleaseGate,
+  type HeritageSpatialReleaseGate,
+  type HeritageSpatialReleaseState
+} from './heritageReleaseGate.ts';
 
-export type RomanovSpatialReleaseState = 'production-candidate' | 'field-verified-spatial-scene';
-
-export type RomanovReleaseGate = {
-  state: RomanovSpatialReleaseState;
-  surveyComplete: boolean;
-  fieldMatrixComplete: boolean;
-  fieldConditionsComplete: boolean;
-  daylightEvidence: boolean;
-  calibrationVerified: boolean;
-  calibrationPlacementMeasured: boolean;
-  metricAuthorityCurrent: boolean;
-  metricScaleAuthoritative: boolean;
-  persistentAnchorFrameVerified: boolean;
-  persistentAnchorVerified: boolean;
-  independentAnchorResolveVerified: boolean;
-  restartRecoveryVerified: boolean;
-  blockers: string[];
-};
+export type RomanovSpatialReleaseState = HeritageSpatialReleaseState;
+export type RomanovReleaseGate = HeritageSpatialReleaseGate;
 
 export function canVerifyCalibration(input: {
   calibration: CalibrationProfile;
@@ -142,22 +131,7 @@ export function summarizeRomanovReleaseGate(input: {
     && hasRestartRecoveryEvidence(anchor)
   );
 
-  const blockers: string[] = [];
-  if (!surveyComplete) blockers.push('survey-packet-incomplete');
-  if (!fieldMatrixComplete) blockers.push('cross-device-field-matrix-incomplete');
-  if (!fieldConditionsComplete) blockers.push('field-conditions-incomplete');
-  if (!daylightEvidence) blockers.push('daylight-evidence-missing');
-  if (!calibrationPlacementMeasured) blockers.push('calibration-placement-not-measured');
-  if (!calibrationVerified) blockers.push('calibration-not-verified');
-  if (!metricAuthorityCurrent) blockers.push('metric-authority-stale');
-  if (!metricScaleAuthoritative) blockers.push('metric-scale-not-authoritative');
-  if (!persistentAnchorFrameVerified) blockers.push('persistent-anchor-frame-not-verified');
-  if (!persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
-  if (!independentAnchorResolveVerified) blockers.push('independent-anchor-resolve-not-verified');
-  if (!restartRecoveryVerified) blockers.push('restart-recovery-resolve-not-verified');
-
-  return {
-    state: blockers.length === 0 ? 'field-verified-spatial-scene' : 'production-candidate',
+  return summarizeHeritageSpatialReleaseGate({
     surveyComplete,
     fieldMatrixComplete,
     fieldConditionsComplete,
@@ -169,7 +143,6 @@ export function summarizeRomanovReleaseGate(input: {
     persistentAnchorFrameVerified,
     persistentAnchorVerified,
     independentAnchorResolveVerified,
-    restartRecoveryVerified,
-    blockers
-  };
+    restartRecoveryVerified
+  });
 }
