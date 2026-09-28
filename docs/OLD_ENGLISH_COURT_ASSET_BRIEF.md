@@ -20,6 +20,32 @@ Unsupported visual completion must never be presented as documented fact.
 
 ## Required delivery
 
+### 0. One self-contained submission bundle
+
+The contractor delivers one directory. Submission v2 does not accept evidence by arbitrary repository or filesystem paths.
+
+Recommended structure:
+
+```text
+old-english-court-current-restored-v1/
+├── submission.json
+├── old-english-court-current-restored-v1.glb
+├── binary-report.json
+├── provenance.json
+├── rights.json
+└── metric-scale.json
+```
+
+All paths in `submission.json` are relative to this directory. Absolute paths and `../` traversal are rejected.
+
+Validation command:
+
+```bash
+npm run validate:oec-model-submission -- ./old-english-court-current-restored-v1/submission.json
+```
+
+A successful command verifies the actual GLB bytes, binary report, checksum and structured evidence identity. It does **not** create metric/control-point/field authority automatically.
+
 ### 1. One self-contained GLB 2.0 file
 
 Naming convention:
@@ -55,7 +81,7 @@ The model intake cross-checks report filename and SHA-256 against the candidate 
 
 ### 3. Provenance evidence
 
-Provide one versioned provenance document/reference.
+Provide `provenance.json`, bound to the exact `modelId`, `modelVersion` and GLB SHA-256.
 
 Minimum content:
 
@@ -78,7 +104,9 @@ Passing intake requires complete Old English Court provenance. Romanov source ID
 
 ### 4. Rights evidence
 
-Provide an explicit rights/reuse evidence reference for the delivered model and every reusable third-party asset embedded in it.
+Provide `rights.json`, bound to the exact `modelId`, `modelVersion` and GLB SHA-256.
+
+It must state the rights basis for the model, the rights holder, explicit permission for publication use, and every reusable third-party input with its own verified evidence reference.
 
 Factual citation of a museum webpage is not the same as a license to copy an image, scan, texture or 3D mesh.
 
@@ -88,7 +116,16 @@ The model cannot pass intake with `unknown` or merely `restricted` rights status
 
 The GLB must use meters.
 
-Provide an inspectable metric-scale evidence reference showing why the delivered scale is accepted as verified.
+Provide `metric-scale.json`, bound to the exact `modelId`, `modelVersion` and GLB SHA-256.
+
+It must contain at least one positive measured reference with:
+
+- label;
+- source reference;
+- measured real-world meters;
+- corresponding model distance in meters.
+
+A statement from the artist that the model is “approximately to scale” is not sufficient.
 
 Suitable evidence can include a survey/measurement packet or another approved measured source. A statement from the artist that “the model is approximately to scale” is not sufficient.
 
@@ -263,3 +300,80 @@ Deliver together:
 Before handoff, run `npm run validate:oec-model-submission -- <submission.json>`.
 
 A submission is not accepted by screenshots, renders or a video demo alone.
+
+
+## Submission v2 manifest
+
+Minimal shape:
+
+```json
+{
+  "kind": "old-english-court-model-submission",
+  "version": 2,
+  "id": "old-english-court-current-restored-v1",
+  "modelVersion": 1,
+  "assetPath": "old-english-court-current-restored-v1.glb",
+  "binaryReportPath": "binary-report.json",
+  "sourceIds": [
+    "zaryadye-old-english-court",
+    "museum-of-moscow-history",
+    "museum-of-moscow-restoration"
+  ],
+  "provenanceEvidenceRef": "provenance.json",
+  "rightsStatus": "verified",
+  "rightsEvidenceRef": "rights.json",
+  "modelUnits": "meters",
+  "metricScaleStatus": "verified",
+  "metricScaleEvidenceRef": "metric-scale.json",
+  "checksumSha256": "<actual 64-char SHA-256>"
+}
+```
+
+### Provenance JSON
+
+Must map every required source to the geometry/history decisions it supports and label each mapping:
+
+- `documented`;
+- `reconstructed`;
+- `hypothesis`.
+
+It must also explicitly list unresolved geometry. An empty unresolved list is allowed only when that is genuinely the contractor/research conclusion; omission of the field is rejected.
+
+### Rights JSON
+
+Must contain:
+
+- rights basis: owned / commissioned / licensed / public-domain;
+- rights holder;
+- `publicationUseVerified=true`;
+- all third-party embedded inputs and evidence refs.
+
+### Metric-scale JSON
+
+Must contain:
+
+- `modelUnits=meters`;
+- `metersPerModelUnit=1`;
+- at least one measured reference.
+
+All three evidence files must carry the same model ID, model version and checksum as `submission.json` and the real GLB bytes.
+
+## Meaning of validator output
+
+`accepted: true` means only:
+
+- real GLB bytes passed the binary contract;
+- supplied report exactly matches those bytes;
+- checksum matches;
+- model intake metadata passed;
+- structured provenance/rights/metric evidence is internally coherent and version-bound.
+
+It does **not** mean:
+
+- Old English Court metric authority exists;
+- facade control points are approved;
+- survey exists;
+- 5/10/15 field proof exists;
+- persistent anchor exists;
+- the object is field-verified;
+- public AR is enabled.

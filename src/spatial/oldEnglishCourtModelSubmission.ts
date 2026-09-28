@@ -6,7 +6,7 @@ import {
 } from './oldEnglishCourtSpatialAuthority.ts';
 import type { SpatialModelBinaryReport } from './spatialModelAssetContract.ts';
 
-export const OLD_ENGLISH_COURT_MODEL_SUBMISSION_VERSION = 1;
+export const OLD_ENGLISH_COURT_MODEL_SUBMISSION_VERSION = 2;
 
 export type OldEnglishCourtModelSubmissionManifest = {
   kind: 'old-english-court-model-submission';
@@ -40,6 +40,15 @@ function isText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isBundleRelativePath(value: unknown, extension: string) {
+  if (!isText(value)) return false;
+  const normalized = value.replace(/\\/g, '/');
+  return !normalized.startsWith('/')
+    && !/^[A-Za-z]:\//.test(normalized)
+    && !normalized.split('/').includes('..')
+    && normalized.toLowerCase().endsWith(extension);
+}
+
 export function validateOldEnglishCourtModelSubmissionManifest(
   value: unknown
 ): OldEnglishCourtModelSubmissionValidation {
@@ -56,10 +65,10 @@ export function validateOldEnglishCourtModelSubmissionManifest(
   if (!Number.isInteger(value.modelVersion) || Number(value.modelVersion) < 1) {
     blockers.push('submission-model-version-invalid');
   }
-  if (!isText(value.assetPath) || !String(value.assetPath).toLowerCase().endsWith('.glb')) {
+  if (!isBundleRelativePath(value.assetPath, '.glb')) {
     blockers.push('submission-asset-path-invalid');
   }
-  if (!isText(value.binaryReportPath) || !String(value.binaryReportPath).toLowerCase().endsWith('.json')) {
+  if (!isBundleRelativePath(value.binaryReportPath, '.json')) {
     blockers.push('submission-binary-report-path-invalid');
   }
 
@@ -84,12 +93,18 @@ export function validateOldEnglishCourtModelSubmissionManifest(
     }
   }
 
-  if (!isText(value.provenanceEvidenceRef)) blockers.push('submission-provenance-evidence-missing');
+  if (!isBundleRelativePath(value.provenanceEvidenceRef, '.json')) {
+    blockers.push('submission-provenance-evidence-missing');
+  }
   if (value.rightsStatus !== 'verified') blockers.push('submission-rights-not-verified');
-  if (!isText(value.rightsEvidenceRef)) blockers.push('submission-rights-evidence-missing');
+  if (!isBundleRelativePath(value.rightsEvidenceRef, '.json')) {
+    blockers.push('submission-rights-evidence-missing');
+  }
   if (value.modelUnits !== 'meters') blockers.push('submission-model-units-not-meters');
   if (value.metricScaleStatus !== 'verified') blockers.push('submission-scale-not-verified');
-  if (!isText(value.metricScaleEvidenceRef)) blockers.push('submission-scale-evidence-missing');
+  if (!isBundleRelativePath(value.metricScaleEvidenceRef, '.json')) {
+    blockers.push('submission-scale-evidence-missing');
+  }
   if (!isText(value.checksumSha256) || !SHA256_HEX.test(String(value.checksumSha256))) {
     blockers.push('submission-checksum-invalid');
   }

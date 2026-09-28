@@ -11,22 +11,22 @@ import {
 function manifest(): OldEnglishCourtModelSubmissionManifest {
   return {
     kind: 'old-english-court-model-submission',
-    version: 1,
+    version: 2,
     id: 'old-english-court-current-restored-v1',
     modelVersion: 1,
-    assetPath: 'assets/models/old-english-court-current-restored-v1.glb',
-    binaryReportPath: 'assets/models/old-english-court-current-restored-v1.binary-report.json',
+    assetPath: 'old-english-court-current-restored-v1.glb',
+    binaryReportPath: 'binary-report.json',
     sourceIds: [
       'zaryadye-old-english-court',
       'museum-of-moscow-history',
       'museum-of-moscow-restoration'
     ],
-    provenanceEvidenceRef: 'evidence/oec/provenance-v1.md',
+    provenanceEvidenceRef: 'provenance.json',
     rightsStatus: 'verified',
-    rightsEvidenceRef: 'evidence/oec/rights-v1.md',
+    rightsEvidenceRef: 'rights.json',
     modelUnits: 'meters',
     metricScaleStatus: 'verified',
-    metricScaleEvidenceRef: 'evidence/oec/metric-scale-v1.md',
+    metricScaleEvidenceRef: 'metric-scale.json',
     checksumSha256: 'a'.repeat(64)
   };
 }
@@ -103,4 +103,27 @@ test('submission parser rejects malformed JSON rather than normalizing it', () =
     () => parseOldEnglishCourtModelSubmissionManifest('{broken'),
     /not valid JSON/
   );
+});
+
+
+test('submission manifest rejects paths outside the bundle', () => {
+  const input = manifest();
+  input.assetPath = '../outside.glb';
+  input.provenanceEvidenceRef = '/tmp/provenance.json';
+
+  const validation = validateOldEnglishCourtModelSubmissionManifest(input);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('submission-asset-path-invalid'));
+  assert.ok(validation.blockers.includes('submission-provenance-evidence-missing'));
+});
+
+test('submission manifest requires structured JSON evidence files', () => {
+  const input = manifest();
+  input.rightsEvidenceRef = 'rights.md';
+  input.metricScaleEvidenceRef = 'metric-scale.pdf';
+
+  const validation = validateOldEnglishCourtModelSubmissionManifest(input);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('submission-rights-evidence-missing'));
+  assert.ok(validation.blockers.includes('submission-scale-evidence-missing'));
 });
