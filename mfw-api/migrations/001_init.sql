@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS events (
   starts_at timestamptz NOT NULL,
   ends_at timestamptz,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','live','delayed','cancelled','completed')),
-  access_mode text NOT NULL DEFAULT 'open' CHECK (access_mode IN ('open','registration','request','invite','closed')),
+  access_mode text NOT NULL DEFAULT 'open' CHECK (access_mode IN ('open','registration','request','waitlist','invite','invite_only','closed')),
   capacity integer CHECK (capacity IS NULL OR capacity >= 0),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   version integer NOT NULL DEFAULT 1,
