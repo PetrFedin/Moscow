@@ -37,9 +37,11 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Demo conversation', { exact: true })).toBeVisible();
   await expect(page.getByText('READY', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Formal introductory meeting pack', { exact: true })).toBeVisible();
+  await expect(page.getByText('Technical pilot approval pack', { exact: true })).toBeVisible();
+  await expect(page.getByText('Verified pilot result pack', { exact: true })).toBeVisible();
   await expect(page.getByText('BLOCKED', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Executive one-pager', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Security and data-flow note', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('10–12 slide decision deck', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('MISSING', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Federal expansion proposal', { exact: true })).toBeVisible();
 
   await page.getByText('Решение', { exact: true }).click();
