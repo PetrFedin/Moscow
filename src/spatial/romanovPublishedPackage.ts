@@ -1,9 +1,10 @@
 import { isSameCalibrationSnapshot, type CalibrationProfile } from './calibration.ts';
 import {
-  isFieldSessionEvidenceAuthoritative,
+  summarizeFieldMatrix,
   type RomanovFieldSession
 } from './fieldVerification.ts';
 import {
+  hasRestartRecoveryEvidence,
   isIndependentAnchorResolve,
   isPersistentAnchorEvidenceConsistent,
   isPersistentAnchorFrameAuthoritative,
@@ -14,7 +15,6 @@ import {
   type PublishedSpatialPackage
 } from './publishedSpatialPackage.ts';
 import { romanovPublishedCandidate } from './romanovPublishedCandidate.ts';
-import { isCurrentRomanovMetricBinding } from './romanovMetricAuthority.ts';
 import { summarizeRomanovReleaseGate } from './romanovReleaseGate.ts';
 import type { RomanovSurveyPacket } from './romanovSurvey.ts';
 
@@ -29,6 +29,7 @@ function verifiedAnchorsForCalibration(
     && isPersistentAnchorFrameAuthoritative(anchor)
     && isPersistentAnchorEvidenceConsistent(anchor)
     && isIndependentAnchorResolve(anchor)
+    && hasRestartRecoveryEvidence(anchor)
   );
 }
 
@@ -38,7 +39,10 @@ function latestVerificationTimestamp(
 ) {
   const timestamps = [
     calibration.verifiedAt,
-    ...verifiedAnchorsForCalibration(anchors, calibration).map((anchor) => anchor.verifiedAt)
+    ...verifiedAnchorsForCalibration(anchors, calibration).flatMap((anchor) => [
+      anchor.verifiedAt,
+      anchor.recoveryResolvedAt
+    ])
   ].filter((value): value is string => Boolean(value?.trim()));
 
   return timestamps.sort().at(-1);
@@ -68,14 +72,13 @@ export function buildRomanovPublishedPackageFromEvidence(input: {
 
   const verifiedAnchors = verifiedAnchorsForCalibration(input.anchors, input.calibration);
   const verifiedAnchorIds = verifiedAnchors.map((anchor) => anchor.id);
-  const eligibleSessionIds = input.sessions
-    .filter((session) =>
-      session.surveyPacketId === input.survey.id
-      && session.passed
-      && isCurrentRomanovMetricBinding(session.metricBinding)
-      && isFieldSessionEvidenceAuthoritative(session)
-    )
-    .map((session) => session.id);
+  const fieldMatrix = summarizeFieldMatrix(input.sessions, { surveyPacketId: input.survey.id });
+  const eligibleSessionIds = [...new Set(
+    fieldMatrix.completeDevices.flatMap((device) => device.sessionIds)
+  )];
+  const restartRecoverySessionIds = verifiedAnchors
+    .map((anchor) => anchor.recoverySessionId)
+    .filter((value): value is string => Boolean(value?.trim()));
 
   if (gate.state === 'field-verified-spatial-scene' && !input.publishedAt?.trim()) {
     throw new Error('publishedAt is required when promoting Romanov to field-verified');
@@ -105,10 +108,14 @@ export function buildRomanovPublishedPackageFromEvidence(input: {
       surveyVerified: gate.surveyComplete,
       surveyPacketId: input.survey.id,
       multiDeviceMatrixPassed: gate.fieldMatrixComplete,
+      fieldConditionsComplete: gate.fieldConditionsComplete,
+      daylightEvidence: gate.daylightEvidence,
       fieldSessionIds: eligibleSessionIds,
       persistentAnchorVerified:
-        gate.persistentAnchorVerified && gate.independentAnchorResolveVerified,
+        gate.persistentAnchorVerified && gate.independentAnchorResolveVerified && gate.restartRecoveryVerified,
       persistentAnchorProofIds: verifiedAnchorIds,
+      restartRecoveryVerified: gate.restartRecoveryVerified,
+      restartRecoverySessionIds,
       verifiedAt: gate.state === 'field-verified-spatial-scene'
         ? latestVerificationTimestamp(input.anchors, input.calibration)
         : undefined,
