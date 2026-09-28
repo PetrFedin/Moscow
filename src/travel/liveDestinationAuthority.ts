@@ -229,7 +229,8 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
 
   if (value.schemaVersion !== LIVE_DESTINATION_SCHEMA_VERSION) blockers.push('live-schema-version-invalid');
   if (!isText(value.destinationId)) blockers.push('live-destination-id-missing');
-  if (isoMillis(value.generatedAt) === null) blockers.push('live-generated-at-invalid');
+  const generatedAt = isoMillis(value.generatedAt);
+  if (generatedAt === null) blockers.push('live-generated-at-invalid');
   if (!Array.isArray(value.providers) || value.providers.length === 0) blockers.push('live-providers-missing');
   if (!Array.isArray(value.entities)) blockers.push('live-entities-invalid');
 
@@ -275,7 +276,7 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     }
 
     const kind = raw.kind as LiveDestinationEntity['kind'];
-    if (!(kind in STATUS_BY_KIND)) blockers.push(`live-kind-invalid:${id}`);
+    if (!Object.prototype.hasOwnProperty.call(STATUS_BY_KIND, kind)) blockers.push(`live-kind-invalid:${id}`);
     if (!isText(raw.titleRu)) blockers.push(`live-title-ru-missing:${id}`);
     if (!isText(raw.titleEn)) blockers.push(`live-title-en-missing:${id}`);
     if (!isText(raw.titleZh)) blockers.push(`live-title-zh-missing:${id}`);
@@ -288,6 +289,9 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     const validFrom = raw.validFrom === undefined ? null : isoMillis(raw.validFrom);
     const expiresAt = isoMillis(raw.expiresAt);
     if (observedAt === null) blockers.push(`live-observed-at-invalid:${id}`);
+    if (observedAt !== null && generatedAt !== null && observedAt > generatedAt) {
+      blockers.push(`live-observed-after-feed-generation:${id}`);
+    }
     if (raw.validFrom !== undefined && validFrom === null) blockers.push(`live-valid-from-invalid:${id}`);
     if (expiresAt === null) blockers.push(`live-expires-at-invalid:${id}`);
     if (observedAt !== null && expiresAt !== null && expiresAt <= observedAt) {
@@ -297,7 +301,10 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
       blockers.push(`live-valid-from-window-invalid:${id}`);
     }
 
-    if (!(kind in STATUS_BY_KIND) || !STATUS_BY_KIND[kind]?.has(raw.operationalStatus as LiveOperationalStatus)) {
+    if (
+      !Object.prototype.hasOwnProperty.call(STATUS_BY_KIND, kind)
+      || !STATUS_BY_KIND[kind]?.has(raw.operationalStatus as LiveOperationalStatus)
+    ) {
       blockers.push(`live-operational-status-invalid:${id}`);
     }
 
@@ -330,7 +337,9 @@ export function assertLiveDestinationFeed(value: unknown): LiveDestinationFeed {
 }
 
 function freshness(entity: LiveDestinationEntity, nowMs: number): LiveFreshness {
+  const observedAt = Date.parse(entity.observedAt);
   const validFrom = entity.validFrom ? Date.parse(entity.validFrom) : null;
+  if (nowMs < observedAt) return 'not-yet-valid';
   if (validFrom !== null && nowMs < validFrom) return 'not-yet-valid';
   if (nowMs >= Date.parse(entity.expiresAt)) return 'stale';
   return 'fresh';
