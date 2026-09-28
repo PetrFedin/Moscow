@@ -223,6 +223,14 @@ export function validatePilotObserverNote(value: unknown): Validation {
   if (value.shortNote !== undefined) {
     if (typeof value.shortNote !== 'string' || value.shortNote.trim().length > 280) {
       blockers.push('observer-short-note-invalid');
+    } else {
+      const note = value.shortNote.trim();
+      if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(note)) {
+        blockers.push('observer-short-note-personal-data');
+      }
+      if (/(?:\+?\d[\s().-]*){8,}/.test(note)) {
+        blockers.push('observer-short-note-personal-data');
+      }
     }
   }
 
