@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
 const VERSION = 'mfw-authority-v7';
 const DATABASE_URL = process.env.DATABASE_URL || '';
+const REQUIRE_POSTGRES = String(process.env.MFW_REQUIRE_POSTGRES || 'false').toLowerCase()==='true';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
 const TELEGRAM_BOT_TOKEN = process.env.MFW_TELEGRAM_BOT_TOKEN || '';
@@ -513,6 +514,16 @@ const memory={
 };
 
 const brand365Store=new Brand365Store({pool,memory});
+let databaseSchemaReadiness={
+  configured:!!pool,
+  ready:!pool,
+  mode:pool?'checking':'memory_demo',
+  migrations:[],
+  missingMigrations:[],
+  missingTables:[],
+  missingColumns:[],
+  contractErrors:[]
+};
 
 async function query(sql,params=[]){
   if(!pool) return null;
@@ -543,6 +554,69 @@ async function migrate(){
       throw err;
     }finally{ client.release(); }
   }
+}
+
+async function checkDatabaseSchema(){
+  const dir=path.join(__dirname,'migrations');
+  const requiredMigrations=fs.readdirSync(dir).filter(f=>f.endsWith('.sql')).sort();
+  if(!pool){
+    return {
+      configured:false,ready:false,mode:'memory_demo',
+      migrations:[],requiredMigrations,missingMigrations:requiredMigrations,
+      missingTables:[],missingColumns:[],contractErrors:['postgres_not_configured']
+    };
+  }
+
+  const applied=await pool.query('SELECT filename FROM schema_migrations ORDER BY filename');
+  const appliedSet=new Set(applied.rows.map(x=>x.filename));
+  const missingMigrations=requiredMigrations.filter(x=>!appliedSet.has(x));
+
+  const requiredTables=[
+    'users','profiles','events','event_registrations','passes','brands','collections','looks',
+    'streams','stream_providers','stream_sources','stream_outputs','stream_caption_tracks','replay_assets',
+    'social_connections','brand_social_channels','social_memberships','loyalty_offers',
+    'loyalty_offer_requirements','loyalty_eligibility','loyalty_claims','brand_follows','brand_content_posts',
+    'app_installations','brand_access','social_reverification_runs','notification_preferences',
+    'content_impressions','notification_deliveries','social_auth_flows'
+  ];
+  const tables=await pool.query(`SELECT table_name FROM information_schema.tables
+    WHERE table_schema='public' AND table_name=ANY($1::text[])`,[requiredTables]);
+  const tableSet=new Set(tables.rows.map(x=>x.table_name));
+  const missingTables=requiredTables.filter(x=>!tableSet.has(x));
+
+  const requiredColumns=[
+    ['events','access_mode'],['event_registrations','source'],['streams','external_key'],['streams','provider_mode'],
+    ['brands','external_key'],['brand_social_channels','external_key'],['loyalty_offers','external_key'],
+    ['brand_content_posts','external_key'],['social_auth_flows','code_verifier'],['social_auth_flows','expires_at']
+  ];
+  const cols=await pool.query(`SELECT table_name,column_name FROM information_schema.columns
+    WHERE table_schema='public' AND table_name=ANY($1::text[])`,[[...new Set(requiredColumns.map(x=>x[0]))]]);
+  const colSet=new Set(cols.rows.map(x=>x.table_name+'.'+x.column_name));
+  const missingColumns=requiredColumns.map(x=>x.join('.')).filter(x=>!colSet.has(x));
+
+  const contractErrors=[];
+  const eventConstraint=await pool.query(`SELECT pg_get_constraintdef(c.oid) def
+    FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
+    WHERE t.relname='events' AND c.conname='events_access_mode_check' LIMIT 1`);
+  const accessDef=eventConstraint.rows[0]&&String(eventConstraint.rows[0].def||'');
+  for(const required of ['waitlist','invite_only']){
+    if(!accessDef.includes(required))contractErrors.push('events_access_mode_missing:'+required);
+  }
+
+  const registrationConstraint=await pool.query(`SELECT pg_get_constraintdef(c.oid) def
+    FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
+    WHERE t.relname='event_registrations' AND c.conname='event_registrations_status_check' LIMIT 1`);
+  const registrationDef=registrationConstraint.rows[0]&&String(registrationConstraint.rows[0].def||'');
+  for(const required of ['registered','waitlist','invited','confirmed','cancelled','no_show','attended']){
+    if(!registrationDef.includes(required))contractErrors.push('event_registration_status_missing:'+required);
+  }
+
+  const ready=!missingMigrations.length&&!missingTables.length&&!missingColumns.length&&!contractErrors.length;
+  return {
+    configured:true,ready,mode:'postgres',
+    migrations:[...appliedSet],requiredMigrations,missingMigrations,missingTables,missingColumns,contractErrors,
+    checkedAt:new Date().toISOString()
+  };
 }
 
 async function bootstrapDemoData(){
@@ -1280,7 +1354,9 @@ async function router(req,res){
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,loyalty365Authority:true,localeAuthority:true,sponsorAuthority:true,
-    brand365Persistence:{configured:!!pool,mode:pool?'postgres':'memory_demo',migrations:['009_brand365_persistence.sql','010_social_auth_flows.sql','011_social_auth_hardening.sql']},
+    brand365Persistence:{configured:!!pool,mode:pool?'postgres':'memory_demo',migrations:['009_brand365_persistence.sql','010_social_auth_flows.sql','011_social_auth_hardening.sql','012_schema_reconciliation.sql']},
+    databaseSchema:databaseSchemaReadiness,
+    productionGuard:{requirePostgres:REQUIRE_POSTGRES,satisfied:!REQUIRE_POSTGRES||!!pool},
     socialAuthFlow:{singleUseState:true,pkceSecretScrub:true,pendingTtlMinutes:10,terminalRetentionHours:24},
     socialProviders:{
       telegram:{
@@ -2392,7 +2468,13 @@ async function router(req,res){
 }
 
 async function main(){
+  if(REQUIRE_POSTGRES&&!pool)throw new Error('MFW_REQUIRE_POSTGRES=true but DATABASE_URL is not configured');
   await migrate();
+  databaseSchemaReadiness=await checkDatabaseSchema();
+  if(pool&&!databaseSchemaReadiness.ready){
+    console.error(JSON.stringify({event:'mfw_database_schema_not_ready',...databaseSchemaReadiness}));
+    throw new Error('database_schema_not_ready');
+  }
   await bootstrapDemoData();
   const selfTest=await runDeepSelfTest();
   console.log(JSON.stringify({event:'mfw_deep_self_test',...selfTest}));
