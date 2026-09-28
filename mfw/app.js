@@ -91,6 +91,7 @@
     name:localStorage.getItem('mfwName') || 'Пётр Федин',
     savedLooks:JSON.parse(localStorage.getItem('mfwSavedLooks') || '["look-07"]'),
     savedBrands:JSON.parse(localStorage.getItem('mfwSavedBrands') || '[]'),
+    favoriteBrands:JSON.parse(localStorage.getItem('mfwFavoriteBrands') || '[]'),
     myEvents:JSON.parse(localStorage.getItem('mfwMyEvents') || '["e2","e3"]'),
     connections:2,
     meeting:false,
@@ -119,6 +120,7 @@
     localStorage.setItem('mfwName',state.name);
     localStorage.setItem('mfwSavedLooks',JSON.stringify(state.savedLooks));
     localStorage.setItem('mfwSavedBrands',JSON.stringify(state.savedBrands));
+    localStorage.setItem('mfwFavoriteBrands',JSON.stringify(state.favoriteBrands));
     localStorage.setItem('mfwMyEvents',JSON.stringify(state.myEvents));
     localStorage.setItem('mfwLang',state.lang);
     localStorage.setItem('mfwBoards',JSON.stringify(state.boards));
@@ -371,7 +373,7 @@
       content='<input class="input editorial-search" placeholder="Бренд, дизайнер, категория" />'+
       '<div class="editorial-brand-grid">'+brands.map(function(b,i){
         var img=[VISUALS.designer,VISUALS.runway,VISUALS.backstage,VISUALS.street][i%4];
-        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span><div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(brandCity(b))+'</div></div></button>';
+        var fav=state.favoriteBrands.indexOf(b.id)>=0;\n        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span>'+(fav?'<span class="brand-favorite">♥</span>':'')+'<div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(brandCity(b))+'</div></div></button>';
       }).join('')+'</div>';
     } else if(state.discoverTab==='speakers'){
       content='<div class="speaker-card"><div class="speaker-photo" style="background-image:url('+VISUALS.designer+')"></div><div class="speaker-copy"><div class="eyebrow">RETAIL · BUYING</div><div class="event-name">Анна · Buyer Perspective</div><div class="sub">Как байер принимает решение о бренде и коллекции.</div><div class="action-row"><button class="action primary" data-action="questions">Live Q&A</button><button class="action ghost" data-action="toggle-event" data-id="e3">В программу</button></div></div></div>'+
@@ -530,13 +532,21 @@
     openSheet('<div class="eyebrow">'+e.time+' · '+esc(eventField(e,'type'))+' · '+esc(e.format||'')+'</div><h1 style="font-size:42px">'+esc(eventField(e,'name'))+'</h1><p class="sub">'+esc(eventField(e,'venue'))+' · '+esc(eventField(e,'access'))+'</p>'+badge(e.status)+'<div class="action-row">'+eventPrimaryAction(e,mine)+'<button class="action ghost" data-action="route">'+t('route')+'</button></div><h2>'+T('Доступ','Access')+'</h2><div class="card"><b>Credential → Entitlement → Event</b><p class="sub">'+T('Решение о входе принимает серверная модель прав, а не название роли пользователя.','Admission is decided by server-side entitlements, not by the user’s role label.')+'</p></div>');
   }
 
+  function toggleFavoriteBrand(id){
+    var i=state.favoriteBrands.indexOf(id);
+    if(i>=0){state.favoriteBrands.splice(i,1);toast(T('Убрано из любимых','Removed from favorites'));}
+    else{state.favoriteBrands.push(id);toast(T('Бренд добавлен в любимые','Brand added to favorites'));}
+    persist();openBrand(id);
+  }
+
   function openBrand(id){
     var b=brands.filter(function(x){return x.id===id;})[0]; if(!b)return;
     var saved=state.savedBrands.indexOf(id)>=0;
+    var favorite=state.favoriteBrands.indexOf(id)>=0;
     var pro=(state.role==='Buyer'||state.role==='Media');
     openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(brandCity(b))+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>SS27 · Moscow Fashion Week</p></div></div>'+
       '<div class="brand-story"><div><div class="eyebrow">THE BRAND</div><h2>'+T('Новая российская мода<br>как культурный продукт.','New Russian fashion<br>as a cultural product.')+'</h2><p class="sub">'+esc(brandDesc(b))+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
-      '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ '+T('Подписан в MFW','Following in MFW'):T('Подписаться в MFW','Follow in MFW'))+'</button><button class="action ghost" data-action="brand-loyalty" data-id="'+b.id+'">✦ '+t('club')+'</button><button class="action ghost" data-action="brand-365" data-id="'+b.id+'">'+t('brand365')+'</button></div>'+
+      '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ '+T('Подписан в MFW','Following in MFW'):T('Подписаться в MFW','Follow in MFW'))+'</button><button class="action ghost" data-action="favorite-brand" data-id="'+b.id+'">'+(favorite?'♥ '+T('Любимый','Favorite'):'♡ '+T('В любимые','Favorite'))+'</button><button class="action ghost" data-action="brand-loyalty" data-id="'+b.id+'">✦ '+t('club')+'</button><button class="action ghost" data-action="brand-365" data-id="'+b.id+'">'+t('brand365')+'</button></div>'+
       '<div class="section-head"><h2>SS27 runway</h2><span class="link">32 looks</span></div><div class="brand-look-grid">'+[1,2,3,4,5,6].map(function(n){return '<button data-action="save-look" data-look="'+b.id+'-look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
       '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(brandCity(b))+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
       (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE · SERVER</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet" data-id="'+b.id+'">Line sheet</button><button class="action light" data-action="toggle-shortlist" data-id="'+b.id+'">'+(state.buyerShortlist.some(function(x){return x.id===b.id;})?'✓ Shortlisted':'＋ Shortlist')+'</button><button class="action light" data-action="meeting">Встреча</button><button class="action ghost" data-action="buyer-followup" data-id="'+b.id+'">Follow-up</button></div></div>':''));
@@ -1486,6 +1496,7 @@
       else if(a==='save-look')saveLook(el.getAttribute('data-look'));
       else if(a==='brand')openBrand(el.getAttribute('data-id'));
       else if(a==='save-brand')saveBrand(el.getAttribute('data-id'));
+      else if(a==='favorite-brand')toggleFavoriteBrand(el.getAttribute('data-id'));
       else if(a==='notifications')notifications();
       else if(a==='notification-preferences')notificationPreferences();
       else if(a==='notification-pref-toggle')toggleNotificationPreference(el.getAttribute('data-key'),el.getAttribute('data-value'));
