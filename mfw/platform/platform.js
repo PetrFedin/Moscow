@@ -8,6 +8,7 @@
   var registrationForm=document.getElementById('registrationForm');
   var registrationGrid=document.getElementById('registrationGrid');
   var currentRegistrationEvent=null;
+  var investorModal=document.getElementById('investorModal');
 
   var DEFAULT_PROFILE={firstName:'Alex',lastName:'Morgan',email:'alex@example.com',phone:'+7 900 000-00-00',company:'Fashion Industry',title:'Guest',country:'Russia'};
   var EVENT_CONFIG={
@@ -106,10 +107,14 @@
     saveState();closeRegistration();renderRegistrations();
   };
   document.getElementById('accountBtn').onclick=openAccount;
+  document.getElementById('investorBtn').onclick=function(){investorModal.classList.remove('hidden');};
+  document.getElementById('investorClose').onclick=function(){investorModal.classList.add('hidden');};
+  [].slice.call(document.querySelectorAll('[data-investor-step]')).forEach(function(b){b.onclick=function(){var step=b.dataset.investorStep;var narrative=document.getElementById('investorNarrative');if(step==='1'){openEvent('mfw');narrative.textContent='MFW сохранён без редизайна: показы, LIVE, Discover, pass, buyer и networking.';}if(step==='2'){openEvent('bfs');narrative.textContent='BFS открывается как самостоятельный бренд с business programme, speakers, exhibition и B2B.';}if(step==='3'){investorModal.classList.add('hidden');openAccount();}if(step==='4'){openEvent('bfs');narrative.textContent='В BFS показаны programme save, отдельная регистрация, QR credential и delegate meeting flow.';}if(step==='5'){narrative.textContent='Shared identity и event-scoped authorities позволяют подключать следующие события без унификации их бренда.';}};});
   document.getElementById('accountClose').onclick=closeAccount;
   document.getElementById('registrationClose').onclick=closeRegistration;
   accountDrawer.addEventListener('click',function(e){if(e.target===accountDrawer)closeAccount();});
   registrationModal.addEventListener('click',function(e){if(e.target===registrationModal)closeRegistration();});
+  investorModal.addEventListener('click',function(e){if(e.target===investorModal)investorModal.classList.add('hidden');});
   buttons.forEach(function(b){b.addEventListener('click',function(){openEvent(b.dataset.event);});});
   window.addEventListener('message',function(e){
     if(!e.data||typeof e.data!=='object')return;
