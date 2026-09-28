@@ -123,9 +123,9 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
     {
       id: 'executive-one-pager',
       title: 'Executive one-pager',
-      status: 'missing',
-      refs: [],
-      note: 'Required as the compact leave-behind for the first formal city meeting.'
+      status: 'ready',
+      refs: ['docs/GOVERNMENT_EXECUTIVE_ONE_PAGER.md'],
+      note: 'Compact buyer-facing leave-behind; rendered PDF/export can be produced from this content authority.'
     },
     {
       id: 'decision-deck',
@@ -137,44 +137,46 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
     {
       id: 'technical-specification',
       title: 'Consolidated pilot technical specification',
-      status: 'missing',
-      refs: [],
-      note: 'Must consolidate scope, interfaces, deliverables, acceptance and responsibilities into a buyer-facing specification.'
+      status: 'ready',
+      refs: ['docs/GOVERNMENT_PILOT_TECHNICAL_SPECIFICATION.md'],
+      note: 'Consolidates bounded scope, responsibilities, interfaces, evidence and acceptance for buyer review.'
     },
     {
       id: 'architecture-integration',
       title: 'Buyer-facing architecture / integration scheme',
-      status: 'draft',
+      status: 'ready',
       refs: [
+        'docs/GOVERNMENT_BUYER_ARCHITECTURE.md',
         'docs/INTEGRATION_STACK.md',
         'docs/LIVE_DESTINATION_AUTHORITY.md',
         'docs/MOSCOW_LIVE_PROVIDER_STRATEGY.md'
       ],
-      note: 'Technical building blocks exist, but one consolidated buyer/IT architecture artifact is still required.'
+      note: 'Buyer-facing architecture now separates current implementation from target production and defines integration/trust boundaries.'
     },
     {
       id: 'security-data-flow',
       title: 'Security and data-flow note',
-      status: 'missing',
-      refs: [],
-      note: 'Must document data categories, local-only analytics boundary, external providers, secrets, retention and hosting assumptions.'
+      status: 'ready',
+      refs: ['docs/GOVERNMENT_SECURITY_DATA_FLOW.md'],
+      note: 'Documents current controls, data categories, pilot flows and explicit production-security decisions still requiring buyer approval.'
     },
     {
       id: 'ip-rights-handover',
       title: 'IP / rights / source-material handover matrix',
-      status: 'draft',
+      status: 'ready',
       refs: [
+        'docs/GOVERNMENT_IP_RIGHTS_HANDOVER.md',
         'docs/PUBLISHED_SPATIAL_PACKAGE.md',
         'docs/CITY_HERITAGE_STUDIO.md'
       ],
-      note: 'Rights authority exists in product contracts, but procurement-facing ownership/license/handover terms are not consolidated.'
+      note: 'Provides a procurement-facing baseline for reusable platform IP, city-specific deliverables, third-party rights and portable handover.'
     },
     {
       id: 'operations-sla',
       title: 'Operations / SLA draft',
-      status: 'missing',
-      refs: [],
-      note: 'Must define production support, provider refresh failures, content corrections, monitoring, recovery and support responsibilities.'
+      status: 'ready',
+      refs: ['docs/GOVERNMENT_OPERATIONS_SLA_DRAFT.md'],
+      note: 'Defines responsibilities, incident classes, provider fail-safe, release/backup/support topics while keeping numeric SLA targets TBD until deployment is selected.'
     },
     {
       id: 'cost-scale-model',
@@ -189,9 +191,9 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
     {
       id: 'final-report-template',
       title: 'Final pilot report template',
-      status: 'missing',
-      refs: [],
-      note: 'Must mirror the acceptance matrix and distinguish proven, not proven, blocked and measured economics outcomes.'
+      status: 'ready',
+      refs: ['docs/GOVERNMENT_FINAL_PILOT_REPORT_TEMPLATE.md'],
+      note: 'Mirrors acceptance and forces proven / not proven / blocked / measured economics outcomes to remain separate.'
     }
   ]
 };
