@@ -263,6 +263,7 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     if (!isText(raw.attributionZh)) blockers.push(`live-provider-attribution-zh-missing:${index}`);
   }
 
+  const providerEntityKeys = new Set<string>();
   for (const [index, raw] of entities.entries()) {
     if (!isRecord(raw)) {
       blockers.push(`live-entity-invalid:${index}`);
@@ -273,6 +274,12 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     if (!isText(raw.providerEntityId)) blockers.push(`live-provider-entity-id-missing:${id}`);
     if (!isText(raw.providerId) || !providerIds.has(String(raw.providerId))) {
       blockers.push(`live-provider-not-found:${id}`);
+    } else if (isText(raw.providerEntityId)) {
+      const providerEntityKey = `${raw.providerId}:${raw.providerEntityId}`;
+      if (providerEntityKeys.has(providerEntityKey)) {
+        blockers.push(`duplicate-provider-entity:${providerEntityKey}`);
+      }
+      providerEntityKeys.add(providerEntityKey);
     }
 
     const kind = raw.kind as LiveDestinationEntity['kind'];
