@@ -3,12 +3,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
+const { Brand365Store } = require('./brand365-store');
 let Pool = null;
 try { ({ Pool } = require('pg')); } catch (_) {}
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
-const VERSION = 'mfw-authority-v5';
+const VERSION = 'mfw-authority-v6';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
@@ -16,6 +17,8 @@ const TELEGRAM_BOT_TOKEN = process.env.MFW_TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_WEBHOOK_SECRET = process.env.MFW_TELEGRAM_WEBHOOK_SECRET || '';
 const VK_SERVICE_TOKEN = process.env.MFW_VK_SERVICE_TOKEN || '';
 const VK_API_VERSION = process.env.MFW_VK_API_VERSION || '5.199';
+const REVERIFY_INTERVAL_MINUTES = Math.max(60,Number(process.env.MFW_REVERIFY_INTERVAL_MINUTES || 360));
+const REVERIFY_BATCH_SIZE = Math.max(1,Math.min(1000,Number(process.env.MFW_REVERIFY_BATCH_SIZE || 250)));
 
 function validateInvestorBuild(){
   const frontendPath=path.join(__dirname,'..','mfw','app.js');
@@ -141,13 +144,12 @@ function adminOk(req){
   var p=sessionFromRequest(req);
   return !!(p&&['Organizer','Staff'].indexOf(p.role)>=0);
 }
-function brandPortalOk(req,brandId){
+async function brandPortalOk(req,brandId){
   var p=sessionFromRequest(req);
   if(!p)return false;
   if(['Organizer','Staff'].includes(p.role))return true;
   if(p.role!=='Designer')return false;
-  var set=memory.brandAccess.get(String(p.sub));
-  return !!(set&&set.has(String(brandId)));
+  return brand365Store.hasBrandAccess(String(p.sub),String(brandId));
 }
 
 const publicJwk=DERIVED_KEYS.publicJwk;
@@ -354,6 +356,8 @@ const memory={
   failoverEvents:[]
 };
 
+const brand365Store=new Brand365Store({pool,memory});
+
 async function query(sql,params=[]){
   if(!pool) return null;
   return pool.query(sql,params);
@@ -408,6 +412,7 @@ async function bootstrapDemoData(){
       ON CONFLICT(slug) DO UPDATE SET name=EXCLUDED.name,city=EXCLUDED.city,updated_at=now()`,
       [b.slug,b.name,b.city,JSON.stringify({segment:b.segment,demo:true})]);
   }
+  await brand365Store.seedDemo();
 }
 
 function notificationPrefs(userId){
@@ -497,7 +502,7 @@ function activeTelegramStatus(member){
   return false;
 }
 async function verifyProviderMembership(userId,channel){
-  const connection=memory.socialConnections.get(socialConnectionKey(userId,channel.platform));
+  const connection=await brand365Store.socialConnection(userId,channel.platform);
   if(!connection)return {ok:false,error:'social_connection_required',platform:channel.platform};
   if(channel.platform==='telegram'){
     if(!TELEGRAM_BOT_TOKEN)return {ok:false,error:'provider_not_configured',platform:'telegram'};
@@ -524,30 +529,8 @@ async function verifyProviderMembership(userId,channel){
   }
   return {ok:false,error:'verification_not_supported',platform:channel.platform};
 }
-function applyMembershipObservation(userId,channel,result,providerEventAt=null){
-  const key=membershipKey(userId,channel.id);
-  const prior=memory.socialMemberships.get(key)||null;
-  const now=new Date().toISOString();
-  const active=!!result.active;
-  const eventIso=providerEventAt?new Date(providerEventAt).toISOString():null;
-  let continuousSince=null;
-  if(active){
-    continuousSince=(prior&&prior.status==='active'&&(prior.continuousSince||prior.firstVerifiedAt))||eventIso||now;
-  }
-  const membership={
-    id:prior?.id||('sm_'+crypto.randomBytes(6).toString('hex')),
-    userId:String(userId),channelId:channel.id,platform:channel.platform,status:active?'active':'inactive',
-    firstVerifiedAt:prior?.firstVerifiedAt||(active?now:null),
-    providerJoinedAt:eventIso||prior?.providerJoinedAt||null,
-    continuousSince,
-    lastVerifiedAt:now,
-    lastLostAt:active?(prior?.lastLostAt||null):now,
-    proofSource:result.source||channel.verificationMode,
-    providerStatus:result.rawStatus??null,
-    demo:!!result.demo
-  };
-  memory.socialMemberships.set(key,membership);
-  return membership;
+async function applyMembershipObservation(userId,channel,result,providerEventAt=null){
+  return brand365Store.applyMembershipObservation(userId,channel,result,providerEventAt);
 }
 
 function evaluateLoyaltyOffer(userId,offer){
@@ -578,6 +561,9 @@ function evaluateLoyaltyOffer(userId,offer){
     progress,
     evaluatedAt:new Date().toISOString()
   };
+}
+async function evaluateLoyaltyOfferAuthority(userId,offer){
+  return pool ? brand365Store.evaluateOffer(userId,offer) : evaluateLoyaltyOffer(userId,offer);
 }
 
 async function track(name,props={},userId=null){
@@ -1138,12 +1124,13 @@ async function router(req,res){
     const session=sessionFromRequest(req);
     if(!session)return json(res,401,{error:'authenticated_mfw_id_required'});
     const b=await readBody(req);
-    const userId=String(session.sub);
     const platform=String(b.platform||'web');
     if(!['ios','android','pwa','investor_demo'].includes(platform))return json(res,400,{error:'invalid_installation_platform'});
-    const item={userId,installationId:String(b.installationId||('inst_'+crypto.randomBytes(6).toString('hex'))),platform,status:'active',installedAt:new Date().toISOString(),demo:platform==='investor_demo'};
-    memory.appInstallations.set(userId,item);
-    await track('app_installation_registered',{platform:item.platform},userId);
+    const item=await brand365Store.registerInstallation(String(session.sub),{
+      installationId:String(b.installationId||('inst_'+crypto.randomBytes(6).toString('hex'))),
+      platform
+    });
+    await track('app_installation_registered',{platform:item.platform},String(session.sub));
     return json(res,201,{data:item});
   }
   if(req.method==='GET'&&p==='/v1/social/providers'){
@@ -1151,8 +1138,19 @@ async function router(req,res){
   }
   if(req.method==='GET'&&p==='/v1/social/channels'){
     const brandId=url.searchParams.get('brandId');
-    const data=memory.socialChannels.filter(x=>!brandId||x.brandId===brandId||x.ownerType==='mfw');
-    return json(res,200,{data});
+    if(brandId){
+      return json(res,200,{data:await brand365Store.channelsForBrand(brandId)});
+    }
+    if(pool){
+      const r=await pool.query(`SELECT c.*,b.external_key brand_external_key,b.slug brand_slug
+        FROM brand_social_channels c LEFT JOIN brands b ON b.id=c.brand_id ORDER BY c.owner_type,c.platform`);
+      return json(res,200,{data:r.rows.map(x=>({
+        id:x.external_key||String(x.id),storageId:String(x.id),ownerType:x.owner_type,
+        brandId:x.brand_external_key||x.brand_slug||null,platform:x.platform,externalChannelId:x.external_channel_id,
+        handle:x.handle,url:x.url,verificationMode:x.verification_mode,status:x.status,verifiedAt:x.verified_at,metadata:x.metadata||{}
+      }))});
+    }
+    return json(res,200,{data:memory.socialChannels});
   }
   if(req.method==='POST'&&p==='/v1/social/connect'){
     const b=await readBody(req);
@@ -1165,30 +1163,31 @@ async function router(req,res){
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
     const platform=String(b.platform||'telegram').toLowerCase();
-    const connection={id:'soc_'+crypto.randomBytes(6).toString('hex'),userId,platform,externalUserId:String(b.externalUserId||('demo_'+userId)),externalHandle:String(b.externalHandle||'demo'),status:'active',connectedAt:new Date().toISOString(),demo:true};
-    memory.socialConnections.set(socialConnectionKey(userId,platform),connection);
+    const connection=await brand365Store.demoSocialConnect(
+      userId,platform,String(b.externalUserId||('demo_'+userId)),String(b.externalHandle||'demo')
+    );
     return json(res,201,{data:connection,demo:true});
   }
   if(req.method==='POST'&&p==='/v1/social/verify'){
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
-    const channel=memory.socialChannels.find(x=>x.id===String(b.channelId||''));
+    const channel=await brand365Store.channelByRef(String(b.channelId||''));
     if(!channel)return json(res,404,{error:'social_channel_not_found'});
     const result=await verifyProviderMembership(userId,channel);
     if(!result.ok)return json(res,result.error==='social_connection_required'?409:503,result);
-    const membership=applyMembershipObservation(userId,channel,result,null);
+    const membership=await applyMembershipObservation(userId,channel,result,null);
     await track('social_membership_verified',{channelId:channel.id,platform:channel.platform,status:membership.status,source:result.source},userId);
     return json(res,200,{data:membership,channel,provider:{source:result.source}});
   }
   if(req.method==='POST'&&p==='/v1/demo/social/verify'){
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
-    const channel=memory.socialChannels.find(x=>x.id===String(b.channelId||''));
+    const channel=await brand365Store.channelByRef(String(b.channelId||''));
     if(!channel)return json(res,404,{error:'social_channel_not_found'});
     if(channel.verificationMode==='unsupported')return json(res,409,{error:'verification_not_supported',platform:channel.platform});
     const days=Math.max(0,Math.min(3650,Number(b.continuousDays||0)));
     const eventAt=days?new Date(Date.now()-days*86400000).toISOString():null;
-    const membership=applyMembershipObservation(userId,channel,{active:b.active!==false,source:'investor_demo_simulation',rawStatus:'demo',demo:true},eventAt);
+    const membership=await applyMembershipObservation(userId,channel,{active:b.active!==false,source:'investor_demo_simulation',rawStatus:'demo',demo:true},eventAt);
     await track('social_membership_demo_verified',{channelId:channel.id,platform:channel.platform,continuousDays:days},userId);
     return json(res,200,{data:membership,channel,demo:true});
   }
@@ -1198,46 +1197,61 @@ async function router(req,res){
     const evt=update&&update.chat_member;
     if(!evt||!evt.chat||!evt.new_chat_member||!evt.new_chat_member.user)return json(res,202,{accepted:true,ignored:true});
     const externalUserId=String(evt.new_chat_member.user.id);
-    const channel=memory.socialChannels.find(x=>x.platform==='telegram'&&String(x.externalChannelId)===String(evt.chat.id));
+    const channel=await brand365Store.channelByProviderId('telegram',String(evt.chat.id));
     if(!channel)return json(res,202,{accepted:true,ignored:true,reason:'channel_not_configured'});
-    const connection=[...memory.socialConnections.values()].find(x=>x.platform==='telegram'&&String(x.externalUserId)===externalUserId);
+    const connection=await brand365Store.socialConnectionByExternalId('telegram',externalUserId);
     if(!connection)return json(res,202,{accepted:true,ignored:true,reason:'user_not_connected'});
     const active=activeTelegramStatus(evt.new_chat_member);
     const eventAt=evt.date?new Date(Number(evt.date)*1000).toISOString():new Date().toISOString();
-    const membership=applyMembershipObservation(connection.userId,channel,{active,source:'telegram_chat_member_webhook',rawStatus:evt.new_chat_member.status},active?eventAt:null);
+    const membership=await applyMembershipObservation(connection.userId,channel,{active,source:'telegram_chat_member_webhook',rawStatus:evt.new_chat_member.status},active?eventAt:null);
+    if(!active)await brand365Store.revokeIssuedClaimsIfIneligible(connection.userId);
     await track('telegram_membership_event',{channelId:channel.id,status:membership.status,eventAt},connection.userId);
     return json(res,200,{accepted:true,status:membership.status});
   }
   if(req.method==='POST'&&p.startsWith('/v1/brands/')&&p.endsWith('/follow')){
     const brandId=p.split('/')[3];
-    if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
+    const brand=await brand365Store.brandByRef(brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
-    const set=followSet(userId);
-    const following=b.action==='remove'?false:true;
-    if(following)set.add(brandId);else set.delete(brandId);
+    const following=b.action!=='remove';
+    await brand365Store.setBrandFollow(userId,brandId,following);
     await track(following?'brand_follow_365':'brand_unfollow_365',{brandId},userId);
     return json(res,200,{following,brandId});
   }
   if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/loyalty')){
     const brandId=p.split('/')[3];
     const userId=String(url.searchParams.get('userId')||'demo_user');
-    const offers=memory.loyaltyOffers.filter(x=>x.brandId===brandId&&x.status==='published').map(offer=>({
-      ...offer,
-      eligibility:evaluateLoyaltyOffer(userId,offer)
-    }));
-    const channels=memory.socialChannels.filter(x=>x.ownerType==='mfw'||x.brandId===brandId);
-    const memberships=channels.map(ch=>({channel:ch,membership:memory.socialMemberships.get(membershipKey(userId,ch.id))||null}));
-    return json(res,200,{data:{brandId,userId,followingInMfw:followSet(userId).has(brandId),offers,memberships,providers:memory.socialProviderAdapters}});
+    const brand=await brand365Store.brandByRef(brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
+    const sourceOffers=await brand365Store.offersForBrand(brandId,{publishedOnly:true});
+    const offers=[];
+    for(const offer of sourceOffers){
+      offers.push({...offer,eligibility:await evaluateLoyaltyOfferAuthority(userId,offer)});
+    }
+    const channels=await brand365Store.channelsForBrand(brandId);
+    const memberships=await brand365Store.membershipsForUser(userId,channels);
+    const followingInMfw=await brand365Store.isBrandFollow(userId,brandId);
+    return json(res,200,{data:{brandId,userId,followingInMfw,offers,memberships,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
   }
   if(req.method==='POST'&&p.startsWith('/v1/loyalty/offers/')&&p.endsWith('/claim')){
     const offerId=p.split('/')[4];
-    const offer=memory.loyaltyOffers.find(x=>x.id===offerId&&x.status==='published');
-    if(!offer)return json(res,404,{error:'offer_not_found'});
+    const offer=await brand365Store.offerByRef(offerId);
+    if(!offer||offer.status!=='published')return json(res,404,{error:'offer_not_found'});
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
-    const eligibility=evaluateLoyaltyOffer(userId,offer);
+    const eligibility=await evaluateLoyaltyOfferAuthority(userId,offer);
     if(!eligibility.eligible)return json(res,409,{error:'not_eligible',eligibility});
+    if(pool){
+      const code='MFW-'+String(offer.rewardType==='discount_percent'?offer.rewardValue:'GIFT')+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
+      const hash=crypto.createHash('sha256').update(code).digest('hex');
+      const expiresAt=new Date(Date.now()+7*86400000);
+      const created=await brand365Store.createClaim(userId,offer,hash,expiresAt);
+      if(created.stockExhausted)return json(res,409,{error:'reward_stock_exhausted'});
+      if(created.existing)return json(res,200,{data:{id:String(created.claim.id),userId:String(created.claim.user_id),offerId:offer.id,status:created.claim.status,issuedAt:created.claim.issued_at,expiresAt:created.claim.expires_at},alreadyIssued:true});
+      await track('loyalty_claim_issued',{offerId:offer.id,claimId:String(created.claim.id),rewardType:offer.rewardType},userId);
+      return json(res,201,{data:{id:String(created.claim.id),userId,status:created.claim.status,offerId:offer.id,issuedAt:created.claim.issued_at,expiresAt:created.claim.expires_at,code}});
+    }
     const existing=[...memory.loyaltyClaims.values()].find(x=>x.userId===userId&&x.offerId===offerId&&['issued','redeemed'].includes(x.status));
     if(existing)return json(res,200,{data:{...existing,code:undefined},alreadyIssued:true});
     const code='MFW-'+String(offer.rewardType==='discount_percent'?offer.rewardValue:'GIFT')+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -1252,17 +1266,37 @@ async function router(req,res){
     const code=String(b.code||'').trim();
     if(!code)return json(res,400,{error:'claim_code_required'});
     const hash=crypto.createHash('sha256').update(code).digest('hex');
+    if(pool){
+      const claim=await brand365Store.claimByHash(hash);
+      if(!claim)return json(res,404,{error:'claim_not_found'});
+      const offer=await brand365Store.offerByRef(claim.offer_external_key||String(claim.offer_id));
+      if(!offer)return json(res,404,{error:'offer_not_found'});
+      if(!(await brandPortalOk(req,offer.brandId))&&!adminOk(req))return json(res,403,{error:'brand_redemption_access_required'});
+      if(claim.status==='redeemed')return json(res,409,{error:'already_redeemed',redeemedAt:claim.redeemed_at});
+      if(claim.status==='revoked')return json(res,409,{error:'claim_revoked'});
+      if(claim.expires_at&&Date.now()>=new Date(claim.expires_at).getTime()){
+        await brand365Store.updateClaimStatus(claim.id,'expired');
+        return json(res,409,{error:'claim_expired'});
+      }
+      const eligibility=await evaluateLoyaltyOfferAuthority(String(claim.user_id),offer);
+      if(!eligibility.eligible){
+        await brand365Store.updateClaimStatus(claim.id,'revoked');
+        await track('loyalty_claim_revoked',{claimId:String(claim.id),offerId:offer.id,reason:'eligibility_lost'},String(claim.user_id));
+        return json(res,409,{error:'eligibility_lost',eligibility});
+      }
+      const actor=sessionFromRequest(req);
+      const updated=await brand365Store.updateClaimStatus(claim.id,'redeemed',actor&&actor.sub||null);
+      await track('loyalty_claim_redeemed',{claimId:String(claim.id),offerId:offer.id,brandId:offer.brandId},String(claim.user_id));
+      return json(res,200,{data:{id:String(updated.id),offerId:offer.id,status:updated.status,redeemedAt:updated.redeemed_at,rewardType:offer.rewardType,rewardValue:offer.rewardValue}});
+    }
     const claim=[...memory.loyaltyClaims.values()].find(x=>x.claimTokenHash===hash);
     if(!claim)return json(res,404,{error:'claim_not_found'});
     const offer=memory.loyaltyOffers.find(x=>x.id===claim.offerId);
     if(!offer)return json(res,404,{error:'offer_not_found'});
-    if(!brandPortalOk(req,offer.brandId)&&!adminOk(req))return json(res,403,{error:'brand_redemption_access_required'});
+    if(!(await brandPortalOk(req,offer.brandId))&&!adminOk(req))return json(res,403,{error:'brand_redemption_access_required'});
     if(claim.status==='redeemed')return json(res,409,{error:'already_redeemed',redeemedAt:claim.redeemedAt});
     if(claim.status==='revoked')return json(res,409,{error:'claim_revoked'});
-    if(claim.expiresAt&&Date.now()>=new Date(claim.expiresAt).getTime()){
-      claim.status='expired';
-      return json(res,409,{error:'claim_expired'});
-    }
+    if(claim.expiresAt&&Date.now()>=new Date(claim.expiresAt).getTime()){claim.status='expired';return json(res,409,{error:'claim_expired'});}
     const eligibility=evaluateLoyaltyOffer(claim.userId,offer);
     if(!eligibility.eligible){
       claim.status='revoked';
@@ -1276,25 +1310,36 @@ async function router(req,res){
 
   if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/content')){
     const brandId=p.split('/')[3];
-    return json(res,200,{data:memory.brandPosts.filter(x=>x.brandId===brandId&&x.status==='published').sort((a,b)=>String(b.publishedAt).localeCompare(String(a.publishedAt)))});
+    const brand=await brand365Store.brandByRef(brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
+    return json(res,200,{data:await brand365Store.postsForBrand(brandId,{publishedOnly:true})});
   }
   if(req.method==='GET'&&p==='/v1/feed'){
     const userId=String(url.searchParams.get('userId')||'demo_user');
-    const data=buildPersonalFeed(userId);
-    return json(res,200,{data,meta:{ranking:'followed_brand_first',paidFrequencyCap:'2_per_post_per_7d',paidSpacing:'max_1_per_4_slots',generatedAt:new Date().toISOString()}});
+    const data=pool ? await brand365Store.personalFeed(userId) : buildPersonalFeed(userId);
+    return json(res,200,{data,meta:{ranking:'followed_brand_first',paidFrequencyCap:'2_per_post_per_7d',paidSpacing:'max_1_per_4_slots',generatedAt:new Date().toISOString(),dataMode:pool?'postgres':'memory'}});
   }
   if(req.method==='POST'&&p==='/v1/content/interactions'){
     const b=await readBody(req);
     const type=String(b.type||'open');
     if(!['impression','open','cta','save','dismiss'].includes(type))return json(res,400,{error:'invalid_interaction_type'});
-    const item={id:'ci_'+crypto.randomBytes(6).toString('hex'),userId:String(b.userId||'anonymous'),postId:String(b.postId||''),type,occurredAt:new Date().toISOString(),surface:String(b.surface||'mfw_365'),demo:true};
-    memory.contentInteractions.push(item);
-    if(memory.contentInteractions.length>5000)memory.contentInteractions.shift();
-    await track('brand_content_'+item.type,{postId:item.postId,surface:item.surface},item.userId);
+    const userId=String(b.userId||'anonymous'),postId=String(b.postId||''),surface=String(b.surface||'mfw_365');
+    const item={id:'ci_'+crypto.randomBytes(6).toString('hex'),userId,postId,type,occurredAt:new Date().toISOString(),surface,demo:!pool};
+    if(pool){
+      if(type==='impression')await brand365Store.recordImpression(userId,postId,surface);
+    }else{
+      memory.contentInteractions.push(item);
+      if(memory.contentInteractions.length>5000)memory.contentInteractions.shift();
+    }
+    await track('brand_content_'+type,{postId,surface},userId);
     return json(res,201,{data:item});
   }
   if(req.method==='GET'&&p==='/v1/notifications'){
     const userId=String(url.searchParams.get('userId')||'demo_user');
+    if(pool){
+      const inbox=await brand365Store.notificationsForUser(userId);
+      return json(res,200,inbox);
+    }
     const pref=notificationPrefs(userId);
     const followed=followSet(userId);
     const data=memory.notifications.filter(n=>{
@@ -1310,17 +1355,19 @@ async function router(req,res){
   }
   if(req.method==='GET'&&p==='/v1/notifications/preferences'){
     const userId=String(url.searchParams.get('userId')||'demo_user');
-    return json(res,200,{data:notificationPrefs(userId)});
+    return json(res,200,{data:pool?await brand365Store.preferences(userId):notificationPrefs(userId)});
   }
   if(req.method==='PATCH'&&p==='/v1/notifications/preferences'){
     const b=await readBody(req);
     const userId=String(b.userId||'demo_user');
-    const pref=notificationPrefs(userId);
-    for(const key of ['criticalEnabled','liveEnabled','followedBrandNewsEnabled','loyaltyEnabled','brandEventsEnabled','paidPromotionsEnabled']){
-      if(Object.prototype.hasOwnProperty.call(b,key))pref[key]=!!b[key];
+    const pref=pool?await brand365Store.updatePreferences(userId,b):notificationPrefs(userId);
+    if(!pool){
+      for(const key of ['criticalEnabled','liveEnabled','followedBrandNewsEnabled','loyaltyEnabled','brandEventsEnabled','paidPromotionsEnabled']){
+        if(Object.prototype.hasOwnProperty.call(b,key))pref[key]=!!b[key];
+      }
+      if(b.quietHours&&typeof b.quietHours==='object')pref.quietHours=b.quietHours;
+      pref.updatedAt=new Date().toISOString();
     }
-    if(b.quietHours&&typeof b.quietHours==='object')pref.quietHours=b.quietHours;
-    pref.updatedAt=new Date().toISOString();
     await track('notification_preferences_updated',{paidPromotionsEnabled:pref.paidPromotionsEnabled},userId);
     return json(res,200,{data:pref});
   }
@@ -1328,18 +1375,24 @@ async function router(req,res){
     const parts=p.split('/').filter(Boolean);
     const brandId=parts[2];
     const action=parts[3]||'overview';
-    if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
-    if(!brandPortalOk(req,brandId))return json(res,403,{error:'brand_access_required'});
+    const brand=await brand365Store.brandByRef(brandId);
+    if(!brand)return json(res,404,{error:'brand_not_found'});
+    if(!(await brandPortalOk(req,brandId)))return json(res,403,{error:'brand_access_required'});
     if(req.method==='GET'&&action==='overview'){
-      const followers=[...memory.brandFollows.values()].reduce((n,set)=>n+(set.has(brandId)?1:0),0);
-      const offers=memory.loyaltyOffers.filter(x=>x.brandId===brandId);
-      const posts=memory.brandPosts.filter(x=>x.brandId===brandId).sort((a,b)=>String(b.publishedAt||b.createdAt||'').localeCompare(String(a.publishedAt||a.createdAt||'')));
-      const claims=[...memory.loyaltyClaims.values()].filter(cl=>offers.some(o=>o.id===cl.offerId));
-      const channels=memory.socialChannels.filter(x=>x.brandId===brandId);
-      return json(res,200,{data:{brand:memory.brands.find(x=>x.id===brandId),followers,offers,posts,claims,channels,providers:memory.socialProviderAdapters}});
+      const followers=await brand365Store.followerCount(brandId);
+      const offers=await brand365Store.offersForBrand(brandId,{publishedOnly:false});
+      const posts=await brand365Store.postsForBrand(brandId,{publishedOnly:false});
+      const claims=await brand365Store.claimsForBrand(brandId);
+      const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
+      return json(res,200,{data:{brand,followers,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
     }
     if(req.method==='POST'&&action==='content'){
       const b=await readBody(req);
+      if(pool){
+        const post=await brand365Store.createPost(brandId,b);
+        await track('brand_portal_content_created',{brandId,postId:post.id,isPaid:post.isPaid,status:post.status},sessionFromRequest(req)?.sub||null);
+        return json(res,201,{data:post});
+      }
       const paid=!!b.isPaid||((b.audienceScope&&b.audienceScope.kind)==='all_mfw');
       const post={id:'bp_'+crypto.randomBytes(6).toString('hex'),brandId,kind:String(b.kind||'news'),titleRu:String(b.titleRu||'Новости бренда'),titleEn:String(b.titleEn||'Brand news'),bodyRu:String(b.bodyRu||''),bodyEn:String(b.bodyEn||''),imageUrl:String(b.imageUrl||''),ctaLabelRu:String(b.ctaLabelRu||'Открыть'),ctaLabelEn:String(b.ctaLabelEn||'Open'),ctaUrl:String(b.ctaUrl||'#'),eventStartsAt:b.eventStartsAt||null,eventEndsAt:b.eventEndsAt||null,audienceScope:b.audienceScope||{kind:'brand_followers'},placementScope:b.placementScope||['brand_profile','discover_feed'],isPaid:paid,sponsorLabelRu:paid?'Реклама бренда':null,sponsorLabelEn:paid?'Brand promotion':null,status:paid?'pending_review':'published',publishedAt:paid?null:new Date().toISOString(),createdAt:new Date().toISOString(),demo:true};
       memory.brandPosts.unshift(post);
@@ -1350,6 +1403,11 @@ async function router(req,res){
       const b=await readBody(req);
       const rewardType=String(b.rewardType||'discount_percent');
       if(!['discount_percent','discount_amount','gift','early_access','experience'].includes(rewardType))return json(res,400,{error:'invalid_reward_type'});
+      if(pool){
+        const offer=await brand365Store.createOffer(brandId,{...b,rewardType});
+        await track('brand_portal_offer_created',{brandId,offerId:offer.id,rewardType},sessionFromRequest(req)?.sub||null);
+        return json(res,201,{data:offer});
+      }
       const id='lo_'+crypto.randomBytes(6).toString('hex');
       const offer={id,brandId,titleRu:String(b.titleRu||'Новая привилегия'),titleEn:String(b.titleEn||'New reward'),descriptionRu:String(b.descriptionRu||''),descriptionEn:String(b.descriptionEn||''),rewardType,rewardValue:b.rewardValue==null?null:Number(b.rewardValue),minContinuousDays:Math.max(0,Number(b.minContinuousDays||30)),status:'pending',stockLimit:b.stockLimit==null?null:Number(b.stockLimit),perUserLimit:Math.max(1,Number(b.perUserLimit||1)),termsRu:String(b.termsRu||''),termsEn:String(b.termsEn||''),requirements:Array.isArray(b.requirements)?b.requirements:[],createdAt:new Date().toISOString(),demo:true};
       memory.loyaltyOffers.push(offer);
@@ -1358,16 +1416,21 @@ async function router(req,res){
     }
     if(req.method==='POST'&&action==='notify'){
       const b=await readBody(req);
+      if(pool){
+        const result=await brand365Store.createBrandPush(brandId,String(b.postId||''));
+        if(result&&result.error==='post_not_found')return json(res,404,result);
+        if(result&&result.error==='post_not_published')return json(res,409,result);
+        if(result&&result.error==='mfw_wide_push_requires_organizer')return json(res,403,result);
+        if(result&&result.error==='brand_push_frequency_cap')return json(res,429,result);
+        await track('brand_push_scheduled',{brandId,postId:String(b.postId||''),notificationId:result.data.id},sessionFromRequest(req)?.sub||null);
+        return json(res,201,result);
+      }
       const post=memory.brandPosts.find(x=>x.id===String(b.postId||'')&&x.brandId===brandId);
       if(!post)return json(res,404,{error:'post_not_found'});
       if(post.status!=='published')return json(res,409,{error:'post_not_published'});
       if(post.isPaid||(post.audienceScope&&post.audienceScope.kind)!=='brand_followers')return json(res,403,{error:'mfw_wide_push_requires_organizer'});
       if(brandPushesInWindow(brandId,7)>=2)return json(res,429,{error:'brand_push_frequency_cap',limit:2,windowDays:7});
-      const item={
-        id:'ntf_'+crypto.randomBytes(6).toString('hex'),category:'brand_news',brandId,postId:post.id,
-        audience:{kind:'brand_followers',brandId},title:post.titleRu,body:post.bodyRu||'',
-        status:'scheduled',createdAt:new Date().toISOString(),scheduledAt:new Date().toISOString(),demo:true
-      };
+      const item={id:'ntf_'+crypto.randomBytes(6).toString('hex'),category:'brand_news',brandId,postId:post.id,audience:{kind:'brand_followers',brandId},title:post.titleRu,body:post.bodyRu||'',status:'scheduled',createdAt:new Date().toISOString(),scheduledAt:new Date().toISOString(),demo:true};
       memory.notifications.unshift(item);
       await track('brand_push_scheduled',{brandId,postId:post.id,notificationId:item.id},sessionFromRequest(req)?.sub||null);
       return json(res,201,{data:item,policy:{frequencyCap:'2_per_brand_per_7d',audience:'brand_followers_only'}});
@@ -1376,6 +1439,11 @@ async function router(req,res){
       const b=await readBody(req);
       const platform=String(b.platform||'').toLowerCase();
       if(!['telegram','vk','instagram'].includes(platform))return json(res,400,{error:'unsupported_platform'});
+      if(pool){
+        const channel=await brand365Store.addSocialChannel(brandId,{...b,platform});
+        await track('brand_portal_social_channel_added',{brandId,channelId:channel.id,platform},sessionFromRequest(req)?.sub||null);
+        return json(res,201,{data:channel});
+      }
       const id='sc_'+crypto.randomBytes(6).toString('hex');
       const verificationMode=platform==='telegram'?'membership_event':platform==='vk'?'api_current':'unsupported';
       const channel={id,ownerType:'brand',brandId,platform,externalChannelId:String(b.externalChannelId||''),handle:String(b.handle||''),url:String(b.url||''),verificationMode,status:platform==='instagram'?'paused':'active',verifiedAt:null,demo:true};
@@ -1513,9 +1581,7 @@ async function router(req,res){
     const session=signPayload(sessionPayload);
     memory.sessions.set(userId,{session,sessionPayload});
     if(role==='Designer'){
-      const access=memory.brandAccess.get(userId)||new Set();
-      access.add('b1');
-      memory.brandAccess.set(userId,access);
+      await brand365Store.grantBrandAccess(userId,'b1','manager');
     }
     await track('auth_demo',{role},userId);
     return json(res,200,{user:{id:userId,name,role,demo:true},session,dataMode:pool?'postgres':'memory'});
@@ -1661,6 +1727,7 @@ async function router(req,res){
       return json(res,200,{data:replay,stream});
     }
     if(req.method==='GET'&&p==='/v1/admin/retention'){
+      if(pool)return json(res,200,{data:await brand365Store.retentionMetrics()});
       const impressions=memory.contentInteractions.filter(x=>x.type==='impression');
       const opens=memory.contentInteractions.filter(x=>x.type==='open');
       const paidImpressions=impressions.filter(i=>memory.brandPosts.find(p=>p.id===i.postId&&p.isPaid)).length;
@@ -1672,6 +1739,10 @@ async function router(req,res){
       }});
     }
     if(req.method==='GET'&&p==='/v1/admin/brand-growth'){
+      if(pool){
+        const data=await brand365Store.brandGrowth();
+        return json(res,200,{data:{...data,providers:memory.socialProviderAdapters}});
+      }
       const claims=[...memory.loyaltyClaims.values()];
       const memberships=[...memory.socialMemberships.values()];
       return json(res,200,{data:{
@@ -1702,7 +1773,7 @@ async function router(req,res){
             continue;
           }
           result.checked++;
-          const updated=applyMembershipObservation(membership.userId,channel,verification,null);
+          const updated=await applyMembershipObservation(membership.userId,channel,verification,null);
           if(updated.status==='active')result.active++;else result.inactive++;
           if(updated.status!=='active'){
             for(const claim of memory.loyaltyClaims.values()){
@@ -1732,23 +1803,19 @@ async function router(req,res){
     }
     if(req.method==='PATCH'&&p.startsWith('/v1/admin/brand-content/')){
       const postId=p.split('/').pop();
-      const post=memory.brandPosts.find(x=>x.id===postId);
-      if(!post)return json(res,404,{error:'post_not_found'});
       const b=await readBody(req);
       if(b.status&&!['pending_review','published','rejected','paused','ended'].includes(String(b.status)))return json(res,400,{error:'invalid_status'});
-      if(b.status)post.status=String(b.status);
-      if(post.status==='published'&&!post.publishedAt)post.publishedAt=new Date().toISOString();
-      post.moderationNote=String(b.moderationNote||post.moderationNote||'');
+      const post=await brand365Store.moderatePost(postId,b.status?String(b.status):null,String(b.moderationNote||''));
+      if(!post)return json(res,404,{error:'post_not_found'});
       await track('brand_content_moderated',{postId,status:post.status});
       return json(res,200,{data:post});
     }
     if(req.method==='PATCH'&&p.startsWith('/v1/admin/loyalty-offers/')){
       const offerId=p.split('/').pop();
-      const offer=memory.loyaltyOffers.find(x=>x.id===offerId);
-      if(!offer)return json(res,404,{error:'offer_not_found'});
       const b=await readBody(req);
       if(b.status&&!['draft','pending','published','paused','ended'].includes(String(b.status)))return json(res,400,{error:'invalid_status'});
-      if(b.status)offer.status=String(b.status);
+      const offer=await brand365Store.moderateOffer(offerId,b.status?String(b.status):null);
+      if(!offer)return json(res,404,{error:'offer_not_found'});
       await track('loyalty_offer_moderated',{offerId,status:offer.status});
       return json(res,200,{data:offer});
     }
