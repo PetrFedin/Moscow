@@ -1484,7 +1484,11 @@ async function router(req,res){
   if(req.method==='GET'&&p==='/v1/social/auth/telegram/callback'){
     const state=String(url.searchParams.get('state')||''),code=String(url.searchParams.get('code')||'');
     const flow=await brand365Store.authFlowByState('telegram',state);
-    if(!flow||!code)return redirectResponse(res,socialReturnUrl('telegram','failed'));
+    if(!flow)return redirectResponse(res,socialReturnUrl('telegram','failed'));
+    if(!code){
+      await brand365Store.finishAuthFlow(flow,'failed',{error:'authorization_code_missing'}).catch(()=>{});
+      return redirectResponse(res,socialReturnUrl('telegram','failed'));
+    }
     try{
       const result=await exchangeTelegramCode(code,flow);
       const claims=result.claims;
@@ -1525,7 +1529,11 @@ async function router(req,res){
     const state=String(url.searchParams.get('state')||''),code=String(url.searchParams.get('code')||'');
     const deviceId=String(url.searchParams.get('device_id')||url.searchParams.get('deviceId')||'');
     const flow=await brand365Store.authFlowByState('vk',state);
-    if(!flow||!code||!deviceId)return redirectResponse(res,socialReturnUrl('vk','failed'));
+    if(!flow)return redirectResponse(res,socialReturnUrl('vk','failed'));
+    if(!code||!deviceId){
+      await brand365Store.finishAuthFlow(flow,'failed',{error:!code?'authorization_code_missing':'device_id_missing'}).catch(()=>{});
+      return redirectResponse(res,socialReturnUrl('vk','failed'));
+    }
     try{
       const result=await exchangeVkCode(code,deviceId,flow);
       const user=result.info.user||{};
