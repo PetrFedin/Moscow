@@ -13,14 +13,20 @@ import {
   governmentPilotOffer,
   type GovernmentProofStatus
 } from './governmentPilotOffer';
+import {
+  currentPilotInvestmentEvidence,
+  getPilotDecisionReadiness,
+  type PilotDecisionBlocker
+} from './pilotInvestmentDecision';
 
-type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'scale';
+type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'decision' | 'scale';
 
 const sectionLabels: Record<Section, string> = {
   offer: 'Пилот',
   proof: 'Доказательства',
   ask: 'Что нужно',
   funding: 'Финансирование',
+  decision: 'Решение',
   scale: 'Масштаб'
 };
 
@@ -31,9 +37,62 @@ const proofLabels: Record<GovernmentProofStatus, string> = {
   'future-stage': 'ПОСЛЕ МОСКВЫ'
 };
 
+const decisionBlockerLabels: Record<PilotDecisionBlocker, string> = {
+  'romanov-field-proof-missing': 'Romanov: нет реального field verification',
+  'second-object-repeatability-missing': 'Old English Court: не доказана повторяемость второго объекта',
+  'visitor-pilot-review-missing': 'Нет review реального visitor pilot 20–50 участников',
+  'live-provider-agreement-missing': 'Нет формального live/provider integration agreement',
+  'publication-rights-blockers-remain': 'Остаются publication rights blockers',
+  'security-data-flow-review-missing': 'Не завершён security / data-flow review',
+  'ip-handover-review-missing': 'Не согласована IP / handover модель',
+  'operations-sla-review-missing': 'Не согласован operations / SLA контур',
+  'next-object-cost-unmeasured': 'Не измерена переменная стоимость следующего verified object',
+  'next-object-production-time-unmeasured': 'Не измерен production lead time следующего объекта',
+  'developer-hours-unmeasured': 'Не измерены developer hours на один следующий объект',
+  'institution-operator-hours-unmeasured': 'Не измерены operator hours учреждения на один объект',
+  'district-shared-setup-cost-unmeasured': 'Не измерен shared setup следующего района',
+  'district-integration-cost-unmeasured': 'Не измерена интеграция следующего района',
+  'annual-operations-cost-unmeasured': 'Не измерена годовая стоимость эксплуатации'
+};
+
+const economicsMetrics = [
+  {
+    title: '₽ / verified object',
+    body: 'Фактическая переменная стоимость следующего объекта: 3D + research + rights + survey + verification.'
+  },
+  {
+    title: 'Lead time / object',
+    body: 'Календарное время от approved brief до accepted PublishedSpatialPackage.'
+  },
+  {
+    title: 'Developer hours / object',
+    body: 'Сколько разработки действительно требуется после появления Studio и generic pipeline.'
+  },
+  {
+    title: 'Institution hours / object',
+    body: 'Сколько работы редактора, историка, rights reviewer и publisher остаётся на стороне учреждения.'
+  },
+  {
+    title: 'Shared setup / district',
+    body: 'Разовая стоимость настройки района, governance, content authority и production workflow.'
+  },
+  {
+    title: 'Integration / district',
+    body: 'Фактическая стоимость подключения map / RUSSPASS / provider / deployment contour.'
+  },
+  {
+    title: 'Annual operations',
+    body: 'Hosting, support, monitoring, content operations, SLA и provider maintenance за год.'
+  }
+] as const;
+
 export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<Section>('offer');
   const readiness = useMemo(() => getGovernmentPilotReadiness(), []);
+  const decisionReadiness = useMemo(
+    () => getPilotDecisionReadiness(currentPilotInvestmentEvidence),
+    []
+  );
 
   return (
     <SafeAreaView style={styles.root}>
@@ -202,6 +261,80 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
           </>
         )}
 
+        {section === 'decision' && (
+          <>
+            <View style={styles.decisionHero}>
+              <Text style={styles.kicker}>INVESTMENT / SCALE DECISION</Text>
+              <Text style={styles.decisionTitle}>
+                {decisionReadiness.decisionPackReady
+                  ? 'Evidence pack готов к инвестиционному рассмотрению'
+                  : 'Инвестиционный пакет ещё не готов'}
+              </Text>
+              <Text style={styles.decisionBody}>
+                Система не принимает инвестиционное решение за город или инвестора. Она только проверяет, достаточно ли доказательств и измеренной экономики для содержательного решения.
+              </Text>
+            </View>
+
+            <View style={styles.decisionStatusRow}>
+              <DecisionStatus
+                label="PROOF"
+                ready={decisionReadiness.proofReady}
+                readyText="Собран"
+                blockedText="Не закрыт"
+              />
+              <DecisionStatus
+                label="GOVERNANCE"
+                ready={decisionReadiness.governanceReady}
+                readyText="Согласован"
+                blockedText="Не закрыт"
+              />
+              <DecisionStatus
+                label="ECONOMICS"
+                ready={decisionReadiness.economicsReady}
+                readyText="Измерена"
+                blockedText="НЕ ИЗМЕРЕНО"
+              />
+            </View>
+
+            <SectionTitle
+              kicker="ЧТО БЛОКИРУЕТ РЕШЕНИЕ СЕЙЧАС"
+              title="Никаких зелёных статусов вручную"
+              body="Каждый пункт исчезает только после появления соответствующего evidence."
+            />
+            <View style={styles.blockerCard}>
+              {decisionReadiness.blockers.map((blocker, index) => (
+                <View key={blocker} style={styles.blockerRow}>
+                  <Text style={styles.blockerIndex}>{String(index + 1).padStart(2, '0')}</Text>
+                  <Text style={styles.blockerText}>{decisionBlockerLabels[blocker]}</Text>
+                </View>
+              ))}
+            </View>
+
+            <SectionTitle
+              kicker="ЧТО ДОЛЖЕН ИЗМЕРИТЬ ПИЛОТ"
+              title="Экономика, которую можно защищать перед инвестором"
+              body="После реального Old English Court production и эксплуатации мы подставляем измеренные значения, а не benchmark из воздуха."
+            />
+            {economicsMetrics.map((metric) => (
+              <View key={metric.title} style={styles.economicCard}>
+                <View style={styles.economicTop}>
+                  <Text style={styles.economicTitle}>{metric.title}</Text>
+                  <Text style={styles.unmeasured}>НЕ ИЗМЕРЕНО</Text>
+                </View>
+                <Text style={styles.economicBody}>{metric.body}</Text>
+              </View>
+            ))}
+
+            <View style={styles.decisionRule}>
+              <Text style={styles.statementKicker}>ПОСЛЕ PILOT</Text>
+              <Text style={styles.decisionRuleTitle}>Что становится возможно посчитать</Text>
+              <Text style={styles.decisionRuleText}>
+                Verified object unit cost → district setup + N объектов + integration → annual operations. Модель может дать арифметику следующего района, но не будет автоматически придумывать ROI, турпоток, выручку, параллельность производства или государственное финансирование.
+              </Text>
+            </View>
+          </>
+        )}
+
         {section === 'scale' && (
           <>
             <SectionTitle
@@ -235,6 +368,27 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function DecisionStatus({
+  label,
+  ready,
+  readyText,
+  blockedText
+}: {
+  label: string;
+  ready: boolean;
+  readyText: string;
+  blockedText: string;
+}) {
+  return (
+    <View style={[styles.decisionStatus, ready && styles.decisionStatusReady]}>
+      <Text style={styles.decisionStatusLabel}>{label}</Text>
+      <Text style={[styles.decisionStatusValue, ready && styles.decisionStatusValueReady]}>
+        {ready ? readyText : blockedText}
+      </Text>
+    </View>
   );
 }
 
@@ -394,6 +548,27 @@ const styles = StyleSheet.create({
   scaleTitle: { color: '#f1ece3', fontSize: 15, fontWeight: '900' },
   scaleOutcome: { color: '#b7bac0', fontSize: 12, lineHeight: 18, marginTop: 6 },
   scaleGate: { color: '#a88d60', fontSize: 10, lineHeight: 15, marginTop: 8, fontWeight: '800' },
+  decisionHero: { borderRadius: 24, padding: 20, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#443a29' },
+  decisionTitle: { color: '#f7efe1', fontSize: 23, lineHeight: 30, fontWeight: '900' },
+  decisionBody: { color: '#aaaeb5', fontSize: 12, lineHeight: 19, marginTop: 9 },
+  decisionStatusRow: { flexDirection: 'row', gap: 7, marginTop: 10 },
+  decisionStatus: { flex: 1, minHeight: 76, borderRadius: 16, backgroundColor: '#1b1715', borderWidth: 1, borderColor: '#46352c', padding: 11 },
+  decisionStatusReady: { backgroundColor: '#17231d', borderColor: '#31503c' },
+  decisionStatusLabel: { color: '#8d8176', fontSize: 8, letterSpacing: 1, fontWeight: '900' },
+  decisionStatusValue: { color: '#e1ad77', fontSize: 11, lineHeight: 15, fontWeight: '900', marginTop: 8 },
+  decisionStatusValueReady: { color: '#9fc9aa' },
+  blockerCard: { borderRadius: 20, backgroundColor: '#12161a', borderWidth: 1, borderColor: '#2b3036', paddingHorizontal: 15 },
+  blockerRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2a2f35' },
+  blockerIndex: { width: 30, color: '#bd865e', fontSize: 9, fontWeight: '900', paddingTop: 3 },
+  blockerText: { flex: 1, color: '#c5c7cc', fontSize: 12, lineHeight: 18 },
+  economicCard: { borderRadius: 18, backgroundColor: '#13171b', borderWidth: 1, borderColor: '#292e34', padding: 15, marginBottom: 9 },
+  economicTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  economicTitle: { flex: 1, color: '#f0ebe2', fontSize: 14, fontWeight: '900' },
+  unmeasured: { color: '#d59b68', fontSize: 8, fontWeight: '900' },
+  economicBody: { color: '#9fa3aa', fontSize: 11, lineHeight: 17, marginTop: 7 },
+  decisionRule: { marginTop: 18, borderRadius: 21, padding: 18, backgroundColor: '#18151d', borderWidth: 1, borderColor: '#443b4c' },
+  decisionRuleTitle: { color: '#efe8f2', fontSize: 17, fontWeight: '900', marginTop: 3 },
+  decisionRuleText: { color: '#b4abb9', fontSize: 12, lineHeight: 19, marginTop: 7 },
   federal: { marginTop: 12, borderRadius: 23, padding: 20, backgroundColor: '#17131f', borderWidth: 1, borderColor: '#473a58' },
   federalKicker: { color: '#b59aca', fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
   federalTitle: { color: '#f5eef9', fontSize: 19, lineHeight: 25, fontWeight: '900', marginTop: 6 },
