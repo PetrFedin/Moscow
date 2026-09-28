@@ -34,9 +34,9 @@ The package-intake layer does not maintain a second narrative copy.
 
 ### Audio
 
-The RU and EN walk scripts already exist.
+RU, EN and ZH walk scripts already exist.
 
-Both remain `recording-pending`; no human master is claimed.
+All three remain `recording-pending`; no human master is claimed.
 
 Human audio is currently an experience-quality dependency, not a spatial-package promotion gate.
 
@@ -118,3 +118,15 @@ The next valuable work is not another schema layer. It is to obtain or create th
 6. then an object-specific metric authority and facade-control-point set.
 
 Only after that should Old English Court become a `PublishedSpatialPackage` production candidate.
+
+
+## Language authority
+
+The second object follows the same public localization authority as Moscow destination packaging:
+
+- Russian is the editorial master/default;
+- English is mandatory;
+- Chinese (`zh`, simplified script) is mandatory;
+- intake titles and historical-layer claims must exist in RU/EN/ZH before the intake is structurally valid.
+
+Localization does not alter provenance, evidence trust, rights status, metric authority or field-verification state.
