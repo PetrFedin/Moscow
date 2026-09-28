@@ -31,7 +31,20 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Владелец туристического journey', { exact: true })).toBeVisible();
   await expect(page.getByText('Договор / бюджет / эксплуатация', { exact: true })).toBeVisible();
 
-  for (let step = 0; step < 4; step += 1) {
+  for (let step = 0; step < 2; step += 1) {
+    await page.getByRole('button', { name: 'Следующий шаг маршрута' }).click();
+  }
+
+  await expect(page.getByText('Как появляется финансирование', { exact: true })).toBeVisible();
+  await expect(page.getByText('Funding Path · от пилота к масштабу', { exact: true })).toBeVisible();
+  await expect(page.getByText('Москва · поддержка пилотного тестирования', { exact: true })).toBeVisible();
+  await expect(page.getByText('Инвестиции · масштабирование платформы', { exact: true })).toBeVisible();
+  await expect(page.getByText('Регион / федерация · туристический масштаб', { exact: true })).toBeVisible();
+  await expect(page.getByText('OPEN', { exact: true })).toBeVisible();
+  await expect(page.getByText('ПОСЛЕ ECONOMICS', { exact: true })).toBeVisible();
+  await expect(page.getByText('ПОСЛЕ REGION PROOF', { exact: true })).toBeVisible();
+
+  for (let step = 0; step < 2; step += 1) {
     await page.getByRole('button', { name: 'Следующий шаг маршрута' }).click();
   }
 

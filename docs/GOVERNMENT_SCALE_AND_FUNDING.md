@@ -161,6 +161,33 @@
 
 `regional data → existing federal discovery → our journey/immersion layer → booking handoff → heritage experience`.
 
+## 6.1. Funding Path внутри CITY PILOT
+
+В Government / Investor Route встроен отдельный `Funding Path`.
+
+Он показывает четыре разных финансовых решения:
+
+1. **Москва · поддержка пилотного тестирования** — candidate contour для ограниченного пилота после определения площадки, формального пилота, сметы и проверки требований меры.
+2. **Москва · внедрение после пилота** — отдельное решение конкретного профильного заказчика после положительного результата и определения buyer / budget owner.
+3. **Инвестиции · масштабирование платформы** — отдельный инвестиционный процесс только после physical proof, repeatability, visitor proof, governance и measured economics.
+4. **Регион / федерация** — отдельный контур только после Москвы как reference city и первого внешнего региона.
+
+В текущем состоянии приложение открывает как `OPEN` только первый **candidate pilot-support contour**.
+
+Это означает:
+
+- механизм можно предметно проверять и готовить;
+- это не означает одобрение поддержки;
+- это не означает утверждённую сумму;
+- это не означает, что следующий городской контракт или инвестиционный раунд уже открыт.
+
+Deployment / investment / federal stages остаются закрытыми до соответствующего evidence.
+
+Кодовая authority:
+
+- `src/government/governmentFundingPath.ts`;
+- `src/government/GovernmentFundingPathPanel.tsx`.
+
 ## 7. Лестница финансирования
 
 ### Stage 0 — собственное доказательство

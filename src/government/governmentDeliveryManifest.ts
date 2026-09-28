@@ -106,9 +106,11 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
       status: 'ready',
       refs: [
         'docs/GOVERNMENT_SCALE_AND_FUNDING.md',
-        'docs/GOVERNMENT_INVESTOR_DEMO_2026.md'
+        'docs/GOVERNMENT_INVESTOR_DEMO_2026.md',
+        'src/government/governmentFundingPath.ts',
+        'src/government/GovernmentFundingPathPanel.tsx'
       ],
-      note: 'Separates pilot, deployment, investment and federal routes without claiming approval.'
+      note: 'Separates pilot support, deployment, investment and regional/federal routes with evidence-gated unlock state and no implied approval.'
     },
     {
       id: 'investment-decision-authority',
