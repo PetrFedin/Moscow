@@ -50,7 +50,7 @@ function roundTripBundle(value: RomanovFieldSessionBundle) {
   return parseFieldSessionBundle(JSON.stringify(value));
 }
 
-function roundTripAnchor(value: RomanovPersistentAnchorPackage) {
+function roundTripAnchor(value: RomanovPersistentAnchorPackage): RomanovPersistentAnchorPackage {
   const anchor = parsePersistentAnchorPackage(JSON.stringify(value));
   return {
     kind: 'romanov-persistent-anchor-proof' as const,
