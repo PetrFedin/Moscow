@@ -34,6 +34,10 @@ function validateInvestorBuild(){
   const nativePackagePath=path.join(__dirname,'..','mfw-native','package.json');
   const nativeConfigPath=path.join(__dirname,'..','mfw-native','capacitor.config.ts');
   const nativeCapabilitiesPath=path.join(__dirname,'..','mfw-native','NATIVE_CAPABILITIES.md');
+  const brand365StorePath=path.join(__dirname,'brand365-store.js');
+  const socialProvidersPath=path.join(__dirname,'social-providers.js');
+  const reverifyRunnerPath=path.join(__dirname,'reverify-social.js');
+  const apiPackagePath=path.join(__dirname,'package.json');
   const manifestPath=path.join(__dirname,'..','mfw','manifest.webmanifest');
   const frontend=fs.readFileSync(frontendPath,'utf8');
   const admin=fs.readFileSync(adminPath,'utf8');
@@ -41,10 +45,18 @@ function validateInvestorBuild(){
   const nativePackage=fs.readFileSync(nativePackagePath,'utf8');
   const nativeConfig=fs.readFileSync(nativeConfigPath,'utf8');
   const nativeCapabilities=fs.readFileSync(nativeCapabilitiesPath,'utf8');
+  const brand365StoreSource=fs.readFileSync(brand365StorePath,'utf8');
+  const socialProvidersSource=fs.readFileSync(socialProvidersPath,'utf8');
+  const reverifyRunnerSource=fs.readFileSync(reverifyRunnerPath,'utf8');
+  const apiPackage=fs.readFileSync(apiPackagePath,'utf8');
   new Function(frontend);
   new Function(admin);
   new Function(nativeBridge);
+  new Function(brand365StoreSource);
+  new Function(socialProvidersSource);
+  new Function(reverifyRunnerSource);
   JSON.parse(nativePackage);
+  JSON.parse(apiPackage);
   JSON.parse(fs.readFileSync(manifestPath,'utf8'));
   for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','/v1/demo/social/verify','/v1/brand-portal/','brand-loyalty','mfw-365','brand-portal','brand-portal-notify','notification-preferences','notification-pref-toggle','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
@@ -63,6 +75,18 @@ function validateInvestorBuild(){
   }
   for(const required of ['Wallet must not contain the reusable equivalent of the rotating gate token.','Apple Developer Team','Pass Type ID']){
     if(nativeCapabilities.indexOf(required)<0)throw new Error('missing_native_capability_contract:'+required);
+  }
+  for(const required of ['class Brand365Store','async evaluateOffer','async personalFeed','async activeMembershipCandidates','async seedDemo']){
+    if(brand365StoreSource.indexOf(required)<0)throw new Error('missing_brand365_store_contract:'+required);
+  }
+  for(const required of ['activeTelegramStatus','verifyProviderMembership','telegram_getChatMember','vk_groups.isMember']){
+    if(socialProvidersSource.indexOf(required)<0)throw new Error('missing_social_provider_contract:'+required);
+  }
+  for(const required of ['DATABASE_URL is required','activeMembershipCandidates','revokeIssuedClaimsIfIneligible','social_reverification_cron']){
+    if(reverifyRunnerSource.indexOf(required)<0)throw new Error('missing_reverification_runner_contract:'+required);
+  }
+  for(const required of ['reverify:social','check:foundation']){
+    if(apiPackage.indexOf(required)<0)throw new Error('missing_foundation_script:'+required);
   }
 }
 validateInvestorBuild();
@@ -255,6 +279,11 @@ function adminOk(req){
   if(req.headers['x-mfw-admin']===ADMIN_TOKEN)return true;
   var p=sessionFromRequest(req);
   return !!(p&&['Organizer','Staff'].indexOf(p.role)>=0);
+}
+function userSubject(req,supplied){
+  const session=sessionFromRequest(req);
+  if(pool&&!session)return null;
+  return String(session&&session.sub||supplied||'demo_user');
 }
 async function brandPortalOk(req,brandId){
   var p=sessionFromRequest(req);
