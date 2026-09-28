@@ -83,7 +83,7 @@ export async function downloadRoutePack(manifest: RoutePackManifest) {
   return directory.uri;
 }
 
-export async function getDownloadedRoutePack(routeId: string, locale: 'ru' | 'en') {
+export async function getDownloadedRoutePack(routeId: string, locale: 'ru' | 'en' | 'zh') {
   const db = await openDb();
   const row = await db.getFirstAsync<{ manifest_json: string }>(
     'SELECT manifest_json FROM route_packs WHERE route_id = ? AND locale = ?',
@@ -97,7 +97,7 @@ export async function getDownloadedRoutePack(routeId: string, locale: 'ru' | 'en
 
 export async function getDownloadedRoutePackAssetUri(
   routeId: string,
-  locale: 'ru' | 'en',
+  locale: 'ru' | 'en' | 'zh',
   assetId: string
 ) {
   const manifest = await getDownloadedRoutePack(routeId, locale);
@@ -118,7 +118,7 @@ export async function getDownloadedRoutePackAssetUri(
 
 export async function getDownloadedRoutePackAssetUriWithLocaleFallback(
   routeId: string,
-  locale: 'ru' | 'en',
+  locale: 'ru' | 'en' | 'zh',
   assetId: string
 ) {
   const preferred = await getDownloadedRoutePackAssetUri(routeId, locale, assetId);
@@ -126,7 +126,7 @@ export async function getDownloadedRoutePackAssetUriWithLocaleFallback(
   return getDownloadedRoutePackAssetUri(routeId, locale === 'ru' ? 'en' : 'ru', assetId);
 }
 
-export async function removeRoutePack(routeId: string, locale: 'ru' | 'en') {
+export async function removeRoutePack(routeId: string, locale: 'ru' | 'en' | 'zh') {
   const directory = packDirectory(routeId, locale, false);
   if (directory.exists) directory.delete();
   const db = await openDb();

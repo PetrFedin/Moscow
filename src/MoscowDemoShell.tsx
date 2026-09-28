@@ -92,7 +92,7 @@ export default function MoscowDemoShell() {
 
       <Modal visible={stage === 'spatial'} animationType="fade" onRequestClose={() => setStage('model')}>
         <View style={styles.modalRoot}>
-          <MoscowSpatialNavigator key={`${demoEra}-${demoTrust}`} />
+          <MoscowSpatialNavigator key={`${demoEra}-${demoTrust}`} language={language} />
           <SafeAreaView pointerEvents="box-none" style={styles.closeLayer}>
             <PhysicalPressable
               style={styles.close}

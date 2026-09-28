@@ -3,7 +3,7 @@ export const TOURIST_ANALYTICS_CONTENT_VERSION = 'varvarka-pilot-v1';
 export const TOURIST_ANALYTICS_COLLECTION_MODE = 'local-only' as const;
 export const TOURIST_ANALYTICS_MAX_OUTBOX = 400;
 
-export type TouristAnalyticsLanguage = 'ru' | 'en';
+export type TouristAnalyticsLanguage = 'ru' | 'en' | 'zh';
 export type TouristAnalyticsAudioMode = 'recorded' | 'tts-fallback';
 export type TouristAnalyticsRouteInterest = 'highlights' | 'architecture' | 'trade' | 'lost-city' | 'nearby';
 export type TouristAnalyticsRouteBudget = 15 | 30 | 45;

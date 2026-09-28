@@ -12,16 +12,16 @@ import {
   type VarvarkaAudioTrack
 } from '../src/features/audio/varvarkaAudioCatalog.ts';
 
-test('Varvarka has a versioned RU and EN narration script for every pilot stop', () => {
-  assert.equal(varvarkaAudioCatalog.length, pilotRoute.stopIds.length * 2);
+test('Varvarka has a versioned RU EN and ZH narration script for every pilot stop', () => {
+  assert.equal(varvarkaAudioCatalog.length, pilotRoute.stopIds.length * 3);
 
   for (const placeId of pilotRoute.stopIds) {
-    for (const locale of ['ru', 'en'] as const) {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
       const track = getVarvarkaAudioTrack(placeId, locale);
       assert.ok(track, `missing audio script: ${placeId}/${locale}`);
       assert.equal(track.version, 1);
       assert.equal(track.status, 'recording-pending');
-      assert.ok(track.transcript.length > 180);
+      assert.ok(track.transcript.length > (locale === 'zh' ? 120 : 180));
       assert.ok(track.sourceUrls.length > 0);
       assert.ok(track.sourceUrls.every((url) => url.startsWith('https://')));
     }
@@ -31,9 +31,9 @@ test('Varvarka has a versioned RU and EN narration script for every pilot stop',
 test('recording-pending scripts can never masquerade as production audio', () => {
   const readiness = getVarvarkaAudioReadiness();
   assert.deepEqual(readiness, {
-    expectedTracks: 10,
+    expectedTracks: 15,
     productionReady: 0,
-    recordingPending: 10,
+    recordingPending: 15,
     scriptApproved: 0,
     complete: false
   });

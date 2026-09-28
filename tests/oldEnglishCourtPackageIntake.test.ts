@@ -180,7 +180,8 @@ test('Old English Court audio authority is visible but does not masquerade as a 
   const tracks = varvarkaAudioCatalog.filter((track) => track.placeId === 'old-english-court');
   const requirement = oldEnglishCourtPackageIntake.requirements.find((item) => item.id === 'oec-human-audio');
 
-  assert.equal(tracks.length, 2);
+  assert.equal(tracks.length, 3);
+  assert.deepEqual(tracks.map((track) => track.locale).sort(), ['en', 'ru', 'zh']);
   assert.equal(tracks.every((track) => track.status === 'recording-pending'), true);
   assert.equal(requirement?.status, 'recording-pending');
   assert.equal(requirement?.required, false);

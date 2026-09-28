@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { buildPilotAnalyticsReport } from '../../analytics/pilotAnalyticsReport';
 import { getLocalTouristAnalyticsOutbox } from '../../analytics/touristAnalytics';
@@ -11,7 +11,6 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const ru = language === 'ru';
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -35,15 +34,13 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
     : `${Math.round(report.funnel.routeCompleteRateFromRouteStart * 100)}%`;
 
   return (
-    <View style={styles.card} accessibilityLabel={ru ? 'Пилотные данные на этом устройстве' : 'Pilot data on this device'}>
+    <View style={styles.card} accessibilityLabel={tr(language, 'Пилотные данные на этом устройстве', 'Pilot data on this device', '本设备上的试点数据')}>
       <View style={styles.top}>
         <View style={styles.copy}>
-          <Text style={styles.kicker}>{ru ? 'ПИЛОТ · ТОЛЬКО ЭТО УСТРОЙСТВО' : 'PILOT · THIS DEVICE ONLY'}</Text>
-          <Text style={styles.title}>{ru ? 'Агрегированная сводка прохождения' : 'Aggregate journey report'}</Text>
+          <Text style={styles.kicker}>{tr(language, 'ПИЛОТ · ТОЛЬКО ЭТО УСТРОЙСТВО', 'PILOT · THIS DEVICE ONLY', '试点 · 仅此设备')}</Text>
+          <Text style={styles.title}>{tr(language, 'Агрегированная сводка прохождения', 'Aggregate journey report', '聚合行程报告')}</Text>
           <Text style={styles.body}>
-            {ru
-              ? 'Локальные события сводятся без координат, истории GPS, идентификатора устройства и персональных данных.'
-              : 'Local events are aggregated without coordinates, GPS history, device identity or personal data.'}
+            {tr(language, 'Локальные события сводятся без координат, истории GPS, идентификатора устройства и персональных данных.', 'Local events are aggregated without coordinates, GPS history, device identity or personal data.', '本地事件会被聚合，不包含坐标、GPS历史、设备标识或个人数据。')}
           </Text>
         </View>
         {loading && <ActivityIndicator color="#d7bb84" />}
@@ -52,16 +49,14 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
       {report && (
         <>
           <View style={styles.stats}>
-            <View style={styles.stat}><Text style={styles.value}>{report.sessionCount}</Text><Text style={styles.label}>{ru ? 'сеансов' : 'sessions'}</Text></View>
-            <View style={styles.stat}><Text style={styles.value}>{report.funnel.routeStartSessions}</Text><Text style={styles.label}>{ru ? 'стартов маршрута' : 'route starts'}</Text></View>
-            <View style={styles.stat}><Text style={styles.value}>{report.funnel.routeCompleteSessions}</Text><Text style={styles.label}>{ru ? 'завершений' : 'completions'}</Text></View>
-            <View style={styles.stat}><Text style={styles.value}>{completionPercent}</Text><Text style={styles.label}>{ru ? 'старт → финиш' : 'start → finish'}</Text></View>
+            <View style={styles.stat}><Text style={styles.value}>{report.sessionCount}</Text><Text style={styles.label}>{tr(language, 'сеансов', 'sessions', '会话')}</Text></View>
+            <View style={styles.stat}><Text style={styles.value}>{report.funnel.routeStartSessions}</Text><Text style={styles.label}>{tr(language, 'стартов маршрута', 'route starts', '路线开始')}</Text></View>
+            <View style={styles.stat}><Text style={styles.value}>{report.funnel.routeCompleteSessions}</Text><Text style={styles.label}>{tr(language, 'завершений', 'completions', '完成')}</Text></View>
+            <View style={styles.stat}><Text style={styles.value}>{completionPercent}</Text><Text style={styles.label}>{tr(language, 'старт → финиш', 'start → finish', '开始 → 完成')}</Text></View>
           </View>
           {report.outboxAtCapacity && (
             <Text style={styles.warning}>
-              {ru
-                ? 'Локальный журнал достиг лимита 400 событий: ранние события могли быть вытеснены.'
-                : 'The local 400-event outbox is at capacity: earlier events may have been evicted.'}
+              {tr(language, 'Локальный журнал достиг лимита 400 событий: ранние события могли быть вытеснены.', 'The local 400-event outbox is at capacity: earlier events may have been evicted.', '本地日志已达到400条事件上限，较早事件可能已被移除。')}
             </Text>
           )}
         </>
@@ -73,17 +68,15 @@ export default function PilotAnalyticsReportControl({ language }: { language: Ap
         hapticEvent="none"
         onPress={() => { void refresh(); }}
         disabled={loading}
-        accessibilityLabel={ru ? 'Обновить пилотную сводку' : 'Refresh pilot report'}
+        accessibilityLabel={tr(language, 'Обновить пилотную сводку', 'Refresh pilot report', '刷新试点报告')}
       >
-        <Text style={styles.secondaryButtonText}>{ru ? 'Обновить' : 'Refresh'}</Text>
+        <Text style={styles.secondaryButtonText}>{tr(language, 'Обновить', 'Refresh', '刷新')}</Text>
       </PhysicalPressable>
 
       <Text style={styles.privacy}>
-        {ru
-          ? 'Ручной экспорт агрегированной сводки доступен в мобильной iOS/Android сборке.'
-          : 'Manual aggregate-report sharing is available in the iOS/Android app.'}
+        {tr(language, 'Ручной экспорт агрегированной сводки доступен в мобильной iOS/Android сборке.', 'Manual aggregate-report sharing is available in the iOS/Android app.', '可在 iOS/Android 应用中手动导出聚合报告。')}
       </Text>
-      {error && <Text style={styles.error}>{ru ? 'Не удалось подготовить локальную сводку.' : 'Could not prepare the local report.'}</Text>}
+      {error && <Text style={styles.error}>{tr(language, 'Не удалось подготовить локальную сводку.', 'Could not prepare the local report.', '无法生成本地报告。')}</Text>}
     </View>
   );
 }

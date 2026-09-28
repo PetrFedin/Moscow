@@ -20,7 +20,7 @@ export type RoutePackManifest = {
   routeId: string;
   version: string;
   downloadedAt: string;
-  locale: 'ru' | 'en';
+  locale: 'ru' | 'en' | 'zh';
   files: RoutePackDownloadAsset[];
   bundled?: RoutePackBundledAsset[];
 };

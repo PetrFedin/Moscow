@@ -4,11 +4,13 @@ import { buildRomanovHotspotNarration, evidenceLabels, getRomanovHotspots } from
 import { getRomanovSourceById } from '../../spatial/romanov-sources';
 import { playTextGuide, stopTextGuide } from '../audio/audioGuide';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { speechLocale, tr, type AppLanguage } from '../../i18n';
 
 type RomanovEra = '1857' | '1859';
 type TrustMode = 'documented' | 'public';
 
 type Props = {
+  language?: AppLanguage;
   onClose: () => void;
   onBackToArchive: () => void;
   onOpenSpatial: () => void;
@@ -17,12 +19,26 @@ type Props = {
   onStateChange?: (state: { era: RomanovEra; trustMode: TrustMode }) => void;
 };
 
-const eraLabel: Record<RomanovEra, string> = {
-  '1857': '1857 · до реставрации',
-  '1859': '1859 / 1883 · после реставрации'
-};
+function eraLabel(era: RomanovEra, language: AppLanguage) {
+  return era === '1857'
+    ? tr(language, '1857 · до реставрации', '1857 · before restoration', '1857 · 修复前')
+    : tr(language, '1859 / 1883 · после реставрации', '1859 / 1883 · after restoration', '1859 / 1883 · 修复后');
+}
+
+function hotspotTitle(hotspot: ReturnType<typeof getRomanovHotspots>[number], language: AppLanguage) {
+  return language === 'zh' ? hotspot.titleZh : language === 'en' ? hotspot.titleEn : hotspot.titleRu;
+}
+
+function hotspotStory(hotspot: ReturnType<typeof getRomanovHotspots>[number], language: AppLanguage) {
+  return language === 'zh' ? hotspot.storyZh : language === 'en' ? hotspot.storyEn : hotspot.storyRu;
+}
+
+function sourceTitle(source: NonNullable<ReturnType<typeof getRomanovSourceById>>, language: AppLanguage) {
+  return language === 'zh' ? source.titleZh : language === 'en' ? source.titleEn : source.titleRu;
+}
 
 export default function HistoricalModelViewerFallback({
+  language = 'ru',
   onClose,
   onBackToArchive,
   onOpenSpatial,
@@ -59,8 +75,8 @@ export default function HistoricalModelViewerFallback({
     }
     setIsHotspotSpeaking(true);
     playTextGuide(
-      buildRomanovHotspotNarration(selectedHotspot, 'ru'),
-      'ru-RU',
+      buildRomanovHotspotNarration(selectedHotspot, language),
+      speechLocale(language),
       () => setIsHotspotSpeaking(false)
     );
   };
@@ -81,11 +97,11 @@ export default function HistoricalModelViewerFallback({
   return (
     <ScrollView contentContainerStyle={styles.root}>
       <Text style={styles.kicker}>3D MODEL · ROMANOV</Text>
-      <Text style={styles.title}>Одна историческая модель — несколько режимов</Text>
-      <Text style={styles.body}>Preview сохраняет выбранную эпоху и уровень достоверности при переходе в spatial mode и обратно. Нативная сборка использует ту же GLB-модель в 3D, AR и Quest.</Text>
+      <Text style={styles.title}>{tr(language, 'Одна историческая модель — несколько режимов', 'One historical model — multiple modes', '一个历史模型，多种体验模式')}</Text>
+      <Text style={styles.body}>{tr(language, 'Preview сохраняет выбранную эпоху и уровень достоверности при переходе в spatial mode и обратно. Нативная сборка использует ту же GLB-модель в 3D, AR и Quest.', 'The preview preserves the selected era and evidence mode when moving into spatial mode and back. The native build reuses the same GLB in 3D, AR and Quest.', '预览会在进入空间模式和返回时保留所选时代与证据模式。原生版本在3D、AR和Quest中复用同一GLB模型。')}</Text>
 
       <View style={styles.controlCard}>
-        <Text style={styles.controlLabel}>ЭПОХА</Text>
+        <Text style={styles.controlLabel}>{tr(language, 'ЭПОХА', 'ERA', '时代')}</Text>
         <View style={styles.row}>
           {(['1857', '1859'] as RomanovEra[]).map((item) => (
             <PhysicalPressable
@@ -93,30 +109,30 @@ export default function HistoricalModelViewerFallback({
               style={[styles.choice, era === item && styles.choiceActive]}
               contentStyle={styles.center}
               hapticEvent="epoch-snap"
-              accessibilityLabel={`3D · Эпоха · ${eraLabel[item]}`}
+              accessibilityLabel={`3D · ${tr(language, 'Эпоха', 'Era', '时代')} · ${eraLabel(item, language)}`}
               onPress={() => selectEra(item)}
             >
-              <Text style={[styles.choiceText, era === item && styles.choiceTextActive]}>{eraLabel[item]}</Text>
+              <Text style={[styles.choiceText, era === item && styles.choiceTextActive]}>{eraLabel(item, language)}</Text>
             </PhysicalPressable>
           ))}
         </View>
-        <Text style={styles.controlLabel}>ДОСТОВЕРНОСТЬ</Text>
+        <Text style={styles.controlLabel}>{tr(language, 'ДОСТОВЕРНОСТЬ', 'EVIDENCE', '证据等级')}</Text>
         <View style={styles.row}>
           <PhysicalPressable
             style={[styles.choice, trustMode === 'documented' && styles.choiceActive]}
             contentStyle={styles.center}
-            accessibilityLabel="3D · Только факты"
+            accessibilityLabel={`3D · ${tr(language, 'Только факты', 'Facts only', '仅事实')}`}
             onPress={() => selectTrust('documented')}
           >
-            <Text style={[styles.choiceText, trustMode === 'documented' && styles.choiceTextActive]}>Только факты</Text>
+            <Text style={[styles.choiceText, trustMode === 'documented' && styles.choiceTextActive]}>{tr(language, 'Только факты', 'Facts only', '仅事实')}</Text>
           </PhysicalPressable>
           <PhysicalPressable
             style={[styles.choice, trustMode === 'public' && styles.choiceActive]}
             contentStyle={styles.center}
-            accessibilityLabel="3D · Реконструкция"
+            accessibilityLabel={`3D · ${tr(language, 'Реконструкция', 'Reconstruction', '重建')}`}
             onPress={() => selectTrust('public')}
           >
-            <Text style={[styles.choiceText, trustMode === 'public' && styles.choiceTextActive]}>+ реконструкция</Text>
+            <Text style={[styles.choiceText, trustMode === 'public' && styles.choiceTextActive]}>{tr(language, '+ реконструкция', '+ reconstruction', '+ 重建')}</Text>
           </PhysicalPressable>
         </View>
       </View>
@@ -124,8 +140,8 @@ export default function HistoricalModelViewerFallback({
       <View style={styles.hotspotPanel}>
         <View style={styles.hotspotHeader}>
           <View>
-            <Text style={styles.hotspotKicker}>ТОЧКИ ОСМОТРА</Text>
-            <Text style={styles.hotspotHint}>Выберите элемент модели. AR запускается отдельно — только после осмотра 3D.</Text>
+            <Text style={styles.hotspotKicker}>{tr(language, 'ТОЧКИ ОСМОТРА', 'MODEL HOTSPOTS', '模型观察点')}</Text>
+            <Text style={styles.hotspotHint}>{tr(language, 'Выберите элемент модели. AR запускается отдельно — только после осмотра 3D.', 'Choose a model element. AR starts separately, after the 3D inspection.', '选择模型元素。AR会在完成3D查看后单独启动。')}</Text>
           </View>
           <Text style={styles.hotspotCount}>{hotspots.length}</Text>
         </View>
@@ -138,13 +154,13 @@ export default function HistoricalModelViewerFallback({
                 key={hotspot.id}
                 style={[styles.hotspotButton, active && styles.hotspotButtonActive]}
                 contentStyle={styles.hotspotButtonContent}
-                accessibilityLabel={`3D · Точка осмотра · ${hotspot.titleRu}`}
+                accessibilityLabel={`3D · ${tr(language, 'Точка осмотра', 'Hotspot', '观察点')} · ${hotspotTitle(hotspot, language)}`}
                 onPress={() => selectHotspot(hotspot.id)}
               >
                 <Text style={[styles.hotspotIndex, active && styles.hotspotIndexActive]}>{String(index + 1).padStart(2, '0')}</Text>
                 <View style={styles.hotspotButtonCopy}>
-                  <Text style={[styles.hotspotTitle, active && styles.hotspotTitleActive]}>{hotspot.titleRu}</Text>
-                  <Text style={styles.hotspotEvidence}>{evidenceLabels.ru[hotspot.evidence]}</Text>
+                  <Text style={[styles.hotspotTitle, active && styles.hotspotTitleActive]}>{hotspotTitle(hotspot, language)}</Text>
+                  <Text style={styles.hotspotEvidence}>{evidenceLabels[language][hotspot.evidence]}</Text>
                 </View>
               </PhysicalPressable>
             );
@@ -155,13 +171,13 @@ export default function HistoricalModelViewerFallback({
           <View style={styles.hotspotStory}>
             <View style={styles.hotspotStoryTop}>
               <View style={styles.hotspotStoryCopy}>
-                <Text style={styles.hotspotStoryTitle}>{selectedHotspot.titleRu}</Text>
-                <Text style={styles.hotspotStoryBody}>{selectedHotspot.storyRu}</Text>
+                <Text style={styles.hotspotStoryTitle}>{hotspotTitle(selectedHotspot, language)}</Text>
+                <Text style={styles.hotspotStoryBody}>{hotspotStory(selectedHotspot, language)}</Text>
               </View>
               <PhysicalPressable
                 style={[styles.audioGuideButton, isHotspotSpeaking && styles.audioGuideButtonActive]}
                 contentStyle={styles.center}
-                accessibilityLabel={isHotspotSpeaking ? '3D · Остановить аудиогид точки' : '3D · Слушать аудиогид точки'}
+                accessibilityLabel={isHotspotSpeaking ? tr(language, '3D · Остановить аудиогид точки', '3D · Stop hotspot audio', '3D · 停止观察点音频') : tr(language, '3D · Слушать аудиогид точки', '3D · Play hotspot audio', '3D · 播放观察点音频')}
                 onPress={toggleHotspotAudio}
               >
                 <Text style={[styles.audioGuideIcon, isHotspotSpeaking && styles.audioGuideIconActive]}>
@@ -169,7 +185,7 @@ export default function HistoricalModelViewerFallback({
                 </Text>
               </PhysicalPressable>
             </View>
-            <Text style={styles.hotspotSourcesLabel}>ИСТОЧНИКИ</Text>
+            <Text style={styles.hotspotSourcesLabel}>{tr(language, 'ИСТОЧНИКИ', 'SOURCES', '来源')}</Text>
             {selectedHotspot.sourceIds.map((sourceId) => {
               const source = getRomanovSourceById(sourceId);
               if (!source) return null;
@@ -178,10 +194,10 @@ export default function HistoricalModelViewerFallback({
                   key={source.id}
                   style={styles.sourceRow}
                   contentStyle={styles.sourceRowContent}
-                  accessibilityLabel={`Открыть источник · ${source.titleRu}`}
+                  accessibilityLabel={`${tr(language, 'Открыть источник', 'Open source', '打开来源')} · ${sourceTitle(source, language)}`}
                   onPress={() => Linking.openURL(source.sourcePage)}
                 >
-                  <Text style={styles.sourceTitle}>{source.titleRu}</Text>
+                  <Text style={styles.sourceTitle}>{sourceTitle(source, language)}</Text>
                   <Text style={styles.sourceArrow}>↗</Text>
                 </PhysicalPressable>
               );
@@ -191,7 +207,7 @@ export default function HistoricalModelViewerFallback({
       </View>
 
       <View style={styles.flow}>
-        {['Архив', '3D', 'AR', 'VR'].map((item, index) => (
+        {[tr(language, 'Архив', 'Archive', '档案'), '3D', 'AR', 'VR'].map((item, index) => (
           <React.Fragment key={item}>
             <View style={[styles.step, index === 1 && styles.stepActive]}><Text style={[styles.stepText, index === 1 && styles.stepTextActive]}>{item}</Text></View>
             {index < 3 && <Text style={styles.arrow}>→</Text>}
@@ -199,15 +215,15 @@ export default function HistoricalModelViewerFallback({
         ))}
       </View>
       <View style={styles.actions}>
-        <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel="3D · Назад в архив" onPress={() => { stopHotspotAudio(); onBackToArchive(); }}>
-          <Text style={styles.secondaryText}>← Архив</Text>
+        <PhysicalPressable style={styles.secondary} contentStyle={styles.center} accessibilityLabel={`3D · ${tr(language, 'Назад в архив', 'Back to archive', '返回档案')}`} onPress={() => { stopHotspotAudio(); onBackToArchive(); }}>
+          <Text style={styles.secondaryText}>{tr(language, '← Архив', '← Archive', '← 档案')}</Text>
         </PhysicalPressable>
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" accessibilityLabel="3D · Открыть spatial mode" onPress={() => { stopHotspotAudio(); onOpenSpatial(); }}>
-          <Text style={styles.primaryText}>Открыть spatial mode</Text>
+        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong hapticEvent="spatial-enter" accessibilityLabel={`3D · ${tr(language, 'Открыть spatial mode', 'Open spatial mode', '打开空间模式')}`} onPress={() => { stopHotspotAudio(); onOpenSpatial(); }}>
+          <Text style={styles.primaryText}>{tr(language, 'Открыть spatial mode', 'Open spatial mode', '打开空间模式')}</Text>
         </PhysicalPressable>
       </View>
-      <PhysicalPressable style={styles.closeButton} contentStyle={styles.center} accessibilityLabel="3D · Закрыть" onPress={() => { stopHotspotAudio(); onClose(); }}>
-        <Text style={styles.close}>Закрыть</Text>
+      <PhysicalPressable style={styles.closeButton} contentStyle={styles.center} accessibilityLabel={`3D · ${tr(language, 'Закрыть', 'Close', '关闭')}`} onPress={() => { stopHotspotAudio(); onClose(); }}>
+        <Text style={styles.close}>{tr(language, 'Закрыть', 'Close', '关闭')}</Text>
       </PhysicalPressable>
     </ScrollView>
   );

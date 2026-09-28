@@ -20,7 +20,7 @@ import { pilotRoute, places, type Place } from './data/places';
 import { playTextGuide, stopTextGuide } from './features/audio/audioGuide';
 import MoscowMap from './features/map/MoscowMap';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
-import { detectLanguage, t, type AppLanguage } from './i18n';
+import { detectLanguage, nextLanguage, speechLocale, t, type AppLanguage } from './i18n';
 import { capabilities, statusLabels } from './integrations/capabilities';
 
 type Tab = 'discover' | 'map' | 'route' | 'saved' | 'profile';
@@ -50,9 +50,136 @@ const evidenceEn = {
   hypothesis: 'Hypothesis'
 } as const;
 
+const evidenceZh = {
+  documented: '有文献依据',
+  reconstructed: '学术重建',
+  hypothesis: '假设'
+} as const;
+
+const appCopy = {
+  ru: {
+    heroKicker: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
+    heroTitle: 'Смотрите на Москву — и открывайте то, чего больше не видно',
+    heroBody: 'Карта, проверенная история, прогулки, аудио и пространственные сцены соединены вокруг реальных мест.',
+    startVarvarka: 'Начать Варварку · 45 мин',
+    locationUnavailable: 'Геопозиция недоступна — приложение продолжает работать с ручным выбором места.',
+    nearbyStories: 'Ближайшие истории',
+    pilotPlaces: 'Пилотные места',
+    placeStory: 'ИСТОРИЯ МЕСТА',
+    today: 'Сегодня',
+    now: 'сейчас',
+    currentState: 'Современное состояние — точка сравнения с документированными историческими слоями.',
+    whatToLookFor: 'ЧТО ИСКАТЬ ГЛАЗАМИ',
+    cameraGuides: 'Камера и ориентиры',
+    runtimeProbe: 'Проверить runtime',
+    runtimeNotice: 'Spatial runtime подключён. Историческая 3D-модель появится здесь только после подготовки GLB и проверки точной привязки на Варварке.',
+    cityLayer: 'ГОРОДСКОЙ СЛОЙ',
+    cityLayerTitle: 'История прямо на карте Москвы',
+    cityLayerBody: 'В нативной сборке работает Yandex MapKit: точки, маршрут, геопозиция и будущие исторические слои.',
+    openStory: 'Открыть историю и машину времени →',
+    walkKicker: 'ПРОГУЛКА №01',
+    walkTitle: 'Варварка: улица, которая помнит несколько Москв',
+    stopLabel: (index: number) => `СЕЙЧАС · ОСТАНОВКА ${index}`,
+    finishWalk: 'Завершить прогулку',
+    discoveredNext: 'Открыто · дальше',
+    explorePlace: 'Изучить место',
+    allStops: 'Все остановки',
+    myMoscow: 'Моя Москва',
+    myMoscowBody: 'Личная коллекция мест, которую можно продолжать собирать район за районом.',
+    nothingSaved: 'Пока ничего не сохранено',
+    discovered: 'открыто',
+    saved: 'сохранено',
+    language: 'язык',
+    platformCapabilities: 'Возможности платформы',
+    platformCapabilitiesBody: 'Здесь видно, какие технологические слои уже подключены и что ещё требует ключа, ассета или полевого теста.',
+    alignFacade: 'Совместите центр с главным фасадом',
+    visualCue: 'Что искать глазами',
+    lensNotice: 'Сейчас это навигационный camera mode. Историческая 3D-геометрия будет добавлена после полевого совмещения.'
+  },
+  en: {
+    heroKicker: 'THE CITY AS A TIME MACHINE',
+    heroTitle: 'Look at Moscow — and reveal what is no longer visible',
+    heroBody: 'Map, verified history, walks, audio and spatial scenes are connected around real places.',
+    startVarvarka: 'Start Varvarka · 45 min',
+    locationUnavailable: 'Location is unavailable — places can still be explored manually.',
+    nearbyStories: 'Stories nearby',
+    pilotPlaces: 'Pilot places',
+    placeStory: 'PLACE STORY',
+    today: 'Today',
+    now: 'now',
+    currentState: 'The current state is the comparison point for the documented historical layers.',
+    whatToLookFor: 'WHAT TO LOOK FOR',
+    cameraGuides: 'Camera + guides',
+    runtimeProbe: 'Runtime probe',
+    runtimeNotice: 'The spatial runtime is connected. A historical 3D model will appear here only after the GLB asset and on-site alignment are verified.',
+    cityLayer: 'CITY LAYER',
+    cityLayerTitle: 'History directly on the Moscow map',
+    cityLayerBody: 'The native build uses Yandex MapKit for places, routes, location and future historical layers.',
+    openStory: 'Open story and time machine →',
+    walkKicker: 'WALK #01',
+    walkTitle: 'Varvarka: a street that remembers several Moscows',
+    stopLabel: (index: number) => `NOW · STOP ${index}`,
+    finishWalk: 'Finish walk',
+    discoveredNext: 'Discovered · next',
+    explorePlace: 'Explore this place',
+    allStops: 'All stops',
+    myMoscow: 'My Moscow',
+    myMoscowBody: 'Your personal collection of places, built district by district.',
+    nothingSaved: 'Nothing saved yet',
+    discovered: 'discovered',
+    saved: 'saved',
+    language: 'language',
+    platformCapabilities: 'Platform capabilities',
+    platformCapabilitiesBody: 'See which platform layers are connected and which still require a key, asset or field test.',
+    alignFacade: 'Align the center with the main façade',
+    visualCue: 'What to look for',
+    lensNotice: 'This is currently a camera guidance mode. Historical 3D geometry comes after on-site alignment.'
+  },
+  zh: {
+    heroKicker: '把城市变成时光机',
+    heroTitle: '看见今天的莫斯科，也发现那些已经消失的城市层次',
+    heroBody: '地图、经验证的历史、步行路线、音频与空间场景围绕真实地点连接在一起。',
+    startVarvarka: '开始瓦尔瓦尔卡路线 · 45分钟',
+    locationUnavailable: '无法获取定位，但仍可手动选择地点继续使用。',
+    nearbyStories: '附近的故事',
+    pilotPlaces: '试点地点',
+    placeStory: '地点故事',
+    today: '今天',
+    now: '现在',
+    currentState: '当代状态是与有文献依据的历史层进行比较的参照点。',
+    whatToLookFor: '现场观察重点',
+    cameraGuides: '相机与定位提示',
+    runtimeProbe: '检查空间运行环境',
+    runtimeNotice: '空间运行环境已连接。历史3D模型只有在GLB资产准备完成并通过瓦尔瓦尔卡现场对齐验证后才会显示。',
+    cityLayer: '城市层',
+    cityLayerTitle: '在莫斯科地图上直接阅读历史',
+    cityLayerBody: '原生版本使用 Yandex MapKit 展示地点、路线、定位以及未来的历史图层。',
+    openStory: '打开故事与时光机 →',
+    walkKicker: '步行路线 #01',
+    walkTitle: '瓦尔瓦尔卡：一条记住多个时代莫斯科的街道',
+    stopLabel: (index: number) => `现在 · 第${index}站`,
+    finishWalk: '完成路线',
+    discoveredNext: '已探索 · 下一站',
+    explorePlace: '深入了解',
+    allStops: '全部站点',
+    myMoscow: '我的莫斯科',
+    myMoscowBody: '保存你发现的地点，并按街区逐步建立自己的莫斯科收藏。',
+    nothingSaved: '暂时没有收藏',
+    discovered: '已探索',
+    saved: '已收藏',
+    language: '语言',
+    platformCapabilities: '平台能力',
+    platformCapabilitiesBody: '这里显示已连接的技术层，以及仍需要密钥、资产或现场测试的部分。',
+    alignFacade: '将画面中心与主立面对齐',
+    visualCue: '现场观察重点',
+    lensNotice: '当前为相机导航模式。历史3D几何将在完成现场对齐验证后加入。'
+  }
+} as const;
+
 export default function MoscowApp() {
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const ui = t(language);
+  const copy = appCopy[language];
   const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
   const [tab, setTab] = useState<Tab>('discover');
   const [selectedId, setSelectedId] = useState(localizedPlaces[0]?.id ?? '');
@@ -94,7 +221,7 @@ export default function MoscowApp() {
         setSavedIds(Array.isArray(parsed.savedIds) ? parsed.savedIds : []);
         setVisitedIds(Array.isArray(parsed.visitedIds) ? parsed.visitedIds : []);
         setRouteStep(Math.max(0, Math.min(pilotRoute.stopIds.length - 1, parsed.routeStep ?? 0)));
-        if (parsed.language === 'ru' || parsed.language === 'en') setLanguage(parsed.language);
+        if (parsed.language === 'ru' || parsed.language === 'en' || parsed.language === 'zh') setLanguage(parsed.language);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -154,7 +281,7 @@ export default function MoscowApp() {
       return;
     }
     const text = `${place.title}. ${place.shortStory}. ${place.highlights.join('. ')}`;
-    playTextGuide(text, language === 'ru' ? 'ru-RU' : 'en-US');
+    playTextGuide(text, speechLocale(language));
     setIsSpeaking(true);
   };
 
@@ -169,7 +296,7 @@ export default function MoscowApp() {
   const roundedTime = Math.min(Math.round(timeValue), timeMax);
   const timePeriod = selected?.periods[roundedTime];
   const todaySelected = Boolean(selected && roundedTime === selected.periods.length);
-  const evidence = language === 'ru' ? evidenceRu : evidenceEn;
+  const evidence = language === 'ru' ? evidenceRu : language === 'zh' ? evidenceZh : evidenceEn;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -179,7 +306,7 @@ export default function MoscowApp() {
           <Text style={styles.brand}>MOSCOW · TIME</Text>
           <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
         </View>
-        <TouchableOpacity style={styles.language} onPress={() => setLanguage(language === 'ru' ? 'en' : 'ru')}>
+        <TouchableOpacity style={styles.language} onPress={() => setLanguage(nextLanguage(language))}>
           <Text style={styles.languageText}>{language.toUpperCase()}</Text>
         </TouchableOpacity>
       </View>
@@ -188,20 +315,20 @@ export default function MoscowApp() {
         {tab === 'discover' && (
           <>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>{language === 'ru' ? 'ГОРОД КАК МАШИНА ВРЕМЕНИ' : 'THE CITY AS A TIME MACHINE'}</Text>
-              <Text style={styles.heroTitle}>{language === 'ru' ? 'Смотрите на Москву — и открывайте то, чего больше не видно' : 'Look at Moscow — and reveal what is no longer visible'}</Text>
-              <Text style={styles.heroBody}>{language === 'ru' ? 'Карта, проверенная история, прогулки, аудио и пространственные сцены соединены вокруг реальных мест.' : 'Map, verified history, walks, audio and spatial scenes are connected around real places.'}</Text>
+              <Text style={styles.kicker}>{copy.heroKicker}</Text>
+              <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
+              <Text style={styles.heroBody}>{copy.heroBody}</Text>
               <View style={styles.heroButtons}>
-                <TouchableOpacity style={styles.primary} onPress={() => setTab('route')}><Text style={styles.primaryText}>{language === 'ru' ? 'Начать Варварку · 45 мин' : 'Start Varvarka · 45 min'}</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.primary} onPress={() => setTab('route')}><Text style={styles.primaryText}>{copy.startVarvarka}</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.secondary} onPress={findMe}>
                   {locationState === 'loading' ? <ActivityIndicator color="#e8c98c" /> : <Text style={styles.secondaryText}>{ui.nearby}</Text>}
                 </TouchableOpacity>
               </View>
-              {(locationState === 'denied' || locationState === 'error') && <Text style={styles.helper}>{language === 'ru' ? 'Геопозиция недоступна — приложение продолжает работать с ручным выбором места.' : 'Location is unavailable — places can still be explored manually.'}</Text>}
+              {(locationState === 'denied' || locationState === 'error') && <Text style={styles.helper}>{copy.locationUnavailable}</Text>}
             </View>
 
             <View style={styles.sectionHeading}>
-              <Text style={styles.sectionTitle}>{location ? (language === 'ru' ? 'Ближайшие истории' : 'Stories nearby') : (language === 'ru' ? 'Пилотные места' : 'Pilot places')}</Text>
+              <Text style={styles.sectionTitle}>{location ? copy.nearbyStories : copy.pilotPlaces}</Text>
               <TouchableOpacity onPress={() => setTab('map')}><Text style={styles.textLink}>{ui.map} →</Text></TouchableOpacity>
             </View>
 
@@ -223,7 +350,7 @@ export default function MoscowApp() {
               <View style={styles.detail}>
                 <View style={styles.detailTop}>
                   <View style={styles.detailTopCopy}>
-                    <Text style={styles.kicker}>{language === 'ru' ? 'ИСТОРИЯ МЕСТА' : 'PLACE STORY'}</Text>
+                    <Text style={styles.kicker}>{copy.placeStory}</Text>
                     <Text style={styles.detailTitle}>{selected.title}</Text>
                   </View>
                   <TouchableOpacity style={styles.audioButton} onPress={() => toggleAudio(selected)}><Text style={styles.audioButtonText}>{isSpeaking ? '■' : '▶'}</Text></TouchableOpacity>
@@ -234,7 +361,7 @@ export default function MoscowApp() {
                   <View style={styles.timeMachine}>
                     <View style={styles.sectionHeading}>
                       <Text style={styles.kicker}>{ui.timeMachine.toUpperCase()}</Text>
-                      <Text style={styles.timeYear}>{todaySelected ? (language === 'ru' ? 'Сегодня' : 'Today') : timePeriod?.year}</Text>
+                      <Text style={styles.timeYear}>{todaySelected ? copy.today : timePeriod?.year}</Text>
                     </View>
                     <Slider
                       minimumValue={0}
@@ -246,22 +373,22 @@ export default function MoscowApp() {
                       maximumTrackTintColor="#43464d"
                       thumbTintColor="#f0d39b"
                     />
-                    <View style={styles.timeLabels}><Text style={styles.timeSmall}>{selected.periods[0]?.year}</Text><Text style={styles.timeSmall}>{language === 'ru' ? 'сейчас' : 'now'}</Text></View>
+                    <View style={styles.timeLabels}><Text style={styles.timeSmall}>{selected.periods[0]?.year}</Text><Text style={styles.timeSmall}>{copy.now}</Text></View>
                     <Text style={styles.periodTitle}>{todaySelected ? selected.subtitle : timePeriod?.label}</Text>
-                    <Text style={styles.periodBody}>{todaySelected ? (language === 'ru' ? 'Современное состояние — точка сравнения с документированными историческими слоями.' : 'The current state is the comparison point for the documented historical layers.') : timePeriod?.summary}</Text>
+                    <Text style={styles.periodBody}>{todaySelected ? copy.currentState : timePeriod?.summary}</Text>
                     {!todaySelected && timePeriod && <Text style={styles.evidence}>{evidence[timePeriod.confidence]}</Text>}
                   </View>
                 )}
 
-                <Text style={styles.kicker}>{language === 'ru' ? 'ЧТО ИСКАТЬ ГЛАЗАМИ' : 'WHAT TO LOOK FOR'}</Text>
+                <Text style={styles.kicker}>{copy.whatToLookFor}</Text>
                 {selected.highlights.map((item, index) => <View key={item} style={styles.fact}><Text style={styles.factIndex}>{index + 1}</Text><Text style={styles.factText}>{item}</Text></View>)}
 
                 <View style={styles.experienceGrid}>
-                  <TouchableOpacity style={styles.experience} onPress={() => openLens(selected)}><Text style={styles.experienceIcon}>◉</Text><Text style={styles.experienceTitle}>{ui.lens}</Text><Text style={styles.experienceBody}>{language === 'ru' ? 'Камера и ориентиры' : 'Camera + guides'}</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.experience} onPress={() => setSpatialOpen(true)}><Text style={styles.experienceIcon}>◫</Text><Text style={styles.experienceTitle}>AR / 3D</Text><Text style={styles.experienceBody}>{language === 'ru' ? 'Проверить runtime' : 'Runtime probe'}</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.experience} onPress={() => openLens(selected)}><Text style={styles.experienceIcon}>◉</Text><Text style={styles.experienceTitle}>{ui.lens}</Text><Text style={styles.experienceBody}>{copy.cameraGuides}</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.experience} onPress={() => setSpatialOpen(true)}><Text style={styles.experienceIcon}>◫</Text><Text style={styles.experienceTitle}>AR / 3D</Text><Text style={styles.experienceBody}>{copy.runtimeProbe}</Text></TouchableOpacity>
                   <TouchableOpacity style={styles.experience} onPress={() => setSpatialOpen(true)}><Text style={styles.experienceIcon}>◌</Text><Text style={styles.experienceTitle}>VR</Text><Text style={styles.experienceBody}>Quest</Text></TouchableOpacity>
                 </View>
-                <Text style={styles.notice}>{language === 'ru' ? 'Spatial runtime подключён. Историческая 3D-модель появится здесь только после подготовки GLB и проверки точной привязки на Варварке.' : 'The spatial runtime is connected. A historical 3D model will appear here only after the GLB asset and on-site alignment are verified.'}</Text>
+                <Text style={styles.notice}>{copy.runtimeNotice}</Text>
 
                 <Text style={styles.kicker}>{ui.sources.toUpperCase()}</Text>
                 {selected.sources.map((source) => <TouchableOpacity key={source.url} style={styles.source} onPress={() => Linking.openURL(source.url)}><Text style={styles.sourceText}>{source.label}</Text><Text style={styles.sourceArrow}>↗</Text></TouchableOpacity>)}
@@ -273,26 +400,26 @@ export default function MoscowApp() {
         {tab === 'map' && (
           <>
             <View style={styles.mapIntro}>
-              <Text style={styles.kicker}>{language === 'ru' ? 'ГОРОДСКОЙ СЛОЙ' : 'CITY LAYER'}</Text>
-              <Text style={styles.detailTitle}>{language === 'ru' ? 'История прямо на карте Москвы' : 'History directly on the Moscow map'}</Text>
-              <Text style={styles.detailBody}>{language === 'ru' ? 'В нативной сборке работает Yandex MapKit: точки, маршрут, геопозиция и будущие исторические слои.' : 'The native build uses Yandex MapKit for places, routes, location and future historical layers.'}</Text>
+              <Text style={styles.kicker}>{copy.cityLayer}</Text>
+              <Text style={styles.detailTitle}>{copy.cityLayerTitle}</Text>
+              <Text style={styles.detailBody}>{copy.cityLayerBody}</Text>
             </View>
             <MoscowMap selectedId={selectedId} onSelect={selectFromMap} />
-            {selected && <TouchableOpacity style={styles.mapSelection} onPress={() => setTab('discover')}><Text style={styles.cardTitle}>{selected.title}</Text><Text style={styles.cardSubtitle}>{language === 'ru' ? 'Открыть историю и машину времени →' : 'Open story and time machine →'}</Text></TouchableOpacity>}
+            {selected && <TouchableOpacity style={styles.mapSelection} onPress={() => setTab('discover')}><Text style={styles.cardTitle}>{selected.title}</Text><Text style={styles.cardSubtitle}>{copy.openStory}</Text></TouchableOpacity>}
           </>
         )}
 
         {tab === 'route' && (
           <>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>{language === 'ru' ? 'ПРОГУЛКА №01' : 'WALK #01'}</Text>
-              <Text style={styles.heroTitle}>{language === 'ru' ? pilotRoute.title : 'Varvarka: a street that remembers several Moscows'}</Text>
+              <Text style={styles.kicker}>{copy.walkKicker}</Text>
+              <Text style={styles.heroTitle}>{copy.walkTitle}</Text>
               <Text style={styles.heroBody}>{pilotRoute.distanceKm} km · {pilotRoute.durationMinutes} min · {pilotRoute.stopIds.length} stops</Text>
               <View style={styles.progress}><View style={[styles.progressFill, { width: `${progressPct}%` }]} /></View>
               <Text style={styles.helper}>{progressPct}%</Text>
             </View>
-            {routePlace && <View style={styles.detail}><Text style={styles.kicker}>{language === 'ru' ? `СЕЙЧАС · ОСТАНОВКА ${routeStep + 1}` : `NOW · STOP ${routeStep + 1}`}</Text><Text style={styles.detailTitle}>{routePlace.title}</Text><Text style={styles.detailBody}>{routePlace.shortStory}</Text><TouchableOpacity style={styles.primary} onPress={() => { setVisitedIds((current) => current.includes(routePlace.id) ? current : [...current, routePlace.id]); if (routeStep < pilotRoute.stopIds.length - 1) setRouteStep(routeStep + 1); }}><Text style={styles.primaryText}>{routeStep === pilotRoute.stopIds.length - 1 ? (language === 'ru' ? 'Завершить прогулку' : 'Finish walk') : (language === 'ru' ? 'Открыто · дальше' : 'Discovered · next')}</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={() => { setSelectedId(routePlace.id); setTab('discover'); }}><Text style={styles.secondaryText}>{language === 'ru' ? 'Изучить место' : 'Explore this place'}</Text></TouchableOpacity></View>}
-            <Text style={styles.sectionTitle}>{language === 'ru' ? 'Все остановки' : 'All stops'}</Text>
+            {routePlace && <View style={styles.detail}><Text style={styles.kicker}>{copy.stopLabel(routeStep + 1)}</Text><Text style={styles.detailTitle}>{routePlace.title}</Text><Text style={styles.detailBody}>{routePlace.shortStory}</Text><TouchableOpacity style={styles.primary} onPress={() => { setVisitedIds((current) => current.includes(routePlace.id) ? current : [...current, routePlace.id]); if (routeStep < pilotRoute.stopIds.length - 1) setRouteStep(routeStep + 1); }}><Text style={styles.primaryText}>{routeStep === pilotRoute.stopIds.length - 1 ? copy.finishWalk : copy.discoveredNext}</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={() => { setSelectedId(routePlace.id); setTab('discover'); }}><Text style={styles.secondaryText}>{copy.explorePlace}</Text></TouchableOpacity></View>}
+            <Text style={styles.sectionTitle}>{copy.allStops}</Text>
             {pilotRoute.stopIds.map((id, index) => {
               const place = localizedPlaces.find((item) => item.id === id);
               if (!place) return null;
@@ -303,9 +430,9 @@ export default function MoscowApp() {
 
         {tab === 'saved' && (
           <>
-            <Text style={styles.sectionTitle}>{language === 'ru' ? 'Моя Москва' : 'My Moscow'}</Text>
-            <Text style={styles.detailBody}>{language === 'ru' ? 'Личная коллекция мест, которую можно продолжать собирать район за районом.' : 'Your personal collection of places, built district by district.'}</Text>
-            {savedIds.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{language === 'ru' ? 'Пока ничего не сохранено' : 'Nothing saved yet'}</Text><TouchableOpacity style={styles.secondary} onPress={() => setTab('discover')}><Text style={styles.secondaryText}>{ui.discover}</Text></TouchableOpacity></View> : savedIds.map((id) => {
+            <Text style={styles.sectionTitle}>{copy.myMoscow}</Text>
+            <Text style={styles.detailBody}>{copy.myMoscowBody}</Text>
+            {savedIds.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>{copy.nothingSaved}</Text><TouchableOpacity style={styles.secondary} onPress={() => setTab('discover')}><Text style={styles.secondaryText}>{ui.discover}</Text></TouchableOpacity></View> : savedIds.map((id) => {
               const place = localizedPlaces.find((item) => item.id === id);
               return place ? <TouchableOpacity key={id} style={styles.card} onPress={() => { setSelectedId(id); setTab('discover'); }}><Text style={styles.cardTitle}>{place.title}</Text><Text style={styles.cardSubtitle}>{place.district}</Text></TouchableOpacity> : null;
             })}
@@ -314,10 +441,10 @@ export default function MoscowApp() {
 
         {tab === 'profile' && (
           <>
-            <View style={styles.metricRow}><View style={styles.metric}><Text style={styles.metricValue}>{visitedIds.length}</Text><Text style={styles.metricLabel}>{language === 'ru' ? 'открыто' : 'discovered'}</Text></View><View style={styles.metric}><Text style={styles.metricValue}>{savedIds.length}</Text><Text style={styles.metricLabel}>{language === 'ru' ? 'сохранено' : 'saved'}</Text></View><View style={styles.metric}><Text style={styles.metricValue}>{language.toUpperCase()}</Text><Text style={styles.metricLabel}>{language === 'ru' ? 'язык' : 'language'}</Text></View></View>
+            <View style={styles.metricRow}><View style={styles.metric}><Text style={styles.metricValue}>{visitedIds.length}</Text><Text style={styles.metricLabel}>{copy.discovered}</Text></View><View style={styles.metric}><Text style={styles.metricValue}>{savedIds.length}</Text><Text style={styles.metricLabel}>{copy.saved}</Text></View><View style={styles.metric}><Text style={styles.metricValue}>{language.toUpperCase()}</Text><Text style={styles.metricLabel}>{copy.language}</Text></View></View>
             <View style={styles.detail}>
-              <Text style={styles.detailTitle}>{language === 'ru' ? 'Возможности платформы' : 'Platform capabilities'}</Text>
-              <Text style={styles.detailBody}>{language === 'ru' ? 'Здесь видно, какие технологические слои уже подключены и что ещё требует ключа, ассета или полевого теста.' : 'See which platform layers are connected and which still require a key, asset or field test.'}</Text>
+              <Text style={styles.detailTitle}>{copy.platformCapabilities}</Text>
+              <Text style={styles.detailBody}>{copy.platformCapabilitiesBody}</Text>
               {capabilities.map((capability) => <View key={capability.id} style={styles.capability}><View style={styles.capabilityCopy}><Text style={styles.cardTitle}>{capability.title}</Text><Text style={styles.cardSubtitle}>{capability.provider}</Text></View><Text style={styles.capabilityStatus}>{statusLabels[capability.status]}</Text></View>)}
             </View>
           </>
@@ -333,8 +460,8 @@ export default function MoscowApp() {
           {lensPlace && <CameraView style={StyleSheet.absoluteFill} facing="back" />}
           <SafeAreaView style={styles.modalOverlay}>
             <View style={styles.modalHeader}><View style={styles.modalHeaderCopy}><Text style={styles.kicker}>{ui.lens.toUpperCase()}</Text><Text style={styles.modalTitle}>{lensPlace?.title}</Text></View><TouchableOpacity style={styles.close} onPress={() => setLensPlace(null)}><Text style={styles.closeText}>×</Text></TouchableOpacity></View>
-            <View style={styles.alignment}><View style={styles.crossH} /><View style={styles.crossV} /><Text style={styles.alignmentText}>{language === 'ru' ? 'Совместите центр с главным фасадом' : 'Align the center with the main façade'}</Text></View>
-            <View style={styles.lensPanel}><Text style={styles.cardTitle}>{language === 'ru' ? 'Что искать глазами' : 'What to look for'}</Text><Text style={styles.cardSubtitle}>{lensPlace?.highlights[0]}</Text><Text style={styles.notice}>{language === 'ru' ? 'Сейчас это навигационный camera mode. Историческая 3D-геометрия будет добавлена после полевого совмещения.' : 'This is currently a camera guidance mode. Historical 3D geometry comes after on-site alignment.'}</Text></View>
+            <View style={styles.alignment}><View style={styles.crossH} /><View style={styles.crossV} /><Text style={styles.alignmentText}>{copy.alignFacade}</Text></View>
+            <View style={styles.lensPanel}><Text style={styles.cardTitle}>{copy.visualCue}</Text><Text style={styles.cardSubtitle}>{lensPlace?.highlights[0]}</Text><Text style={styles.notice}>{copy.lensNotice}</Text></View>
           </SafeAreaView>
         </View>
       </Modal>

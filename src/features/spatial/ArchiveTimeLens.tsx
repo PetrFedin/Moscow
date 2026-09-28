@@ -2,7 +2,7 @@ import Slider from '@react-native-community/slider';
 import React, { useMemo, useState } from 'react';
 import { Image, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import type { Place } from '../../data/places';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import { romanovSources } from '../../spatial/romanov-sources';
 
 type LensState = { opacity: number; visible: boolean };
@@ -32,7 +32,6 @@ export default function ArchiveTimeLensFallback({
   const [archiveVisible, setArchiveVisible] = useState(initialVisible);
   const isRomanov = place.id === 'romanov-chambers';
   const archive = useMemo(() => romanovSources.find((source) => source.id === 'timm-1857'), []);
-  const ru = language === 'ru';
   const effectiveOpacity = archiveVisible ? opacity : 0;
 
   const updateOpacity = (value: number) => {
@@ -47,11 +46,11 @@ export default function ArchiveTimeLensFallback({
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>{ru ? 'ЛИНЗА ВРЕМЕНИ · PREVIEW' : 'TIME LENS · PREVIEW'}</Text>
+          <Text style={styles.kicker}>{tr(language, 'ЛИНЗА ВРЕМЕНИ · PREVIEW', 'TIME LENS · PREVIEW', '时间之镜 · 预览')}</Text>
           <Text style={styles.title}>{place.title}</Text>
-          <Text style={styles.subtitle}>{ru ? 'Живая камера работает в нативной iOS/Android сборке.' : 'Live camera is available in the native iOS/Android build.'}</Text>
+          <Text style={styles.subtitle}>{tr(language, 'Живая камера работает в нативной iOS/Android сборке.', 'Live camera is available in the native iOS/Android build.', '实时相机可在原生 iOS/Android 版本中使用。')}</Text>
         </View>
-        <Pressable style={styles.close} onPress={onClose} accessibilityLabel={ru ? 'Закрыть линзу времени' : 'Close time lens'}><Text style={styles.closeText}>×</Text></Pressable>
+        <Pressable style={styles.close} onPress={onClose} accessibilityLabel={tr(language, 'Закрыть линзу времени', 'Close time lens', '关闭时间之镜')}><Text style={styles.closeText}>×</Text></Pressable>
       </View>
 
       {isRomanov && archive?.mediaUrl ? (
@@ -60,16 +59,16 @@ export default function ArchiveTimeLensFallback({
           <View style={styles.info}>
             <View style={styles.infoCopy}>
               <Text style={styles.sourceKicker}>PUBLIC DOMAIN · {archive.year}</Text>
-              <Text style={styles.sourceTitle}>{archive.titleRu}</Text>
+              <Text style={styles.sourceTitle}>{tr(language, archive.titleRu, archive.titleEn, '罗曼诺夫贵族宅邸修复前')}</Text>
               <Text style={styles.sourceMeta}>{archive.author}</Text>
             </View>
-            <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(archive.sourcePage)}><Text style={styles.sourceButtonText}>{ru ? 'Источник ↗' : 'Source ↗'}</Text></Pressable>
+            <Pressable style={styles.sourceButton} onPress={() => Linking.openURL(archive.sourcePage)}><Text style={styles.sourceButtonText}>{tr(language, 'Источник ↗', 'Source ↗', '来源 ↗')}</Text></Pressable>
           </View>
           <View style={styles.sliderRow}>
-            <Text style={styles.sliderLabel}>{ru ? 'Сейчас' : 'Now'}</Text>
+            <Text style={styles.sliderLabel}>{tr(language, 'Сейчас', 'Now', '现在')}</Text>
             <Slider
               testID="archive-opacity"
-              accessibilityLabel={ru ? 'Прозрачность архивного слоя' : 'Archive layer opacity'}
+              accessibilityLabel={tr(language, 'Прозрачность архивного слоя', 'Archive layer opacity', '档案图层透明度')}
               style={styles.slider}
               minimumValue={0}
               maximumValue={0.92}
@@ -81,11 +80,11 @@ export default function ArchiveTimeLensFallback({
             />
             <Text style={styles.sliderLabel}>1857</Text>
           </View>
-          <Text testID="archive-opacity-value" style={styles.opacityValue}>{ru ? 'Архив' : 'Archive'} · {Math.round(effectiveOpacity * 100)}%</Text>
-          <Pressable style={styles.primary} onPress={onOpenSpatial}><Text style={styles.primaryText}>{ru ? 'Открыть 3D-машину времени' : 'Open the 3D time machine'}</Text></Pressable>
+          <Text testID="archive-opacity-value" style={styles.opacityValue}>{tr(language, 'Архив', 'Archive', '档案')} · {Math.round(effectiveOpacity * 100)}%</Text>
+          <Pressable style={styles.primary} onPress={onOpenSpatial}><Text style={styles.primaryText}>{tr(language, 'Открыть 3D-машину времени', 'Open the 3D time machine', '打开3D时光机')}</Text></Pressable>
         </View>
       ) : (
-        <View style={styles.empty}><Text style={styles.emptyTitle}>{ru ? 'Архивная накладка ещё не верифицирована' : 'Archive overlay is not verified yet'}</Text><Text style={styles.emptyBody}>{ru ? 'Для этой точки сначала нужны проверенный источник и права.' : 'This stop first needs a verified source and rights.'}</Text></View>
+        <View style={styles.empty}><Text style={styles.emptyTitle}>{tr(language, 'Архивная накладка ещё не верифицирована', 'Archive overlay is not verified yet', '档案叠加层尚未验证')}</Text><Text style={styles.emptyBody}>{tr(language, 'Для этой точки сначала нужны проверенный источник и права.', 'This stop first needs a verified source and rights.', '该地点需要先完成来源与版权验证。')}</Text></View>
       )}
     </SafeAreaView>
   );

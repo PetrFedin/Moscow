@@ -1,17 +1,14 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 
 export default function OfflineRoutePackControl({ language }: { language: AppLanguage }) {
-  const ru = language === 'ru';
   return (
     <View style={styles.card}>
-      <Text style={styles.kicker}>{ru ? 'ОФЛАЙН-МАРШРУТ' : 'OFFLINE ROUTE'}</Text>
-      <Text style={styles.title}>{ru ? 'Скачивание доступно в iOS / Android' : 'Download is available on iOS / Android'}</Text>
+      <Text style={styles.kicker}>{tr(language, 'ОФЛАЙН-МАРШРУТ', 'OFFLINE ROUTE', '离线路线')}</Text>
+      <Text style={styles.title}>{tr(language, 'Скачивание доступно в iOS / Android', 'Download is available on iOS / Android', '可在 iOS / Android 下载')}</Text>
       <Text style={styles.body}>
-        {ru
-          ? '3D-модели уже входят в мобильную сборку; архив 1857 скачивается в локальный пакет маршрута.'
-          : '3D models are bundled with the mobile app; the 1857 archive is downloaded into the local route pack.'}
+        {tr(language, '3D-модели уже входят в мобильную сборку; архив 1857 скачивается в локальный пакет маршрута.', '3D models are bundled with the mobile app; the 1857 archive is downloaded into the local route pack.', '3D模型已包含在移动端应用中；1857年的档案资料会下载到本地路线包。')}
       </Text>
     </View>
   );

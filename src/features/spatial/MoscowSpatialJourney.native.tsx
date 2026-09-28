@@ -59,6 +59,7 @@ import type { SpatialStage } from '../../e2e/experienceContract';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
+import { tr, type AppLanguage } from '../../i18n';
 import RomanovEvidenceTransferPanel from './RomanovEvidenceTransferPanel.native';
 import RomanovFieldTest from './RomanovFieldTest.native';
 import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
@@ -81,6 +82,8 @@ const HIT_PRIORITY: ViroARHitTestResult['type'][] = [
 ];
 
 type Props = {
+  language?: AppLanguage;
+  fieldToolsEnabled?: boolean;
   initialEra?: RomanovEra;
   initialTrustMode?: RomanovTrustMode;
   onBackToModel?: () => void;
@@ -164,6 +167,7 @@ type SceneProps = {
       onCandidate?: (hitType: ViroARHitTestResult['type']) => void;
       onAnchored?: (anchor: LocalAnchor) => void;
       onAnchorError?: (message: string) => void;
+      language?: AppLanguage;
     };
   };
 };
@@ -183,7 +187,7 @@ function pickHit(results: ViroARHitTestResult[]) {
   return null;
 }
 
-function PortalScene() {
+function PortalScene({ language = 'ru' }: { language?: AppLanguage }) {
   return (
     <ViroPortalScene passable position={[2.6, 0, 0]}>
       <ViroPortal position={[0, 0, 0]}>
@@ -195,13 +199,13 @@ function PortalScene() {
       </ViroPortal>
       <ViroAmbientLight color="#dac79f" intensity={520} />
       <ViroText
-        text="ИСТОРИЧЕСКИЙ ПОРТАЛ"
+        text={tr(language, 'ИСТОРИЧЕСКИЙ ПОРТАЛ', 'HISTORICAL PORTAL', '历史门户')}
         position={[0, 0.3, -3]}
         scale={[0.23, 0.23, 0.23]}
         style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
       />
       <ViroText
-        text="Интерьер остаётся demo-layer до отдельной исторической проверки"
+        text={tr(language, 'Интерьер остаётся demo-layer до отдельной исторической проверки', 'The interior remains a demo layer until separate historical review', '室内场景在完成独立历史审核前仍为演示层')}
         position={[0, -0.2, -3]}
         scale={[0.12, 0.12, 0.12]}
         style={{ fontSize: 14, color: '#d2cdc3', textAlign: 'center' }}
@@ -235,6 +239,7 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const onCandidate = sceneNavigator?.viroAppProps?.onCandidate;
   const onAnchored = sceneNavigator?.viroAppProps?.onAnchored;
   const onAnchorError = sceneNavigator?.viroAppProps?.onAnchorError;
+  const language = sceneNavigator?.viroAppProps?.language ?? 'ru';
 
   useEffect(() => {
     if (isQuest || requestId <= 0 || requestId === lastRequest.current) return;
@@ -397,12 +402,12 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
     <>
       <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
       <ViroText
-        text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? 'FACT' : 'RESEARCH'}`}
+        text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? tr(language, 'ФАКТ', 'FACT', '事实') : tr(language, 'РЕКОНСТРУКЦИЯ', 'RESEARCH', '重建')}`}
         position={[0, 14.2, 0]}
         scale={[0.22, 0.22, 0.22]}
         style={{ fontSize: 18, color: '#f0d39b', textAlign: 'center' }}
       />
-      {portalVisible && <PortalScene />}
+      {portalVisible && <PortalScene language={language} />}
     </>
   );
 
@@ -499,6 +504,8 @@ function CalibrationControl(props: {
 }
 
 export default function MoscowSpatialJourney({
+  language = 'ru',
+  fieldToolsEnabled = __DEV__ || process.env.EXPO_PUBLIC_FIELD_TOOLS === '1',
   initialEra = '1859',
   initialTrustMode = 'public',
   onBackToModel,
@@ -807,16 +814,16 @@ export default function MoscowSpatialJourney({
     const gate = await reloadReleaseGate().catch(() => null);
     const verified = gate?.state === 'field-verified-spatial-scene';
     if (!verified && !demoPreview) {
-      setStatusMessage('Portal заблокирован: production runtime требует field-verified spatial scene.');
+      setStatusMessage(tr(language, 'Portal заблокирован: production runtime требует field-verified spatial scene.', 'Portal is locked: production runtime requires a field-verified spatial scene.', '门户已锁定：production runtime 需要经过现场验证的空间场景。'));
       void haptic('field-warning');
       return;
     }
     setPortalVisible(true);
     if (verified) {
       setStage('portal-preview');
-      setStatusMessage('Verified portal готов к физическому проходу.');
+      setStatusMessage(tr(language, 'Verified portal готов к физическому проходу.', 'Verified portal is ready to enter.', '已验证门户可以进入。'));
     } else {
-      setStatusMessage('DEMO PREVIEW: портал показан без статуса verified.');
+      setStatusMessage(tr(language, 'DEMO PREVIEW: портал показан без статуса verified.', 'DEMO PREVIEW: portal is shown without verified status.', '演示预览：门户尚未获得verified状态。'));
     }
   };
 
@@ -824,10 +831,10 @@ export default function MoscowSpatialJourney({
   const productionVerified = stage === 'verified' || stage === 'portal-preview' || stage === 'portal-entered';
   const portalLocked = !productionVerified && !demoPreview;
   const portalLabel = productionVerified
-    ? 'Потяните → открыть VERIFIED portal'
+    ? tr(language, 'Потяните → открыть VERIFIED portal', 'Pull → open VERIFIED portal', '拖动 → 打开已验证门户')
     : demoPreview
-      ? 'Потяните → DEMO portal preview'
-      : 'Portal locked · нужен field verification';
+      ? tr(language, 'Потяните → DEMO portal preview', 'Pull → DEMO portal preview', '拖动 → 演示门户预览')
+      : tr(language, 'Portal locked · нужен field verification', 'Portal locked · field verification required', '门户已锁定 · 需要现场验证');
 
   return (
     <View style={styles.root}>
@@ -849,7 +856,8 @@ export default function MoscowSpatialJourney({
           onMeasurementError: handleMeasurementError,
           onCandidate: handleCandidate,
           onAnchored: handleAnchored,
-          onAnchorError: handleAnchorError
+          onAnchorError: handleAnchorError,
+          language
         }}
         pbrEnabled
         hdrEnabled
@@ -860,81 +868,137 @@ export default function MoscowSpatialJourney({
 
       {!isQuest && (
         <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          <View style={styles.statusCard}>
-            <View style={styles.statusTop}>
-              <View style={styles.statusCopy}>
-                <Text style={styles.kicker}>AR STATE · {currentEraLabel} · {trustMode === 'documented' ? 'FACT' : 'RESEARCH'}</Text>
-                <Text style={styles.statusTitle}>{stage === 'portal-preview' ? 'PORTAL READY' : stage.toUpperCase()}</Text>
-              </View>
-              {onClose && (
-                <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose}>
-                  <Text style={styles.closeText}>×</Text>
-                </PhysicalPressable>
-              )}
-            </View>
-
-            <View style={styles.rail}>
-              {stageOrder.map((item, index) => {
-                const completed = index < stageIndex || (item === 'verified' && productionVerified);
-                const active = item === stage || (item === 'verified' && stage === 'portal-preview');
-                return (
-                  <View key={item} style={styles.railItem}>
-                    <View style={[styles.railDot, completed && styles.railDotDone, active && styles.railDotActive]} />
-                    <Text style={[styles.railText, (completed || active) && styles.railTextActive]}>{stageLabels[item]}</Text>
+          {fieldToolsEnabled ? (
+            <>
+              <View style={styles.statusCard}>
+                <View style={styles.statusTop}>
+                  <View style={styles.statusCopy}>
+                    <Text style={styles.kicker}>FIELD TOOLS · {currentEraLabel} · {trustMode === 'documented' ? 'FACT' : 'RESEARCH'}</Text>
+                    <Text style={styles.statusTitle}>{stage === 'portal-preview' ? 'PORTAL READY' : stage.toUpperCase()}</Text>
                   </View>
-                );
-              })}
-            </View>
-            <Text style={styles.statusBody}>{statusMessage}</Text>
-            {releaseBlockers.length > 0 && (
-              <Text style={styles.blockers}>Release blockers: {releaseBlockers.join(' · ')}</Text>
-            )}
-          </View>
+                  {onClose && (
+                    <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose}>
+                      <Text style={styles.closeText}>×</Text>
+                    </PhysicalPressable>
+                  )}
+                </View>
+                <View style={styles.rail}>
+                  {stageOrder.map((item, index) => {
+                    const completed = index < stageIndex || (item === 'verified' && productionVerified);
+                    const active = item === stage || (item === 'verified' && stage === 'portal-preview');
+                    return (
+                      <View key={item} style={styles.railItem}>
+                        <View style={[styles.railDot, completed && styles.railDotDone, active && styles.railDotActive]} />
+                        <Text style={[styles.railText, (completed || active) && styles.railTextActive]}>{stageLabels[item]}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+                <Text style={styles.statusBody}>{statusMessage}</Text>
+                {releaseBlockers.length > 0 && (
+                  <Text style={styles.blockers}>Release blockers: {releaseBlockers.join(' · ')}</Text>
+                )}
+              </View>
 
-          <View style={styles.actionDock}>
-            <View style={styles.actionRow}>
-              <PhysicalPressable style={styles.secondary} contentStyle={styles.center} strong onPress={requestAnchor}>
-                <Text style={styles.secondaryText}>{stage === 'searching' ? 'Найти фасад' : 'Перепривязать'}</Text>
-              </PhysicalPressable>
-              <PhysicalPressable
-                style={[styles.primary, (!localAnchor || Boolean(activePersistentAnchor)) && styles.disabled]}
-                contentStyle={styles.center}
-                disabled={!localAnchor || Boolean(activePersistentAnchor)}
-                onPress={() => setCalibrationOpen((current) => !current)}
-              >
-                <Text style={styles.primaryText}>Калибровка</Text>
-              </PhysicalPressable>
-            </View>
-            <View style={styles.actionRow}>
-              <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
-              <PhysicalPressable
-                style={[styles.toolButton, (!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)) && styles.disabled]}
-                contentStyle={styles.center}
-                disabled={!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)}
-                onPress={() => setFieldOpen(true)}
-              ><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
-            </View>
-            <View style={styles.actionRow}>
-              <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setEvidenceOpen(true)}><Text style={styles.toolText}>Evidence</Text></PhysicalPressable>
-              <PhysicalPressable style={[styles.toolButton, activePersistentAnchor && styles.toolButtonActive]} contentStyle={styles.center} onPress={() => setAnchorOpen(true)}><Text style={styles.toolText}>Anchor</Text></PhysicalPressable>
-            </View>
-            <View style={styles.portalTransition}>
-              <PortalTransitionControl
-                label={portalLabel}
-                committedLabel={productionVerified ? 'VERIFIED PORTAL READY' : 'DEMO PORTAL READY'}
-                disabled={portalLocked}
-                committed={portalVisible}
-                onCommit={() => { void openPortal(); }}
-              />
-            </View>
-            {onBackToModel && (
-              <PhysicalPressable style={styles.backButton} contentStyle={styles.center} hapticEvent="none" onPress={onBackToModel}>
-                <Text style={styles.backText}>← 3D-модель</Text>
-              </PhysicalPressable>
-            )}
-          </View>
+              <View style={styles.actionDock}>
+                <View style={styles.actionRow}>
+                  <PhysicalPressable style={styles.secondary} contentStyle={styles.center} strong onPress={requestAnchor}>
+                    <Text style={styles.secondaryText}>{stage === 'searching' ? 'Найти фасад' : 'Перепривязать'}</Text>
+                  </PhysicalPressable>
+                  <PhysicalPressable
+                    style={[styles.primary, (!localAnchor || Boolean(activePersistentAnchor)) && styles.disabled]}
+                    contentStyle={styles.center}
+                    disabled={!localAnchor || Boolean(activePersistentAnchor)}
+                    onPress={() => setCalibrationOpen((current) => !current)}
+                  >
+                    <Text style={styles.primaryText}>Калибровка</Text>
+                  </PhysicalPressable>
+                </View>
+                <View style={styles.actionRow}>
+                  <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setSurveyOpen(true)}><Text style={styles.toolText}>5 точек</Text></PhysicalPressable>
+                  <PhysicalPressable
+                    style={[styles.toolButton, (!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)) && styles.disabled]}
+                    contentStyle={styles.center}
+                    disabled={!localAnchor || !isCalibrationBoundToSession(calibration, localAnchor.anchorId)}
+                    onPress={() => setFieldOpen(true)}
+                  ><Text style={styles.toolText}>5/10/15 м</Text></PhysicalPressable>
+                </View>
+                <View style={styles.actionRow}>
+                  <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setEvidenceOpen(true)}><Text style={styles.toolText}>Evidence</Text></PhysicalPressable>
+                  <PhysicalPressable style={[styles.toolButton, activePersistentAnchor && styles.toolButtonActive]} contentStyle={styles.center} onPress={() => setAnchorOpen(true)}><Text style={styles.toolText}>Anchor</Text></PhysicalPressable>
+                </View>
+                <View style={styles.portalTransition}>
+                  <PortalTransitionControl
+                    label={portalLabel}
+                    committedLabel={productionVerified ? 'VERIFIED PORTAL READY' : 'DEMO PORTAL READY'}
+                    disabled={portalLocked}
+                    committed={portalVisible}
+                    onCommit={() => { void openPortal(); }}
+                  />
+                </View>
+                {onBackToModel && (
+                  <PhysicalPressable style={styles.backButton} contentStyle={styles.center} hapticEvent="none" onPress={onBackToModel}>
+                    <Text style={styles.backText}>← 3D-модель</Text>
+                  </PhysicalPressable>
+                )}
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.statusCard}>
+                <View style={styles.statusTop}>
+                  <View style={styles.statusCopy}>
+                    <Text style={styles.kicker}>{tr(language, 'ПРОСТРАНСТВЕННАЯ ИСТОРИЯ', 'SPATIAL HISTORY', '空间历史')} · {currentEraLabel}</Text>
+                    <Text style={styles.statusTitle}>
+                      {productionVerified
+                        ? tr(language, 'ПРОВЕРЕНО НА МЕСТЕ', 'FIELD VERIFIED', '现场验证完成')
+                        : tr(language, 'ПОДГОТОВКА СЦЕНЫ', 'SCENE PREPARATION', '场景准备中')}
+                    </Text>
+                  </View>
+                  {onClose && (
+                    <PhysicalPressable style={styles.close} contentStyle={styles.center} onPress={onClose}>
+                      <Text style={styles.closeText}>×</Text>
+                    </PhysicalPressable>
+                  )}
+                </View>
+                <Text style={styles.statusBody}>
+                  {productionVerified
+                    ? tr(
+                        language,
+                        'Пространственная сцена прошла полевую проверку и использует подтверждённый persistent anchor.',
+                        'The spatial scene passed field verification and uses a verified persistent anchor.',
+                        '空间场景已通过现场验证，并使用经过验证的持久锚点。'
+                      )
+                    : tr(
+                        language,
+                        'Эта пространственная сцена ещё не имеет статуса field-verified. Демонстрация не подменяет физическую проверку.',
+                        'This spatial scene is not field-verified yet. A demo does not replace physical verification.',
+                        '该空间场景尚未获得field-verified状态。演示不能替代真实现场验证。'
+                      )}
+                </Text>
+              </View>
+              <View style={styles.actionDock}>
+                <View style={styles.portalTransition}>
+                  <PortalTransitionControl
+                    label={portalLabel}
+                    committedLabel={productionVerified
+                      ? tr(language, 'VERIFIED PORTAL READY', 'VERIFIED PORTAL READY', '已验证门户就绪')
+                      : tr(language, 'DEMO PORTAL READY', 'DEMO PORTAL READY', '演示门户就绪')}
+                    disabled={portalLocked}
+                    committed={portalVisible}
+                    onCommit={() => { void openPortal(); }}
+                  />
+                </View>
+                {onBackToModel && (
+                  <PhysicalPressable style={styles.backButton} contentStyle={styles.center} hapticEvent="none" onPress={onBackToModel}>
+                    <Text style={styles.backText}>{tr(language, '← 3D-модель', '← 3D model', '← 3D模型')}</Text>
+                  </PhysicalPressable>
+                )}
+              </View>
+            </>
+          )}
 
-          {calibrationOpen && (
+          {fieldToolsEnabled && calibrationOpen && (
             <View style={styles.calibrationPanel}>
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.kicker}>MANUAL ALIGNMENT · INTERRUPTIBLE</Text>
@@ -954,7 +1018,7 @@ export default function MoscowSpatialJourney({
         </SafeAreaView>
       )}
 
-      {fieldOpen && !isQuest && (
+      {fieldToolsEnabled && fieldOpen && !isQuest && (
         <RomanovFieldTest
           calibration={calibration}
           era={era}
@@ -962,8 +1026,8 @@ export default function MoscowSpatialJourney({
           onClose={() => { setFieldOpen(false); reloadReleaseGate().catch(() => undefined); }}
         />
       )}
-      {surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
-      {evidenceOpen && !isQuest && (
+      {fieldToolsEnabled && surveyOpen && !isQuest && <RomanovSurveyPacketScreen onClose={() => { setSurveyOpen(false); reloadReleaseGate().catch(() => undefined); }} />}
+      {fieldToolsEnabled && evidenceOpen && !isQuest && (
         <RomanovEvidenceTransferPanel
           calibration={calibration}
           onCampaignImported={() => {
@@ -985,7 +1049,7 @@ export default function MoscowSpatialJourney({
           onClose={() => { setEvidenceOpen(false); reloadReleaseGate().catch(() => undefined); }}
         />
       )}
-      {anchorOpen && !isQuest && (
+      {fieldToolsEnabled && anchorOpen && !isQuest && (
         <RomanovPersistentAnchorPanel
           calibration={calibration}
           localAnchor={localAnchor}

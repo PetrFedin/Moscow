@@ -3,7 +3,7 @@ import { CameraView } from 'expo-camera';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { pilotRoute, type Place } from '../../data/places';
-import type { AppLanguage } from '../../i18n';
+import { tr, type AppLanguage } from '../../i18n';
 import { romanovSources } from '../../spatial/romanov-sources';
 import { getDownloadedRoutePackAssetUriWithLocaleFallback } from '../offline/routePack';
 import { ROMANOV_ARCHIVE_1857_ASSET_ID } from '../offline/varvarkaRoutePack';
@@ -36,7 +36,6 @@ export default function ArchiveTimeLens({
   const [offlineArchiveUri, setOfflineArchiveUri] = useState<string | null>(null);
   const isRomanov = place.id === 'romanov-chambers';
   const archive = useMemo(() => romanovSources.find((source) => source.id === 'timm-1857'), []);
-  const ru = language === 'ru';
   const effectiveOpacity = archiveVisible ? opacity : 0;
   const archiveImageUri = offlineArchiveUri ?? archive?.mediaUrl;
 
@@ -89,15 +88,15 @@ export default function ArchiveTimeLens({
       <SafeAreaView style={styles.overlay}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.kicker}>{ru ? 'ЛИНЗА ВРЕМЕНИ' : 'TIME LENS'}</Text>
+            <Text style={styles.kicker}>{tr(language, 'ЛИНЗА ВРЕМЕНИ', 'TIME LENS', '时间之镜')}</Text>
             <Text style={styles.title}>{place.title}</Text>
             <Text style={styles.subtitle}>
               {isRomanov
-                ? (ru ? '1857 · архив поверх живой камеры' : '1857 · archive over live camera')
-                : (ru ? 'Навигационная камера · архив ещё не верифицирован' : 'Camera guidance · archive not yet verified')}
+                ? tr(language, '1857 · архив поверх живой камеры', '1857 · archive over live camera', '1857 · 档案叠加实时相机')
+                : tr(language, 'Навигационная камера · архив ещё не верифицирован', 'Camera guidance · archive not yet verified', '相机导航 · 档案尚未验证')}
             </Text>
           </View>
-          <Pressable style={styles.close} onPress={onClose} accessibilityLabel={ru ? 'Закрыть' : 'Close'}>
+          <Pressable style={styles.close} onPress={onClose} accessibilityLabel={tr(language, 'Закрыть', 'Close', '关闭')}>
             <Text style={styles.closeText}>×</Text>
           </Pressable>
         </View>
@@ -109,7 +108,7 @@ export default function ArchiveTimeLens({
           <View style={styles.cornerTR} />
           <View style={styles.cornerBL} />
           <View style={styles.cornerBR} />
-          <Text style={styles.alignmentText}>{ru ? 'Совместите основные линии фасада' : 'Align the main facade lines'}</Text>
+          <Text style={styles.alignmentText}>{tr(language, 'Совместите основные линии фасада', 'Align the main facade lines', '对齐建筑立面的主要线条')}</Text>
         </View>
 
         <View style={styles.bottomPanel}>
@@ -117,8 +116,8 @@ export default function ArchiveTimeLens({
             <>
               <View style={styles.sourceTop}>
                 <View style={styles.sourceCopy}>
-                  <Text style={styles.sourceKicker}>{ru ? 'АРХИВНЫЙ ИСТОЧНИК' : 'ARCHIVAL SOURCE'}</Text>
-                  <Text style={styles.sourceTitle}>{archive.titleRu}</Text>
+                  <Text style={styles.sourceKicker}>{tr(language, 'АРХИВНЫЙ ИСТОЧНИК', 'ARCHIVAL SOURCE', '档案来源')}</Text>
+                  <Text style={styles.sourceTitle}>{tr(language, archive.titleRu, archive.titleEn, '罗曼诺夫贵族宅邸修复前')}</Text>
                   <Text style={styles.sourceMeta}>{archive.author} · {archive.year}</Text>
                 </View>
                 <View style={[styles.publicBadge, offlineArchiveUri && styles.offlineBadge]}>
@@ -127,10 +126,10 @@ export default function ArchiveTimeLens({
               </View>
 
               <View style={styles.sliderRow}>
-                <Text style={styles.sliderLabel}>{ru ? 'Сейчас' : 'Now'}</Text>
+                <Text style={styles.sliderLabel}>{tr(language, 'Сейчас', 'Now', '现在')}</Text>
                 <Slider
                   testID="archive-opacity"
-                  accessibilityLabel={ru ? 'Прозрачность архивного слоя' : 'Archive layer opacity'}
+                  accessibilityLabel={tr(language, 'Прозрачность архивного слоя', 'Archive layer opacity', '档案图层透明度')}
                   style={styles.slider}
                   minimumValue={0}
                   maximumValue={0.92}
@@ -142,31 +141,29 @@ export default function ArchiveTimeLens({
                 />
                 <Text style={styles.sliderLabel}>1857</Text>
               </View>
-              <Text testID="archive-opacity-value" style={styles.opacityValue}>{ru ? 'Архив' : 'Archive'} · {Math.round(effectiveOpacity * 100)}%</Text>
+              <Text testID="archive-opacity-value" style={styles.opacityValue}>{tr(language, 'Архив', 'Archive', '档案')} · {Math.round(effectiveOpacity * 100)}%</Text>
 
               <View style={styles.actionRow}>
                 <Pressable style={styles.secondaryButton} onPress={toggleArchive}>
-                  <Text style={styles.secondaryText}>{archiveVisible ? (ru ? 'Скрыть архив' : 'Hide archive') : (ru ? 'Показать архив' : 'Show archive')}</Text>
+                  <Text style={styles.secondaryText}>{archiveVisible ? tr(language, 'Скрыть архив', 'Hide archive', '隐藏档案') : tr(language, 'Показать архив', 'Show archive', '显示档案')}</Text>
                 </Pressable>
                 <Pressable style={styles.secondaryButton} onPress={() => Linking.openURL(archive.sourcePage)}>
-                  <Text style={styles.secondaryText}>{ru ? 'Источник ↗' : 'Source ↗'}</Text>
+                  <Text style={styles.secondaryText}>{tr(language, 'Источник ↗', 'Source ↗', '来源 ↗')}</Text>
                 </Pressable>
               </View>
 
               <Pressable style={styles.primaryButton} onPress={onOpenSpatial}>
-                <Text style={styles.primaryText}>{ru ? 'Перейти из архива в 3D / AR' : 'Continue from archive to 3D / AR'}</Text>
+                <Text style={styles.primaryText}>{tr(language, 'Перейти из архива в 3D / AR', 'Continue from archive to 3D / AR', '从档案进入3D / AR')}</Text>
               </Pressable>
               <Text style={styles.notice}>
-                {ru
-                  ? 'Архивная накладка — визуальный инструмент совмещения, а не метрически точная AR-привязка. Точная модель проверяется отдельно по контрольным точкам.'
-                  : 'The archive overlay is a visual alignment aid, not a metric AR anchor. Precise model alignment is verified separately with control points.'}
+                {tr(language, 'Архивная накладка — визуальный инструмент совмещения, а не метрически точная AR-привязка. Точная модель проверяется отдельно по контрольным точкам.', 'The archive overlay is a visual alignment aid, not a metric AR anchor. Precise model alignment is verified separately with control points.', '档案叠加仅用于视觉对齐，并不是经过米制精度验证的AR锚点。精确模型对齐需通过控制点单独验证。')}
               </Text>
             </>
           ) : (
             <>
-              <Text style={styles.sourceKicker}>{ru ? 'ЧТО ИСКАТЬ ГЛАЗАМИ' : 'WHAT TO LOOK FOR'}</Text>
+              <Text style={styles.sourceKicker}>{tr(language, 'ЧТО ИСКАТЬ ГЛАЗАМИ', 'WHAT TO LOOK FOR', '现场观察重点')}</Text>
               <Text style={styles.sourceTitle}>{place.highlights[0]}</Text>
-              <Text style={styles.notice}>{ru ? 'Для этой точки архивная накладка появится только после проверки источника и прав.' : 'An archive overlay will be enabled here only after source and rights verification.'}</Text>
+              <Text style={styles.notice}>{tr(language, 'Для этой точки архивная накладка появится только после проверки источника и прав.', 'An archive overlay will be enabled here only after source and rights verification.', '该地点只有在来源与版权验证完成后才会启用档案叠加。')}</Text>
             </>
           )}
         </View>

@@ -45,6 +45,7 @@ export type ExperienceNode = {
   kind: ExperienceNodeKind;
   titleRu: string;
   titleEn?: string;
+  titleZh?: string;
   latitude: number;
   longitude: number;
   durationMinutes?: number;
@@ -58,6 +59,7 @@ export type DestinationRoute = {
   id: string;
   titleRu: string;
   titleEn?: string;
+  titleZh?: string;
   nodeIds: string[];
   estimatedMinutes: number;
   themes: string[];
@@ -71,6 +73,7 @@ export type CommercialPlacement = {
   surfaces: Array<'discover' | 'route' | 'event' | 'food' | 'post-trip'>;
   disclosureRu: string;
   disclosureEn?: string;
+  disclosureZh?: string;
   startsAt?: string;
   endsAt?: string;
 };
@@ -84,10 +87,12 @@ export type DestinationPackage = {
     scope: DestinationScope;
     titleRu: string;
     titleEn?: string;
+    titleZh?: string;
     federalSubjectCode?: string;
     countryCode: 'RU';
   };
   publisher: string;
+  primaryLanguage: 'ru';
   publishedAt?: string;
   languages: string[];
   sources: DestinationSource[];
@@ -141,7 +146,12 @@ export function validateDestinationPackage(pkg: DestinationPackage): Destination
   if (!pkg.destination.titleRu.trim()) blockers.push('destination-title-ru-missing');
   if (pkg.destination.countryCode !== 'RU') blockers.push('country-code-must-be-ru');
   if (!pkg.publisher.trim()) blockers.push('publisher-missing');
+  if (pkg.primaryLanguage !== 'ru') blockers.push('primary-language-must-be-russian');
   if (!pkg.languages.includes('ru')) blockers.push('russian-localization-missing');
+  if (!pkg.languages.includes('en')) publicationBlockers.push('english-localization-missing');
+  if (!pkg.languages.includes('zh')) publicationBlockers.push('chinese-localization-missing');
+  if (!pkg.destination.titleEn?.trim()) publicationBlockers.push('destination-title-en-missing');
+  if (!pkg.destination.titleZh?.trim()) publicationBlockers.push('destination-title-zh-missing');
   if (pkg.nodes.length === 0) blockers.push('experience-nodes-missing');
 
   for (const duplicate of duplicateIds(pkg.sources)) blockers.push(`duplicate-source-id:${duplicate}`);
@@ -169,6 +179,8 @@ export function validateDestinationPackage(pkg: DestinationPackage): Destination
   for (const node of pkg.nodes) {
     if (!node.id.trim()) blockers.push('node-id-missing');
     if (!node.titleRu.trim()) blockers.push(`node-title-ru-missing:${node.id}`);
+    if (!node.titleEn?.trim()) publicationBlockers.push(`node-title-en-missing:${node.id}`);
+    if (!node.titleZh?.trim()) publicationBlockers.push(`node-title-zh-missing:${node.id}`);
     if (!isCoordinate(node.latitude, -90, 90)) blockers.push(`node-latitude-invalid:${node.id}`);
     if (!isCoordinate(node.longitude, -180, 180)) blockers.push(`node-longitude-invalid:${node.id}`);
     if (!nonEmptyUnique(node.sourceIds)) blockers.push(`node-source-missing:${node.id}`);
@@ -190,6 +202,8 @@ export function validateDestinationPackage(pkg: DestinationPackage): Destination
   for (const route of pkg.routes) {
     if (!route.id.trim()) blockers.push('route-id-missing');
     if (!route.titleRu.trim()) blockers.push(`route-title-ru-missing:${route.id}`);
+    if (!route.titleEn?.trim()) publicationBlockers.push(`route-title-en-missing:${route.id}`);
+    if (!route.titleZh?.trim()) publicationBlockers.push(`route-title-zh-missing:${route.id}`);
     if (!nonEmptyUnique(route.nodeIds)) blockers.push(`route-node-list-invalid:${route.id}`);
     for (const nodeId of route.nodeIds) {
       if (!nodeIds.has(nodeId)) blockers.push(`route-node-not-found:${route.id}:${nodeId}`);
@@ -202,6 +216,8 @@ export function validateDestinationPackage(pkg: DestinationPackage): Destination
   for (const placement of pkg.commercialPlacements) {
     if (!placement.sponsorName.trim()) blockers.push(`commercial-sponsor-missing:${placement.id}`);
     if (!placement.disclosureRu.trim()) blockers.push(`commercial-disclosure-ru-missing:${placement.id}`);
+    if (!placement.disclosureEn?.trim()) publicationBlockers.push(`commercial-disclosure-en-missing:${placement.id}`);
+    if (!placement.disclosureZh?.trim()) publicationBlockers.push(`commercial-disclosure-zh-missing:${placement.id}`);
     if (!nonEmptyUnique(placement.entityIds)) blockers.push(`commercial-entities-invalid:${placement.id}`);
     if (placement.surfaces.length === 0) blockers.push(`commercial-surfaces-missing:${placement.id}`);
     for (const entityId of placement.entityIds) {
@@ -215,7 +231,6 @@ export function validateDestinationPackage(pkg: DestinationPackage): Destination
   }
 
   if (pkg.routes.length === 0) warnings.push('routes-missing');
-  if (!pkg.languages.includes('en')) warnings.push('english-localization-missing');
   if (!pkg.publishedAt?.trim()) warnings.push('published-at-missing');
 
   return {

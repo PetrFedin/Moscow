@@ -117,7 +117,7 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     savedIds: stringArray(input.savedIds),
     visitedIds: stringArray(input.visitedIds),
     routeStep,
-    language: input.language === 'en' || input.language === 'ru' ? input.language : defaultState.language,
+    language: input.language === 'en' || input.language === 'ru' || input.language === 'zh' ? input.language : defaultState.language,
     lensOpacity: Math.max(0, Math.min(0.92, finiteNumber(input.lensOpacity, defaultState.lensOpacity))),
     lensVisible: typeof input.lensVisible === 'boolean' ? input.lensVisible : defaultState.lensVisible,
     selectedId,

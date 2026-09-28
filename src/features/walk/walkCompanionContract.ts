@@ -1,19 +1,27 @@
 import type { Place } from '../../data/places.ts';
-import type { AppLanguage } from '../../i18n/index.ts';
+import { tr, type AppLanguage } from '../../i18n/index.ts';
 
 export function buildPlaceWalkNarration(place: Place, language: AppLanguage) {
   const look = place.highlights[0];
-  if (language === 'ru') {
-    return [place.title, place.shortStory, look ? `Посмотрите вокруг. Ваша задача: ${look}.` : 'Осмотритесь вокруг.'].join(' ');
-  }
-  return [place.title, place.shortStory, look ? `Look around. Your task is to ${look}.` : 'Take a look around you.'].join(' ');
+  return [
+    place.title,
+    place.shortStory,
+    look
+      ? tr(
+          language,
+          `Посмотрите вокруг. Ваша задача: ${look}.`,
+          `Look around. Your task is to ${look}.`,
+          `看看四周。你的观察任务：${look}。`
+        )
+      : tr(language, 'Осмотритесь вокруг.', 'Take a look around you.', '看看四周。')
+  ].join(' ');
 }
 
 export function getObservationMission(place: Place, language: AppLanguage) {
   const prompt = place.highlights[0] ?? place.shortStory;
   return {
     id: `observation:${place.id}:v1`,
-    prompt: language === 'ru' ? `Найдите глазами: ${prompt}` : `Look for this: ${prompt}`
+    prompt: tr(language, `Найдите глазами: ${prompt}`, `Look for this: ${prompt}`, `请在现场找到：${prompt}`)
   };
 }
 

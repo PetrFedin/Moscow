@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeExperienceSnapshot } from '../src/persistence/experiencePersistence.ts';
+import { DEFAULT_LANGUAGE, detectLanguage, nextLanguage } from '../src/i18n/index.ts';
 
 test('experience persistence accepts old v4 snapshots without losing existing progress', () => {
   const restored = normalizeExperienceSnapshot({
@@ -133,4 +134,15 @@ test('route-specific completion ignores lifetime visits outside the active route
   assert.equal(restored.visitedIds.length, 3);
   assert.deepEqual(restored.routeCompletedStopIds, []);
   assert.equal(restored.routeFinished, false);
+});
+
+
+test('Chinese language choice survives persistence and Russian remains default authority', () => {
+  const restored = normalizeExperienceSnapshot({ language: 'zh' });
+  assert.equal(restored.language, 'zh');
+  assert.equal(DEFAULT_LANGUAGE, 'ru');
+  assert.equal(detectLanguage(), 'ru');
+  assert.equal(nextLanguage('ru'), 'en');
+  assert.equal(nextLanguage('en'), 'zh');
+  assert.equal(nextLanguage('zh'), 'ru');
 });
