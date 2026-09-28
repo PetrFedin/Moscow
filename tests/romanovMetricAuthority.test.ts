@@ -5,6 +5,7 @@ import {
   currentRomanovMetricBinding,
   isCurrentRomanovMetricBinding,
   isRomanovVerifiedScaleAuthoritative,
+  romanovMetricAuthorityValidation,
   ROMANOV_METRIC_AUTHORITY,
   romanovResearchPointToViro
 } from '../src/spatial/romanovMetricAuthority.ts';
@@ -17,6 +18,7 @@ import {
   summarizeRomanovSurvey
 } from '../src/spatial/romanovSurvey.ts';
 import { defaultRomanovCalibration } from '../src/spatial/calibration.ts';
+import { romanovControlPointAuthorityValidation } from '../src/spatial/romanovControlPoints.ts';
 
 const observations = [
   'main-volume-left-corner',
@@ -30,6 +32,10 @@ test('Romanov metric authority is explicit, metric and versioned', () => {
   assert.equal(ROMANOV_METRIC_AUTHORITY.modelUnits, 'meters');
   assert.equal(ROMANOV_METRIC_AUTHORITY.metersPerModelUnit, 1);
   assert.equal(ROMANOV_METRIC_AUTHORITY.scaleStatus, 'provisional-pending-survey');
+  assert.equal(romanovMetricAuthorityValidation.valid, true);
+  assert.deepEqual(romanovMetricAuthorityValidation.blockers, []);
+  assert.equal(romanovControlPointAuthorityValidation.valid, true);
+  assert.deepEqual(romanovControlPointAuthorityValidation.blockers, []);
   assert.equal(isCurrentRomanovMetricBinding(currentRomanovMetricBinding), true);
   assert.equal(isCurrentRomanovMetricBinding({ ...currentRomanovMetricBinding, modelPackVersion: 'old-pack' }), false);
   assert.equal(isRomanovVerifiedScaleAuthoritative(1), true);

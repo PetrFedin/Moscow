@@ -1,11 +1,18 @@
-export type RomanovControlPointPurpose = 'alignment' | 'quality-check';
+import {
+  createControlPointBinding,
+  isCurrentControlPointBinding,
+  validateHeritageControlPointAuthority,
+  type HeritageControlPoint,
+  type HeritageControlPointBinding,
+  type HeritageControlPointPurpose,
+  type HeritageControlPointSet
+} from './heritageControlPointAuthority.ts';
 
-export type RomanovControlPoint = {
-  id: string;
+export type RomanovControlPointPurpose = HeritageControlPointPurpose;
+
+export type RomanovControlPoint = HeritageControlPoint & {
   labelRu: string;
   labelEn: string;
-  purpose: RomanovControlPointPurpose;
-  state: 'pending-survey' | 'measured' | 'verified';
   notes: string;
 };
 
@@ -14,14 +21,15 @@ export const ROMANOV_CONTROL_POINT_SET = {
   version: 1,
   requiredPoints: 5,
   requiredAlignmentPoints: 3
-} as const;
+} as const satisfies HeritageControlPointSet;
 
-export type RomanovControlPointBinding = {
+export type RomanovControlPointBinding = HeritageControlPointBinding & {
   controlPointSetId: typeof ROMANOV_CONTROL_POINT_SET.id;
   controlPointSetVersion: typeof ROMANOV_CONTROL_POINT_SET.version;
 };
 
 export const currentRomanovControlPointBinding: RomanovControlPointBinding = {
+  ...createControlPointBinding(ROMANOV_CONTROL_POINT_SET),
   controlPointSetId: ROMANOV_CONTROL_POINT_SET.id,
   controlPointSetVersion: ROMANOV_CONTROL_POINT_SET.version
 };
@@ -29,11 +37,7 @@ export const currentRomanovControlPointBinding: RomanovControlPointBinding = {
 export function isCurrentRomanovControlPointBinding(
   value?: Partial<RomanovControlPointBinding> | null
 ) {
-  return Boolean(
-    value
-    && value.controlPointSetId === currentRomanovControlPointBinding.controlPointSetId
-    && value.controlPointSetVersion === currentRomanovControlPointBinding.controlPointSetVersion
-  );
+  return isCurrentControlPointBinding(value, currentRomanovControlPointBinding);
 }
 
 /**
@@ -85,3 +89,10 @@ export const romanovControlPoints: RomanovControlPoint[] = [
     notes: 'Use as a secondary check only; do not use temporary attachments or vegetation.'
   }
 ];
+
+
+export const romanovControlPointAuthorityValidation =
+  validateHeritageControlPointAuthority(
+    ROMANOV_CONTROL_POINT_SET,
+    romanovControlPoints
+  );

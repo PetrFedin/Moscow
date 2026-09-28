@@ -53,7 +53,9 @@
 
 ## Gate 3 — metric authority
 
-Для Старого Английского двора создаётся собственная metric authority. Нельзя копировать Romanov scale или transform.
+Schema и validation для metric authority теперь общие: `heritageMetricAuthority`.
+
+Для Старого Английского двора создаётся **собственный экземпляр** этой authority только после принятия реального GLB. Нельзя копировать Romanov scale, binding или transform.
 
 Нужны:
 
@@ -64,7 +66,9 @@
 
 ## Gate 4 — façade control points
 
-Control points выбираются только после сопоставления принятой модели с текущим фасадом.
+Schema и validation для control-point authority теперь общие: `heritageControlPointAuthority`.
+
+Control points Старого Английского двора выбираются только после сопоставления принятой модели с текущим фасадом.
 
 До полевого осмотра здесь нельзя заранее объявлять произвольные углы/окна «стабильными».
 
@@ -77,7 +81,7 @@ Control points выбираются только после сопоставле
 
 ## Gate 5 — field proof
 
-После model + metric + control-point authority применяется тот же класс доказательства, что и Romanov:
+После model + metric + control-point authority применяется общий `heritageFieldMatrix` + `heritageReleaseGate`, а не копия Romanov release logic:
 
 - approved survey;
 - measured residuals 5/10/15 м;
