@@ -699,7 +699,7 @@
   async function notificationPreferences(){
     openSheet('<div class="eyebrow">MFW 365 · NOTIFICATIONS</div><h1 style="font-size:42px">'+T('ЧТО<br>ВАМ<br>ПРИСЫЛАТЬ','WHAT<br>TO<br>SEND YOU')+'</h1><div class="card skeleton" style="height:180px"></div>');
     try{
-      var out=await api('/v1/notifications/preferences?userId='+encodeURIComponent(state.userId||'demo_user'));
+      var out=await userApi('/v1/notifications/preferences?userId='+encodeURIComponent(state.userId||'demo_user'));
       var p=out.data||{};
       function row(key,label,value){
         return '<div class="notification-pref"><div><b>'+label+'</b><small>'+(value?T('Включено','On'):T('Выключено','Off'))+'</small></div><button class="action '+(value?'primary':'ghost')+' compact" data-action="notification-pref-toggle" data-key="'+key+'" data-value="'+(value?'0':'1')+'">'+(value?'ON':'OFF')+'</button></div>';
@@ -716,7 +716,7 @@
   async function toggleNotificationPreference(key,value){
     try{
       var body={userId:state.userId||'demo_user'};body[key]=value==='1';
-      await api('/v1/notifications/preferences',{method:'PATCH',body:JSON.stringify(body)});
+      await userApi('/v1/notifications/preferences',{method:'PATCH',body:JSON.stringify(body)});
       notificationPreferences();
     }catch(_){toast(T('Не удалось сохранить настройку','Could not save preference'));}
   }
@@ -724,7 +724,7 @@
   async function notifications(){
     openSheet('<div class="eyebrow">Notification center</div><h1 style="font-size:42px">'+T('УВЕДОМЛЕНИЯ','NOTIFICATIONS')+'</h1><div class="card skeleton" style="height:150px"></div>');
     try{
-      var out=await api('/v1/notifications?userId='+encodeURIComponent(state.userId||'demo_user'));
+      var out=await userApi('/v1/notifications?userId='+encodeURIComponent(state.userId||'demo_user'));
       var items=out.data||[];
       var html=items.length?items.map(function(n){return '<div class="card"><div class="eyebrow">'+esc(String(n.category||'update').toUpperCase())+'</div><b>'+esc(n.title||'MFW')+'</b><p class="sub">'+esc(n.body||'')+'</p></div>';}).join(''):'<div class="premium-empty"><b>'+T('Сейчас всё спокойно','Nothing needs your attention')+'</b><p>'+T('Здесь появятся изменения программы, LIVE и новости брендов по вашим настройкам.','Programme changes, LIVE and followed-brand updates appear here according to your preferences.')+'</p></div>';
       openSheet('<div class="eyebrow">Notification center</div><h1 style="font-size:42px">'+T('УВЕДОМЛЕНИЯ','NOTIFICATIONS')+'</h1>'+html+'<button class="action ghost" data-action="notification-preferences">'+T('Настроить MFW 365 push','Configure MFW 365 push')+'</button>');
@@ -791,7 +791,7 @@
     if(following)state.savedBrands.push(id);else state.savedBrands.splice(i,1);
     persist();
     try{
-      await api('/v1/brands/'+encodeURIComponent(id)+'/follow',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',action:following?'save':'remove'})});
+      await userApi('/v1/brands/'+encodeURIComponent(id)+'/follow',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',action:following?'save':'remove'})});
       toast(following?T('Вы подписались на бренд в MFW','Following brand in MFW'):T('Подписка в MFW снята','Brand unfollowed in MFW'));
     }catch(_){
       toast(T('Изменение сохранено локально — сервер временно недоступен','Saved locally — server temporarily unavailable'));
@@ -1064,7 +1064,7 @@
     try{
       var userId=state.userId||'demo_user';
       var pair=await Promise.all([
-        api('/v1/brands/'+encodeURIComponent(brandId)+'/loyalty?userId='+encodeURIComponent(userId)),
+        userApi('/v1/brands/'+encodeURIComponent(brandId)+'/loyalty?userId='+encodeURIComponent(userId)),
         api('/v1/social/auth/readiness').catch(function(){return {data:{}};})
       ]);
       var d=pair[0].data;
@@ -1101,8 +1101,8 @@
       var providerNote=(d.providers||[]).map(function(p){return '<span>'+esc(p.platform)+': '+esc(p.verification)+'</span>';}).join('');
       var tg=authReady.telegram||{},vk=authReady.vk||{};
       var connectPanel='<div class="social-connect-panel"><div><b>'+T('Подключите соцсеть к MFW ID','Connect social account to MFW ID')+'</b><small>'+T('Сначала подтверждаем, чей это аккаунт. Затем отдельно проверяем подписку на нужный канал.','First verify account ownership. Then separately verify membership in the required channel.')+'</small></div>'+
-        '<div class="action-row"><button class="action '+(tg.loginConfigured?'primary':'ghost')+'" data-action="social-connect" data-platform="telegram">Telegram · '+(tg.loginConfigured?T('подключить','connect'):T('ожидает ключи','credentials needed'))+'</button>'+
-        '<button class="action '+(vk.loginConfigured?'primary':'ghost')+'" data-action="social-connect" data-platform="vk">VK ID · '+(vk.loginConfigured?T('подключить','connect'):T('ожидает APP_ID','APP_ID needed'))+'</button></div></div>';
+        '<div class="action-row"><button class="action '+(tg.ready?'primary':'ghost')+'" data-action="social-connect" data-platform="telegram">Telegram · '+(tg.ready?T('подключить','connect'):(authReady.postgres===false?T('нужна MFW БД','MFW DB required'):T('ожидает ключи','credentials needed')))+'</button>'+
+        '<button class="action '+(vk.ready?'primary':'ghost')+'" data-action="social-connect" data-platform="vk">VK ID · '+(vk.ready?T('подключить','connect'):(authReady.postgres===false?T('нужна MFW БД','MFW DB required'):T('ожидает APP_ID','APP_ID needed')))+'</button></div></div>';
       openSheet('<div class="eyebrow">MFW CLUB · SERVER</div><h1 style="font-size:42px">'+T('ЛОЯЛЬНОСТЬ<br>БЕЗ СКРИНШОТОВ','LOYALTY<br>WITHOUT SCREENSHOTS')+'</h1>'+
         '<div class="loyalty-principle"><b>'+T('MFW хранит доказательство и непрерывный срок.','MFW stores proof and continuous duration.')+'</b><p>'+T('Если соцсеть не отдаёт историческую дату подписки, отсчёт начинается с первого подтверждения MFW.','If a social network does not expose historical join time, the clock starts at MFW first verification.')+'</p></div>'+connectPanel+offers+
         '<div class="provider-foot">'+providerNote+'</div>');
@@ -1141,7 +1141,9 @@
       }
       throw new Error('provider_flow_unavailable');
     }catch(err){
-      if(err&&err.data&&err.data.error==='provider_not_configured'){
+      if(err&&err.data&&err.data.error==='postgres_required'){
+        toast(T('Интеграция готова — нужна отдельная PostgreSQL база MFW','Integration is ready — a dedicated MFW PostgreSQL database is required'));
+      }else if(err&&err.data&&err.data.error==='provider_not_configured'){
         toast(T('Интеграция подготовлена — нужны credentials организатора','Integration is ready — organizer credentials are required'));
       }else{
         toast(T('Не удалось начать подключение соцсети','Could not start social connection'));
@@ -1151,7 +1153,7 @@
 
   async function verifyLoyaltySocialLive(brandId,channelId){
     try{
-      await api('/v1/social/verify',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',channelId:channelId})});
+      await userApi('/v1/social/verify',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',channelId:channelId})});
       toast(T('Подписка подтверждена провайдером','Membership verified by provider'));
       openBrandLoyalty(brandId);
     }catch(err){
@@ -1166,7 +1168,7 @@
   async function verifyLoyaltySocial(brandId,channelId,mode){
     try{
       var days=mode==='membership_event'?34:0;
-      await api('/v1/demo/social/verify',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',channelId:channelId,active:true,continuousDays:days})});
+      await userApi('/v1/demo/social/verify',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',channelId:channelId,active:true,continuousDays:days})});
       toast(days?T('DEMO: подтверждена непрерывная подписка 34 дня','DEMO: 34 days of continuous membership verified'):T('DEMO: текущая подписка подтверждена; срок начинается сегодня','DEMO: current membership verified; duration starts today'));
       openBrandLoyalty(brandId);
     }catch(err){
@@ -1176,7 +1178,7 @@
 
   async function claimLoyaltyReward(brandId,offerId){
     try{
-      var out=await api('/v1/loyalty/offers/'+encodeURIComponent(offerId)+'/claim',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
+      var out=await userApi('/v1/loyalty/offers/'+encodeURIComponent(offerId)+'/claim',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
       var code=out.data&&out.data.code;
       openSheet('<div class="eyebrow">MFW CLUB · CLAIM</div><h1 style="font-size:42px">'+T('НАГРАДА<br>ДОСТУПНА','REWARD<br>UNLOCKED')+'</h1><div class="reward-code"><span>'+T('Одноразовый код','One-time code')+'</span><b>'+esc(code||T('Уже выдано','Already issued'))+'</b></div><p class="sub">'+T('При погашении бренд или касса проверяют claim server-side. Скриншот сам по себе не является подтверждением.','At redemption the brand or POS validates the claim server-side. A screenshot alone is not proof.')+'</p><button class="action ghost" data-action="brand-loyalty" data-id="'+esc(brandId)+'">'+T('Назад в MFW Club','Back to MFW Club')+'</button>');
     }catch(err){toast(T('Награда пока недоступна','Reward not available yet'));}
@@ -1200,7 +1202,7 @@
   async function openMfw365Feed(){
     openSheet('<div class="eyebrow">MFW 365</div><h1 style="font-size:42px">'+T('ВАША<br>МОДА<br>ВЕСЬ ГОД','YOUR<br>FASHION<br>ALL YEAR')+'</h1><div class="card skeleton" style="height:180px"></div>');
     try{
-      var out=await api('/v1/feed?userId='+encodeURIComponent(state.userId||'demo_user'));
+      var out=await userApi('/v1/feed?userId='+encodeURIComponent(state.userId||'demo_user'));
       var posts=out.data||[];
       var html=posts.length?posts.map(function(p){
         var title=state.lang==='ru'?p.titleRu:p.titleEn;
@@ -1214,11 +1216,11 @@
   }
 
   async function recordBrandContentImpression(postId){
-    try{await api('/v1/content/interactions',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',postId:postId,type:'impression',surface:'mfw_365'})});}catch(_){}
+    try{await userApi('/v1/content/interactions',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',postId:postId,type:'impression',surface:'mfw_365'})});}catch(_){}
   }
 
   async function recordBrandContentOpen(postId){
-    try{await api('/v1/content/interactions',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',postId:postId,type:'open'})});}catch(_){}
+    try{await userApi('/v1/content/interactions',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',postId:postId,type:'open'})});}catch(_){}
     toast(T('Взаимодействие учтено','Interaction recorded'));
   }
 
@@ -1253,6 +1255,13 @@
     var auth=await api('/v1/auth/demo',{method:'POST',body:JSON.stringify({name:state.name,role:wanted})});
     state.session=auth.session;state.userId=auth.user.id;state.sessionRole=wanted;state.authStatus='server';
     return state.session;
+  }
+
+  async function userApi(path,options){
+    var token=state.session||await ensureServerSession(state.role);
+    var opts=options||{};
+    opts.headers=Object.assign({},opts.headers||{},{Authorization:'Bearer '+token});
+    return api(path,opts);
   }
 
   async function adminApi(path, options){
