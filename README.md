@@ -89,6 +89,7 @@ Reference primitives:
 - `docs/GOVERNMENT_PILOT_ACCEPTANCE.md`
 - `docs/NATIONAL_TOURISM_PLATFORM.md`
 - `docs/GOVERNMENT_SCALE_AND_FUNDING.md`
+- `docs/GOVERNMENT_INVESTOR_DEMO_2026.md`
 - `docs/LOCALIZATION_AUTHORITY.md`
 
 
@@ -119,3 +120,13 @@ Reference primitives:
 **Русский — master/default и основной редакционный язык.** English и 中文 обязательны для публичной публикации destination. `DestinationPackage` не получает publishable status без полной EN/ZH локализации, а перевод не может менять provenance, trust-classification, rights или field-verification state.
 
 Human audio master проверяется отдельно для каждой обязательной локали; TTS остаётся функциональным fallback, а не подменой production recording.
+
+
+## Demo для города и инвестора
+
+В web preview, development build и при `EXPO_PUBLIC_DEMO_MODE=1` доступны два разных демонстрационных сценария:
+
+- **WOW DEMO** — пользовательский spatial flow Палат Романовых;
+- **CITY PILOT** — встроенный government/investor flow: предмет пилота, доказательства, внешние gates, запрос к Москве, контуры финансирования и масштаб Москва → регион → федеральный уровень.
+
+CITY PILOT намеренно показывает незакрытые доказательства и не утверждает, что городской пилот уже проведён, финансирование одобрено или Romanov field-verified.
