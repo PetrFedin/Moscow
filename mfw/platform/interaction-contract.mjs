@@ -23,6 +23,7 @@ const bfsHtml=fs.readFileSync(path.join(root,'bfs/index.html'),'utf8');
  ['platform BFS switcher',html,'data-event="bfs"'],
  ['account action',html,'id="accountBtn"'],
  ['investor action',html,'id="investorBtn"'],
+ ['value action',html,'id="valueBtn"'],
  ['profile form',html,'id="profileForm"'],
  ['event registration form',html,'id="registrationForm"'],
  ['BFS today',bfsHtml,'data-view="today"'],
@@ -41,3 +42,9 @@ const bfsHtml=fs.readFileSync(path.join(root,'bfs/index.html'),'utf8');
  "mfp-open-registration","mfp-open-account"
 ].forEach(x=>{if(!bfs.includes(x))throw new Error('BFS action not wired: '+x)});
 console.log('dual-event interaction contract: PASS');
+
+const mfw=fs.readFileSync(path.resolve('mfw/app.js'),'utf8');
+const mfwCss=fs.readFileSync(path.resolve('mfw/styles.css'),'utf8');
+['favorite-brand','mfwFavoriteBrands','brand-loyalty','loyalty-follow-brand'].forEach(x=>{if(!mfw.includes(x))throw new Error('MFW loyalty/favorite contract missing: '+x)});
+['z-index:9999','visibility:visible!important','100dvh'].forEach(x=>{if(!mfwCss.includes(x))throw new Error('MFW mobile nav hardening missing: '+x)});
+console.log('MFW navigation + loyalty contract: PASS');
