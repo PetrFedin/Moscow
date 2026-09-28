@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import PhysicalPressable from '../ui/PhysicalPressable';
+import GovernmentFundingPathPanel from './GovernmentFundingPathPanel';
 import {
   getGovernmentInvestorRouteState,
   governmentInvestorRoute
@@ -91,6 +92,8 @@ export default function GovernmentInvestorGuidedRoute({
             </View>
           </View>
         )}
+
+        {step.id === 'funding' && <GovernmentFundingPathPanel />}
 
         {step.id === 'city-ask' && (
           <View style={styles.stakeholderWrap}>
