@@ -19,13 +19,15 @@ import {
 
 const placeRu = places.find((place) => place.id === 'old-english-court');
 const placeEn = localizePlaces(places, 'en').find((place) => place.id === 'old-english-court');
+const placeZh = localizePlaces(places, 'zh').find((place) => place.id === 'old-english-court');
 
-if (!placeRu || !placeEn) {
+if (!placeRu || !placeEn || !placeZh) {
   throw new Error('Old English Court place data is missing');
 }
 
 const periodRu = new Map(placeRu.periods.map((period) => [period.id, period]));
 const periodEn = new Map(placeEn.periods.map((period) => [period.id, period]));
+const periodZh = new Map(placeZh.periods.map((period) => [period.id, period]));
 
 const audioTracks = varvarkaAudioCatalog.filter((track) => track.placeId === 'old-english-court');
 const productionAudioTracks = audioTracks.filter(isProductionAudioTrack);
@@ -103,7 +105,7 @@ const baseRequirements: SpatialPackageIntakeRequirement[] = [
     evidenceRefs: productionAudioTracks.length === audioTracks.length && audioTracks.length > 0
       ? audioTracks.map((track) => track.id)
       : undefined,
-    note: 'RU/EN scripts exist, but human masters remain an experience-quality dependency rather than a spatial-package promotion gate.'
+    note: 'RU/EN/ZH scripts exist, but human masters remain an experience-quality dependency rather than a spatial-package promotion gate.'
   }
 ];
 
@@ -113,6 +115,7 @@ export const oldEnglishCourtPackageIntake: SpatialPackageIntake = {
   placeId: OLD_ENGLISH_COURT_SPATIAL_AUTHORITY.placeId,
   titleRu: placeRu.title,
   titleEn: placeEn.title,
+  titleZh: placeZh.title,
   version: 1,
   authorityNamespace: 'old-english-court',
   status: 'asset-intake',
@@ -125,7 +128,8 @@ export const oldEnglishCourtPackageIntake: SpatialPackageIntake = {
   layers: oldEnglishCourtHistoricalLayers.map((layer) => {
     const ru = periodRu.get(layer.periodId);
     const en = periodEn.get(layer.periodId);
-    if (!ru || !en) throw new Error(`Old English Court period is missing: ${layer.periodId}`);
+    const zh = periodZh.get(layer.periodId);
+    if (!ru || !en || !zh) throw new Error(`Old English Court period is missing: ${layer.periodId}`);
 
     return {
       id: layer.id,
@@ -133,13 +137,15 @@ export const oldEnglishCourtPackageIntake: SpatialPackageIntake = {
       trust: layer.evidence,
       titleRu: ru.label,
       titleEn: en.label,
+      titleZh: zh.label,
       claimRu: ru.summary,
       claimEn: en.summary,
+      claimZh: zh.summary,
       sourceIds: [...layer.sourceIds]
     };
   }),
   requirements: baseRequirements,
-  languages: ['ru', 'en']
+  languages: ['ru', 'en', 'zh']
 };
 
 export const oldEnglishCourtPackageIntakeValidation =
