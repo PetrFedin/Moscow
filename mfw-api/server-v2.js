@@ -1570,7 +1570,8 @@ async function router(req,res){
   }
   if(req.method==='POST'&&p==='/v1/demo/social/connect'){
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
+    const userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const platform=String(b.platform||'telegram').toLowerCase();
     const connection=await brand365Store.demoSocialConnect(
       userId,platform,String(b.externalUserId||('demo_'+userId)),String(b.externalHandle||'demo')
@@ -1579,7 +1580,8 @@ async function router(req,res){
   }
   if(req.method==='POST'&&p==='/v1/social/verify'){
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
+    const userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const channel=await brand365Store.channelByRef(String(b.channelId||''));
     if(!channel)return json(res,404,{error:'social_channel_not_found'});
     const result=await verifyProviderMembership(userId,channel);
@@ -1590,7 +1592,8 @@ async function router(req,res){
   }
   if(req.method==='POST'&&p==='/v1/demo/social/verify'){
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
+    const userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const channel=await brand365Store.channelByRef(String(b.channelId||''));
     if(!channel)return json(res,404,{error:'social_channel_not_found'});
     if(channel.verificationMode==='unsupported')return json(res,409,{error:'verification_not_supported',platform:channel.platform});
@@ -1622,7 +1625,8 @@ async function router(req,res){
     const brand=await brand365Store.brandByRef(brandId);
     if(!brand)return json(res,404,{error:'brand_not_found'});
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
+    const userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const following=b.action!=='remove';
     await brand365Store.setBrandFollow(userId,brandId,following);
     await track(following?'brand_follow_365':'brand_unfollow_365',{brandId},userId);
@@ -1630,7 +1634,8 @@ async function router(req,res){
   }
   if(req.method==='GET'&&p.startsWith('/v1/brands/')&&p.endsWith('/loyalty')){
     const brandId=p.split('/')[3];
-    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const userId=userSubject(req,url.searchParams.get('userId')||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const brand=await brand365Store.brandByRef(brandId);
     if(!brand)return json(res,404,{error:'brand_not_found'});
     const sourceOffers=await brand365Store.offersForBrand(brandId,{publishedOnly:true});
@@ -1648,7 +1653,8 @@ async function router(req,res){
     const offer=await brand365Store.offerByRef(offerId);
     if(!offer||offer.status!=='published')return json(res,404,{error:'offer_not_found'});
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
+    const userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const eligibility=await evaluateLoyaltyOfferAuthority(userId,offer);
     if(!eligibility.eligible)return json(res,409,{error:'not_eligible',eligibility});
     if(pool){
@@ -1724,7 +1730,8 @@ async function router(req,res){
     return json(res,200,{data:await brand365Store.postsForBrand(brandId,{publishedOnly:true})});
   }
   if(req.method==='GET'&&p==='/v1/feed'){
-    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const userId=userSubject(req,url.searchParams.get('userId')||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const data=pool ? await brand365Store.personalFeed(userId) : buildPersonalFeed(userId);
     return json(res,200,{data,meta:{ranking:'followed_brand_first',paidFrequencyCap:'2_per_post_per_7d',paidSpacing:'max_1_per_4_slots',generatedAt:new Date().toISOString(),dataMode:pool?'postgres':'memory'}});
   }
@@ -1732,7 +1739,9 @@ async function router(req,res){
     const b=await readBody(req);
     const type=String(b.type||'open');
     if(!['impression','open','cta','save','dismiss'].includes(type))return json(res,400,{error:'invalid_interaction_type'});
-    const userId=String(b.userId||'anonymous'),postId=String(b.postId||''),surface=String(b.surface||'mfw_365');
+    const userId=userSubject(req,b.userId||'anonymous');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
+    const postId=String(b.postId||''),surface=String(b.surface||'mfw_365');
     const item={id:'ci_'+crypto.randomBytes(6).toString('hex'),userId,postId,type,occurredAt:new Date().toISOString(),surface,demo:!pool};
     if(pool){
       if(type==='impression')await brand365Store.recordImpression(userId,postId,surface);
@@ -1744,7 +1753,8 @@ async function router(req,res){
     return json(res,201,{data:item});
   }
   if(req.method==='GET'&&p==='/v1/notifications'){
-    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const userId=userSubject(req,url.searchParams.get('userId')||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     if(pool){
       const inbox=await brand365Store.notificationsForUser(userId);
       return json(res,200,inbox);
@@ -1763,12 +1773,14 @@ async function router(req,res){
     return json(res,200,{data,preferences:pref});
   }
   if(req.method==='GET'&&p==='/v1/notifications/preferences'){
-    const userId=String(url.searchParams.get('userId')||'demo_user');
+    const userId=userSubject(req,url.searchParams.get('userId')||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     return json(res,200,{data:pool?await brand365Store.preferences(userId):notificationPrefs(userId)});
   }
   if(req.method==='PATCH'&&p==='/v1/notifications/preferences'){
     const b=await readBody(req);
-    const userId=String(b.userId||'demo_user');
+    const userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
     const pref=pool?await brand365Store.updatePreferences(userId,b):notificationPrefs(userId);
     if(!pool){
       for(const key of ['criticalEnabled','liveEnabled','followedBrandNewsEnabled','loyaltyEnabled','brandEventsEnabled','paidPromotionsEnabled']){
