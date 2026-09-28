@@ -17,6 +17,7 @@
     "test:e2e-contract": "node scripts/run_contract_tests.mjs",
     "test:e2e-web": "playwright test tests/web.e2e.spec.ts tests/resume.e2e.spec.ts tests/touristPlanner.e2e.spec.ts tests/walkCompanion.e2e.spec.ts tests/nearby.e2e.spec.ts tests/pilotAnalyticsReport.e2e.spec.ts --project=chromium",
     "pilot:cohort": "node --experimental-strip-types scripts/aggregate_pilot_reports.mjs",
+    "pilot:study": "node --experimental-strip-types scripts/build_pilot_study_report.mjs",
     "report:glb": "node scripts/report_glb_asset.mjs",
     "validate:oec-model-submission": "node --experimental-strip-types scripts/validate_old_english_court_submission.mjs",
     "validate:romanov-p0-evidence": "node --experimental-strip-types scripts/validate_romanov_p0_evidence.mjs"
