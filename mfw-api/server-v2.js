@@ -38,6 +38,9 @@ function validateInvestorBuild(){
   const socialProvidersPath=path.join(__dirname,'social-providers.js');
   const reverifyRunnerPath=path.join(__dirname,'reverify-social.js');
   const apiPackagePath=path.join(__dirname,'package.json');
+  const migration009Path=path.join(__dirname,'migrations','009_brand365_persistence.sql');
+  const migration010Path=path.join(__dirname,'migrations','010_social_auth_flows.sql');
+  const migration011Path=path.join(__dirname,'migrations','011_social_auth_hardening.sql');
   const manifestPath=path.join(__dirname,'..','mfw','manifest.webmanifest');
   const frontend=fs.readFileSync(frontendPath,'utf8');
   const admin=fs.readFileSync(adminPath,'utf8');
@@ -49,6 +52,9 @@ function validateInvestorBuild(){
   const socialProvidersSource=fs.readFileSync(socialProvidersPath,'utf8');
   const reverifyRunnerSource=fs.readFileSync(reverifyRunnerPath,'utf8');
   const apiPackage=fs.readFileSync(apiPackagePath,'utf8');
+  const migration009=fs.readFileSync(migration009Path,'utf8');
+  const migration010=fs.readFileSync(migration010Path,'utf8');
+  const migration011=fs.readFileSync(migration011Path,'utf8');
   new Function(frontend);
   new Function(admin);
   new Function(nativeBridge);
@@ -76,7 +82,7 @@ function validateInvestorBuild(){
   for(const required of ['Wallet must not contain the reusable equivalent of the rotating gate token.','Apple Developer Team','Pass Type ID']){
     if(nativeCapabilities.indexOf(required)<0)throw new Error('missing_native_capability_contract:'+required);
   }
-  for(const required of ['class Brand365Store','async evaluateOffer','async personalFeed','async activeMembershipCandidates','async seedDemo']){
+  for(const required of ['class Brand365Store','async evaluateOffer','async personalFeed','async activeMembershipCandidates','async seedDemo','async cleanupAuthFlows','status=\'processing\'']){
     if(brand365StoreSource.indexOf(required)<0)throw new Error('missing_brand365_store_contract:'+required);
   }
   for(const required of ['activeTelegramStatus','verifyProviderMembership','telegram_getChatMember','vk_groups.isMember']){
@@ -87,6 +93,15 @@ function validateInvestorBuild(){
   }
   for(const required of ['reverify:social','check:foundation']){
     if(apiPackage.indexOf(required)<0)throw new Error('missing_foundation_script:'+required);
+  }
+  for(const required of ['app_installations','brand_access','social_reverification_runs']){
+    if(migration009.indexOf(required)<0)throw new Error('missing_brand365_migration_contract:'+required);
+  }
+  for(const required of ['social_auth_flows','code_verifier','expires_at']){
+    if(migration010.indexOf(required)<0)throw new Error('missing_social_auth_migration_contract:'+required);
+  }
+  for(const required of ["'processing'",'idx_social_auth_flows_terminal_cleanup']){
+    if(migration011.indexOf(required)<0)throw new Error('missing_social_auth_hardening_contract:'+required);
   }
 }
 validateInvestorBuild();
@@ -1265,7 +1280,8 @@ async function router(req,res){
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,loyalty365Authority:true,localeAuthority:true,sponsorAuthority:true,
-    brand365Persistence:{configured:!!pool,mode:pool?'postgres':'memory_demo',migration:'009_brand365_persistence.sql'},
+    brand365Persistence:{configured:!!pool,mode:pool?'postgres':'memory_demo',migrations:['009_brand365_persistence.sql','010_social_auth_flows.sql','011_social_auth_hardening.sql']},
+    socialAuthFlow:{singleUseState:true,pkceSecretScrub:true,pendingTtlMinutes:10,terminalRetentionHours:24},
     socialProviders:{
       telegram:{
         membershipConfigured:!!TELEGRAM_BOT_TOKEN,
