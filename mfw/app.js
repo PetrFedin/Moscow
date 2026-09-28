@@ -890,7 +890,21 @@
   function toggleLanguage(){
     state.lang=state.lang==='ru'?'en':'ru';
     persist();
-    document.documentElement.lang=state.lang;
+  
+  function handleSocialAuthReturn(){
+    try{
+      var params=new URLSearchParams(window.location.search);
+      var provider=params.get('social'),status=params.get('social_status');
+      if(!provider||!status)return;
+      if(status==='connected')toast(provider.toUpperCase()+' · '+T('аккаунт подключён к MFW ID','account connected to MFW ID'));
+      else toast(provider.toUpperCase()+' · '+T('подключение не завершено','connection was not completed'));
+      params.delete('social');params.delete('social_status');
+      var next=window.location.pathname+(params.toString()?'?'+params.toString():'')+window.location.hash;
+      window.history.replaceState({},'',next);
+    }catch(_){}
+  }
+
+  document.documentElement.lang=state.lang;
     render();
     toast(state.lang==='ru'?'Русский язык':'English');
     track('language_changed',{locale:state.lang});
@@ -1048,8 +1062,12 @@
     openSheet('<div class="eyebrow">MFW CLUB · LOYALTY AUTHORITY</div><h1 style="font-size:42px">'+T('БРЕНД<br>ВОЗНАГРАЖДАЕТ','BRAND<br>REWARDS')+'</h1><div class="card skeleton" style="height:180px"></div>');
     try{
       var userId=state.userId||'demo_user';
-      var out=await api('/v1/brands/'+encodeURIComponent(brandId)+'/loyalty?userId='+encodeURIComponent(userId));
-      var d=out.data;
+      var pair=await Promise.all([
+        api('/v1/brands/'+encodeURIComponent(brandId)+'/loyalty?userId='+encodeURIComponent(userId)),
+        api('/v1/social/auth/readiness').catch(function(){return {data:{}};})
+      ]);
+      var d=pair[0].data;
+      var authReady=pair[1].data||{};
       var channelById={};
       (d.memberships||[]).forEach(function(x){channelById[x.channel.id]=x;});
       var offers=(d.offers||[]).map(function(o){
@@ -1065,7 +1083,7 @@
           if((r.type==='mfw_social_follow'||r.type==='brand_social_follow')&&ch&&!r.ok){
             action=unsupported
               ? '<span class="loyalty-unavailable">'+T('API не подтверждает автоматически','No automatic API proof')+'</span>'
-              : '<button class="action ghost compact" data-action="loyalty-verify" data-brand="'+esc(brandId)+'" data-channel="'+esc(ch.id)+'" data-mode="'+esc(ch.verificationMode)+'">'+T('DEMO · проверить','DEMO · verify')+'</button>';
+              : '<div class="loyalty-actions"><button class="action ghost compact" data-action="loyalty-verify-live" data-brand="'+esc(brandId)+'" data-channel="'+esc(ch.id)+'">'+T('Проверить','Verify')+'</button>'+(d.dataMode==='memory'?'<button class="action ghost compact" data-action="loyalty-verify" data-brand="'+esc(brandId)+'" data-channel="'+esc(ch.id)+'" data-mode="'+esc(ch.verificationMode)+'">DEMO</button>':'')+'</div>';
           }else if(r.type==='app_installed'&&!r.ok){
             action='<button class="action ghost compact" data-action="loyalty-install" data-brand="'+esc(brandId)+'">'+(isStandaloneApp()?T('Подтвердить','Confirm'):T('DEMO · отметить установку','DEMO · mark installed'))+'</button>';
           }else if(r.type==='brand_follow_in_mfw'&&!r.ok){
@@ -1080,10 +1098,68 @@
         '</div>';
       }).join('');
       var providerNote=(d.providers||[]).map(function(p){return '<span>'+esc(p.platform)+': '+esc(p.verification)+'</span>';}).join('');
+      var tg=authReady.telegram||{},vk=authReady.vk||{};
+      var connectPanel='<div class="social-connect-panel"><div><b>'+T('Подключите соцсеть к MFW ID','Connect social account to MFW ID')+'</b><small>'+T('Сначала подтверждаем, чей это аккаунт. Затем отдельно проверяем подписку на нужный канал.','First verify account ownership. Then separately verify membership in the required channel.')+'</small></div>'+
+        '<div class="action-row"><button class="action '+(tg.loginConfigured?'primary':'ghost')+'" data-action="social-connect" data-platform="telegram">Telegram · '+(tg.loginConfigured?T('подключить','connect'):T('ожидает ключи','credentials needed'))+'</button>'+
+        '<button class="action '+(vk.loginConfigured?'primary':'ghost')+'" data-action="social-connect" data-platform="vk">VK ID · '+(vk.loginConfigured?T('подключить','connect'):T('ожидает APP_ID','APP_ID needed'))+'</button></div></div>';
       openSheet('<div class="eyebrow">MFW CLUB · SERVER</div><h1 style="font-size:42px">'+T('ЛОЯЛЬНОСТЬ<br>БЕЗ СКРИНШОТОВ','LOYALTY<br>WITHOUT SCREENSHOTS')+'</h1>'+
-        '<div class="loyalty-principle"><b>'+T('MFW хранит доказательство и непрерывный срок.','MFW stores proof and continuous duration.')+'</b><p>'+T('Если соцсеть не отдаёт историческую дату подписки, отсчёт начинается с первого подтверждения MFW.','If a social network does not expose historical join time, the clock starts at MFW first verification.')+'</p></div>'+offers+
+        '<div class="loyalty-principle"><b>'+T('MFW хранит доказательство и непрерывный срок.','MFW stores proof and continuous duration.')+'</b><p>'+T('Если соцсеть не отдаёт историческую дату подписки, отсчёт начинается с первого подтверждения MFW.','If a social network does not expose historical join time, the clock starts at MFW first verification.')+'</p></div>'+connectPanel+offers+
         '<div class="provider-foot">'+providerNote+'</div>');
     }catch(err){toast(T('MFW Club временно недоступен','MFW Club temporarily unavailable'));}
+  }
+
+
+  function loadExternalScript(src,id){
+    return new Promise(function(resolve,reject){
+      if(id&&document.getElementById(id)){resolve();return;}
+      var sc=document.createElement('script');if(id)sc.id=id;sc.src=src;sc.async=true;
+      sc.onload=function(){resolve();};sc.onerror=function(){reject(new Error('script_load_failed'));};
+      document.head.appendChild(sc);
+    });
+  }
+
+  async function connectSocialProvider(platform){
+    try{
+      var token=state.session||await ensureServerSession(state.role);
+      var out=await api('/v1/social/auth/'+encodeURIComponent(platform)+'/start',{
+        method:'POST',
+        headers:{Authorization:'Bearer '+token},
+        body:JSON.stringify({})
+      });
+      var d=out.data||{};
+      if(platform==='telegram'&&d.authorizationUrl){
+        window.location.assign(d.authorizationUrl);return;
+      }
+      if(platform==='vk'&&d.mode==='vkid_sdk'){
+        await loadExternalScript(d.sdkUrl,'mfw-vkid-sdk');
+        var VKID=window.VKIDSDK;
+        if(!VKID||!VKID.Config||!VKID.Auth)throw new Error('vkid_sdk_unavailable');
+        VKID.Config.init(d.config);
+        await VKID.Auth.login();
+        return;
+      }
+      throw new Error('provider_flow_unavailable');
+    }catch(err){
+      if(err&&err.data&&err.data.error==='provider_not_configured'){
+        toast(T('Интеграция подготовлена — нужны credentials организатора','Integration is ready — organizer credentials are required'));
+      }else{
+        toast(T('Не удалось начать подключение соцсети','Could not start social connection'));
+      }
+    }
+  }
+
+  async function verifyLoyaltySocialLive(brandId,channelId){
+    try{
+      await api('/v1/social/verify',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user',channelId:channelId})});
+      toast(T('Подписка подтверждена провайдером','Membership verified by provider'));
+      openBrandLoyalty(brandId);
+    }catch(err){
+      var code=err&&err.data&&err.data.error;
+      if(code==='social_connection_required')toast(T('Сначала подключите эту соцсеть к MFW ID','Connect this social account to MFW ID first'));
+      else if(code==='provider_not_configured')toast(T('Провайдер пока не активирован credentials организатора','Provider credentials are not active yet'));
+      else if(code==='verification_not_supported')toast(T('Автоматическая проверка этой сети недоступна','Automatic verification is unavailable for this network'));
+      else toast(T('Подписка не подтверждена','Membership could not be verified'));
+    }
   }
 
   async function verifyLoyaltySocial(brandId,channelId,mode){
@@ -1446,6 +1522,8 @@
       else if(a==='brand-loyalty')openBrandLoyalty(el.getAttribute('data-id')||'b1');
       else if(a==='loyalty-install'){registerLoyaltyInstall(!isStandaloneApp()).then(function(){openBrandLoyalty(el.getAttribute('data-brand')||'b1');});}
       else if(a==='loyalty-follow-brand'){saveBrand(el.getAttribute('data-brand')||'b1');setTimeout(function(){openBrandLoyalty(el.getAttribute('data-brand')||'b1');},150);}
+      else if(a==='social-connect')connectSocialProvider(el.getAttribute('data-platform'));
+      else if(a==='loyalty-verify-live')verifyLoyaltySocialLive(el.getAttribute('data-brand')||'b1',el.getAttribute('data-channel'));
       else if(a==='loyalty-verify')verifyLoyaltySocial(el.getAttribute('data-brand')||'b1',el.getAttribute('data-channel'),el.getAttribute('data-mode'));
       else if(a==='loyalty-claim')claimLoyaltyReward(el.getAttribute('data-brand')||'b1',el.getAttribute('data-offer'));
       else if(a==='brand-content-open')recordBrandContentOpen(el.getAttribute('data-post'));
@@ -1473,4 +1551,5 @@
   if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
   render();
   checkBackend();
+  setTimeout(handleSocialAuthReturn,50);
 })();
