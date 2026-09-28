@@ -394,6 +394,7 @@ test('full destination day becomes ready only from verified heritage pilot live 
   assert.equal(readiness.proof.selectedEventId, 'live-event');
   assert.equal(readiness.proof.selectedFoodId, 'live-food');
   assert.equal(readiness.proof.bookingHandoffs.length, 1);
+  assert.equal(readiness.proof.routingProofExpiresAt, '2026-09-28T10:30:00.000Z');
   assert.deepEqual(readiness.proof.liveProviderIds.sort(), ['city-live', 'tickets']);
   assert.deepEqual(readiness.proof.languages, ['ru', 'en', 'zh']);
   assert.equal(readiness.proof.offlineHeritage, true);
@@ -446,6 +447,87 @@ test('selected live entity requires ingestion evidence from its provider', () =>
     pilotReview: pilotReview(),
     liveProjection: projection,
     liveIngestionRecords: [],
+    selectedEventId: 'live-event',
+    selectedFoodId: 'live-food',
+    routingProof: routingProof(),
+    now: '2026-09-28T10:15:00.000Z'
+  });
+
+  assert.equal(readiness.status, 'blocked');
+  if (readiness.status !== 'blocked') return;
+  assert.ok(readiness.blockers.includes('live-provider-ingestion-evidence-missing:city-live'));
+  assert.ok(readiness.blockers.includes('booking-provider-ingestion-evidence-missing:tickets'));
+});
+
+
+test('routing proof rejects an unknown authority at runtime', () => {
+  const invalid = routingProof() as unknown as DestinationDayRoutingProof & {
+    orderedBlocks: Array<{
+      ref: { authority: string; id: string };
+      plannedStartAt: string;
+      plannedEndAt: string;
+    }>;
+  };
+  invalid.orderedBlocks[0]!.ref.authority = 'invented-authority';
+
+  const validation = validateDestinationDayRoutingProof(
+    invalid as unknown as DestinationDayRoutingProof
+  );
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('journey-block-authority-invalid:0'));
+});
+
+test('pilot review dated in the future cannot satisfy current journey readiness', () => {
+  const projection = projectLiveDestinationFeed(
+    liveFeed(),
+    '2026-09-28T10:15:00.000Z'
+  );
+  const futurePilot = {
+    ...pilotReview(),
+    reviewedAt: '2026-09-28T10:16:00.000Z'
+  };
+
+  const readiness = evaluateDestinationDayJourney({
+    destinationPackage: moscowVarvarkaDestinationPackage,
+    heritageRouteId: 'varvarka-45',
+    spatialPackages: [
+      fieldVerifiedPackage('moscow-romanov-chambers-spatial-v1', 'romanov-chambers'),
+      fieldVerifiedPackage('moscow-old-english-court-spatial-v1', 'old-english-court')
+    ],
+    pilotReview: futurePilot,
+    liveProjection: projection,
+    liveIngestionRecords: ingestionRecords(),
+    selectedEventId: 'live-event',
+    selectedFoodId: 'live-food',
+    routingProof: routingProof(),
+    now: '2026-09-28T10:15:00.000Z'
+  });
+
+  assert.equal(readiness.status, 'blocked');
+  if (readiness.status !== 'blocked') return;
+  assert.ok(readiness.blockers.includes('visitor-pilot-review-from-future'));
+});
+
+test('provider ingestion normalized in the future cannot prove current live journey state', () => {
+  const projection = projectLiveDestinationFeed(
+    liveFeed(),
+    '2026-09-28T10:15:00.000Z'
+  );
+  const futureRecords = ingestionRecords().map((record) => ({
+    ...record,
+    normalizedAt: '2026-09-28T10:16:00.000Z'
+  }));
+
+  const readiness = evaluateDestinationDayJourney({
+    destinationPackage: moscowVarvarkaDestinationPackage,
+    heritageRouteId: 'varvarka-45',
+    spatialPackages: [
+      fieldVerifiedPackage('moscow-romanov-chambers-spatial-v1', 'romanov-chambers'),
+      fieldVerifiedPackage('moscow-old-english-court-spatial-v1', 'old-english-court')
+    ],
+    pilotReview: pilotReview(),
+    liveProjection: projection,
+    liveIngestionRecords: futureRecords,
     selectedEventId: 'live-event',
     selectedFoodId: 'live-food',
     routingProof: routingProof(),
