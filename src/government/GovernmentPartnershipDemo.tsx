@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import PhysicalPressable from '../ui/PhysicalPressable';
+import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
 import {
   getGovernmentPilotReadiness,
   governmentPilotOffer,
@@ -111,6 +112,7 @@ const economicsMetrics = [
 
 export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<Section>('offer');
+  const [guidedRouteOpen, setGuidedRouteOpen] = useState(false);
   const readiness = useMemo(() => getGovernmentPilotReadiness(), []);
   const decisionReadiness = useMemo(
     () => getPilotDecisionReadiness(currentPilotInvestmentEvidence),
@@ -120,6 +122,15 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
     () => evaluateGovernmentDeliveryReadiness(),
     []
   );
+
+  if (guidedRouteOpen) {
+    return (
+      <GovernmentInvestorGuidedRoute
+        onExit={() => setGuidedRouteOpen(false)}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -168,6 +179,26 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
             <View style={styles.hero}>
               <Text style={styles.kicker}>ПРЕДМЕТ СОТРУДНИЧЕСТВА</Text>
               <Text style={styles.heroTitle}>{governmentPilotOffer.positioning}</Text>
+            </View>
+
+            <View style={styles.guidedCard}>
+              <View style={styles.guidedCopy}>
+                <Text style={styles.guidedKicker}>7–10 МИНУТ · MEETING MODE</Text>
+                <Text style={styles.guidedTitle}>Провести встречу по шагам</Text>
+                <Text style={styles.guidedBody}>
+                  Проблема → пилот → evidence → что нужно от Москвы → что получает город → финансирование → федеральный масштаб → одно следующее решение.
+                </Text>
+              </View>
+              <PhysicalPressable
+                accessibilityRole="button"
+                accessibilityLabel="Начать маршрут сотрудничества 7–10 минут"
+                style={styles.guidedButton}
+                contentStyle={styles.center}
+                strong
+                onPress={() => setGuidedRouteOpen(true)}
+              >
+                <Text style={styles.guidedButtonText}>Начать маршрут →</Text>
+              </PhysicalPressable>
             </View>
 
             <View style={styles.metrics}>
@@ -626,6 +657,27 @@ const styles = StyleSheet.create({
   },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.5, fontWeight: '900', marginBottom: 8 },
   heroTitle: { color: '#f7f0e4', fontSize: 23, lineHeight: 31, fontWeight: '800' },
+  guidedCard: {
+    marginTop: 12,
+    borderRadius: 22,
+    padding: 17,
+    backgroundColor: '#1b1812',
+    borderWidth: 1,
+    borderColor: '#6b5735'
+  },
+  guidedCopy: { flex: 1 },
+  guidedKicker: { color: '#b99b69', fontSize: 8, letterSpacing: 1.3, fontWeight: '900' },
+  guidedTitle: { color: '#fff1d8', fontSize: 18, lineHeight: 23, fontWeight: '900', marginTop: 6 },
+  guidedBody: { color: '#b9aa90', fontSize: 11, lineHeight: 17, marginTop: 7 },
+  guidedButton: {
+    marginTop: 14,
+    minHeight: 46,
+    borderRadius: 15,
+    backgroundColor: '#d7bb84',
+    borderWidth: 1,
+    borderColor: '#f0d39b'
+  },
+  guidedButtonText: { color: '#17130d', fontSize: 11, fontWeight: '900' },
   metrics: { flexDirection: 'row', gap: 8, marginTop: 12 },
   metric: { flex: 1, borderRadius: 17, padding: 13, backgroundColor: '#111419', borderWidth: 1, borderColor: '#292e34' },
   metricValue: { color: '#e5c68b', fontSize: 22, fontWeight: '900' },
