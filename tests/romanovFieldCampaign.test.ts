@@ -306,3 +306,18 @@ test('field matrix requires daylight evidence even when all twelve sessions have
   assert.equal(matrix.daylightEvidence, false);
   assert.equal(matrix.eligibleForPersistentAnchor, false);
 });
+
+
+test('bundle rejects missing field condition evidence', () => {
+  const survey = approvedSurvey();
+  const calibration = localCalibration(2, 'device-a-anchor', 0);
+  const sessions = ([5, 10, 15] as FieldDistanceMeters[]).map((distance) =>
+    measuredSession(survey.id, distance, 'device-a', 'ios', calibration)
+  );
+  sessions[1] = { ...sessions[1]!, fieldConditions: undefined };
+
+  assert.throws(
+    () => serializeFieldSessionBundle(sessions),
+    /condition evidence is incomplete/
+  );
+});
