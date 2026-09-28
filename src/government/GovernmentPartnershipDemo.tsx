@@ -11,6 +11,7 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
 import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
 import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollaborationCharterPanel';
+import type { GovernmentMeetingEntryMode } from './governmentMeetingEntry';
 import {
   getGovernmentPilotReadiness,
   governmentPilotOffer,
@@ -112,9 +113,19 @@ const economicsMetrics = [
   }
 ] as const;
 
-export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => void }) {
-  const [section, setSection] = useState<Section>('offer');
-  const [guidedRouteOpen, setGuidedRouteOpen] = useState(false);
+export default function GovernmentPartnershipDemo({
+  onClose,
+  initialMode = 'overview'
+}: {
+  onClose: () => void;
+  initialMode?: GovernmentMeetingEntryMode;
+}) {
+  const [section, setSection] = useState<Section>(
+    initialMode === 'package' ? 'package' : 'offer'
+  );
+  const [guidedRouteOpen, setGuidedRouteOpen] = useState(
+    initialMode === 'guided'
+  );
   const readiness = useMemo(() => getGovernmentPilotReadiness(), []);
   const decisionReadiness = useMemo(
     () => getPilotDecisionReadiness(currentPilotInvestmentEvidence),

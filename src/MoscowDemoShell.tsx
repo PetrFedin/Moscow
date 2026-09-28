@@ -1,9 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCameraPermissions } from 'expo-camera';
-import React, { useMemo, useState } from 'react';
-import { Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MoscowExperienceApp from './MoscowExperienceApp';
 import GovernmentPartnershipDemo from './government/GovernmentPartnershipDemo';
+import {
+  parseGovernmentMeetingEntryUrl,
+  type GovernmentMeetingEntryMode
+} from './government/governmentMeetingEntry';
 import { places } from './data/places';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -21,12 +25,26 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 export default function MoscowDemoShell() {
   const [stage, setStage] = useState<DemoStage>(null);
   const [governmentOpen, setGovernmentOpen] = useState(false);
+  const [governmentEntryMode, setGovernmentEntryMode] =
+    useState<GovernmentMeetingEntryMode>('overview');
   const [demoEra, setDemoEra] = useState<DemoEra>('1857');
   const [demoTrust, setDemoTrust] = useState<DemoTrust>('public');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const language = detectLanguage();
   const romanov = useMemo(() => places.find((place) => place.id === 'romanov-chambers'), []);
   const demoEnabled = __DEV__ || Platform.OS === 'web' || process.env.EXPO_PUBLIC_DEMO_MODE === '1';
+
+  useEffect(() => {
+    if (!demoEnabled) return;
+    Linking.getInitialURL()
+      .then((url) => {
+        const mode = parseGovernmentMeetingEntryUrl(url);
+        if (!mode) return;
+        setGovernmentEntryMode(mode);
+        setGovernmentOpen(true);
+      })
+      .catch(() => undefined);
+  }, [demoEnabled]);
 
   const openDemo = async () => {
     if (!romanov) return;
@@ -57,7 +75,10 @@ export default function MoscowDemoShell() {
             style={styles.cityButton}
             contentStyle={styles.demoButtonContent}
             strong
-            onPress={() => setGovernmentOpen(true)}
+            onPress={() => {
+              setGovernmentEntryMode('overview');
+              setGovernmentOpen(true);
+            }}
           >
             <Text style={styles.cityMark}>M</Text>
             <View>
@@ -84,7 +105,11 @@ export default function MoscowDemoShell() {
       )}
 
       <Modal visible={governmentOpen} animationType="slide" onRequestClose={() => setGovernmentOpen(false)}>
-        <GovernmentPartnershipDemo onClose={() => setGovernmentOpen(false)} />
+        <GovernmentPartnershipDemo
+          key={`government-${governmentEntryMode}-${governmentOpen ? 'open' : 'closed'}`}
+          initialMode={governmentEntryMode}
+          onClose={() => setGovernmentOpen(false)}
+        />
       </Modal>
 
       <Modal visible={stage === 'lens'} animationType="fade" onRequestClose={() => setStage(null)}>
