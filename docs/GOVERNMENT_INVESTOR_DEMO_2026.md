@@ -342,6 +342,32 @@ Romanov + Old English Court + visitor proof.
 - район;
 - внешний регион.
 
+## 11.1. Investment / Scale Decision Authority
+
+CITY PILOT содержит отдельную вкладку `Решение`.
+
+Она не выдаёт автоматический GO/NO-GO, а показывает готовность трёх блоков:
+
+- proof;
+- governance;
+- measured economics.
+
+Для экономики обязательны реальные значения:
+
+- стоимость следующего verified object;
+- production lead time;
+- developer hours / object;
+- institution operator hours / object;
+- shared setup района;
+- integration cost района;
+- annual operations.
+
+До появления evidence приложение показывает `НЕ ИЗМЕРЕНО`.
+
+После измерения доступна прозрачная арифметика district pack, но не автоматический ROI или обещание финансирования.
+
+См. `docs/PILOT_INVESTMENT_DECISION.md`.
+
 ## 12. Что сейчас не надо делать
 
 До физических доказательств не нужно:

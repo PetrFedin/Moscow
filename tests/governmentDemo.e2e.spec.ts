@@ -32,6 +32,14 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Федеральный контур', { exact: true })).toBeVisible();
   await expect(page.getByText(/конкретное финансирование не возникает автоматически/)).toBeVisible();
 
+  await page.getByText('Решение', { exact: true }).click();
+  await expect(page.getByText('Инвестиционный пакет ещё не готов', { exact: true })).toBeVisible();
+  await expect(page.getByText('ECONOMICS', { exact: true })).toBeVisible();
+  await expect(page.getByText('НЕ ИЗМЕРЕНО', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Не измерена переменная стоимость следующего verified object/)).toBeVisible();
+  await expect(page.getByText('₽ / verified object', { exact: true })).toBeVisible();
+  await expect(page.getByText(/не будет автоматически придумывать ROI/)).toBeVisible();
+
   await page.getByText('Масштаб', { exact: true }).click();
   await expect(page.getByText('Москва → регион → федеральный слой', { exact: true })).toBeVisible();
   await expect(page.getByText('1 · Варварка', { exact: true })).toBeVisible();
