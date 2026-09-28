@@ -1,11 +1,11 @@
 import {
   getGovernmentPilotReadiness,
   governmentPilotOffer
-} from './governmentPilotOffer';
+} from './governmentPilotOffer.ts';
 import {
   currentPilotInvestmentEvidence,
   getPilotDecisionReadiness
-} from './pilotInvestmentDecision';
+} from './pilotInvestmentDecision.ts';
 
 export const GOVERNMENT_INVESTOR_ROUTE_VERSION = 1 as const;
 
