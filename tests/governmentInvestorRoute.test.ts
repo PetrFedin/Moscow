@@ -58,3 +58,23 @@ test('guided route contains no guaranteed public or investment funding claim', (
     assert.equal(serialized.includes(forbidden), false);
   }
 });
+
+
+test('stakeholder map separates pilot operator, buyer, heritage, integration and investment roles', () => {
+  const ids = new Set(governmentInvestorRoute.stakeholderMap.map((item) => item.id));
+  for (const required of [
+    'pilot-operator',
+    'tourism-owner',
+    'heritage-owner',
+    'integration-owner',
+    'contract-owner',
+    'investment-route'
+  ]) {
+    assert.equal(ids.has(required), true);
+  }
+
+  const operator = governmentInvestorRoute.stakeholderMap.find((item) => item.id === 'pilot-operator');
+  const contract = governmentInvestorRoute.stakeholderMap.find((item) => item.id === 'contract-owner');
+  assert.match(operator?.caveat ?? '', /не считается автоматически конечным заказчиком/i);
+  assert.match(contract?.caveat ?? '', /не назначаем бюджетодержателя/i);
+});
