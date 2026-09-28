@@ -1446,12 +1446,14 @@ async function router(req,res){
       postgres:!!pool,
       telegram:{
         loginConfigured:!!(TELEGRAM_LOGIN_CLIENT_ID&&TELEGRAM_LOGIN_CLIENT_SECRET),
+        ready:!!(pool&&TELEGRAM_LOGIN_CLIENT_ID&&TELEGRAM_LOGIN_CLIENT_SECRET),
         membershipConfigured:!!TELEGRAM_BOT_TOKEN,
         webhookConfigured:!!TELEGRAM_WEBHOOK_SECRET,
         protocol:'OIDC Authorization Code + PKCE'
       },
       vk:{
         loginConfigured:!!VK_APP_ID,
+        ready:!!(pool&&VK_APP_ID),
         membershipConfigured:!!VK_SERVICE_TOKEN,
         protocol:'VK ID OAuth 2.1 + PKCE'
       }
@@ -1460,6 +1462,7 @@ async function router(req,res){
   if(req.method==='POST'&&p==='/v1/social/auth/telegram/start'){
     const session=sessionFromRequest(req);
     if(!session)return json(res,401,{error:'authenticated_mfw_id_required'});
+    if(!pool)return json(res,503,{error:'postgres_required',platform:'telegram'});
     if(!TELEGRAM_LOGIN_CLIENT_ID||!TELEGRAM_LOGIN_CLIENT_SECRET)return json(res,503,{error:'provider_not_configured',platform:'telegram'});
     const state=randomB64(24),codeVerifier=randomB64(48),nonce=randomB64(24);
     const flow=await brand365Store.createAuthFlow({
@@ -1503,6 +1506,7 @@ async function router(req,res){
   if(req.method==='POST'&&p==='/v1/social/auth/vk/start'){
     const session=sessionFromRequest(req);
     if(!session)return json(res,401,{error:'authenticated_mfw_id_required'});
+    if(!pool)return json(res,503,{error:'postgres_required',platform:'vk'});
     if(!VK_APP_ID)return json(res,503,{error:'provider_not_configured',platform:'vk'});
     const state=randomB64(24),codeVerifier=randomB64(48);
     const flow=await brand365Store.createAuthFlow({
