@@ -17,6 +17,7 @@ function feed(): LiveDestinationFeed {
         id: 'official-events',
         name: 'Official Events Feed',
         relationship: 'official',
+        capabilities: ['inventory', 'event-schedule', 'operational-status'],
         sourceUrl: 'https://example.org/events',
         attributionRu: 'Источник: официальный календарь',
         attributionEn: 'Source: official calendar',
@@ -26,6 +27,7 @@ function feed(): LiveDestinationFeed {
         id: 'tickets',
         name: 'Ticket Provider',
         relationship: 'booking-provider',
+        capabilities: ['booking-handoff'],
         sourceUrl: 'https://tickets.example.org',
         attributionRu: 'Билеты: Ticket Provider',
         attributionEn: 'Tickets: Ticket Provider',
@@ -193,4 +195,25 @@ test('duplicate provider entity identity is rejected even under different local 
   const validation = validateLiveDestinationFeed(value);
   assert.equal(validation.valid, false);
   assert.ok(validation.blockers.includes('duplicate-provider-entity:official-events:provider-event-42'));
+});
+
+
+test('inventory-only provider cannot assert current open status or event schedule', () => {
+  const value = feed();
+  value.providers[0]!.capabilities = ['inventory'];
+
+  const validation = validateLiveDestinationFeed(value);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('live-provider-lacks-operational-status-authority:event-1'));
+  assert.ok(validation.blockers.includes('live-provider-lacks-event-schedule-authority:event-1'));
+  assert.ok(validation.blockers.includes('live-provider-lacks-operational-status-authority:food-1'));
+});
+
+test('booking provider must explicitly declare booking-handoff authority', () => {
+  const value = feed();
+  value.providers[1]!.capabilities = ['inventory'];
+
+  const validation = validateLiveDestinationFeed(value);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('booking-provider-lacks-handoff-authority:event-1'));
 });

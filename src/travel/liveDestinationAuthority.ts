@@ -8,10 +8,17 @@ export type LiveProviderRelationship =
   | 'partner'
   | 'booking-provider';
 
+export type LiveProviderCapability =
+  | 'inventory'
+  | 'event-schedule'
+  | 'operational-status'
+  | 'booking-handoff';
+
 export type LiveDestinationProvider = {
   id: string;
   name: string;
   relationship: LiveProviderRelationship;
+  capabilities: LiveProviderCapability[];
   sourceUrl: string;
   attributionRu: string;
   attributionEn: string;
@@ -154,6 +161,19 @@ function nonEmptyUniqueStrings(value: unknown) {
     && new Set(value).size === value.length;
 }
 
+function providerCapabilitySet(raw: Record<string, unknown>) {
+  return new Set(
+    Array.isArray(raw.capabilities)
+      ? raw.capabilities.filter((value): value is LiveProviderCapability =>
+          value === 'inventory'
+          || value === 'event-schedule'
+          || value === 'operational-status'
+          || value === 'booking-handoff'
+        )
+      : []
+  );
+}
+
 function duplicateIds(values: unknown[]) {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
@@ -241,6 +261,7 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
   for (const duplicate of duplicateIds(entities)) blockers.push(`duplicate-live-entity:${duplicate}`);
 
   const providerIds = new Set<string>();
+  const providerCapabilities = new Map<string, Set<LiveProviderCapability>>();
   for (const [index, raw] of providers.entries()) {
     if (!isRecord(raw)) {
       blockers.push(`live-provider-invalid:${index}`);
@@ -257,6 +278,22 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     ) {
       blockers.push(`live-provider-relationship-invalid:${index}`);
     }
+    const capabilities = providerCapabilitySet(raw);
+    if (!nonEmptyUniqueStrings(raw.capabilities)) {
+      blockers.push(`live-provider-capabilities-invalid:${index}`);
+    } else if (
+      (raw.capabilities as unknown[]).some((value) =>
+        value !== 'inventory'
+        && value !== 'event-schedule'
+        && value !== 'operational-status'
+        && value !== 'booking-handoff'
+      )
+    ) {
+      blockers.push(`live-provider-capability-unknown:${index}`);
+    } else if (!capabilities.has('inventory') && raw.relationship !== 'booking-provider') {
+      blockers.push(`live-provider-inventory-capability-missing:${index}`);
+    }
+    if (isText(raw.id)) providerCapabilities.set(raw.id, capabilities);
     if (!isHttps(raw.sourceUrl)) blockers.push(`live-provider-source-url-invalid:${index}`);
     if (!isText(raw.attributionRu)) blockers.push(`live-provider-attribution-ru-missing:${index}`);
     if (!isText(raw.attributionEn)) blockers.push(`live-provider-attribution-en-missing:${index}`);
@@ -315,7 +352,17 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
       blockers.push(`live-operational-status-invalid:${id}`);
     }
 
+    const sourceProviderCapabilities = isText(raw.providerId)
+      ? providerCapabilities.get(raw.providerId) ?? new Set<LiveProviderCapability>()
+      : new Set<LiveProviderCapability>();
+    if (raw.operationalStatus !== 'unknown' && !sourceProviderCapabilities.has('operational-status')) {
+      blockers.push(`live-provider-lacks-operational-status-authority:${id}`);
+    }
+
     if (kind === 'event') {
+      if (!sourceProviderCapabilities.has('event-schedule')) {
+        blockers.push(`live-provider-lacks-event-schedule-authority:${id}`);
+      }
       const startsAt = isoMillis(raw.startsAt);
       if (startsAt === null) blockers.push(`live-event-start-invalid:${id}`);
       if (raw.endsAt !== undefined) {
@@ -329,6 +376,12 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
 
     if (raw.booking !== undefined) {
       blockers.push(...validateBooking(raw.booking, providerIds, id));
+      if (isRecord(raw.booking) && isText(raw.booking.providerId)) {
+        const bookingCapabilities = providerCapabilities.get(raw.booking.providerId);
+        if (!bookingCapabilities?.has('booking-handoff')) {
+          blockers.push(`booking-provider-lacks-handoff-authority:${id}`);
+        }
+      }
     }
   }
 
