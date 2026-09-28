@@ -92,6 +92,22 @@ export default function GovernmentInvestorGuidedRoute({
           </View>
         )}
 
+        {step.id === 'city-ask' && (
+          <View style={styles.stakeholderWrap}>
+            <Text style={styles.cardKicker}>КАРТА СТОРОН · НЕ ОДИН «ГОРОД»</Text>
+            {governmentInvestorRoute.stakeholderMap.map((stakeholder) => (
+              <View key={stakeholder.id} style={styles.stakeholderCard}>
+                <View style={styles.stakeholderHeader}>
+                  <Text style={styles.stakeholderRole}>{stakeholder.role}</Text>
+                  <Text style={styles.stakeholderContour}>{stakeholder.candidateContour}</Text>
+                </View>
+                <Text style={styles.stakeholderResponsibility}>{stakeholder.responsibility}</Text>
+                <Text style={styles.stakeholderCaveat}>{stakeholder.caveat}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.evidenceCard}>
           <Text style={styles.cardKicker}>ЧТО ПОКАЗАТЬ НА ЭТОМ ШАГЕ</Text>
           {step.evidence.map((item, itemIndex) => (
@@ -338,6 +354,43 @@ const styles = StyleSheet.create({
     fontSize: 8,
     lineHeight: 11,
     fontWeight: '700'
+  },
+  stakeholderWrap: {
+    marginTop: 24
+  },
+  stakeholderCard: {
+    marginTop: 9,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#11161a',
+    borderWidth: 1,
+    borderColor: '#2b3a40'
+  },
+  stakeholderHeader: {
+    gap: 5
+  },
+  stakeholderRole: {
+    color: '#e8f0f2',
+    fontSize: 13,
+    fontWeight: '900'
+  },
+  stakeholderContour: {
+    color: '#8fb0ba',
+    fontSize: 10,
+    lineHeight: 15,
+    fontWeight: '800'
+  },
+  stakeholderResponsibility: {
+    marginTop: 8,
+    color: '#c0c9cd',
+    fontSize: 11,
+    lineHeight: 17
+  },
+  stakeholderCaveat: {
+    marginTop: 7,
+    color: '#877f77',
+    fontSize: 9,
+    lineHeight: 14
   },
   evidenceCard: {
     marginTop: 24,
