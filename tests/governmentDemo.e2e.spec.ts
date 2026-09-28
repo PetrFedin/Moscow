@@ -14,6 +14,27 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Варварка во времени', { exact: true })).toBeVisible();
   await expect(page.getByText('20–50', { exact: true })).toBeVisible();
 
+  await page.getByRole('button', {
+    name: 'Начать маршрут сотрудничества 7–10 минут'
+  }).click();
+
+  await expect(page.getByText('GOVERNMENT / INVESTOR ROUTE')).toBeVisible();
+  await expect(page.getByText('Проблема, которую мы предлагаем решить', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Согласовать владельца задачи, площадку и формат доказательного пилота/)).toBeVisible();
+
+  for (let step = 0; step < 7; step += 1) {
+    await page.getByRole('button', { name: 'Следующий шаг маршрута' }).click();
+  }
+
+  await expect(page.getByText('Одно решение после встречи', { exact: true })).toBeVisible();
+  await expect(page.getByText('Согласовать подготовку пилота', { exact: true })).toBeVisible();
+  await expect(page.getByText('ИНВЕСТОР', { exact: true })).toBeVisible();
+  await expect(page.getByText('ФЕДЕРАЦИЯ', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Бюджет, закупка, инвестиция или федеральная поддержка не считаются одобренными/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Завершить маршрут сотрудничества' }).click();
+  await expect(page.getByText('MOSCOW · CITY PILOT')).toBeVisible();
+
   await page.getByText('Доказательства', { exact: true }).click();
   await expect(page.getByText('Пилот ещё не доказан: остаются физические, пользовательские и partner-access gates.')).toBeVisible();
   await expect(page.getByText('Палаты Романовых · spatial proof', { exact: true })).toBeVisible();
