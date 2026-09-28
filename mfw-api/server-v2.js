@@ -42,7 +42,7 @@ function validateInvestorBuild(){
   for(const required of ['camera-scan','offline-current','admin-console','/v1/checkins','/v1/passes/qr','/v1/streams/e1','cinema-player','post-show-recap','/v1/buyer/shortlist','/v1/line-sheets/','buyer-followup','/v1/sponsor/interactions','sponsor-challenge','/v1/networking/qr','networking-scan','/v1/boards','/v1/meetups','/v1/perks','/v1/media/press-kit/','/v1/designer/workspace/','/v1/brands/','/v1/demo/social/verify','/v1/brand-portal/','brand-loyalty','mfw-365','brand-portal','brand-portal-notify','notification-preferences','notification-pref-toggle','loyalty-verify','loyalty-claim','toggle-lang','mfwLang','I18N','static.tildacdn.com','MFWNative']){
     if(frontend.indexOf(required)<0)throw new Error('missing_investor_hook:'+required);
   }
-  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','/retention','/social/reverify','brand365','retention','brand-news','brand-paid','brand-approve-post','brand-approve-offer','brand-social-reverify','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
+  for(const required of ['/health/deep','/overview','/events','/accreditations','waitlist/release','/streams','next-look','/commerce','/sponsors','/brand-growth','/retention','/social/reverify','/golden-path/loyalty-30d','brand365','retention','brand-news','brand-paid','brand-approve-post','brand-approve-offer','brand-social-reverify','control-plane','stream-failover','native-readiness','toggle-lang','mfwAdminLang']){
     if(admin.indexOf(required)<0)throw new Error('missing_admin_hook:'+required);
   }
   for(const required of ['registerPush','openNativeScanner','addWalletPass','routeDeepLink','appUrlOpen']){
@@ -890,6 +890,89 @@ async function runDeepSelfTest(){
   };
 }
 
+async function runAcceleratedLoyaltyGoldenPath(){
+  const nonce=Date.now().toString(36)+'_'+crypto.randomBytes(3).toString('hex');
+  const userId=await issueDemoUser('Golden Visitor '+nonce,'Visitor');
+  const brandUserId=await issueDemoUser('Golden Brand '+nonce,'Designer');
+  let claimId=null,claimHash=null;
+  const report={
+    dataMode:pool?'postgres':'memory',
+    acceleratedDays:31,
+    user:{id:userId,role:'Visitor'},
+    brandManager:{id:brandUserId,role:'Designer',brandRef:'b1'},
+    steps:{},
+    startedAt:new Date().toISOString()
+  };
+  try{
+    await brand365Store.grantBrandAccess(brandUserId,'b1','manager');
+    report.steps.brandAccess=await brand365Store.hasBrandAccess(brandUserId,'b1');
+
+    await brand365Store.registerInstallation(userId,{installationId:'golden_'+nonce,platform:'investor_demo'});
+    report.steps.appInstalled=await brand365Store.hasActiveInstallation(userId);
+
+    await brand365Store.setBrandFollow(userId,'b1',true);
+    report.steps.followBrand=await brand365Store.isBrandFollow(userId,'b1');
+
+    const continuousSince=new Date(Date.now()-31*86400000).toISOString();
+    for(const channelRef of ['sc_mfw_tg','sc_b1_tg']){
+      const channel=await brand365Store.channelByRef(channelRef);
+      if(!channel)throw new Error('golden_channel_missing:'+channelRef);
+      await brand365Store.applyMembershipObservation(userId,channel,{active:true,source:'accelerated_golden_path',rawStatus:'member',demo:true},continuousSince);
+    }
+    report.steps.socialMembership31d=true;
+
+    const offer=await brand365Store.offerByRef('lo1');
+    if(!offer)throw new Error('golden_offer_missing:lo1');
+    const before=await evaluateLoyaltyOfferAuthority(userId,offer);
+    report.steps.eligibleAfter31d=!!before.eligible;
+    report.eligibilityBefore=before;
+
+    const code='MFW-GOLDEN-'+crypto.randomBytes(4).toString('hex').toUpperCase();
+    claimHash=crypto.createHash('sha256').update(code).digest('hex');
+    if(pool){
+      const created=await brand365Store.createClaim(userId,offer,claimHash,new Date(Date.now()+86400000));
+      if(created.stockExhausted)throw new Error('golden_reward_stock_exhausted');
+      claimId=String(created.claim.id);
+      report.steps.claimIssued=created.claim.status==='issued'||created.claim.status==='redeemed';
+    }else{
+      claimId='golden_claim_'+crypto.randomBytes(4).toString('hex');
+      memory.loyaltyClaims.set(claimId,{id:claimId,userId,offerId:offer.id,claimTokenHash:claimHash,status:'issued',issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString(),demo:true});
+      report.steps.claimIssued=true;
+    }
+
+    const brandChannel=await brand365Store.channelByRef('sc_b1_tg');
+    await brand365Store.applyMembershipObservation(userId,brandChannel,{active:false,source:'accelerated_golden_path_unfollow',rawStatus:'left',demo:true},null);
+    const after=await evaluateLoyaltyOfferAuthority(userId,offer);
+    report.steps.eligibilityLostAfterUnfollow=!after.eligible;
+    report.eligibilityAfter=after;
+
+    if(pool){
+      report.revokedClaims=await brand365Store.revokeIssuedClaimsIfIneligible(userId);
+      const persisted=await brand365Store.claimByHash(claimHash);
+      report.steps.claimRevoked=!!(persisted&&persisted.status==='revoked');
+    }else{
+      const claim=memory.loyaltyClaims.get(claimId);
+      if(claim&&!after.eligible)claim.status='revoked';
+      report.revokedClaims=claim&&claim.status==='revoked'?1:0;
+      report.steps.claimRevoked=!!(claim&&claim.status==='revoked');
+    }
+
+    report.ok=Object.values(report.steps).every(Boolean);
+    report.completedAt=new Date().toISOString();
+    return report;
+  }finally{
+    if(pool){
+      await pool.query('DELETE FROM users WHERE id=ANY($1::uuid[])',[[userId,brandUserId]]).catch(()=>{});
+    }else{
+      memory.users.delete(userId);memory.users.delete(brandUserId);
+      memory.appInstallations.delete(userId);
+      memory.brandFollows.delete(userId);memory.brandAccess.delete(brandUserId);
+      for(const channelRef of ['sc_mfw_tg','sc_b1_tg'])memory.socialMemberships.delete(membershipKey(userId,channelRef));
+      if(claimId)memory.loyaltyClaims.delete(claimId);
+    }
+  }
+}
+
 async function runSocialReverification(triggerSource='manual'){
   const run=await brand365Store.beginReverificationRun(triggerSource);
   const candidates=await brand365Store.activeMembershipCandidates(REVERIFY_BATCH_SIZE);
@@ -1016,7 +1099,8 @@ async function router(req,res){
       telegram:{configured:!!TELEGRAM_BOT_TOKEN,webhookSecretConfigured:!!TELEGRAM_WEBHOOK_SECRET},
       vk:{configured:!!VK_SERVICE_TOKEN,apiVersion:VK_API_VERSION}
     },
-    reverification:{active:!!(pool&&reverifyTimer),intervalMinutes:REVERIFY_INTERVAL_MINUTES,batchSize:REVERIFY_BATCH_SIZE,requiresPostgres:!pool}
+    reverification:{active:!!(pool&&reverifyTimer),intervalMinutes:REVERIFY_INTERVAL_MINUTES,batchSize:REVERIFY_BATCH_SIZE,requiresPostgres:!pool},
+    acceleratedGoldenPath:{available:true,days:31,twoAccountFlow:true,postgresCapable:true}
   });
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
@@ -1834,6 +1918,10 @@ async function router(req,res){
         content:{posts:memory.brandPosts,recentInteractions:memory.contentInteractions.slice(-20).reverse()},
         providers:memory.socialProviderAdapters
       }});
+    }
+    if(req.method==='POST'&&p==='/v1/admin/golden-path/loyalty-30d'){
+      const report=await runAcceleratedLoyaltyGoldenPath();
+      return json(res,report.ok?200:500,{data:report});
     }
     if(req.method==='POST'&&p==='/v1/admin/social/reverify'){
       const result=await runSocialReverification('admin');
