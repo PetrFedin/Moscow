@@ -77,6 +77,13 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
 
   await page.getByText('Пакет', { exact: true }).click();
   await expect(page.getByText('С чем мы реально готовы идти к городу', { exact: true })).toBeVisible();
+  await expect(page.getByText('PARTNER / INVESTOR DATA ROOM', { exact: true })).toBeVisible();
+  await expect(page.getByText('Что можно отправлять и защищать уже сейчас', { exact: true })).toBeVisible();
+  await expect(page.getByText('Москва · первая официальная встреча', { exact: true })).toBeVisible();
+  await expect(page.getByText('Москва · technical / procurement working session', { exact: true })).toBeVisible();
+  await expect(page.getByText('Инвестор · scale decision room', { exact: true })).toBeVisible();
+  await expect(page.getByText('Регион / федерация · expansion room', { exact: true })).toBeVisible();
+  await expect(page.getByText('Intro + technical pack уже можно защищать', { exact: true })).toBeVisible();
   await expect(page.getByText('Demo conversation', { exact: true })).toBeVisible();
   await expect(page.getByText('READY', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Formal introductory meeting pack', { exact: true })).toBeVisible();
