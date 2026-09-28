@@ -18,6 +18,35 @@ export type FieldDistanceMeters = 5 | 10 | 15;
 export type FieldPlatform = 'ios' | 'android' | string;
 export type ControlPointResidual = RomanovMeasuredControlPointResidual;
 
+export type RomanovFieldLighting =
+  | 'daylight'
+  | 'overcast-daylight'
+  | 'dusk'
+  | 'night'
+  | 'artificial';
+
+export type RomanovFieldConditions = {
+  lighting: RomanovFieldLighting;
+  trackingLossObserved: boolean;
+  interruptionObserved: boolean;
+  notes: string;
+};
+
+export function isRomanovFieldConditionsRecorded(
+  value: RomanovFieldConditions | undefined
+): value is RomanovFieldConditions {
+  if (!value) return false;
+  const lightingValid = value.lighting === 'daylight'
+    || value.lighting === 'overcast-daylight'
+    || value.lighting === 'dusk'
+    || value.lighting === 'night'
+    || value.lighting === 'artificial';
+  return lightingValid
+    && typeof value.trackingLossObserved === 'boolean'
+    && typeof value.interruptionObserved === 'boolean'
+    && value.notes.trim().length > 0;
+}
+
 export type RomanovFieldSession = {
   id: string;
   capturedAt: string;
@@ -30,6 +59,7 @@ export type RomanovFieldSession = {
   appBuild?: string;
   metricBinding?: RomanovMetricBinding;
   surveyPacketId?: string;
+  fieldConditions?: RomanovFieldConditions;
   observations: ControlPointResidual[];
   measurementEligiblePoints?: number;
   meanResidualCm: number;
@@ -41,6 +71,8 @@ export type RomanovDeviceVerification = {
   deviceKey: string;
   deviceLabel: string;
   platform: FieldPlatform;
+  calibrationVersion: number;
+  sessionIds: string[];
   distancesPassed: FieldDistanceMeters[];
   completeDistanceMatrix: boolean;
 };
@@ -57,6 +89,9 @@ export type RomanovFieldMatrixSummary = {
   iosCompleteDevices: number;
   androidCompleteDevices: number;
   crossPlatformReady: boolean;
+  releaseSessionCount: number;
+  fieldConditionsComplete: boolean;
+  daylightEvidence: boolean;
   eligibleForPersistentAnchor: boolean;
 };
 
@@ -173,27 +208,28 @@ function completeDevicesForSurvey(
     const first = deviceSessions[0];
     if (!first) continue;
 
-    const completeCalibration = deviceSessions.find((candidate) => {
+    for (const candidate of deviceSessions) {
       const placementSessions = deviceSessions.filter((session) =>
         isSameCalibrationPlacement(session.calibration, candidate.calibration)
+        && session.passed
+        && isFieldSessionEvidenceAuthoritative(session)
       );
-      return ROMANOV_FIELD_DISTANCES.every((distance) =>
-        placementSessions.some((session) =>
-          session.viewingDistanceMeters === distance
-          && session.passed
-          && isFieldSessionEvidenceAuthoritative(session)
-        )
+      const releaseSessions = ROMANOV_FIELD_DISTANCES.map((distance) =>
+        placementSessions.find((session) => session.viewingDistanceMeters === distance)
       );
-    });
-    if (!completeCalibration) continue;
+      if (releaseSessions.some((session) => !session)) continue;
 
-    complete.push({
-      deviceKey,
-      deviceLabel: first.deviceLabel?.trim() || `${first.devicePlatform} ${first.deviceVersion}`,
-      platform: first.devicePlatform,
-      distancesPassed: [...ROMANOV_FIELD_DISTANCES],
-      completeDistanceMatrix: true
-    });
+      complete.push({
+        deviceKey,
+        deviceLabel: first.deviceLabel?.trim() || `${first.devicePlatform} ${first.deviceVersion}`,
+        platform: first.devicePlatform,
+        calibrationVersion: candidate.calibration.version,
+        sessionIds: releaseSessions.map((session) => session!.id),
+        distancesPassed: [...ROMANOV_FIELD_DISTANCES],
+        completeDistanceMatrix: true
+      });
+      break;
+    }
   }
   return complete;
 }
@@ -264,6 +300,16 @@ export function summarizeFieldMatrix(
   const androidCompleteDevices = completeDevices.filter((device) => device.platform === 'android').length;
   const crossPlatformReady = iosCompleteDevices >= ROMANOV_REQUIRED_IOS_DEVICES
     && androidCompleteDevices >= ROMANOV_REQUIRED_ANDROID_DEVICES;
+  const releaseSessionIds = [...new Set(completeDevices.flatMap((device) => device.sessionIds))];
+  const releaseSessionIdSet = new Set(releaseSessionIds);
+  const releaseSessions = passedSessions.filter((session) => releaseSessionIdSet.has(session.id));
+  const fieldConditionsComplete = releaseSessionIds.length >= 12
+    && releaseSessions.length === releaseSessionIds.length
+    && releaseSessions.every((session) => isRomanovFieldConditionsRecorded(session.fieldConditions));
+  const daylightEvidence = releaseSessions.some((session) =>
+    session.fieldConditions?.lighting === 'daylight'
+    || session.fieldConditions?.lighting === 'overcast-daylight'
+  );
 
   return {
     surveyPacketId: selectedSurveyPacketId,
@@ -277,7 +323,10 @@ export function summarizeFieldMatrix(
     iosCompleteDevices,
     androidCompleteDevices,
     crossPlatformReady,
-    eligibleForPersistentAnchor: crossPlatformReady
+    releaseSessionCount: releaseSessionIds.length,
+    fieldConditionsComplete,
+    daylightEvidence,
+    eligibleForPersistentAnchor: crossPlatformReady && fieldConditionsComplete && daylightEvidence
   };
 }
 
@@ -288,7 +337,9 @@ export function sessionToTsv(session: RomanovFieldSession) {
     'control_point','residual_cm','measurement_authority_id','measurement_authority_version','hit_type',
     'actual_viewing_distance_m','model_world_x','model_world_y','model_world_z',
     'observed_world_x','observed_world_y','observed_world_z',
-    'camera_world_x','camera_world_y','camera_world_z','mean_cm','max_cm','passed'
+    'camera_world_x','camera_world_y','camera_world_z',
+    'lighting','tracking_loss_observed','interruption_observed','field_notes',
+    'mean_cm','max_cm','passed'
   ];
   const rows = session.observations.map((item) => {
     const e = item.evidence;
@@ -306,6 +357,10 @@ export function sessionToTsv(session: RomanovFieldSession) {
       ...(e?.modelWorldPointMeters?.map((v) => v.toFixed(4)) ?? ['', '', '']),
       ...(e?.observedWorldPointMeters?.map((v) => v.toFixed(4)) ?? ['', '', '']),
       ...(e?.cameraWorldPointMeters?.map((v) => v.toFixed(4)) ?? ['', '', '']),
+      session.fieldConditions?.lighting ?? '',
+      session.fieldConditions?.trackingLossObserved ? '1' : '0',
+      session.fieldConditions?.interruptionObserved ? '1' : '0',
+      session.fieldConditions?.notes.replace(/[\t\r\n]+/g, ' ') ?? '',
       session.meanResidualCm.toFixed(1), session.maxResidualCm.toFixed(1), session.passed ? '1' : '0'
     ];
   });
@@ -315,6 +370,7 @@ export function sessionToTsv(session: RomanovFieldSession) {
 
 export function validateFieldSessionIntegrity(session: RomanovFieldSession) {
   if (!isCurrentRomanovMetricBinding(session.metricBinding)) return false;
+  if (session.fieldConditions !== undefined && !isRomanovFieldConditionsRecorded(session.fieldConditions)) return false;
   if (!isFieldSessionEvidenceAuthoritative(session)) return false;
   const recomputed = summarizeResiduals(session.observations);
   if (Math.abs(recomputed.meanResidualCm - session.meanResidualCm) > 0.05) return false;
