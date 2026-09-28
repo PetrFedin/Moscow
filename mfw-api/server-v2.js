@@ -901,6 +901,38 @@ async function runRetentionSelfTest(){
   return {ok:organicFirst&&paidCapped&&defaultPaidPushOff&&pushCapped,organicFirst,paidCapped,defaultPaidPushOff,pushCapped};
 }
 
+async function runSocialAuthBoundarySelfTest(){
+  if(pool)return {ok:true,skipped:'postgres_callback_test_on_demand',available:true};
+  const userId='auth_self_'+crypto.randomBytes(4).toString('hex');
+  memory.users.set(userId,{id:userId,name:'Social Auth Self Test',role:'Visitor'});
+  const state='state_'+crypto.randomBytes(8).toString('hex');
+  const verifier='verifier_'+crypto.randomBytes(12).toString('hex');
+  const flow=await brand365Store.createAuthFlow({
+    userId,platform:'telegram',state,codeVerifier:verifier,nonce:'nonce_test',
+    redirectUri:'https://example.invalid/callback',metadata:{selfTest:true}
+  });
+  const first=await brand365Store.authFlowByState('telegram',state);
+  const replay=await brand365Store.authFlowByState('telegram',state);
+  await brand365Store.finishAuthFlow(first,'failed',{error:'self_test'});
+  const stored=memory.socialAuthFlows&&memory.socialAuthFlows.get(state);
+  const singleUse=!!(first&&first.status==='processing'&&!replay);
+  const secretsScrubbed=!!(stored&&stored.status==='failed'&&stored.codeVerifier===''&&stored.nonce===null);
+  const expiredState='expired_'+crypto.randomBytes(8).toString('hex');
+  const expired=await brand365Store.createAuthFlow({
+    userId,platform:'vk',state:expiredState,codeVerifier:'expired_secret',nonce:null,
+    redirectUri:'https://example.invalid/callback',metadata:{selfTest:true}
+  });
+  expired.expiresAt=new Date(Date.now()-1000).toISOString();
+  memory.socialAuthFlows.set(expiredState,expired);
+  await brand365Store.cleanupAuthFlows();
+  const expiredStored=memory.socialAuthFlows.get(expiredState);
+  const abandonedExpires=!!(expiredStored&&expiredStored.status==='expired'&&expiredStored.codeVerifier==='');
+  memory.socialAuthFlows.delete(state);
+  memory.socialAuthFlows.delete(expiredState);
+  memory.users.delete(userId);
+  return {ok:singleUse&&secretsScrubbed&&abandonedExpires,singleUse,secretsScrubbed,abandonedExpires};
+}
+
 async function runDeepSelfTest(){
   const testUser='self_'+crypto.randomBytes(5).toString('hex');
   const pass=await issuePass({userId:testUser,role:'Visitor',entitlements:['public_programme'],eventId:'e1'});
@@ -977,6 +1009,7 @@ async function runDeepSelfTest(){
   const acceleratedGoldenPath=pool
     ? {ok:true,skipped:'postgres_admin_trigger_only',available:true}
     : await runAcceleratedLoyaltyGoldenPath();
+  const socialAuthBoundary=await runSocialAuthBoundarySelfTest();
   const localeAuthority=true;
   const roles=await runRoleGoldenPathSelfTest();
 
@@ -985,7 +1018,7 @@ async function runDeepSelfTest(){
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&retention365.ok&&acceleratedGoldenPath.ok&&localeAuthority&&sponsorAuthority&&roles.all);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&retention365.ok&&acceleratedGoldenPath.ok&&socialAuthBoundary.ok&&localeAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -1003,6 +1036,7 @@ async function runDeepSelfTest(){
       brand365Authority:brand365,
       retention365Authority:retention365,
       acceleratedLoyaltyGoldenPath:acceleratedGoldenPath,
+      socialAuthBoundary:socialAuthBoundary,
       localeAuthority:localeAuthority,
       sponsorAuthority:sponsorAuthority,
       roleGoldenPaths:roles
