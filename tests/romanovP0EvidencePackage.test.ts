@@ -304,3 +304,31 @@ test('manifest requires four distinct safe JSON bundle paths', () => {
   tooFew.sessionBundlePaths = tooFew.sessionBundlePaths.slice(0, 3);
   assert.equal(validateRomanovP0EvidenceManifest(tooFew).valid, false);
 });
+
+
+test('local developer build cannot become final P0 evidence', () => {
+  const fixture = proofFixture();
+  fixture.sessionBundles = fixture.sessionBundles.map((bundle) => ({
+    ...bundle,
+    sessions: bundle.sessions.map((item) => ({
+      ...item,
+      appBuild: 'local'
+    }))
+  }));
+
+  const pkg = buildRomanovP0EvidencePackage(fixture);
+  assert.equal(pkg.releaseReady, false);
+  assert.ok(pkg.packageBlockers.includes('release-build-id-missing-or-local'));
+});
+
+test('serialized consolidated proof rejects a manually changed release session list', () => {
+  const fixture = proofFixture();
+  const pkg = buildRomanovP0EvidencePackage(fixture);
+  const payload = JSON.parse(serializeRomanovP0EvidencePackage(pkg));
+  payload.releaseSessionIds = payload.releaseSessionIds.slice(1);
+
+  assert.throws(
+    () => parseRomanovP0EvidencePackage(JSON.stringify(payload)),
+    /release session list does not match/
+  );
+});
