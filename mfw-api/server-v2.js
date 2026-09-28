@@ -857,6 +857,9 @@ async function runDeepSelfTest(){
 
   const brand365=await runBrand365SelfTest();
   const retention365=await runRetentionSelfTest();
+  const acceleratedGoldenPath=pool
+    ? {ok:true,skipped:'postgres_admin_trigger_only',available:true}
+    : await runAcceleratedLoyaltyGoldenPath();
   const localeAuthority=true;
   const roles=await runRoleGoldenPathSelfTest();
 
@@ -865,7 +868,7 @@ async function runDeepSelfTest(){
   const sponsorAuthority=memory.sponsors.some(x=>x.id==='sp1')&&memory.sponsorCampaigns.some(x=>x.id==='cmp1')&&memory.sponsorPlacements.some(x=>x.id==='pl1')&&memory.sponsorInteractions.some(x=>x.id===sponsorTest.id);
   memory.sponsorInteractions=memory.sponsorInteractions.filter(x=>x.id!==sponsorTest.id);
 
-  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&retention365.ok&&localeAuthority&&sponsorAuthority&&roles.all);
+  const ok=!!(verified.ok&&svg.indexOf('<svg')>=0&&first.ok&&!second.ok&&second.status==='duplicate'&&streamSync&&streamingBoundary&&commerceAuthority&&networkingAuthority&&loyalty365Authority&&brand365.ok&&retention365.ok&&acceleratedGoldenPath.ok&&localeAuthority&&sponsorAuthority&&roles.all);
   return {
     status:ok?'pass':'fail',
     ok,
@@ -882,6 +885,7 @@ async function runDeepSelfTest(){
       loyalty365Authority:loyalty365Authority,
       brand365Authority:brand365,
       retention365Authority:retention365,
+      acceleratedLoyaltyGoldenPath:acceleratedGoldenPath,
       localeAuthority:localeAuthority,
       sponsorAuthority:sponsorAuthority,
       roleGoldenPaths:roles
