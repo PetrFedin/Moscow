@@ -1,14 +1,9 @@
 -- 006_role_workflows.sql
-CREATE TABLE IF NOT EXISTS event_registrations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  event_id uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  status text NOT NULL DEFAULT 'registered' CHECK (status IN ('registered','waitlist','cancelled','attended')),
-  source text NOT NULL DEFAULT 'app',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(user_id,event_id)
-);
+-- event_registrations is created in 001_init.sql. Reconcile additive fields here
+-- instead of relying on CREATE TABLE IF NOT EXISTS, which would silently skip them.
+ALTER TABLE event_registrations
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'app';
+
 
 CREATE TABLE IF NOT EXISTS press_kits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
