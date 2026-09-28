@@ -32,6 +32,16 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Федеральный контур', { exact: true })).toBeVisible();
   await expect(page.getByText(/конкретное финансирование не возникает автоматически/)).toBeVisible();
 
+  await page.getByText('Пакет', { exact: true }).click();
+  await expect(page.getByText('С чем мы реально готовы идти к городу', { exact: true })).toBeVisible();
+  await expect(page.getByText('Demo conversation', { exact: true })).toBeVisible();
+  await expect(page.getByText('READY', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Formal introductory meeting pack', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKED', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Executive one-pager', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Security and data-flow note', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Federal expansion proposal', { exact: true })).toBeVisible();
+
   await page.getByText('Решение', { exact: true }).click();
   await expect(page.getByText('Инвестиционный пакет ещё не готов', { exact: true })).toBeVisible();
   await expect(page.getByText('ECONOMICS', { exact: true })).toBeVisible();

@@ -18,14 +18,19 @@ import {
   getPilotDecisionReadiness,
   type PilotDecisionBlocker
 } from './pilotInvestmentDecision';
+import {
+  evaluateGovernmentDeliveryReadiness,
+  type GovernmentArtifactId
+} from './governmentDeliveryManifest';
 
-type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'decision' | 'scale';
+type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'package' | 'decision' | 'scale';
 
 const sectionLabels: Record<Section, string> = {
   offer: 'Пилот',
   proof: 'Доказательства',
   ask: 'Что нужно',
   funding: 'Финансирование',
+  package: 'Пакет',
   decision: 'Решение',
   scale: 'Масштаб'
 };
@@ -53,6 +58,24 @@ const decisionBlockerLabels: Record<PilotDecisionBlocker, string> = {
   'district-shared-setup-cost-unmeasured': 'Не измерен shared setup следующего района',
   'district-integration-cost-unmeasured': 'Не измерена интеграция следующего района',
   'annual-operations-cost-unmeasured': 'Не измерена годовая стоимость эксплуатации'
+};
+
+const governmentArtifactLabels: Record<GovernmentArtifactId, string> = {
+  'city-pilot-demo': 'CITY PILOT demo',
+  'pilot-positioning': 'Позиционирование пилота',
+  'pilot-methodology': 'Методология пилота',
+  'pilot-acceptance': 'Матрица приёмки',
+  'funding-scale-playbook': 'Funding / scale playbook',
+  'investment-decision-authority': 'Investment decision authority',
+  'executive-one-pager': 'Executive one-pager',
+  'decision-deck': '10–12 slide decision deck',
+  'technical-specification': 'Консолидированное техническое задание',
+  'architecture-integration': 'Architecture / integration scheme',
+  'security-data-flow': 'Security / data-flow note',
+  'ip-rights-handover': 'IP / rights / handover matrix',
+  'operations-sla': 'Operations / SLA',
+  'cost-scale-model': 'Cost assumptions / scale-up model',
+  'final-report-template': 'Final pilot report template'
 };
 
 const economicsMetrics = [
@@ -91,6 +114,10 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
   const readiness = useMemo(() => getGovernmentPilotReadiness(), []);
   const decisionReadiness = useMemo(
     () => getPilotDecisionReadiness(currentPilotInvestmentEvidence),
+    []
+  );
+  const deliveryReadiness = useMemo(
+    () => evaluateGovernmentDeliveryReadiness(),
     []
   );
 
@@ -261,6 +288,104 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
           </>
         )}
 
+        {section === 'package' && (
+          <>
+            <View style={styles.packageHero}>
+              <Text style={styles.kicker}>GOVERNMENT DELIVERY MANIFEST</Text>
+              <Text style={styles.packageTitle}>С чем мы реально готовы идти к городу</Text>
+              <Text style={styles.packageBody}>
+                Готовность разделена по стадии переговоров. Красивый demo не заменяет technical approval, а technical approval не означает, что пилот уже доказан.
+              </Text>
+              <View style={styles.packageCounts}>
+                <PackageCount value={deliveryReadiness.readyArtifactCount} label="готово" />
+                <PackageCount value={deliveryReadiness.draftArtifactCount} label="draft" />
+                <PackageCount value={deliveryReadiness.missingArtifactCount} label="нет" />
+              </View>
+            </View>
+
+            <SectionTitle
+              kicker="СТАДИИ"
+              title="Разные gates для разных решений"
+              body="Можно проводить demo раньше physical proof, но нельзя выдавать intro/demo readiness за готовность к внедрению или инвестициям."
+            />
+
+            {deliveryReadiness.stages.map((stage, index) => (
+              <View key={stage.id} style={styles.deliveryStage}>
+                <View style={styles.deliveryStageTop}>
+                  <View style={styles.deliveryStageNumber}>
+                    <Text style={styles.deliveryStageNumberText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.deliveryStageCopy}>
+                    <Text style={styles.deliveryStageTitle}>{stage.title}</Text>
+                    <Text style={styles.deliveryStageNote}>{stage.note}</Text>
+                  </View>
+                  <View style={[
+                    styles.deliveryBadge,
+                    stage.ready && styles.deliveryBadgeReady
+                  ]}>
+                    <Text style={[
+                      styles.deliveryBadgeText,
+                      stage.ready && styles.deliveryBadgeTextReady
+                    ]}>
+                      {stage.ready ? 'READY' : 'BLOCKED'}
+                    </Text>
+                  </View>
+                </View>
+
+                {stage.artifactBlockers.length > 0 && (
+                  <View style={styles.deliveryBlock}>
+                    <Text style={styles.deliveryBlockTitle}>НЕТ FORMAL ARTIFACTS</Text>
+                    {stage.artifactBlockers.map((artifact) => (
+                      <Text key={artifact} style={styles.deliveryBlockText}>
+                        • {governmentArtifactLabels[artifact]}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {stage.evidenceBlockers.length > 0 && (
+                  <View style={styles.deliveryBlock}>
+                    <Text style={styles.deliveryBlockTitle}>НЕТ EVIDENCE</Text>
+                    {stage.evidenceBlockers.slice(0, 6).map((blocker) => (
+                      <Text key={blocker} style={styles.deliveryBlockText}>
+                        • {blocker}
+                      </Text>
+                    ))}
+                    {stage.evidenceBlockers.length > 6 && (
+                      <Text style={styles.deliveryBlockMore}>
+                        + ещё {stage.evidenceBlockers.length - 6}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            ))}
+
+            <SectionTitle
+              kicker="FORMAL ARTIFACTS"
+              title="Что ещё надо упаковать"
+              body="Эти документы не меняют truth state технологии, но нужны для buyer / IT / legal / procurement review."
+            />
+
+            {deliveryReadiness.artifacts
+              .filter((artifact) => artifact.status !== 'ready')
+              .map((artifact) => (
+                <View key={artifact.id} style={styles.artifactCard}>
+                  <View style={styles.artifactTop}>
+                    <Text style={styles.artifactTitle}>{artifact.title}</Text>
+                    <Text style={[
+                      styles.artifactStatus,
+                      artifact.status === 'draft' && styles.artifactStatusDraft
+                    ]}>
+                      {artifact.status === 'draft' ? 'DRAFT' : 'MISSING'}
+                    </Text>
+                  </View>
+                  <Text style={styles.artifactNote}>{artifact.note}</Text>
+                </View>
+              ))}
+          </>
+        )}
+
         {section === 'decision' && (
           <>
             <View style={styles.decisionHero}>
@@ -388,6 +513,15 @@ function DecisionStatus({
       <Text style={[styles.decisionStatusValue, ready && styles.decisionStatusValueReady]}>
         {ready ? readyText : blockedText}
       </Text>
+    </View>
+  );
+}
+
+function PackageCount({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={styles.packageCount}>
+      <Text style={styles.packageCountValue}>{value}</Text>
+      <Text style={styles.packageCountLabel}>{label}</Text>
     </View>
   );
 }
@@ -548,6 +682,34 @@ const styles = StyleSheet.create({
   scaleTitle: { color: '#f1ece3', fontSize: 15, fontWeight: '900' },
   scaleOutcome: { color: '#b7bac0', fontSize: 12, lineHeight: 18, marginTop: 6 },
   scaleGate: { color: '#a88d60', fontSize: 10, lineHeight: 15, marginTop: 8, fontWeight: '800' },
+  packageHero: { borderRadius: 24, padding: 20, backgroundColor: '#11171a', borderWidth: 1, borderColor: '#304148' },
+  packageTitle: { color: '#edf4f5', fontSize: 23, lineHeight: 30, fontWeight: '900' },
+  packageBody: { color: '#a5b0b4', fontSize: 12, lineHeight: 19, marginTop: 8 },
+  packageCounts: { flexDirection: 'row', gap: 7, marginTop: 15 },
+  packageCount: { flex: 1, borderRadius: 14, backgroundColor: '#0b1013', padding: 11, borderWidth: 1, borderColor: '#26333a' },
+  packageCountValue: { color: '#c8d9dc', fontSize: 21, fontWeight: '900' },
+  packageCountLabel: { color: '#718087', fontSize: 9, marginTop: 3, fontWeight: '800' },
+  deliveryStage: { borderRadius: 19, backgroundColor: '#13171b', borderWidth: 1, borderColor: '#292e34', padding: 15, marginBottom: 10 },
+  deliveryStageTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  deliveryStageNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#242a30', alignItems: 'center', justifyContent: 'center' },
+  deliveryStageNumberText: { color: '#d9b878', fontSize: 10, fontWeight: '900' },
+  deliveryStageCopy: { flex: 1, minWidth: 0 },
+  deliveryStageTitle: { color: '#f0ece4', fontSize: 14, fontWeight: '900' },
+  deliveryStageNote: { color: '#999ea6', fontSize: 11, lineHeight: 17, marginTop: 5 },
+  deliveryBadge: { borderRadius: 9, backgroundColor: '#422b25', paddingHorizontal: 8, paddingVertical: 5 },
+  deliveryBadgeReady: { backgroundColor: '#21382a' },
+  deliveryBadgeText: { color: '#e0a17c', fontSize: 8, fontWeight: '900' },
+  deliveryBadgeTextReady: { color: '#9bcca7' },
+  deliveryBlock: { marginTop: 11, borderRadius: 12, backgroundColor: '#0d1013', padding: 11 },
+  deliveryBlockTitle: { color: '#8c7657', fontSize: 8, letterSpacing: 1, fontWeight: '900', marginBottom: 5 },
+  deliveryBlockText: { color: '#b8bbc0', fontSize: 10, lineHeight: 16 },
+  deliveryBlockMore: { color: '#c2976d', fontSize: 9, fontWeight: '900', marginTop: 5 },
+  artifactCard: { borderRadius: 17, backgroundColor: '#13171b', borderWidth: 1, borderColor: '#292e34', padding: 14, marginBottom: 8 },
+  artifactTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  artifactTitle: { flex: 1, color: '#ece8e0', fontSize: 13, fontWeight: '900' },
+  artifactStatus: { color: '#db9571', fontSize: 8, fontWeight: '900' },
+  artifactStatusDraft: { color: '#d3b06f' },
+  artifactNote: { color: '#979ba3', fontSize: 10, lineHeight: 16, marginTop: 6 },
   decisionHero: { borderRadius: 24, padding: 20, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#443a29' },
   decisionTitle: { color: '#f7efe1', fontSize: 23, lineHeight: 30, fontWeight: '900' },
   decisionBody: { color: '#aaaeb5', fontSize: 12, lineHeight: 19, marginTop: 9 },
