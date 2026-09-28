@@ -37,7 +37,8 @@ import {
 } from '../src/spatial/romanovP0EvidencePackage.ts';
 import {
   parseRomanovP0EvidenceManifest,
-  validateRomanovP0EvidenceManifest
+  validateRomanovP0EvidenceManifest,
+  type RomanovP0EvidenceManifest
 } from '../src/spatial/romanovP0EvidenceManifest.ts';
 import { romanovControlPoints } from '../src/spatial/romanovControlPoints.ts';
 import { verifyCalibration } from '../src/spatial/romanovReleaseGate.ts';
@@ -277,7 +278,7 @@ test('verified anchor without restart recovery cannot become final P0 evidence',
 });
 
 test('manifest requires four distinct safe JSON bundle paths', () => {
-  const valid = {
+  const valid: RomanovP0EvidenceManifest = {
     kind: 'romanov-p0-evidence-manifest',
     version: 1,
     campaignPath: 'evidence/romanov/campaign.json',
@@ -288,7 +289,7 @@ test('manifest requires four distinct safe JSON bundle paths', () => {
       'evidence/romanov/android-2.json'
     ],
     anchorProofPath: 'evidence/romanov/final-anchor.json'
-  } as const;
+  };
 
   assert.equal(validateRomanovP0EvidenceManifest(valid).valid, true);
   assert.deepEqual(
