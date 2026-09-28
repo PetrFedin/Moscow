@@ -68,6 +68,13 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Не “дайте денег на приложение”', { exact: true })).toBeVisible();
   await expect(page.getByText(/Назначить профильного владельца задачи/)).toBeVisible();
   await expect(page.getByText(/формальный интеграционный контакт/)).toBeVisible();
+  await expect(page.getByText('COLLABORATION CHARTER · WORKING MODEL', { exact: true })).toBeVisible();
+  await expect(page.getByText('Pilot Collaboration Charter', { exact: true })).toBeVisible();
+  await expect(page.getByText('МЫ ПРИНОСИМ', { exact: true })).toBeVisible();
+  await expect(page.getByText('МОСКВА / ПАРТНЁРЫ ДАЮТ', { exact: true })).toBeVisible();
+  await expect(page.getByText('СОВМЕСТНО РЕШАЕМ', { exact: true })).toBeVisible();
+  await expect(page.getByText('SCOPE / OWNER / SITE', { exact: true })).toBeVisible();
+  await expect(page.getByText('5 · Separate next-stage decision', { exact: true })).toBeVisible();
 
   await page.getByText('Финансирование', { exact: true }).click();
   await expect(page.getByText('Москва · пилот инновационного решения', { exact: true })).toBeVisible();
