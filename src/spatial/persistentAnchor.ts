@@ -265,7 +265,9 @@ export function getPersistentAnchorReadiness(input: {
   const calibrationSessionCurrent = isCalibrationBoundToSession(input.calibration, input.currentLocalAnchorId);
   const blockers: string[] = [];
 
-  if (!fieldMatrix.eligibleForPersistentAnchor) blockers.push('field-matrix-incomplete');
+  if (!fieldMatrix.crossPlatformReady) blockers.push('field-matrix-incomplete');
+  if (!fieldMatrix.fieldConditionsComplete) blockers.push('field-conditions-incomplete');
+  if (!fieldMatrix.daylightEvidence) blockers.push('daylight-evidence-missing');
   if (!calibrationVerified) blockers.push('calibration-not-verified');
   if (!calibrationPlacementMeasured) blockers.push('calibration-placement-not-measured');
   if (!calibrationMetricCurrent) blockers.push('calibration-metric-authority-stale');
