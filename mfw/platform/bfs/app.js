@@ -1,12 +1,13 @@
 (function(){
 var state={view:'today',lang:'ru',account:null,meeting:null,saved:{},followedProjects:{},favoriteProjects:{},rewardStarted:{}};
 var sessions=[
-{id:'s1',time:'11:00–12:15',title:'Artificial Intelligence in the Creative Process: Tool, or Co-Author?',hall:'Grand Hall',tag:'Creative'},
-{id:'s2',time:'12:30–13:45',title:'Fashion as a City’s Symbolic Capital',hall:'Grand Hall',tag:'Entrepreneurship & Investment'},
-{id:'s3',time:'14:00–15:15',title:'Facing the Future. Is the Fashion Industry Ready for Global Transformation?',hall:'Open Hall',tag:'Marketing & Sales'},
-{id:'s4',time:'15:30–16:45',title:'Fashion as a Museum Artifact. What Do Leading Museums Select and Preserve?',hall:'Chamber Hall',tag:'Creative'}];
-var speakers=[['Elena Akhmadullina','Brand owner · Alena Akhmadullina'],['Anton Alikhanov','Minister · Ministry of Industry and Trade'],['Mustafa Cem Altan','International Apparel Federation'],['Madonna Mur','Founder · Fashion Paper']];
-var delegates=[['Brazil','Marina Costa','Retail & Investment'],['India','Arjun Mehta','Fashion Technology'],['China','Lin Wei','Cross-border Commerce'],['South Africa','Naledi Khumalo','Creative Industries']];
+{id:'s1',date:'28 сентября',time:'11:00–12:15',title:'Искусственный интеллект в творческом процессе: инструмент или соавтор?',hall:'Большой зал',tag:'Креативные индустрии',moderator:'Официальная программа BFS',participants:['Спикеры с официальной карточки сессии']},
+{id:'s2',date:'28 сентября',time:'12:30–13:45',title:'Мода как символический капитал города',hall:'Большой зал',tag:'Предпринимательство и инвестиции',moderator:'Официальная программа BFS',participants:['Спикеры с официальной карточки сессии']},
+{id:'s3',date:'29 сентября',time:'14:00–15:15',title:'Лицом к будущему: готова ли индустрия моды к глобальной трансформации?',hall:'Открытый зал',tag:'Маркетинг и продажи',moderator:'Официальная программа BFS',participants:['Спикеры с официальной карточки сессии']},
+{id:'s4',date:'30 сентября',time:'15:30–16:45',title:'Мода как музейный артефакт: что выбирают и сохраняют ведущие музеи?',hall:'Малый зал',tag:'Креативные индустрии',moderator:'Официальная программа BFS',participants:['Спикеры с официальной карточки сессии']}
+];
+var speakers=[['Елена Ахмадуллина','Основатель бренда Alena Akhmadullina'],['Антон Алиханов','Министр промышленности и торговли РФ'],['Мустафа Джем Алтан','International Apparel Federation'],['Мадонна Мур','Основатель Fashion Paper']];
+var delegates=[];
 function $(s){return document.querySelector(s)}function $$(s){return [].slice.call(document.querySelectorAll(s))}
 function registration(){return state.account&&state.account.registrations&&state.account.registrations.bfs}
 function projectKey(name){return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-')}
