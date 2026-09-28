@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 const { Brand365Store } = require('./brand365-store');
+const { activeTelegramStatus, verifyProviderMembership: verifySocialProviderMembership } = require('./social-providers');
 let Pool = null;
 try { ({ Pool } = require('pg')); } catch (_) {}
 
@@ -495,39 +496,15 @@ function followSet(userId){
   return memory.brandFollows.get(key);
 }
 function socialConnectionKey(userId,platform){return String(userId)+':'+String(platform);}
-function activeTelegramStatus(member){
-  if(!member)return false;
-  if(['creator','administrator','member'].includes(member.status))return true;
-  if(member.status==='restricted')return member.is_member===true;
-  return false;
-}
 async function verifyProviderMembership(userId,channel){
-  const connection=await brand365Store.socialConnection(userId,channel.platform);
-  if(!connection)return {ok:false,error:'social_connection_required',platform:channel.platform};
-  if(channel.platform==='telegram'){
-    if(!TELEGRAM_BOT_TOKEN)return {ok:false,error:'provider_not_configured',platform:'telegram'};
-    const chatId=encodeURIComponent(channel.externalChannelId);
-    const externalUserId=encodeURIComponent(connection.externalUserId);
-    const r=await fetch('https://api.telegram.org/bot'+TELEGRAM_BOT_TOKEN+'/getChatMember?chat_id='+chatId+'&user_id='+externalUserId);
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok)return {ok:false,error:'provider_verification_failed',platform:'telegram',detail:data.description||r.status};
-    return {ok:true,active:activeTelegramStatus(data.result),source:'telegram_getChatMember',providerJoinedAt:null,rawStatus:data.result&&data.result.status};
-  }
-  if(channel.platform==='vk'){
-    if(!VK_SERVICE_TOKEN)return {ok:false,error:'provider_not_configured',platform:'vk'};
-    const q=new URLSearchParams({
-      group_id:String(channel.externalChannelId),
-      user_id:String(connection.externalUserId),
-      access_token:VK_SERVICE_TOKEN,
-      v:VK_API_VERSION
-    });
-    const r=await fetch('https://api.vk.com/method/groups.isMember?'+q.toString());
-    const data=await r.json().catch(()=>({}));
-    if(!r.ok||data.error)return {ok:false,error:'provider_verification_failed',platform:'vk',detail:data.error&&data.error.error_msg||r.status};
-    const member=typeof data.response==='object'&&data.response!==null?Number(data.response.member):Number(data.response);
-    return {ok:true,active:member===1,source:'vk_groups.isMember',providerJoinedAt:null,rawStatus:member};
-  }
-  return {ok:false,error:'verification_not_supported',platform:channel.platform};
+  return verifySocialProviderMembership({
+    store:brand365Store,
+    userId,
+    channel,
+    telegramBotToken:TELEGRAM_BOT_TOKEN,
+    vkServiceToken:VK_SERVICE_TOKEN,
+    vkApiVersion:VK_API_VERSION
+  });
 }
 async function applyMembershipObservation(userId,channel,result,providerEventAt=null){
   return brand365Store.applyMembershipObservation(userId,channel,result,providerEventAt);
@@ -917,16 +894,32 @@ async function runAcceleratedLoyaltyGoldenPath(){
     await brand365Store.setBrandFollow(userId,'b1',true);
     report.steps.followBrand=await brand365Store.isBrandFollow(userId,'b1');
 
-    const continuousSince=new Date(Date.now()-31*86400000).toISOString();
+    const offer=await brand365Store.offerByRef('lo1');
+    if(!offer)throw new Error('golden_offer_missing:lo1');
+
+    // Phase 1: a brand-new verified follow must NOT unlock a 30-day reward.
     for(const channelRef of ['sc_mfw_tg','sc_b1_tg']){
       const channel=await brand365Store.channelByRef(channelRef);
       if(!channel)throw new Error('golden_channel_missing:'+channelRef);
-      await brand365Store.applyMembershipObservation(userId,channel,{active:true,source:'accelerated_golden_path',rawStatus:'member',demo:true},continuousSince);
+      await brand365Store.applyMembershipObservation(userId,channel,{active:true,source:'accelerated_golden_path_fresh_follow',rawStatus:'member',demo:true},null);
+    }
+    const fresh=await evaluateLoyaltyOfferAuthority(userId,offer);
+    report.steps.freshFollowLocked=!fresh.eligible;
+    report.eligibilityFresh=fresh;
+
+    // Test acceleration: close the fresh continuity interval, then replay a trusted
+    // provider membership event whose continuous interval started 31 days ago.
+    for(const channelRef of ['sc_mfw_tg','sc_b1_tg']){
+      const channel=await brand365Store.channelByRef(channelRef);
+      await brand365Store.applyMembershipObservation(userId,channel,{active:false,source:'accelerated_golden_path_reset',rawStatus:'left',demo:true},null);
+    }
+    const continuousSince=new Date(Date.now()-31*86400000).toISOString();
+    for(const channelRef of ['sc_mfw_tg','sc_b1_tg']){
+      const channel=await brand365Store.channelByRef(channelRef);
+      await brand365Store.applyMembershipObservation(userId,channel,{active:true,source:'accelerated_golden_path_provider_history',rawStatus:'member',demo:true},continuousSince);
     }
     report.steps.socialMembership31d=true;
 
-    const offer=await brand365Store.offerByRef('lo1');
-    if(!offer)throw new Error('golden_offer_missing:lo1');
     const before=await evaluateLoyaltyOfferAuthority(userId,offer);
     report.steps.eligibleAfter31d=!!before.eligible;
     report.eligibilityBefore=before;
@@ -1104,7 +1097,8 @@ async function router(req,res){
       vk:{configured:!!VK_SERVICE_TOKEN,apiVersion:VK_API_VERSION}
     },
     reverification:{active:!!(pool&&reverifyTimer),intervalMinutes:REVERIFY_INTERVAL_MINUTES,batchSize:REVERIFY_BATCH_SIZE,requiresPostgres:!pool},
-    acceleratedGoldenPath:{available:true,days:31,twoAccountFlow:true,postgresCapable:true}
+    acceleratedGoldenPath:{available:true,phases:['fresh_follow_locked','31d_eligible','unfollow_revoked'],days:31,twoAccountFlow:true,postgresCapable:true},
+    cronReverification:{entrypoint:'node reverify-social.js',recommendedSchedule:'0 */6 * * *',requires:['DATABASE_URL'],providerCredentialsOptional:true}
   });
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
