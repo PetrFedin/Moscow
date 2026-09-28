@@ -18,6 +18,12 @@ const TELEGRAM_BOT_TOKEN = process.env.MFW_TELEGRAM_BOT_TOKEN || '';
 const TELEGRAM_WEBHOOK_SECRET = process.env.MFW_TELEGRAM_WEBHOOK_SECRET || '';
 const VK_SERVICE_TOKEN = process.env.MFW_VK_SERVICE_TOKEN || '';
 const VK_API_VERSION = process.env.MFW_VK_API_VERSION || '5.199';
+const PUBLIC_BASE_URL = process.env.MFW_PUBLIC_BASE_URL || 'https://moscow-fashion-week-authority.onrender.com';
+const TELEGRAM_LOGIN_CLIENT_ID = process.env.MFW_TELEGRAM_LOGIN_CLIENT_ID || '';
+const TELEGRAM_LOGIN_CLIENT_SECRET = process.env.MFW_TELEGRAM_LOGIN_CLIENT_SECRET || '';
+const TELEGRAM_LOGIN_REDIRECT_URI = process.env.MFW_TELEGRAM_LOGIN_REDIRECT_URI || (PUBLIC_BASE_URL+'/v1/social/auth/telegram/callback');
+const VK_APP_ID = process.env.MFW_VK_APP_ID || '';
+const VK_LOGIN_REDIRECT_URI = process.env.MFW_VK_LOGIN_REDIRECT_URI || (PUBLIC_BASE_URL+'/v1/social/auth/vk/callback');
 const REVERIFY_INTERVAL_MINUTES = Math.max(60,Number(process.env.MFW_REVERIFY_INTERVAL_MINUTES || 360));
 const REVERIFY_BATCH_SIZE = Math.max(1,Math.min(1000,Number(process.env.MFW_REVERIFY_BATCH_SIZE || 250)));
 
@@ -60,6 +66,111 @@ function validateInvestorBuild(){
   }
 }
 validateInvestorBuild();
+
+
+function redirectResponse(res,location){
+  res.writeHead(302,{
+    'Location':location,
+    'Cache-Control':'no-store',
+    'Referrer-Policy':'no-referrer',
+    'X-Content-Type-Options':'nosniff'
+  });
+  res.end();
+}
+function socialReturnUrl(platform,status){
+  const u=new URL(ORIGIN);
+  u.searchParams.set('social',platform);
+  u.searchParams.set('social_status',status);
+  return u.toString();
+}
+function randomB64(bytes=32){return b64u(crypto.randomBytes(bytes));}
+function pkceChallenge(verifier){
+  return b64u(crypto.createHash('sha256').update(verifier).digest());
+}
+let telegramJwksCache={expiresAt:0,keys:[]};
+async function telegramJwks(){
+  if(Date.now()<telegramJwksCache.expiresAt&&telegramJwksCache.keys.length)return telegramJwksCache.keys;
+  const r=await fetch('https://oauth.telegram.org/.well-known/jwks.json');
+  if(!r.ok)throw new Error('telegram_jwks_unavailable');
+  const data=await r.json();
+  const keys=Array.isArray(data.keys)?data.keys:[];
+  if(!keys.length)throw new Error('telegram_jwks_empty');
+  telegramJwksCache={keys,expiresAt:Date.now()+60*60*1000};
+  return keys;
+}
+async function verifyTelegramIdToken(token,flow){
+  const parts=String(token||'').split('.');
+  if(parts.length!==3)throw new Error('telegram_id_token_malformed');
+  let header,payload;
+  try{
+    header=JSON.parse(ub64u(parts[0]).toString('utf8'));
+    payload=JSON.parse(ub64u(parts[1]).toString('utf8'));
+  }catch(_){throw new Error('telegram_id_token_decode_failed');}
+  if(!['RS256','ES256'].includes(header.alg))throw new Error('telegram_id_token_alg_unsupported');
+  const keys=await telegramJwks();
+  const jwk=keys.find(k=>String(k.kid||'')===String(header.kid||''))||keys.find(k=>k.alg===header.alg);
+  if(!jwk)throw new Error('telegram_id_token_key_not_found');
+  const key=crypto.createPublicKey({key:jwk,format:'jwk'});
+  const input=Buffer.from(parts[0]+'.'+parts[1]);
+  const signature=ub64u(parts[2]);
+  const verified=header.alg==='RS256'
+    ? crypto.verify('RSA-SHA256',input,key,signature)
+    : crypto.verify('sha256',input,{key,dsaEncoding:'ieee-p1363'},signature);
+  if(!verified)throw new Error('telegram_id_token_bad_signature');
+  const now=Math.floor(Date.now()/1000);
+  if(payload.iss!=='https://oauth.telegram.org')throw new Error('telegram_id_token_bad_issuer');
+  const aud=Array.isArray(payload.aud)?payload.aud.map(String):[String(payload.aud||'')];
+  if(!aud.includes(String(TELEGRAM_LOGIN_CLIENT_ID)))throw new Error('telegram_id_token_bad_audience');
+  if(!payload.exp||Number(payload.exp)<=now)throw new Error('telegram_id_token_expired');
+  if(payload.iat&&Number(payload.iat)>now+120)throw new Error('telegram_id_token_bad_iat');
+  if(flow.nonce&&String(payload.nonce||'')!==String(flow.nonce))throw new Error('telegram_id_token_bad_nonce');
+  return payload;
+}
+async function exchangeTelegramCode(code,flow){
+  const basic=Buffer.from(String(TELEGRAM_LOGIN_CLIENT_ID)+':'+String(TELEGRAM_LOGIN_CLIENT_SECRET)).toString('base64');
+  const body=new URLSearchParams({
+    grant_type:'authorization_code',
+    code:String(code),
+    redirect_uri:flow.redirectUri,
+    client_id:String(TELEGRAM_LOGIN_CLIENT_ID),
+    code_verifier:flow.codeVerifier
+  });
+  const r=await fetch('https://oauth.telegram.org/token',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded','Authorization':'Basic '+basic},
+    body
+  });
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok||!data.id_token)throw new Error('telegram_token_exchange_failed');
+  const claims=await verifyTelegramIdToken(data.id_token,flow);
+  return {claims,scope:String(data.scope||'openid profile').split(/\s+/).filter(Boolean)};
+}
+async function exchangeVkCode(code,deviceId,flow){
+  const q=new URLSearchParams({
+    grant_type:'authorization_code',
+    redirect_uri:flow.redirectUri,
+    client_id:String(VK_APP_ID),
+    code_verifier:flow.codeVerifier,
+    state:flow.state,
+    device_id:String(deviceId)
+  });
+  const r=await fetch('https://id.vk.com/oauth2/auth?'+q.toString(),{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({code:String(code)})
+  });
+  const token=await r.json().catch(()=>({}));
+  if(!r.ok||token.error||!token.access_token)throw new Error('vk_token_exchange_failed');
+  if(String(token.state||'')!==String(flow.state))throw new Error('vk_state_mismatch');
+  const infoResp=await fetch('https://id.vk.com/oauth2/user_info?client_id='+encodeURIComponent(String(VK_APP_ID)),{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({access_token:String(token.access_token)})
+  });
+  const info=await infoResp.json().catch(()=>({}));
+  if(!infoResp.ok||info.error||!info.user)throw new Error('vk_user_info_failed');
+  return {token,info};
+}
 
 function deriveKeys(seed){
   let counter=0;
@@ -1093,8 +1204,18 @@ async function router(req,res){
     es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,loyalty365Authority:true,localeAuthority:true,sponsorAuthority:true,
     brand365Persistence:{configured:!!pool,mode:pool?'postgres':'memory_demo',migration:'009_brand365_persistence.sql'},
     socialProviders:{
-      telegram:{configured:!!TELEGRAM_BOT_TOKEN,webhookSecretConfigured:!!TELEGRAM_WEBHOOK_SECRET},
-      vk:{configured:!!VK_SERVICE_TOKEN,apiVersion:VK_API_VERSION}
+      telegram:{
+        membershipConfigured:!!TELEGRAM_BOT_TOKEN,
+        webhookSecretConfigured:!!TELEGRAM_WEBHOOK_SECRET,
+        loginConfigured:!!(TELEGRAM_LOGIN_CLIENT_ID&&TELEGRAM_LOGIN_CLIENT_SECRET),
+        loginProtocol:'OIDC Authorization Code + PKCE'
+      },
+      vk:{
+        membershipConfigured:!!VK_SERVICE_TOKEN,
+        loginConfigured:!!VK_APP_ID,
+        loginProtocol:'VK ID OAuth 2.1 + PKCE',
+        apiVersion:VK_API_VERSION
+      }
     },
     reverification:{active:!!(pool&&reverifyTimer),intervalMinutes:REVERIFY_INTERVAL_MINUTES,batchSize:REVERIFY_BATCH_SIZE,requiresPostgres:!pool},
     acceleratedGoldenPath:{available:true,phases:['fresh_follow_locked','31d_eligible','unfollow_revoked'],days:31,twoAccountFlow:true,postgresCapable:true},
@@ -1291,6 +1412,107 @@ async function router(req,res){
     await track('app_installation_registered',{platform:item.platform},String(session.sub));
     return json(res,201,{data:item});
   }
+  if(req.method==='GET'&&p==='/v1/social/auth/readiness'){
+    return json(res,200,{data:{
+      postgres:!!pool,
+      telegram:{
+        loginConfigured:!!(TELEGRAM_LOGIN_CLIENT_ID&&TELEGRAM_LOGIN_CLIENT_SECRET),
+        membershipConfigured:!!TELEGRAM_BOT_TOKEN,
+        webhookConfigured:!!TELEGRAM_WEBHOOK_SECRET,
+        protocol:'OIDC Authorization Code + PKCE'
+      },
+      vk:{
+        loginConfigured:!!VK_APP_ID,
+        membershipConfigured:!!VK_SERVICE_TOKEN,
+        protocol:'VK ID OAuth 2.1 + PKCE'
+      }
+    }});
+  }
+  if(req.method==='POST'&&p==='/v1/social/auth/telegram/start'){
+    const session=sessionFromRequest(req);
+    if(!session)return json(res,401,{error:'authenticated_mfw_id_required'});
+    if(!TELEGRAM_LOGIN_CLIENT_ID||!TELEGRAM_LOGIN_CLIENT_SECRET)return json(res,503,{error:'provider_not_configured',platform:'telegram'});
+    const state=randomB64(24),codeVerifier=randomB64(48),nonce=randomB64(24);
+    const flow=await brand365Store.createAuthFlow({
+      userId:String(session.sub),platform:'telegram',state,codeVerifier,nonce,redirectUri:TELEGRAM_LOGIN_REDIRECT_URI,
+      metadata:{source:'mfw_app'}
+    });
+    const q=new URLSearchParams({
+      client_id:String(TELEGRAM_LOGIN_CLIENT_ID),
+      redirect_uri:flow.redirectUri,
+      response_type:'code',
+      scope:'openid profile',
+      state:flow.state,
+      code_challenge:pkceChallenge(flow.codeVerifier),
+      code_challenge_method:'S256',
+      nonce:flow.nonce
+    });
+    return json(res,201,{data:{platform:'telegram',mode:'redirect',authorizationUrl:'https://oauth.telegram.org/auth?'+q.toString(),expiresAt:flow.expiresAt}});
+  }
+  if(req.method==='GET'&&p==='/v1/social/auth/telegram/callback'){
+    const state=String(url.searchParams.get('state')||''),code=String(url.searchParams.get('code')||'');
+    const flow=await brand365Store.authFlowByState('telegram',state);
+    if(!flow||!code)return redirectResponse(res,socialReturnUrl('telegram','failed'));
+    try{
+      const result=await exchangeTelegramCode(code,flow);
+      const claims=result.claims;
+      const externalUserId=String(claims.id||claims.sub||'');
+      if(!externalUserId)throw new Error('telegram_user_id_missing');
+      await brand365Store.upsertSocialConnection(
+        flow.userId,'telegram',externalUserId,String(claims.preferred_username||claims.name||''),result.scope,
+        {verifiedBy:'telegram_oidc',issuer:claims.iss}
+      );
+      await brand365Store.finishAuthFlow(flow,'completed',{externalUserId});
+      await track('social_connection_verified',{platform:'telegram',source:'oidc'},flow.userId);
+      return redirectResponse(res,socialReturnUrl('telegram','connected'));
+    }catch(err){
+      await brand365Store.finishAuthFlow(flow,'failed',{error:String(err&&err.message||err)}).catch(()=>{});
+      console.error(JSON.stringify({event:'telegram_social_auth_failed',error:String(err&&err.message||err)}));
+      return redirectResponse(res,socialReturnUrl('telegram','failed'));
+    }
+  }
+  if(req.method==='POST'&&p==='/v1/social/auth/vk/start'){
+    const session=sessionFromRequest(req);
+    if(!session)return json(res,401,{error:'authenticated_mfw_id_required'});
+    if(!VK_APP_ID)return json(res,503,{error:'provider_not_configured',platform:'vk'});
+    const state=randomB64(24),codeVerifier=randomB64(48);
+    const flow=await brand365Store.createAuthFlow({
+      userId:String(session.sub),platform:'vk',state,codeVerifier,nonce:null,redirectUri:VK_LOGIN_REDIRECT_URI,
+      metadata:{source:'mfw_app'}
+    });
+    return json(res,201,{data:{
+      platform:'vk',
+      mode:'vkid_sdk',
+      sdkUrl:'https://unpkg.com/@vkid/sdk@^2.0.0/dist-sdk/umd/index.js',
+      config:{app:Number(VK_APP_ID),redirectUrl:flow.redirectUri,state:flow.state,codeVerifier:flow.codeVerifier,scope:'phone email'},
+      expiresAt:flow.expiresAt
+    }});
+  }
+  if(req.method==='GET'&&p==='/v1/social/auth/vk/callback'){
+    const state=String(url.searchParams.get('state')||''),code=String(url.searchParams.get('code')||'');
+    const deviceId=String(url.searchParams.get('device_id')||url.searchParams.get('deviceId')||'');
+    const flow=await brand365Store.authFlowByState('vk',state);
+    if(!flow||!code||!deviceId)return redirectResponse(res,socialReturnUrl('vk','failed'));
+    try{
+      const result=await exchangeVkCode(code,deviceId,flow);
+      const user=result.info.user||{};
+      const externalUserId=String(user.user_id||result.token.user_id||'');
+      if(!externalUserId)throw new Error('vk_user_id_missing');
+      const handle=[user.first_name,user.last_name].filter(Boolean).join(' ').trim();
+      await brand365Store.upsertSocialConnection(
+        flow.userId,'vk',externalUserId,handle,String(result.token.scope||'').split(/\s+/).filter(Boolean),
+        {verifiedBy:'vkid_oauth21'}
+      );
+      await brand365Store.finishAuthFlow(flow,'completed',{externalUserId});
+      await track('social_connection_verified',{platform:'vk',source:'oauth21'},flow.userId);
+      return redirectResponse(res,socialReturnUrl('vk','connected'));
+    }catch(err){
+      await brand365Store.finishAuthFlow(flow,'failed',{error:String(err&&err.message||err)}).catch(()=>{});
+      console.error(JSON.stringify({event:'vk_social_auth_failed',error:String(err&&err.message||err)}));
+      return redirectResponse(res,socialReturnUrl('vk','failed'));
+    }
+  }
+
   if(req.method==='GET'&&p==='/v1/social/providers'){
     return json(res,200,{data:memory.socialProviderAdapters});
   }
