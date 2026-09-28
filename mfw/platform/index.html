@@ -1,37 +1,19 @@
 <!doctype html>
-<html lang="ru">
-<head>
+<html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Moscow Fashion Platform</title><link rel="stylesheet" href="./styles.css">
-</head>
-<body data-event="mfw">
-<div class="phone-shell">
-<header class="top">
-  <div class="wordmark">MOSCOW<br>FASHION</div>
-  <div class="switch"><button data-switch="mfw" class="active">MFW</button><button data-switch="bfs">BFS</button></div>
-  <button id="demoBtn" class="ghost">DEMO</button>
+<title>Moscow Fashion Platform</title><link rel="stylesheet" href="./platform.css">
+</head><body>
+<header class="platform-bar">
+  <div class="platform-wordmark">MOSCOW<br>FASHION PLATFORM</div>
+  <nav class="event-switcher" aria-label="Event switcher">
+    <button class="event-button active" data-event="mfw">MFW</button>
+    <button class="event-button" data-event="bfs">BRICS+ FASHION SUMMIT</button>
+  </nav>
+  <div class="account">ONE ACCOUNT</div>
 </header>
-<main>
-<section class="hero" id="hero"></section>
-<section class="tabs">
-  <button data-view="today" class="active">Сегодня</button>
-  <button data-view="programme">Программа</button>
-  <button data-view="pass">Пропуск</button>
-  <button data-view="profile">Профиль</button>
-  <button data-view="control">Control</button>
-</section>
-<section id="content"></section>
+<main class="experience">
+  <iframe id="eventFrame" title="Event experience" src="../index.html"></iframe>
 </main>
-<nav class="bottom">
-<button data-view="today">Сегодня</button><button data-view="programme">Программа</button><button data-view="pass">Pass</button><button data-view="profile">Профиль</button>
-</nav>
-</div>
-<div id="demoOverlay" class="overlay hidden">
-<div class="demo-card">
-<div class="kicker">INVESTOR DEMO</div>
-<h2>Одна платформа.<br>Два события.</h2>
-<p id="demoText"></p>
-<div class="demo-actions"><button id="demoNext">Дальше</button><button id="demoClose" class="ghost">Закрыть</button></div>
-</div></div>
-<script src="./app.js"></script>
+<div class="event-note" id="eventNote">MFW · ORIGINAL EXPERIENCE</div>
+<script src="./platform.js"></script>
 </body></html>
