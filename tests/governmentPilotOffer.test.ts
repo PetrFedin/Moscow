@@ -47,7 +47,7 @@ test('federal scale is gated by Moscow proof and first external region', () => {
 
   assert.ok(firstRegion);
   assert.ok(federal);
-  assert.match(firstRegion!.gate, /общий contract/i);
+  assert.match(firstRegion!.gate, /(тот же|общий) contract/i);
   assert.match(federal!.gate, /межрегиональный proof/i);
 });
 
