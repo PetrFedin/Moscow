@@ -36,8 +36,20 @@ A provider carries:
 - stable provider ID;
 - provider name;
 - relationship: official / city-service / partner / booking-provider;
+- explicit claim capabilities;
 - HTTPS source URL;
 - RU / EN / ZH attribution.
+
+Provider relationship and provider authority are separate.
+
+Supported capabilities:
+
+- `inventory`;
+- `event-schedule`;
+- `operational-status`;
+- `booking-handoff`.
+
+For example, an official city directory may have only `inventory`. That makes it authoritative for the existence/reference record, but it still cannot assert `open now`.
 
 Attribution remains visible in the runtime projection.
 
@@ -190,3 +202,52 @@ Therefore the existence of this contract must not be described as “live Moscow
 8. connect booking handoff;
 9. prove no stale status survives expiry;
 10. only then use live entities in #42 Moscow Destination Journey.
+
+
+## Provider ingestion and audit
+
+Provider adapters do not write directly into public journey state.
+
+The ingestion chain is:
+
+`raw provider response → snapshot envelope → checksum/audit → refresh policy → adapter normalization → LiveDestinationFeed validation → public projection`.
+
+A snapshot records:
+
+- provider ID;
+- snapshot ID;
+- HTTPS source URL;
+- fetched time;
+- optional provider-updated time;
+- SHA-256 of the raw payload.
+
+The public normalized feed does not contain the raw payload.
+
+### Refresh policy
+
+Each adapter declares:
+
+- expected refresh interval;
+- hard maximum snapshot age;
+- retry interval.
+
+Snapshot status:
+
+- fresh;
+- refresh-due;
+- expired;
+- future.
+
+Expired and future snapshots are rejected.
+
+Refresh-due data may normalize with an explicit warning, but normalization never extends an entity's own `expiresAt`.
+
+Provider outage therefore cannot turn last-known data into indefinitely current data.
+
+### Multi-provider merge
+
+Validated feeds may be merged only when they target the same destination.
+
+Provider IDs must remain unique across the merged feeds.
+
+The merged result is validated again through Live Destination Authority before it can be projected.
