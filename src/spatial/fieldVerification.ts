@@ -44,6 +44,7 @@ export function isRomanovFieldConditionsRecorded(
   return lightingValid
     && typeof value.trackingLossObserved === 'boolean'
     && typeof value.interruptionObserved === 'boolean'
+    && typeof value.notes === 'string'
     && value.notes.trim().length > 0;
 }
 
