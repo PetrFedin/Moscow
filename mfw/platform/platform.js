@@ -10,6 +10,7 @@
   var currentRegistrationEvent=null;
   var investorModal=document.getElementById('investorModal');
   var valueModal=document.getElementById('valueModal');
+  var forYouModal=document.getElementById('forYouModal');
 
   var DEFAULT_PROFILE={firstName:'Alex',lastName:'Morgan',email:'alex@example.com',phone:'+7 900 000-00-00',company:'Fashion Industry',title:'Guest',country:'Russia'};
   var EVENT_CONFIG={
@@ -59,6 +60,51 @@
   }
   function notifyFrame(){
     try{frame.contentWindow.postMessage({type:'mfp-account-state',payload:accountState},'*');}catch(e){}
+  }
+  function safeJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch(e){return fallback;}}
+  function getInterestState(){
+    return {
+      mfwFollowed:safeJson('mfwSavedBrands',[]),
+      mfwFavorites:safeJson('mfwFavoriteBrands',[]),
+      mfwEvents:safeJson('mfwMyEvents',[]),
+      bfsFollowed:safeJson('bfsFollowedProjects',{}),
+      bfsFavorites:safeJson('bfsFavoriteProjects',{}),
+      bfsSaved:safeJson('bfsSavedSessions',{})
+    };
+  }
+  function renderForYou(){
+    var data=window.MFP_DATA||{mfw:{brands:[],events:[]},bfs:{sessions:[],speakers:[]}};
+    var interests=getInterestState();
+    var recs=[];
+    data.mfw.brands.forEach(function(b){
+      if(interests.mfwFavorites.indexOf(b.id)>=0||interests.mfwFollowed.indexOf(b.id)>=0){
+        var show=data.mfw.events.filter(function(e){return e.id===b.showId;})[0];
+        recs.push({type:'MFW · BRAND',title:b.name,body:(show?show.date+' · '+show.time+' · '+show.venue:'Следите за обновлениями бренда'),path:'Favorite / Follow → Show → Reminder → Replay → Reward',event:'mfw'});
+      }
+    });
+    Object.keys(interests.bfsSaved||{}).filter(function(k){return interests.bfsSaved[k];}).forEach(function(id){
+      var s=data.bfs.sessions.filter(function(x){return x.id===id;})[0];
+      if(s)recs.push({type:'BFS · SESSION',title:s.title,body:s.date+' · '+s.time+' · '+s.hall,path:'Saved session → Speaker → Follow → Meeting → Lead',event:'bfs'});
+    });
+    if(!recs.length){
+      recs.push({type:'MFW · START HERE',title:'Добавьте любимый бренд',body:'Откройте MFW → Бренды → выберите Follow или ♥ Favorite.',path:'Brand → Show → LIVE / Replay → Reward',event:'mfw'});
+      recs.push({type:'BFS · START HERE',title:'Сохраните интересную сессию',body:'Откройте BFS → Программа → добавьте сессию.',path:'Session → Speaker → Meeting → Lead',event:'bfs'});
+    }
+    document.getElementById('forYouGrid').innerHTML=recs.slice(0,6).map(function(r){
+      return '<article class="rec-card"><div class="rec-type">'+r.type+'</div><h3>'+r.title+'</h3><p>'+r.body+'</p><div class="rec-path">'+r.path+'</div><div class="rec-actions"><button data-rec-event="'+r.event+'">ОТКРЫТЬ '+r.event.toUpperCase()+'</button></div></article>';
+    }).join('');
+    [].slice.call(document.querySelectorAll('[data-rec-event]')).forEach(function(b){b.onclick=function(){forYouModal.classList.add('hidden');openEvent(b.dataset.recEvent);};});
+    var counts={
+      registered:(accountState.registrations.mfw?1:0)+(accountState.registrations.bfs?1:0),
+      saved:(interests.mfwEvents||[]).length+Object.keys(interests.bfsSaved||{}).filter(function(k){return interests.bfsSaved[k];}).length,
+      followed:(interests.mfwFollowed||[]).length+Object.keys(interests.bfsFollowed||{}).filter(function(k){return interests.bfsFollowed[k];}).length,
+      favorite:(interests.mfwFavorites||[]).length+Object.keys(interests.bfsFavorites||{}).filter(function(k){return interests.bfsFavorites[k];}).length,
+      reward:0,
+      meeting:localStorage.getItem('bfsMeetingRequested')==='1'?1:0
+    };
+    document.getElementById('ownerFunnel').innerHTML='<h3>Ваш личный путь в demo</h3><div class="funnel-grid">'+
+      [['REGISTER',counts.registered],['SAVE',counts.saved],['FOLLOW',counts.followed],['FAVORITE',counts.favorite],['REWARD',counts.reward],['MEETING',counts.meeting]].map(function(x){return '<div class="funnel-step"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>';}).join('')+
+      '</div><div class="funnel-note">Это только персональный demo-funnel текущего устройства, не aggregate KPI мероприятия. Production analytics должен считать реальные события серверно.</div>';
   }
   function openEvent(event){
     var mfw=event==='mfw';
@@ -140,6 +186,8 @@
   document.getElementById('accountBtn').onclick=openAccount;
   document.getElementById('investorBtn').onclick=function(){investorModal.classList.remove('hidden');};
   document.getElementById('valueBtn').onclick=function(){valueModal.classList.remove('hidden');};
+  document.getElementById('forYouBtn').onclick=function(){renderForYou();forYouModal.classList.remove('hidden');};
+  document.getElementById('forYouClose').onclick=function(){forYouModal.classList.add('hidden');};
   document.getElementById('valueClose').onclick=function(){valueModal.classList.add('hidden');};
   document.getElementById('investorClose').onclick=function(){investorModal.classList.add('hidden');};
   [].slice.call(document.querySelectorAll('[data-investor-step]')).forEach(function(b){b.onclick=function(){var step=b.dataset.investorStep;var narrative=document.getElementById('investorNarrative');if(step==='1'){openEvent('mfw');narrative.textContent='MFW сохранён без редизайна: показы, LIVE, Discover, pass, buyer и networking.';}if(step==='2'){openEvent('bfs');narrative.textContent='BFS открывается как самостоятельный бренд с business programme, speakers, exhibition и B2B.';}if(step==='3'){investorModal.classList.add('hidden');openAccount();}if(step==='4'){openEvent('bfs');narrative.textContent='В BFS показаны programme save, отдельная регистрация, QR credential и delegate meeting flow.';}if(step==='5'){narrative.textContent='Shared identity и event-scoped authorities позволяют подключать следующие события без унификации их бренда.';}};});
@@ -149,6 +197,7 @@
   registrationModal.addEventListener('click',function(e){if(e.target===registrationModal)closeRegistration();});
   investorModal.addEventListener('click',function(e){if(e.target===investorModal)investorModal.classList.add('hidden');});
   valueModal.addEventListener('click',function(e){if(e.target===valueModal)valueModal.classList.add('hidden');});
+  forYouModal.addEventListener('click',function(e){if(e.target===forYouModal)forYouModal.classList.add('hidden');});
   buttons.forEach(function(b){b.addEventListener('click',function(){openEvent(b.dataset.event);});});
   window.addEventListener('message',function(e){
     if(!e.data||typeof e.data!=='object')return;
