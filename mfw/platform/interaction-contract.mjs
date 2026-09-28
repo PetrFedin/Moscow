@@ -24,6 +24,7 @@ const bfsHtml=fs.readFileSync(path.join(root,'bfs/index.html'),'utf8');
  ['account action',html,'id="accountBtn"'],
  ['investor action',html,'id="investorBtn"'],
  ['value action',html,'id="valueBtn"'],
+ ['for you action',html,'id="forYouBtn"'],
  ['profile form',html,'id="profileForm"'],
  ['registration role explanation',html,'id="registrationRoleNote"'],
  ['event registration form',html,'id="registrationForm"'],
@@ -49,3 +50,7 @@ const mfwCss=fs.readFileSync(path.resolve('mfw/styles.css'),'utf8');
 ['favorite-brand','mfwFavoriteBrands','brand-loyalty','loyalty-follow-brand','Slava Zaitsev','Ianis Chamalidy','Анна Горбунова'].forEach(x=>{if(!mfw.includes(x))throw new Error('MFW loyalty/favorite contract missing: '+x)});
 ['z-index:9999','visibility:visible!important','100dvh'].forEach(x=>{if(!mfwCss.includes(x))throw new Error('MFW mobile nav hardening missing: '+x)});
 console.log('MFW navigation + loyalty contract: PASS');
+
+const eventData=fs.readFileSync(path.join(root,'event-data.js'),'utf8');
+['Slava Zaitsev','Ianis Chamalidy','bfs-3009-1100','Patrick Duffy'].forEach(x=>{if(!eventData.includes(x))throw new Error('Event graph seed missing: '+x)});
+console.log('cross-event graph contract: PASS');
