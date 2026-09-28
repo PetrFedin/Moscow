@@ -1,6 +1,7 @@
 import {
   validateDestinationPackage,
-  type DestinationPackage
+  type DestinationPackage,
+  type ExperienceNode
 } from './destinationPackage.ts';
 import type {
   LiveDestinationProjectionEntity
@@ -321,7 +322,7 @@ export function evaluateDestinationDayJourney(
   const routeNodes = route
     ? route.nodeIds
         .map((id) => nodesById.get(id))
-        .filter((node): node is NonNullable<typeof node> => Boolean(node))
+        .filter((node): node is ExperienceNode => Boolean(node))
     : [];
 
   if (route && routeNodes.length !== route.nodeIds.length) {
