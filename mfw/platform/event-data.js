@@ -23,6 +23,17 @@ window.MFP_DATA={
       {id:"mfw-lecture-2609-1630",date:"2026-09-26",time:"16:30",type:"Дискуссия",title:"Не только продажи: как сегодня измеряется успех молодого дизайнера?",venue:"Манеж · Лекторий",access:"Регистрация",moderator:"Анна Горбунова",participants:["Леонид Алексеев","Настя Бурьян","Ксения Кудряшова","Алексей Аксенов"]}
     ]
   },
+  campaigns:[
+    {id:"mfw-loyalty-brand",event:"MFW",type:"brand_reward",title:"Привилегия любимого бренда",eligibility:{continuousDays:30,requiresVerifiedFollow:true},reward:"Определяется брендом",status:"template"},
+    {id:"bfs-partner-reward",event:"BFS",type:"partner_reward",title:"Привилегия партнёра / проекта",eligibility:{continuousDays:30,requiresVerifiedFollow:true},reward:"Определяется партнёром",status:"template"}
+  ],
+  analyticsContract:{
+    acquisition:["registration_started","registration_submitted","registration_approved","credential_issued","check_in"],
+    engagement:["agenda_saved","live_opened","replay_opened","brand_opened","speaker_opened"],
+    relationship:["follow_started","favorite_added","follow_verified","reward_eligible","reward_claimed"],
+    commercial:["meeting_requested","meeting_accepted","meeting_held","lead_qualified","follow_up_completed"],
+    sponsor:["campaign_impression","campaign_click","campaign_opt_in","reward_redeemed"]
+  },
   bfs:{
     sessions:[
       {id:"bfs-2809-1100",date:"2026-09-28",time:"11:00",end:"12:15",hall:"Большой зал",title:"Искусственный интеллект в творческом процессе: инструмент или соавтор?",topic:"Креативные индустрии"},
