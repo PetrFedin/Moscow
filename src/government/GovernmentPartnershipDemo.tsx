@@ -9,6 +9,7 @@ import {
 
 import PhysicalPressable from '../ui/PhysicalPressable';
 import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
+import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
 import {
   getGovernmentPilotReadiness,
   governmentPilotOffer,
@@ -333,6 +334,8 @@ export default function GovernmentPartnershipDemo({ onClose }: { onClose: () => 
                 <PackageCount value={deliveryReadiness.missingArtifactCount} label="нет" />
               </View>
             </View>
+
+            <GovernmentPartnerDataRoomPanel />
 
             <SectionTitle
               kicker="СТАДИИ"
