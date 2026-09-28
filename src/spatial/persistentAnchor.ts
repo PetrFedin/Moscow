@@ -29,6 +29,8 @@ export const ROMANOV_PERSISTENT_ANCHOR_PACKAGE_VERSION = 1;
 export const ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_CM = 35;
 export const ROMANOV_ANCHOR_HOST_CONTINUITY_TARGET_DEG = 2;
 
+export type PersistentAnchorRecoveryTrigger = 'app-restart' | 'device-restart';
+
 export type RomanovPersistentAnchor = {
   id: string;
   placeId: 'romanov-chambers';
@@ -51,6 +53,10 @@ export type RomanovPersistentAnchor = {
   resolveSessionId?: string;
   verifiedAt?: string;
   verifiedByDeviceLabel?: string;
+  recoveryResolvedAt?: string;
+  recoveryByDeviceLabel?: string;
+  recoverySessionId?: string;
+  recoveryTrigger?: PersistentAnchorRecoveryTrigger;
   retiredAt?: string;
   notes?: string;
 };
@@ -124,6 +130,28 @@ export function isIndependentAnchorResolve(anchor: RomanovPersistentAnchor) {
   const hosted = normalizeDeviceLabel(anchor.hostedByDeviceLabel);
   const resolved = normalizeDeviceLabel(anchor.resolvedByDeviceLabel);
   return Boolean(hosted && resolved && hosted !== resolved && anchor.resolvedAt);
+}
+
+export function hasRestartRecoveryEvidence(anchor: RomanovPersistentAnchor) {
+  if (anchor.state !== 'verified') return false;
+  if (!hasText(anchor.recoveryResolvedAt)
+    || !hasText(anchor.recoveryByDeviceLabel)
+    || !hasText(anchor.recoverySessionId)
+    || (anchor.recoveryTrigger !== 'app-restart' && anchor.recoveryTrigger !== 'device-restart')) {
+    return false;
+  }
+  if (!hasText(anchor.resolveSessionId) || anchor.recoverySessionId === anchor.resolveSessionId) return false;
+  if (normalizeDeviceLabel(anchor.recoveryByDeviceLabel) !== normalizeDeviceLabel(anchor.verifiedByDeviceLabel)) {
+    return false;
+  }
+  if (normalizeDeviceLabel(anchor.recoveryByDeviceLabel) === normalizeDeviceLabel(anchor.hostedByDeviceLabel)) {
+    return false;
+  }
+  const verifiedAt = Date.parse(anchor.verifiedAt ?? '');
+  const recoveryAt = Date.parse(anchor.recoveryResolvedAt);
+  return Number.isFinite(verifiedAt)
+    && Number.isFinite(recoveryAt)
+    && recoveryAt >= verifiedAt;
 }
 
 export function isPersistentAnchorFrameAuthoritative(value: unknown): value is RomanovPersistentAnchor {
@@ -202,6 +230,12 @@ export function isPersistentAnchorEvidenceConsistent(anchor: RomanovPersistentAn
   } else if (anchor.state !== 'retired' && hasVerifiedEvidence) {
     return false;
   }
+
+  const hasRecoveryEvidence = anchor.recoveryResolvedAt !== undefined
+    || anchor.recoveryByDeviceLabel !== undefined
+    || anchor.recoverySessionId !== undefined
+    || anchor.recoveryTrigger !== undefined;
+  if (hasRecoveryEvidence && !hasRestartRecoveryEvidence(anchor)) return false;
 
   if (anchor.state === 'retired' && !hasText(anchor.retiredAt)) return false;
   return true;
@@ -357,6 +391,44 @@ export function markAnchorVerified(
     state: 'verified',
     verifiedAt: new Date().toISOString(),
     verifiedByDeviceLabel: input.verifiedByDeviceLabel.trim()
+  };
+}
+
+export function markAnchorRecoveryResolved(
+  anchor: RomanovPersistentAnchor,
+  input: {
+    recoveredByDeviceLabel: string;
+    recoverySessionId: string;
+    trigger: PersistentAnchorRecoveryTrigger;
+  }
+): RomanovPersistentAnchor {
+  if (anchor.state !== 'verified') {
+    throw new Error('restart recovery can be recorded only after independent anchor verification');
+  }
+  if (!input.recoveredByDeviceLabel.trim()) throw new Error('recoveredByDeviceLabel is required');
+  if (!input.recoverySessionId.trim()) throw new Error('recoverySessionId is required');
+  if (input.trigger !== 'app-restart' && input.trigger !== 'device-restart') {
+    throw new Error('unsupported restart recovery trigger');
+  }
+  if (normalizeDeviceLabel(input.recoveredByDeviceLabel) !== normalizeDeviceLabel(anchor.verifiedByDeviceLabel)) {
+    throw new Error('restart recovery must be captured on the independently verified resolving device');
+  }
+  if (normalizeDeviceLabel(input.recoveredByDeviceLabel) === normalizeDeviceLabel(anchor.hostedByDeviceLabel)) {
+    throw new Error('restart recovery cannot be self-verified by the hosting device');
+  }
+  if (!anchor.resolveSessionId?.trim()) {
+    throw new Error('restart recovery requires the original independent resolve session id');
+  }
+  if (input.recoverySessionId.trim() === anchor.resolveSessionId.trim()) {
+    throw new Error('restart recovery requires a new resolve session after restart');
+  }
+
+  return {
+    ...anchor,
+    recoveryResolvedAt: new Date().toISOString(),
+    recoveryByDeviceLabel: input.recoveredByDeviceLabel.trim(),
+    recoverySessionId: input.recoverySessionId.trim(),
+    recoveryTrigger: input.trigger
   };
 }
 
