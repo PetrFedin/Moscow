@@ -56,3 +56,10 @@ console.log('MFW navigation + loyalty contract: PASS');
 const eventData=fs.readFileSync(path.join(root,'event-data.js'),'utf8');
 ['Slava Zaitsev','Ianis Chamalidy','bfs-3009-1100','Patrick Duffy','analyticsContract','continuousDays'].forEach(x=>{if(!eventData.includes(x))throw new Error('Event graph seed missing: '+x)});
 console.log('cross-event graph contract: PASS');
+
+const rootHtml=fs.readFileSync(path.join(root,'..','index.html'),'utf8');
+const mfwDedicated=fs.readFileSync(path.join(root,'..','mfw','index.html'),'utf8');
+if(!rootHtml.includes('./platform/index.html'))throw new Error('Root does not open platform shell');
+if(!platformJs.includes("../mfw/index.html"))throw new Error('Platform does not route to dedicated MFW experience');
+if(!mfwDedicated.includes('../styles.css?v=15')||!mfwDedicated.includes('../app.js?v=15'))throw new Error('Dedicated MFW assets are not preserved');
+console.log('dedicated MFW route contract: PASS');
