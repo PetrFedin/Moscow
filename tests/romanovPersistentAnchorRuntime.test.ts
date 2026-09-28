@@ -8,8 +8,10 @@ import {
 } from '../src/spatial/persistentAnchorFrame.ts';
 import {
   createPersistentAnchorRecord,
+  hasRestartRecoveryEvidence,
   isIndependentAnchorResolve,
   markAnchorHostLocalized,
+  markAnchorRecoveryResolved,
   markAnchorResolved,
   markAnchorVerified,
   parsePersistentAnchorPackage,
@@ -251,4 +253,60 @@ test('persistent proof import rejects fabricated verified state without independ
     () => parsePersistentAnchorPackage(JSON.stringify(payload)),
     /not authoritative/
   );
+});
+
+
+test('restart recovery requires a new app-runtime resolve on the independently verified device', () => {
+  const hostPose = {
+    position: [0, 0, -3] as [number, number, number],
+    rotationEulerDeg: [0, 0, 0] as [number, number, number]
+  };
+  let anchor = createPersistentAnchorRecord({
+    provider: 'reactvision',
+    providerAnchorId: 'cloud-anchor-recovery',
+    calibration: verifiedCalibration,
+    hostSessionAnchorId: HOST_LOCAL_ANCHOR,
+    hostAnchorPose: hostPose,
+    anchorFrameModelTransform: modelWorldToAnchorFrame(verifiedCalibration, hostPose),
+    hostedByDeviceLabel: 'device-a'
+  });
+  anchor = markAnchorHostLocalized(anchor, {
+    continuityResidualCm: 5,
+    continuityRotationDeg: 0.5
+  });
+  anchor = markAnchorResolved(anchor, {
+    resolvedByDeviceLabel: 'device-b',
+    resolveSessionId: 'app-runtime-before-restart'
+  });
+  anchor = markAnchorVerified(anchor, { verifiedByDeviceLabel: 'device-b' });
+
+  assert.equal(hasRestartRecoveryEvidence(anchor), false);
+  assert.throws(
+    () => markAnchorRecoveryResolved(anchor, {
+      recoveredByDeviceLabel: 'device-b',
+      recoverySessionId: 'app-runtime-before-restart',
+      trigger: 'app-restart'
+    }),
+    /new resolve session/
+  );
+  assert.throws(
+    () => markAnchorRecoveryResolved(anchor, {
+      recoveredByDeviceLabel: 'device-c',
+      recoverySessionId: 'app-runtime-after-restart',
+      trigger: 'app-restart'
+    }),
+    /independently verified resolving device/
+  );
+
+  anchor = markAnchorRecoveryResolved(anchor, {
+    recoveredByDeviceLabel: 'device-b',
+    recoverySessionId: 'app-runtime-after-restart',
+    trigger: 'app-restart'
+  });
+  assert.equal(hasRestartRecoveryEvidence(anchor), true);
+  assert.equal(anchor.recoveryTrigger, 'app-restart');
+
+  const roundTrip = parsePersistentAnchorPackage(serializePersistentAnchorPackage(anchor));
+  assert.equal(hasRestartRecoveryEvidence(roundTrip), true);
+  assert.equal(roundTrip.recoverySessionId, 'app-runtime-after-restart');
 });
