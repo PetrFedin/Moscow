@@ -96,6 +96,12 @@ function measuredSession(
     deviceLabel,
     appBuild: 'field-build-1',
     surveyPacketId: surveyId,
+    fieldConditions: {
+      lighting: 'daylight',
+      trackingLossObserved: false,
+      interruptionObserved: false,
+      notes: 'Daylight field session; tracking stable; no interruption observed.'
+    },
     observations
   });
 }
@@ -144,6 +150,10 @@ test('cross-device matrix accepts different AR world origins and local calibrati
   assert.equal(matrix.iosCompleteDevices, 2);
   assert.equal(matrix.androidCompleteDevices, 2);
   assert.equal(matrix.crossPlatformReady, true);
+  assert.equal(matrix.releaseSessionCount, 12);
+  assert.equal(matrix.fieldConditionsComplete, true);
+  assert.equal(matrix.daylightEvidence, true);
+  assert.equal(matrix.eligibleForPersistentAnchor, true);
   assert.equal(matrix.surveyPacketId, survey.id);
 });
 
@@ -242,4 +252,57 @@ test('parsed bundle rejects geometry tampering even when calibration version is 
     () => parseFieldSessionBundle(JSON.stringify(parsed)),
     /calibration placement mismatch|integrity validation failed/
   );
+});
+
+
+test('field matrix stays fail-closed when release sessions omit condition evidence', () => {
+  const survey = approvedSurvey();
+  const devices = [
+    { label: 'ios-a', platform: 'ios', calibration: localCalibration(2, 'a', 0.3) },
+    { label: 'ios-b', platform: 'ios', calibration: localCalibration(7, 'b', 4.2) },
+    { label: 'android-a', platform: 'android', calibration: localCalibration(3, 'c', -2.1) },
+    { label: 'android-b', platform: 'android', calibration: localCalibration(9, 'd', 7.4) }
+  ];
+  const sessions = devices.flatMap((device) =>
+    ([5, 10, 15] as FieldDistanceMeters[]).map((distance) =>
+      measuredSession(survey.id, distance, device.label, device.platform, device.calibration)
+    )
+  );
+  sessions[0] = { ...sessions[0]!, fieldConditions: undefined };
+
+  const matrix = summarizeFieldMatrix(sessions, { surveyPacketId: survey.id });
+  assert.equal(matrix.crossPlatformReady, true);
+  assert.equal(matrix.fieldConditionsComplete, false);
+  assert.equal(matrix.daylightEvidence, true);
+  assert.equal(matrix.eligibleForPersistentAnchor, false);
+});
+
+test('field matrix requires daylight evidence even when all twelve sessions have notes', () => {
+  const survey = approvedSurvey();
+  const devices = [
+    { label: 'ios-a', platform: 'ios', calibration: localCalibration(2, 'a', 0.3) },
+    { label: 'ios-b', platform: 'ios', calibration: localCalibration(7, 'b', 4.2) },
+    { label: 'android-a', platform: 'android', calibration: localCalibration(3, 'c', -2.1) },
+    { label: 'android-b', platform: 'android', calibration: localCalibration(9, 'd', 7.4) }
+  ];
+  const sessions = devices.flatMap((device) =>
+    ([5, 10, 15] as FieldDistanceMeters[]).map((distance) => {
+      const value = measuredSession(survey.id, distance, device.label, device.platform, device.calibration);
+      return {
+        ...value,
+        fieldConditions: {
+          lighting: 'night' as const,
+          trackingLossObserved: false,
+          interruptionObserved: false,
+          notes: 'Night session; tracking stable; no interruption observed.'
+        }
+      };
+    })
+  );
+
+  const matrix = summarizeFieldMatrix(sessions, { surveyPacketId: survey.id });
+  assert.equal(matrix.crossPlatformReady, true);
+  assert.equal(matrix.fieldConditionsComplete, true);
+  assert.equal(matrix.daylightEvidence, false);
+  assert.equal(matrix.eligibleForPersistentAnchor, false);
 });
