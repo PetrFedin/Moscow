@@ -655,7 +655,7 @@ class Brand365Store{
       const now=Date.now();
       for(const [state,flow] of this.memory.socialAuthFlows.entries()){
         const expires=new Date(flow.expiresAt||0).getTime();
-        if(flow.status==='pending'&&expires<=now){
+        if(['pending','processing'].includes(flow.status)&&expires<=now){
           flow.status='expired';flow.codeVerifier='';flow.nonce=null;flow.completedAt=new Date().toISOString();expired++;
         }
         const doneAt=new Date(flow.completedAt||0).getTime();
@@ -667,7 +667,7 @@ class Brand365Store{
     }
     const expired=await this.pool.query(`UPDATE social_auth_flows SET
       status='expired',code_verifier='',nonce=NULL,completed_at=COALESCE(completed_at,now())
-      WHERE status='pending' AND expires_at<=now()
+      WHERE status IN ('pending','processing') AND expires_at<=now()
       RETURNING id`);
     const deleted=await this.pool.query(`DELETE FROM social_auth_flows
       WHERE status IN ('completed','failed','expired')
