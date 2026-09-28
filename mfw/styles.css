@@ -208,3 +208,30 @@ button{-webkit-tap-highlight-color:transparent}
 .brand-portal-tools{display:flex;flex-direction:column;gap:5px;align-items:flex-end}.brand-portal-tools>span{font-size:9px;color:var(--accent);font-weight:900}
 
 .social-connect-panel{border:1px solid #2b2b2b;background:#0f0f0f;border-radius:18px;padding:14px;margin:12px 0}.social-connect-panel>div:first-child b{display:block;font-size:12px}.social-connect-panel>div:first-child small{display:block;color:#777;font-size:9px;line-height:1.45;margin-top:4px}.social-connect-panel .action-row{margin-top:11px}.loyalty-actions{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+
+/* Mobile navigation hardening inside platform iframe */
+html,body{min-height:100%;min-height:100dvh}
+.app{min-height:100dvh;padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+.bottom-nav{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:0!important;
+  z-index:9999!important;
+  width:min(520px,100%)!important;
+  min-height:72px;
+  visibility:visible!important;
+  opacity:1!important;
+  transform:translateX(-50%) translateZ(0)!important;
+  padding:8px 4px calc(10px + env(safe-area-inset-bottom))!important;
+  background:rgba(7,7,7,.985)!important;
+  border-top:1px solid #383838!important;
+  box-shadow:0 -10px 30px rgba(0,0,0,.42);
+}
+.nav-btn{display:block!important;min-width:0!important;color:#aaa!important}
+.nav-btn.active{color:#fff!important}
+@media(max-width:680px){
+  .bottom-nav{width:100%!important}
+  .nav-btn{font-size:10px!important;padding:7px 1px!important}
+  .nav-btn b{font-size:17px!important}
+}
