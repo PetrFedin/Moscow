@@ -181,3 +181,16 @@ test('provider observation cannot be later than feed generation', () => {
   assert.equal(validation.valid, false);
   assert.ok(validation.blockers.includes('live-observed-after-feed-generation:event-1'));
 });
+
+
+test('duplicate provider entity identity is rejected even under different local IDs', () => {
+  const value = feed();
+  value.entities.push({
+    ...value.entities[0]!,
+    id: 'event-copy'
+  });
+
+  const validation = validateLiveDestinationFeed(value);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('duplicate-provider-entity:official-events:provider-event-42'));
+});
