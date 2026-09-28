@@ -326,6 +326,7 @@ export function buildPilotStudyReport(input: {
     missingObserverNoteCount: missingObserverSlots.length,
     completeForFirstReview:
       manifest.slots.length >= 20
+      && reports.length > 0
       && reports.length + missingReportSlots.length === manifest.slots.length
       && missingObserverSlots.length === 0
       && observers.length === manifest.slots.length,
