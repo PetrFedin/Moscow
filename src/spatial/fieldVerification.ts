@@ -13,6 +13,10 @@ import {
   isCurrentRomanovMetricBinding,
   type RomanovMetricBinding
 } from './romanovMetricAuthority.ts';
+import {
+  summarizeHeritageFieldMatrix,
+  type HeritageFieldMatrixPolicy
+} from './heritageFieldMatrix.ts';
 
 export type FieldDistanceMeters = 5 | 10 | 15;
 export type FieldPlatform = 'ios' | 'android' | string;
@@ -190,50 +194,32 @@ export type RomanovFieldMatrixOptions = {
   localCalibrationVersion?: number;
 };
 
-function completeDevicesForSurvey(
-  sessions: RomanovFieldSession[],
-  surveyPacketId: string
-): RomanovDeviceVerification[] {
-  const surveySessions = sessions.filter((session) => session.surveyPacketId === surveyPacketId);
-  const byDevice = new Map<string, RomanovFieldSession[]>();
-
-  for (const session of surveySessions) {
-    const key = normalizedDeviceKey(session);
-    const current = byDevice.get(key) ?? [];
-    current.push(session);
-    byDevice.set(key, current);
-  }
-
-  const complete: RomanovDeviceVerification[] = [];
-  for (const [deviceKey, deviceSessions] of byDevice) {
-    const first = deviceSessions[0];
-    if (!first) continue;
-
-    for (const candidate of deviceSessions) {
-      const placementSessions = deviceSessions.filter((session) =>
-        isSameCalibrationPlacement(session.calibration, candidate.calibration)
-        && session.passed
-        && isFieldSessionEvidenceAuthoritative(session)
-      );
-      const releaseSessions = ROMANOV_FIELD_DISTANCES.map((distance) =>
-        placementSessions.find((session) => session.viewingDistanceMeters === distance)
-      );
-      if (releaseSessions.some((session) => !session)) continue;
-
-      complete.push({
-        deviceKey,
-        deviceLabel: first.deviceLabel?.trim() || `${first.devicePlatform} ${first.deviceVersion}`,
-        platform: first.devicePlatform,
-        calibrationVersion: candidate.calibration.version,
-        sessionIds: releaseSessions.map((session) => session!.id),
-        distancesPassed: [...ROMANOV_FIELD_DISTANCES],
-        completeDistanceMatrix: true
-      });
-      break;
-    }
-  }
-  return complete;
-}
+const romanovFieldMatrixPolicy: HeritageFieldMatrixPolicy<RomanovFieldSession> = {
+  distances: [...ROMANOV_FIELD_DISTANCES],
+  requiredPlatforms: {
+    ios: ROMANOV_REQUIRED_IOS_DEVICES,
+    android: ROMANOV_REQUIRED_ANDROID_DEVICES
+  },
+  getSessionId: (session) => session.id,
+  getSurveyPacketId: (session) => session.surveyPacketId,
+  getDeviceKey: normalizedDeviceKey,
+  getDeviceLabel: (session) =>
+    session.deviceLabel?.trim() || `${session.devicePlatform} ${session.deviceVersion}`,
+  getPlatform: (session) => session.devicePlatform,
+  getDistance: (session) => session.viewingDistanceMeters,
+  getPlacementVersion: (session) => session.calibration.version,
+  isSamePlacement: (left, right) =>
+    isSameCalibrationPlacement(left.calibration, right.calibration),
+  isCurrentAuthority: (session) =>
+    isCurrentRomanovMetricBinding(session.metricBinding),
+  isEvidenceAuthoritative: isFieldSessionEvidenceAuthoritative,
+  isPassed: (session) => session.passed,
+  hasFieldConditions: (session) =>
+    isRomanovFieldConditionsRecorded(session.fieldConditions),
+  isDaylightEvidence: (session) =>
+    session.fieldConditions?.lighting === 'daylight'
+    || session.fieldConditions?.lighting === 'overcast-daylight'
+};
 
 export function hasCompleteMeasuredPlacement(input: {
   sessions: RomanovFieldSession[];
@@ -266,68 +252,39 @@ export function summarizeFieldMatrix(
     ? { localCalibrationVersion: options }
     : options;
 
-  const currentMetricSessions = sessions.filter((session) => isCurrentRomanovMetricBinding(session.metricBinding));
-  const staleMetricSessions = sessions.length - currentMetricSessions.length;
-  const surveySessions = normalized.surveyPacketId
-    ? currentMetricSessions.filter((session) => session.surveyPacketId === normalized.surveyPacketId)
-    : currentMetricSessions;
-  const calibrationSessions = normalized.localCalibrationVersion === undefined
-    ? surveySessions
-    : surveySessions.filter((session) => session.calibration.version === normalized.localCalibrationVersion);
-  const staleCalibrationSessions = normalized.localCalibrationVersion === undefined
-    ? 0
-    : surveySessions.length - calibrationSessions.length;
-  const evidenceSessions = calibrationSessions.filter(isFieldSessionEvidenceAuthoritative);
-  const unmeasuredSessions = calibrationSessions.length - evidenceSessions.length;
-  const passedSessions = evidenceSessions.filter((session) => session.passed);
-
-  const surveyIds = normalized.surveyPacketId
-    ? [normalized.surveyPacketId]
-    : [...new Set(passedSessions.map((session) => session.surveyPacketId).filter(Boolean))] as string[];
-
-  let selectedSurveyPacketId = normalized.surveyPacketId;
-  let completeDevices: RomanovDeviceVerification[] = [];
-  for (const surveyPacketId of surveyIds) {
-    const candidate = completeDevicesForSurvey(passedSessions, surveyPacketId);
-    if (!selectedSurveyPacketId || candidate.length > completeDevices.length) {
-      selectedSurveyPacketId = surveyPacketId;
-      completeDevices = candidate;
-    } else if (surveyPacketId === selectedSurveyPacketId) {
-      completeDevices = candidate;
+  const summary = summarizeHeritageFieldMatrix(
+    sessions,
+    romanovFieldMatrixPolicy,
+    {
+      surveyPacketId: normalized.surveyPacketId,
+      localPlacementVersion: normalized.localCalibrationVersion
     }
-  }
-
-  const iosCompleteDevices = completeDevices.filter((device) => device.platform === 'ios').length;
-  const androidCompleteDevices = completeDevices.filter((device) => device.platform === 'android').length;
-  const crossPlatformReady = iosCompleteDevices >= ROMANOV_REQUIRED_IOS_DEVICES
-    && androidCompleteDevices >= ROMANOV_REQUIRED_ANDROID_DEVICES;
-  const releaseSessionIds = [...new Set(completeDevices.flatMap((device) => device.sessionIds))];
-  const releaseSessionIdSet = new Set(releaseSessionIds);
-  const releaseSessions = passedSessions.filter((session) => releaseSessionIdSet.has(session.id));
-  const fieldConditionsComplete = releaseSessionIds.length >= 12
-    && releaseSessions.length === releaseSessionIds.length
-    && releaseSessions.every((session) => isRomanovFieldConditionsRecorded(session.fieldConditions));
-  const daylightEvidence = releaseSessions.some((session) =>
-    session.fieldConditions?.lighting === 'daylight'
-    || session.fieldConditions?.lighting === 'overcast-daylight'
   );
 
   return {
-    surveyPacketId: selectedSurveyPacketId,
-    sessions: sessions.length,
-    passedSessions: passedSessions.length,
-    currentMetricSessions: currentMetricSessions.length,
-    staleMetricSessions,
-    unmeasuredSessions,
-    staleCalibrationSessions,
-    completeDevices,
-    iosCompleteDevices,
-    androidCompleteDevices,
-    crossPlatformReady,
-    releaseSessionCount: releaseSessionIds.length,
-    fieldConditionsComplete,
-    daylightEvidence,
-    eligibleForPersistentAnchor: crossPlatformReady && fieldConditionsComplete && daylightEvidence
+    surveyPacketId: summary.surveyPacketId,
+    sessions: summary.sessions,
+    passedSessions: summary.passedSessions,
+    currentMetricSessions: summary.currentAuthoritySessions,
+    staleMetricSessions: summary.staleAuthoritySessions,
+    unmeasuredSessions: summary.unmeasuredSessions,
+    staleCalibrationSessions: summary.stalePlacementSessions,
+    completeDevices: summary.completeDevices.map((device) => ({
+      deviceKey: device.deviceKey,
+      deviceLabel: device.deviceLabel,
+      platform: device.platform,
+      calibrationVersion: device.placementVersion,
+      sessionIds: [...device.sessionIds],
+      distancesPassed: device.distancesPassed as FieldDistanceMeters[],
+      completeDistanceMatrix: device.completeDistanceMatrix
+    })),
+    iosCompleteDevices: summary.platformCompleteDevices.ios ?? 0,
+    androidCompleteDevices: summary.platformCompleteDevices.android ?? 0,
+    crossPlatformReady: summary.crossPlatformReady,
+    releaseSessionCount: summary.releaseSessionCount,
+    fieldConditionsComplete: summary.fieldConditionsComplete,
+    daylightEvidence: summary.daylightEvidence,
+    eligibleForPersistentAnchor: summary.eligibleForPersistentAnchor
   };
 }
 
