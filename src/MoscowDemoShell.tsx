@@ -3,6 +3,7 @@ import { useCameraPermissions } from 'expo-camera';
 import React, { useMemo, useState } from 'react';
 import { Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MoscowExperienceApp from './MoscowExperienceApp';
+import GovernmentPartnershipDemo from './government/GovernmentPartnershipDemo';
 import { places } from './data/places';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -19,6 +20,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 export default function MoscowDemoShell() {
   const [stage, setStage] = useState<DemoStage>(null);
+  const [governmentOpen, setGovernmentOpen] = useState(false);
   const [demoEra, setDemoEra] = useState<DemoEra>('1857');
   const [demoTrust, setDemoTrust] = useState<DemoTrust>('public');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -48,7 +50,23 @@ export default function MoscowDemoShell() {
       <MoscowExperienceApp />
 
       {demoEnabled && (
-        <PhysicalPressable
+        <>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel="Открыть сценарий городского пилота и сотрудничества"
+            style={styles.cityButton}
+            contentStyle={styles.demoButtonContent}
+            strong
+            onPress={() => setGovernmentOpen(true)}
+          >
+            <Text style={styles.cityMark}>M</Text>
+            <View>
+              <Text style={styles.cityKicker}>CITY</Text>
+              <Text style={styles.cityText}>PILOT</Text>
+            </View>
+          </PhysicalPressable>
+
+          <PhysicalPressable
           accessibilityRole="button"
           accessibilityLabel="Открыть демонстрационный сценарий Палат Романовых"
           style={styles.demoButton}
@@ -61,8 +79,13 @@ export default function MoscowDemoShell() {
             <Text style={styles.demoKicker}>WOW</Text>
             <Text style={styles.demoText}>DEMO</Text>
           </View>
-        </PhysicalPressable>
+          </PhysicalPressable>
+        </>
       )}
+
+      <Modal visible={governmentOpen} animationType="slide" onRequestClose={() => setGovernmentOpen(false)}>
+        <GovernmentPartnershipDemo onClose={() => setGovernmentOpen(false)} />
+      </Modal>
 
       <Modal visible={stage === 'lens'} animationType="fade" onRequestClose={() => setStage(null)}>
         <View style={styles.modalRoot}>
@@ -118,6 +141,36 @@ export default function MoscowDemoShell() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  cityButton: {
+    position: 'absolute',
+    right: 14,
+    bottom: 146,
+    minWidth: 104,
+    minHeight: 48,
+    borderRadius: 18,
+    backgroundColor: '#171b20',
+    borderWidth: 1,
+    borderColor: '#6f5d3d',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 7
+  },
+  cityMark: {
+    width: 25,
+    height: 25,
+    borderRadius: 13,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 25,
+    backgroundColor: '#d7bb84',
+    color: '#17130d',
+    fontSize: 11,
+    fontWeight: '900'
+  },
+  cityKicker: { color: '#8e7a58', fontSize: 7, letterSpacing: 1.1, fontWeight: '900' },
+  cityText: { color: '#eee5d6', fontSize: 11, fontWeight: '900', marginTop: 1 },
   demoButton: {
     position: 'absolute',
     right: 14,
