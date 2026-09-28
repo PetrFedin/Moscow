@@ -39,9 +39,13 @@ function validateInvestorBuild(){
   const socialProvidersPath=path.join(__dirname,'social-providers.js');
   const reverifyRunnerPath=path.join(__dirname,'reverify-social.js');
   const apiPackagePath=path.join(__dirname,'package.json');
+  const migration001Path=path.join(__dirname,'migrations','001_init.sql');
+  const migration005Path=path.join(__dirname,'migrations','005_streaming_pipeline.sql');
+  const migration006Path=path.join(__dirname,'migrations','006_role_workflows.sql');
   const migration009Path=path.join(__dirname,'migrations','009_brand365_persistence.sql');
   const migration010Path=path.join(__dirname,'migrations','010_social_auth_flows.sql');
   const migration011Path=path.join(__dirname,'migrations','011_social_auth_hardening.sql');
+  const migration012Path=path.join(__dirname,'migrations','012_schema_reconciliation.sql');
   const manifestPath=path.join(__dirname,'..','mfw','manifest.webmanifest');
   const frontend=fs.readFileSync(frontendPath,'utf8');
   const admin=fs.readFileSync(adminPath,'utf8');
@@ -53,9 +57,13 @@ function validateInvestorBuild(){
   const socialProvidersSource=fs.readFileSync(socialProvidersPath,'utf8');
   const reverifyRunnerSource=fs.readFileSync(reverifyRunnerPath,'utf8');
   const apiPackage=fs.readFileSync(apiPackagePath,'utf8');
+  const migration001=fs.readFileSync(migration001Path,'utf8');
+  const migration005=fs.readFileSync(migration005Path,'utf8');
+  const migration006=fs.readFileSync(migration006Path,'utf8');
   const migration009=fs.readFileSync(migration009Path,'utf8');
   const migration010=fs.readFileSync(migration010Path,'utf8');
   const migration011=fs.readFileSync(migration011Path,'utf8');
+  const migration012=fs.readFileSync(migration012Path,'utf8');
   new Function(frontend);
   new Function(admin);
   new Function(nativeBridge);
@@ -94,6 +102,18 @@ function validateInvestorBuild(){
   }
   for(const required of ['reverify:social','check:foundation']){
     if(apiPackage.indexOf(required)<0)throw new Error('missing_foundation_script:'+required);
+  }
+  for(const required of ["'waitlist'","'invite_only'"]){
+    if(migration001.indexOf(required)<0)throw new Error('missing_core_access_mode_contract:'+required);
+  }
+  const streamsBasePos=migration005.indexOf('CREATE TABLE IF NOT EXISTS streams (');
+  const streamSourcesPos=migration005.indexOf('CREATE TABLE IF NOT EXISTS stream_sources (');
+  if(streamsBasePos<0||streamSourcesPos<0||streamsBasePos>streamSourcesPos)throw new Error('invalid_stream_migration_dependency_order');
+  if(migration006.indexOf('ALTER TABLE event_registrations')<0||migration006.indexOf('ADD COLUMN IF NOT EXISTS source')<0){
+    throw new Error('missing_registration_source_reconciliation');
+  }
+  for(const required of ['events_access_mode_check','event_registrations_status_check','CREATE TABLE IF NOT EXISTS streams','invite_only','no_show']){
+    if(migration012.indexOf(required)<0)throw new Error('missing_schema_reconciliation_contract:'+required);
   }
   for(const required of ['app_installations','brand_access','social_reverification_runs']){
     if(migration009.indexOf(required)<0)throw new Error('missing_brand365_migration_contract:'+required);
