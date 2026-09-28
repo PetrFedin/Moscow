@@ -1,10 +1,14 @@
 import { ROMANOV_MODEL_PACK_VERSION } from './romanovModelCatalog.ts';
+import {
+  createMetricBinding,
+  isCurrentMetricBinding,
+  isMetricScaleAuthoritative,
+  validateHeritageMetricAuthority,
+  type HeritageMetricAuthority,
+  type HeritageMetricBinding
+} from './heritageMetricAuthority.ts';
 
-export type RomanovMetricBinding = {
-  metricAuthorityId: string;
-  metricAuthorityVersion: number;
-  modelPackVersion: string;
-};
+export type RomanovMetricBinding = HeritageMetricBinding;
 
 export const ROMANOV_METRIC_AUTHORITY = {
   id: 'romanov-metric-authority-v1',
@@ -17,21 +21,20 @@ export const ROMANOV_METRIC_AUTHORITY = {
   sourceManifestPath: 'assets/models/romanov-production-candidate-v1.manifest.json',
   scaleStatus: 'provisional-pending-survey' as const,
   verifiedScaleTolerance: 0.02
+} satisfies HeritageMetricAuthority & {
+  researchCoordinateOrder: readonly ['x', 'depth', 'height'];
+  viroCoordinateOrder: readonly ['x', 'height', 'depth'];
+  sourceManifestPath: string;
 };
 
-export const currentRomanovMetricBinding: RomanovMetricBinding = {
-  metricAuthorityId: ROMANOV_METRIC_AUTHORITY.id,
-  metricAuthorityVersion: ROMANOV_METRIC_AUTHORITY.version,
-  modelPackVersion: ROMANOV_METRIC_AUTHORITY.modelPackVersion
-};
+export const romanovMetricAuthorityValidation =
+  validateHeritageMetricAuthority(ROMANOV_METRIC_AUTHORITY);
+
+export const currentRomanovMetricBinding: RomanovMetricBinding =
+  createMetricBinding(ROMANOV_METRIC_AUTHORITY);
 
 export function isCurrentRomanovMetricBinding(value?: Partial<RomanovMetricBinding> | null) {
-  return Boolean(
-    value
-    && value.metricAuthorityId === currentRomanovMetricBinding.metricAuthorityId
-    && value.metricAuthorityVersion === currentRomanovMetricBinding.metricAuthorityVersion
-    && value.modelPackVersion === currentRomanovMetricBinding.modelPackVersion
-  );
+  return isCurrentMetricBinding(value, currentRomanovMetricBinding);
 }
 
 export function romanovResearchPointToViro(
@@ -42,6 +45,5 @@ export function romanovResearchPointToViro(
 
 
 export function isRomanovVerifiedScaleAuthoritative(scale: number) {
-  return Number.isFinite(scale)
-    && Math.abs(scale - ROMANOV_METRIC_AUTHORITY.metersPerModelUnit) <= ROMANOV_METRIC_AUTHORITY.verifiedScaleTolerance;
+  return isMetricScaleAuthoritative(scale, ROMANOV_METRIC_AUTHORITY);
 }
