@@ -10,7 +10,7 @@ try { ({ Pool } = require('pg')); } catch (_) {}
 
 const PORT = Number(process.env.PORT || 10000);
 const ORIGIN = process.env.MFW_ALLOWED_ORIGIN || 'https://moscow-fashion-week-preview.onrender.com';
-const VERSION = 'mfw-authority-v6';
+const VERSION = 'mfw-authority-v7';
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const KEY_SEED = process.env.MFW_ES256_SEED || 'mfw-demo-authority-seed-rotate-before-production';
 const ADMIN_TOKEN = process.env.MFW_ADMIN_TOKEN || 'mfw-demo-admin';
