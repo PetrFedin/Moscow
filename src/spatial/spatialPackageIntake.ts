@@ -40,8 +40,10 @@ export type SpatialPackageIntakeLayer = {
   trust: SpatialIntakeTrust;
   titleRu: string;
   titleEn: string;
+  titleZh: string;
   claimRu: string;
   claimEn: string;
+  claimZh: string;
   sourceIds: string[];
 };
 
@@ -61,6 +63,7 @@ export type SpatialPackageIntake = {
   placeId: string;
   titleRu: string;
   titleEn: string;
+  titleZh: string;
   version: number;
   authorityNamespace: string;
   status: 'asset-intake';
@@ -124,6 +127,7 @@ export function validateSpatialPackageIntake(
   if (!intake.placeId.trim()) blockers.push('place-id-missing');
   if (!intake.titleRu.trim()) blockers.push('title-ru-missing');
   if (!intake.titleEn.trim()) blockers.push('title-en-missing');
+  if (!intake.titleZh.trim()) blockers.push('title-zh-missing');
   if (!Number.isInteger(intake.version) || intake.version < 1) blockers.push('intake-version-invalid');
   if (!intake.authorityNamespace.trim()) blockers.push('authority-namespace-missing');
   if (intake.status !== 'asset-intake') blockers.push('unsupported-intake-status');
@@ -131,7 +135,8 @@ export function validateSpatialPackageIntake(
   if (intake.layers.length === 0) blockers.push('historical-layers-missing');
   if (intake.requirements.length === 0) blockers.push('requirements-missing');
   if (!intake.languages.includes('ru')) blockers.push('russian-localization-missing');
-  if (!intake.languages.includes('en')) warnings.push('english-localization-missing');
+  if (!intake.languages.includes('en')) blockers.push('english-localization-missing');
+  if (!intake.languages.includes('zh')) blockers.push('chinese-localization-missing');
 
   for (const duplicate of duplicateIds(intake.sources)) blockers.push(`duplicate-source-id:${duplicate}`);
   for (const duplicate of duplicateIds(intake.layers)) blockers.push(`duplicate-layer-id:${duplicate}`);
@@ -151,9 +156,10 @@ export function validateSpatialPackageIntake(
     if (!layer.periodId.trim()) blockers.push(`layer-period-id-missing:${layer.id}`);
     if (periodIds.has(layer.periodId)) blockers.push(`duplicate-layer-period-id:${layer.periodId}`);
     periodIds.add(layer.periodId);
-    if (!layer.titleRu.trim() || !layer.titleEn.trim()) blockers.push(`layer-title-missing:${layer.id}`);
+    if (!layer.titleRu.trim() || !layer.titleEn.trim() || !layer.titleZh.trim()) blockers.push(`layer-title-missing:${layer.id}`);
     if (!layer.claimRu.trim()) blockers.push(`layer-claim-ru-missing:${layer.id}`);
     if (!layer.claimEn.trim()) blockers.push(`layer-claim-en-missing:${layer.id}`);
+    if (!layer.claimZh.trim()) blockers.push(`layer-claim-zh-missing:${layer.id}`);
     if (!nonEmptyUnique(layer.sourceIds)) blockers.push(`layer-source-missing:${layer.id}`);
     for (const sourceId of layer.sourceIds) {
       if (!sourceIds.has(sourceId)) blockers.push(`layer-source-not-found:${layer.id}:${sourceId}`);
