@@ -22,7 +22,16 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Проблема, которую мы предлагаем решить', { exact: true })).toBeVisible();
   await expect(page.getByText(/Согласовать владельца задачи, площадку и формат доказательного пилота/)).toBeVisible();
 
-  for (let step = 0; step < 7; step += 1) {
+  for (let step = 0; step < 3; step += 1) {
+    await page.getByRole('button', { name: 'Следующий шаг маршрута' }).click();
+  }
+
+  await expect(page.getByText('Что нужно от Москвы', { exact: true })).toBeVisible();
+  await expect(page.getByText('Оператор пилота', { exact: true })).toBeVisible();
+  await expect(page.getByText('Владелец туристического journey', { exact: true })).toBeVisible();
+  await expect(page.getByText('Договор / бюджет / эксплуатация', { exact: true })).toBeVisible();
+
+  for (let step = 0; step < 4; step += 1) {
     await page.getByRole('button', { name: 'Следующий шаг маршрута' }).click();
   }
 
