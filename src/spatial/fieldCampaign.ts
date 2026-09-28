@@ -1,6 +1,7 @@
 import { isSameCalibrationPlacement } from './calibration.ts';
 import {
   isFieldSessionEvidenceAuthoritative,
+  isRomanovFieldConditionsRecorded,
   validateFieldSessionIntegrity,
   type RomanovFieldSession
 } from './fieldVerification.ts';
@@ -10,7 +11,7 @@ import {
 } from './romanovSurvey.ts';
 
 export const ROMANOV_FIELD_CAMPAIGN_VERSION = 1;
-export const ROMANOV_FIELD_SESSION_BUNDLE_VERSION = 1;
+export const ROMANOV_FIELD_SESSION_BUNDLE_VERSION = 2;
 
 export type RomanovFieldCampaignPackage = {
   kind: 'romanov-field-campaign';
@@ -56,6 +57,9 @@ export function parseFieldCampaignPackage(raw: string): RomanovFieldCampaignPack
 export function serializeFieldSessionBundle(sessions: RomanovFieldSession[]) {
   if (sessions.length === 0) throw new Error('no field sessions to export');
   if (!sessions.every(validateFieldSessionIntegrity)) throw new Error('field session integrity validation failed');
+  if (!sessions.every((session) => isRomanovFieldConditionsRecorded(session.fieldConditions))) {
+    throw new Error('field session condition evidence is incomplete');
+  }
 
   const surveyIds = new Set(sessions.map((item) => item.surveyPacketId));
   const calibrationVersions = new Set(sessions.map((item) => item.calibration.version));
@@ -85,6 +89,9 @@ export function parseFieldSessionBundle(raw: string): RomanovFieldSessionBundle 
   if (value.version !== ROMANOV_FIELD_SESSION_BUNDLE_VERSION) throw new Error('unsupported field session bundle version');
   if (!Array.isArray(value.sessions) || value.sessions.length === 0) throw new Error('field session bundle is empty');
   if (!value.sessions.every(validateFieldSessionIntegrity)) throw new Error('field session integrity validation failed');
+  if (!value.sessions.every((session) => isRomanovFieldConditionsRecorded(session.fieldConditions))) {
+    throw new Error('field session condition evidence is incomplete');
+  }
   if (!value.surveyPacketId || value.sessions.some((item) => item.surveyPacketId !== value.surveyPacketId)) {
     throw new Error('field session survey authority mismatch');
   }

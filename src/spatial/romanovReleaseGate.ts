@@ -14,6 +14,7 @@ import {
   type RomanovFieldSession
 } from './fieldVerification.ts';
 import {
+  hasRestartRecoveryEvidence,
   isIndependentAnchorResolve,
   isPersistentAnchorEvidenceConsistent,
   isPersistentAnchorFrameAuthoritative,
@@ -30,6 +31,8 @@ export type RomanovReleaseGate = {
   state: RomanovSpatialReleaseState;
   surveyComplete: boolean;
   fieldMatrixComplete: boolean;
+  fieldConditionsComplete: boolean;
+  daylightEvidence: boolean;
   calibrationVerified: boolean;
   calibrationPlacementMeasured: boolean;
   metricAuthorityCurrent: boolean;
@@ -37,6 +40,7 @@ export type RomanovReleaseGate = {
   persistentAnchorFrameVerified: boolean;
   persistentAnchorVerified: boolean;
   independentAnchorResolveVerified: boolean;
+  restartRecoveryVerified: boolean;
   blockers: string[];
 };
 
@@ -100,7 +104,10 @@ export function summarizeRomanovReleaseGate(input: {
   anchors: RomanovPersistentAnchor[];
 }): RomanovReleaseGate {
   const surveyComplete = summarizeRomanovSurvey(input.survey).complete;
-  const fieldMatrixComplete = summarizeFieldMatrix(input.sessions, { surveyPacketId: input.survey.id }).crossPlatformReady;
+  const fieldMatrix = summarizeFieldMatrix(input.sessions, { surveyPacketId: input.survey.id });
+  const fieldMatrixComplete = fieldMatrix.crossPlatformReady;
+  const fieldConditionsComplete = fieldMatrix.fieldConditionsComplete;
+  const daylightEvidence = fieldMatrix.daylightEvidence;
   const calibrationPlacementMeasured = hasCompleteMeasuredPlacement({
     sessions: input.sessions,
     surveyPacketId: input.survey.id,
@@ -129,10 +136,17 @@ export function summarizeRomanovReleaseGate(input: {
     && Boolean(anchor.verifiedAt)
     && isIndependentAnchorResolve(anchor)
   );
+  const restartRecoveryVerified = anchorsForCurrentCalibration.some((anchor) =>
+    anchor.state === 'verified'
+    && isIndependentAnchorResolve(anchor)
+    && hasRestartRecoveryEvidence(anchor)
+  );
 
   const blockers: string[] = [];
   if (!surveyComplete) blockers.push('survey-packet-incomplete');
   if (!fieldMatrixComplete) blockers.push('cross-device-field-matrix-incomplete');
+  if (!fieldConditionsComplete) blockers.push('field-conditions-incomplete');
+  if (!daylightEvidence) blockers.push('daylight-evidence-missing');
   if (!calibrationPlacementMeasured) blockers.push('calibration-placement-not-measured');
   if (!calibrationVerified) blockers.push('calibration-not-verified');
   if (!metricAuthorityCurrent) blockers.push('metric-authority-stale');
@@ -140,11 +154,14 @@ export function summarizeRomanovReleaseGate(input: {
   if (!persistentAnchorFrameVerified) blockers.push('persistent-anchor-frame-not-verified');
   if (!persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
   if (!independentAnchorResolveVerified) blockers.push('independent-anchor-resolve-not-verified');
+  if (!restartRecoveryVerified) blockers.push('restart-recovery-resolve-not-verified');
 
   return {
     state: blockers.length === 0 ? 'field-verified-spatial-scene' : 'production-candidate',
     surveyComplete,
     fieldMatrixComplete,
+    fieldConditionsComplete,
+    daylightEvidence,
     calibrationVerified,
     calibrationPlacementMeasured,
     metricAuthorityCurrent,
@@ -152,6 +169,7 @@ export function summarizeRomanovReleaseGate(input: {
     persistentAnchorFrameVerified,
     persistentAnchorVerified,
     independentAnchorResolveVerified,
+    restartRecoveryVerified,
     blockers
   };
 }

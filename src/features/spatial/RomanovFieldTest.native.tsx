@@ -26,6 +26,7 @@ import {
   summarizeFieldMatrix,
   summarizeResiduals,
   type FieldDistanceMeters,
+  type RomanovFieldLighting,
   type RomanovFieldSession
 } from '../../spatial/fieldVerification';
 import type { RomanovEra } from '../../spatial/romanov-hotspots';
@@ -62,6 +63,10 @@ export default function RomanovFieldTest({
   const [distance, setDistance] = useState<FieldDistanceMeters>(5);
   const [measurements, setMeasurements] = useState<Record<FieldDistanceMeters, ResidualMap>>(() => emptyDistanceMap());
   const [deviceLabel, setDeviceLabel] = useState('');
+  const [lighting, setLighting] = useState<RomanovFieldLighting>('daylight');
+  const [trackingLossObserved, setTrackingLossObserved] = useState(false);
+  const [interruptionObserved, setInterruptionObserved] = useState(false);
+  const [fieldNotes, setFieldNotes] = useState('');
   const [sessions, setSessions] = useState<RomanovFieldSession[]>([]);
   const [activeSurveyPacketId, setActiveSurveyPacketId] = useState<string | undefined>();
   const [savedSession, setSavedSession] = useState<RomanovFieldSession | null>(null);
@@ -143,6 +148,10 @@ export default function RomanovFieldTest({
       setSaveError('Нужны пять release-grade AR измерений текущей дистанции из одного утверждённого survey packet.');
       return;
     }
+    if (!fieldNotes.trim()) {
+      setSaveError('Добавьте заметку об условиях: свет, tracking, помехи, прерывания или их отсутствие.');
+      return;
+    }
 
     const session = createFieldSession({
       era,
@@ -153,6 +162,12 @@ export default function RomanovFieldTest({
       deviceLabel: deviceLabel.trim(),
       appBuild: process.env.EXPO_PUBLIC_BUILD_ID ?? 'local',
       surveyPacketId,
+      fieldConditions: {
+        lighting,
+        trackingLossObserved,
+        interruptionObserved,
+        notes: fieldNotes.trim()
+      },
       observations
     });
 
@@ -230,6 +245,47 @@ export default function RomanovFieldTest({
           placeholderTextColor="#6f747d"
           style={styles.deviceInput}
           autoCapitalize="sentences"
+        />
+
+        <Text style={styles.fieldLabel}>УСЛОВИЯ СЕССИИ · ОБЯЗАТЕЛЬНО ДЛЯ RELEASE</Text>
+        <View style={styles.conditionRow}>
+          {([
+            ['daylight', 'DAYLIGHT'],
+            ['overcast-daylight', 'OVERCAST'],
+            ['dusk', 'DUSK'],
+            ['night', 'NIGHT'],
+            ['artificial', 'ARTIFICIAL']
+          ] as [RomanovFieldLighting, string][]).map(([value, label]) => (
+            <Pressable
+              key={value}
+              style={[styles.conditionChip, lighting === value && styles.conditionChipActive]}
+              onPress={() => { setLighting(value); setSaveError(null); }}
+            >
+              <Text style={[styles.conditionChipText, lighting === value && styles.conditionChipTextActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.conditionToggleRow}>
+          <Pressable
+            style={[styles.conditionToggle, trackingLossObserved && styles.conditionToggleActive]}
+            onPress={() => setTrackingLossObserved((current) => !current)}
+          >
+            <Text style={styles.conditionToggleText}>Tracking loss · {trackingLossObserved ? 'ДА' : 'НЕТ'}</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.conditionToggle, interruptionObserved && styles.conditionToggleActive]}
+            onPress={() => setInterruptionObserved((current) => !current)}
+          >
+            <Text style={styles.conditionToggleText}>Прерывание · {interruptionObserved ? 'ДА' : 'НЕТ'}</Text>
+          </Pressable>
+        </View>
+        <TextInput
+          value={fieldNotes}
+          onChangeText={(value) => { setFieldNotes(value); setSaveError(null); }}
+          multiline
+          placeholder="Например: дневной свет; tracking стабилен; прохожие частично перекрывали фасад; прерываний не было."
+          placeholderTextColor="#6f747d"
+          style={[styles.deviceInput, styles.conditionsInput]}
         />
 
         <View style={styles.distanceRow}>
@@ -318,6 +374,16 @@ const styles = StyleSheet.create({
   body: { color: '#aeb1b8', fontSize: 11, lineHeight: 16, marginTop: 10 },
   fieldLabel: { color: '#7f848d', fontSize: 8, letterSpacing: 1.3, fontWeight: '900', marginTop: 14, marginBottom: 6 },
   deviceInput: { minHeight: 44, borderRadius: 13, borderWidth: 1, borderColor: '#42474f', backgroundColor: '#191d22', paddingHorizontal: 12, color: '#fff4df', fontSize: 12, fontWeight: '800' },
+  conditionsInput: { minHeight: 66, paddingTop: 10, textAlignVertical: 'top', fontSize: 10, fontWeight: '600' },
+  conditionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  conditionChip: { minHeight: 32, borderRadius: 10, borderWidth: 1, borderColor: '#41474f', paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center' },
+  conditionChipActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
+  conditionChipText: { color: '#9ea3aa', fontSize: 7.5, fontWeight: '900' },
+  conditionChipTextActive: { color: '#17130d' },
+  conditionToggleRow: { flexDirection: 'row', gap: 7, marginTop: 7, marginBottom: 7 },
+  conditionToggle: { flex: 1, minHeight: 36, borderRadius: 11, borderWidth: 1, borderColor: '#41474f', alignItems: 'center', justifyContent: 'center' },
+  conditionToggleActive: { borderColor: '#b88176', backgroundColor: '#2c1b18' },
+  conditionToggleText: { color: '#d1c8b9', fontSize: 8.5, fontWeight: '900' },
   distanceRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   distance: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#454950', alignItems: 'center', justifyContent: 'center' },
   distanceActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },

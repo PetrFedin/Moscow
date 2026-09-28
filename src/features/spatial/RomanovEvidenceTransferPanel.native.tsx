@@ -143,7 +143,7 @@ export default function RomanovEvidenceTransferPanel({
         </View>
 
         <Text style={styles.body}>
-          Один authority-device создаёт approved survey campaign. Каждый телефон импортирует один и тот же survey, но строит собственную calibration в своей AR-сессии, снимает 5/10/15 м и возвращает versioned session bundle. JSON остаётся аудируемым, но не является криптографическим hardware-attestation.
+          Один authority-device создаёт approved survey campaign. Каждый телефон импортирует один и тот же survey, строит собственную calibration, снимает 5/10/15 м и возвращает versioned session bundle с обязательным condition log. JSON остаётся аудируемым, но не является криптографическим hardware-attestation.
         </Text>
 
         <View style={styles.summaryRow}>
@@ -191,7 +191,8 @@ export default function RomanovEvidenceTransferPanel({
           <View style={styles.matrixCard}>
             <Text style={styles.matrixTitle}>{matrix.crossPlatformReady ? 'CROSS-DEVICE MATRIX · PASS' : 'CROSS-DEVICE MATRIX · INCOMPLETE'}</Text>
             <Text style={styles.matrixText}>iOS complete: {matrix.iosCompleteDevices}/2 · Android complete: {matrix.androidCompleteDevices}/2</Text>
-            <Text style={styles.matrixText}>Measured sessions: {matrix.currentMetricSessions} · passed: {matrix.passedSessions} · stale calibration: {matrix.staleCalibrationSessions}</Text>
+            <Text style={styles.matrixText}>Release sessions: {matrix.releaseSessionCount}/12 · measured: {matrix.currentMetricSessions} · passed: {matrix.passedSessions}</Text>
+            <Text style={styles.matrixText}>Condition log: {matrix.fieldConditionsComplete ? 'PASS' : 'BLOCKED'} · daylight: {matrix.daylightEvidence ? 'PASS' : 'MISSING'} · stale calibration: {matrix.staleCalibrationSessions}</Text>
           </View>
         </ScrollView>
 

@@ -213,7 +213,9 @@ export default function RomanovPersistentAnchorPanel({
         title: 'Romanov persistent anchor proof',
         message: payload
       });
-      setStatus('Proof package подготовлен. На втором устройстве импортируйте весь JSON.');
+      setStatus(activeAnchor.recoveryResolvedAt
+        ? 'Final proof package содержит independent resolve и restart/recovery evidence. Передайте его на authority-device.'
+        : 'Proof package подготовлен. На втором устройстве импортируйте весь JSON; после independent resolve полностью перезапустите приложение для recovery proof.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Не удалось экспортировать anchor proof.');
     }
@@ -327,6 +329,20 @@ export default function RomanovPersistentAnchorPanel({
                   : activeAnchor?.resolvedByDeviceLabel
                     ? `resolved: ${activeAnchor.resolvedByDeviceLabel}`
                     : 'Импортируйте proof на другом физическом устройстве'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.step}>
+            <Text style={styles.stepIndex}>05</Text>
+            <View style={styles.stepCopy}>
+              <Text style={styles.stepTitle}>Restart / recovery resolve</Text>
+              <Text style={styles.stepMeta}>
+                {activeAnchor?.recoveryResolvedAt
+                  ? `PASS · ${activeAnchor.recoveryTrigger} · ${activeAnchor.recoveryByDeviceLabel}`
+                  : activeAnchor?.state === 'verified'
+                    ? 'На independently verified устройстве полностью перезапустите приложение. Новый app runtime должен resolve тот же persistent anchor.'
+                    : 'Сначала завершите independent resolve.'}
               </Text>
             </View>
           </View>

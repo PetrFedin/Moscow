@@ -37,6 +37,7 @@ import {
   isIndependentAnchorResolve,
   isPersistentAnchorFrameAuthoritative,
   markAnchorHostLocalized,
+  markAnchorRecoveryResolved,
   markAnchorResolved,
   markAnchorVerified,
   type PersistentAnchorProvider,
@@ -73,6 +74,7 @@ const ACTIVE_ANCHOR_KEY = 'moscow:p0:romanov-active-persistent-anchor:v1';
 const DEVICE_LABEL_KEY = 'moscow:p0:romanov-device-label:v1';
 const ERA_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_KEY = 'moscow:p0:romanov-trust-mode:v1';
+const SPATIAL_APP_RUNTIME_SESSION_ID = `spatial-runtime-${Date.now().toString(36)}`;
 
 const HIT_PRIORITY: ViroARHitTestResult['type'][] = [
   'DepthPoint',
@@ -784,16 +786,34 @@ export default function MoscowSpatialJourney({
             : `Host anchor-frame continuity FAIL · ${continuityResidualCm.toFixed(1)} см · ${continuityRotationDeg.toFixed(2)}°. Persistent placement требует исправления.`
         );
       } else {
-        next = markAnchorResolved(anchor, {
-          resolvedByDeviceLabel: deviceLabel,
-          resolveSessionId: `resolve-${new Date().toISOString()}`
-        });
-        if (next.hostContinuityPassed && isIndependentAnchorResolve(next)) {
-          next = markAnchorVerified(next, { verifiedByDeviceLabel: deviceLabel });
-          setStatusMessage(`Independent persistent-anchor resolve VERIFIED · ${deviceLabel}. Экспортируйте proof обратно на field-authority устройство.`);
+        if (anchor.state === 'verified') {
+          if (anchor.resolveSessionId === SPATIAL_APP_RUNTIME_SESSION_ID) {
+            setStatusMessage('Independent resolve уже зафиксирован в этом app runtime. Полностью перезапустите приложение на resolving device и дождитесь повторной localization для recovery proof.');
+            return;
+          }
+          if (anchor.recoverySessionId === SPATIAL_APP_RUNTIME_SESSION_ID) {
+            setStatusMessage(`Restart recovery уже зафиксирован в этом app runtime · ${deviceLabel}.`);
+            return;
+          }
+          next = markAnchorRecoveryResolved(anchor, {
+            recoveredByDeviceLabel: deviceLabel,
+            recoverySessionId: SPATIAL_APP_RUNTIME_SESSION_ID,
+            trigger: 'app-restart'
+          });
+          setStatusMessage(`Restart/recovery resolve VERIFIED · ${deviceLabel}. Экспортируйте обновлённый proof обратно на authority-device.`);
           void haptic('anchor-verified');
         } else {
-          setStatusMessage(`Persistent anchor resolved on ${deviceLabel}, но verification prerequisites ещё не выполнены.`);
+          next = markAnchorResolved(anchor, {
+            resolvedByDeviceLabel: deviceLabel,
+            resolveSessionId: SPATIAL_APP_RUNTIME_SESSION_ID
+          });
+          if (next.hostContinuityPassed && isIndependentAnchorResolve(next)) {
+            next = markAnchorVerified(next, { verifiedByDeviceLabel: deviceLabel });
+            setStatusMessage(`Independent persistent-anchor resolve VERIFIED · ${deviceLabel}. Теперь полностью перезапустите приложение на этом же устройстве для recovery proof.`);
+            void haptic('anchor-verified');
+          } else {
+            setStatusMessage(`Persistent anchor resolved on ${deviceLabel}, но verification prerequisites ещё не выполнены.`);
+          }
         }
       }
 

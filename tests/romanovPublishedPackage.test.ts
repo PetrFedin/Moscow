@@ -14,6 +14,7 @@ import {
 import {
   createPersistentAnchorRecord,
   markAnchorHostLocalized,
+  markAnchorRecoveryResolved,
   markAnchorResolved,
   markAnchorVerified
 } from '../src/spatial/persistentAnchor.ts';
@@ -102,6 +103,12 @@ function measuredSession(
     deviceLabel,
     appBuild: 'package-proof-test',
     surveyPacketId,
+    fieldConditions: {
+      lighting: 'daylight',
+      trackingLossObserved: false,
+      interruptionObserved: false,
+      notes: 'Daylight package proof session; tracking stable; no interruption observed.'
+    },
     observations
   });
 }
@@ -187,6 +194,11 @@ function completeReleaseEvidence() {
   anchor = markAnchorVerified(anchor, {
     verifiedByDeviceLabel: 'android-independent'
   });
+  anchor = markAnchorRecoveryResolved(anchor, {
+    recoveredByDeviceLabel: 'android-independent',
+    recoverySessionId: 'published-package-recovery-runtime',
+    trigger: 'app-restart'
+  });
 
   return { survey, sessions, calibration, anchors: [anchor] };
 }
@@ -224,6 +236,8 @@ test('Romanov promotion builder derives field-verified only from the complete re
   assert.equal(pkg.fieldVerification.releaseGateState, 'field-verified-spatial-scene');
   assert.equal(pkg.fieldVerification.surveyVerified, true);
   assert.equal(pkg.fieldVerification.multiDeviceMatrixPassed, true);
+  assert.equal(pkg.fieldVerification.fieldConditionsComplete, true);
+  assert.equal(pkg.fieldVerification.daylightEvidence, true);
   assert.equal(pkg.fieldVerification.fieldSessionIds?.length, 12);
   assert.equal(pkg.fieldVerification.calibrationVersion, evidence.calibration.version);
   assert.deepEqual(pkg.fieldVerification.calibrationMetricBinding, {
@@ -232,6 +246,8 @@ test('Romanov promotion builder derives field-verified only from the complete re
     modelPackVersion: pkg.authority.metric.modelPackVersion
   });
   assert.equal(pkg.fieldVerification.persistentAnchorVerified, true);
+  assert.equal(pkg.fieldVerification.restartRecoveryVerified, true);
+  assert.deepEqual(pkg.fieldVerification.restartRecoverySessionIds, ['published-package-recovery-runtime']);
   assert.deepEqual(pkg.fieldVerification.persistentAnchorProofIds, [evidence.anchors[0]!.id]);
   assert.deepEqual(pkg.fieldVerification.releaseBlockers, []);
   assert.ok(pkg.fieldVerification.verifiedAt);
