@@ -119,3 +119,22 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await page.getByRole('button', { name: 'Закрыть сценарий для города' }).click();
   await expect(page.getByText('MOSCOW · CITY PILOT')).toHaveCount(0);
 });
+
+
+test('guided government meeting deep link opens directly without tourist navigation', async ({ page }) => {
+  await page.goto('/?cityPilot=guided');
+
+  await expect(page.getByText('GOVERNMENT / INVESTOR ROUTE', { exact: true })).toBeVisible();
+  await expect(page.getByText('Проблема, которую мы предлагаем решить', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Следующий шаг маршрута' })).toBeVisible();
+});
+
+test('government package deep link opens Partner Investor Data Room directly', async ({ page }) => {
+  await page.goto('/?cityPilot=package');
+
+  await expect(page.getByText('MOSCOW · CITY PILOT', { exact: true })).toBeVisible();
+  await expect(page.getByText('PARTNER / INVESTOR DATA ROOM', { exact: true })).toBeVisible();
+  await expect(page.getByText('Москва · первая официальная встреча', { exact: true })).toBeVisible();
+  await expect(page.getByText('Москва · technical / procurement working session', { exact: true })).toBeVisible();
+  await expect(page.getByText('Инвестор · scale decision room', { exact: true })).toBeVisible();
+});
