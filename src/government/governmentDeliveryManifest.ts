@@ -72,6 +72,8 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
       status: 'ready',
       refs: [
         'src/government/GovernmentPartnershipDemo.tsx',
+        'src/government/governmentMeetingEntry.ts',
+        'docs/GOVERNMENT_MEETING_LINKS.md',
         'tests/governmentDemo.e2e.spec.ts'
       ],
       note: 'Demo is separated from the consumer WOW flow and keeps external proof gaps visible.'
