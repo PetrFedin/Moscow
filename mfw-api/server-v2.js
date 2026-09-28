@@ -890,6 +890,75 @@ async function runDeepSelfTest(){
   };
 }
 
+async function runSocialReverification(triggerSource='manual'){
+  const run=await brand365Store.beginReverificationRun(triggerSource);
+  const candidates=await brand365Store.activeMembershipCandidates(REVERIFY_BATCH_SIZE);
+  const result={triggerSource,checked:0,active:0,inactive:0,skipped:0,revokedClaims:0,errors:[],skippedReasons:{},startedAt:new Date().toISOString()};
+  try{
+    for(const candidate of candidates){
+      const membership=candidate.membership,channel=candidate.channel;
+      if(!channel){
+        result.skipped++;
+        result.skippedReasons.channel_missing=(result.skippedReasons.channel_missing||0)+1;
+        continue;
+      }
+      try{
+        const verification=await verifyProviderMembership(membership.userId,channel);
+        if(!verification.ok){
+          result.skipped++;
+          const reason=String(verification.error||'verification_unavailable');
+          result.skippedReasons[reason]=(result.skippedReasons[reason]||0)+1;
+          if(!['provider_not_configured','social_connection_required','verification_not_supported'].includes(reason)){
+            result.errors.push({userId:membership.userId,channelId:channel.id,error:reason});
+          }
+          continue;
+        }
+        result.checked++;
+        const updated=await applyMembershipObservation(membership.userId,channel,verification,null);
+        if(updated.status==='active')result.active++;
+        else{
+          result.inactive++;
+          if(pool)result.revokedClaims+=await brand365Store.revokeIssuedClaimsIfIneligible(membership.userId);
+          else{
+            for(const claim of memory.loyaltyClaims.values()){
+              if(claim.userId!==membership.userId||claim.status!=='issued')continue;
+              const offer=memory.loyaltyOffers.find(o=>o.id===claim.offerId);
+              if(offer&&!evaluateLoyaltyOffer(claim.userId,offer).eligible){
+                claim.status='revoked';result.revokedClaims++;
+                await track('loyalty_claim_revoked',{claimId:claim.id,offerId:offer.id,reason:'social_reverification_failed'},claim.userId);
+              }
+            }
+          }
+        }
+      }catch(err){
+        result.errors.push({userId:membership.userId,channelId:channel&&channel.id||null,error:String(err&&err.message||err)});
+      }
+    }
+    result.completedAt=new Date().toISOString();
+    await brand365Store.finishReverificationRun(run,result);
+    await track('social_reverification_batch',{...result,errors:result.errors.slice(0,20)});
+    return result;
+  }catch(err){
+    result.errors.push({error:String(err&&err.message||err)});
+    result.completedAt=new Date().toISOString();
+    await brand365Store.finishReverificationRun(run,result).catch(()=>{});
+    throw err;
+  }
+}
+
+let reverifyTimer=null;
+function startReverificationScheduler(){
+  if(reverifyTimer||!pool)return {active:false,reason:pool?'already_started':'postgres_required'};
+  const ms=REVERIFY_INTERVAL_MINUTES*60000;
+  reverifyTimer=setInterval(()=>{
+    runSocialReverification('interval')
+      .then(result=>console.log(JSON.stringify({event:'mfw_social_reverification',status:'completed',checked:result.checked,inactive:result.inactive,skipped:result.skipped,errors:result.errors.length})))
+      .catch(err=>console.error(JSON.stringify({event:'mfw_social_reverification',status:'failed',error:String(err&&err.message||err)})));
+  },ms);
+  if(reverifyTimer.unref)reverifyTimer.unref();
+  return {active:true,intervalMinutes:REVERIFY_INTERVAL_MINUTES,batchSize:REVERIFY_BATCH_SIZE};
+}
+
 function overview(){
   const analytics=memory.analytics;
   const count=n=>analytics.filter(x=>x.name===n).length;
@@ -941,7 +1010,13 @@ async function router(req,res){
   }});
   if(req.method==='GET'&&p==='/health') return json(res,200,{
     status:'ok',service:'mfw-api',version:VERSION,dataMode:pool?'postgres':'memory',
-    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,loyalty365Authority:true,localeAuthority:true,sponsorAuthority:true
+    es256:true,qr:true,offlineVerification:true,duplicateCheckin:true,revocation:true,streamAuthority:true,streamingBoundary:true,commerceAuthority:true,networkingAuthority:true,loyalty365Authority:true,localeAuthority:true,sponsorAuthority:true,
+    brand365Persistence:{configured:!!pool,mode:pool?'postgres':'memory_demo',migration:'009_brand365_persistence.sql'},
+    socialProviders:{
+      telegram:{configured:!!TELEGRAM_BOT_TOKEN,webhookSecretConfigured:!!TELEGRAM_WEBHOOK_SECRET},
+      vk:{configured:!!VK_SERVICE_TOKEN,apiVersion:VK_API_VERSION}
+    },
+    reverification:{active:!!(pool&&reverifyTimer),intervalMinutes:REVERIFY_INTERVAL_MINUTES,batchSize:REVERIFY_BATCH_SIZE,requiresPostgres:!pool}
   });
   if(req.method==='GET'&&p==='/health/deep'){
     const result=await runDeepSelfTest();
@@ -987,7 +1062,8 @@ async function router(req,res){
   }
   if(req.method==='GET'&&p==='/v1/brands'){
     if(pool){
-      const r=await pool.query('SELECT id,slug,name,city,country,description,status,metadata FROM brands WHERE status=$1 ORDER BY name',['published']);
+      const r=await pool.query(`SELECT COALESCE(external_key,slug,id::text) AS id,slug,name,city,country,description,status,metadata
+        FROM brands WHERE status=$1 ORDER BY name`,['published']);
       return json(res,200,{data:r.rows,demo:true,source:'postgres'});
     }
     return json(res,200,{data:memory.brands,demo:true,source:'memory'});
@@ -1013,7 +1089,7 @@ async function router(req,res){
   }
   if(req.method==='GET'&&p.startsWith('/v1/brands/')){
     const brandId=p.split('/')[3];
-    const brand=memory.brands.find(x=>x.id===brandId||x.slug===brandId);
+    const brand=await brand365Store.brandByRef(brandId);
     if(!brand)return json(res,404,{error:'brand_not_found'});
     const collections=memory.collections.filter(x=>x.brandId===brand.id);
     return json(res,200,{data:{...brand,collections}});
@@ -1760,42 +1836,24 @@ async function router(req,res){
       }});
     }
     if(req.method==='POST'&&p==='/v1/admin/social/reverify'){
-      const memberships=[...memory.socialMemberships.values()].filter(x=>x.status==='active');
-      const result={checked:0,active:0,inactive:0,skipped:0,errors:[]};
-      for(const membership of memberships.slice(0,250)){
-        const channel=memory.socialChannels.find(x=>x.id===membership.channelId);
-        if(!channel){result.skipped++;continue;}
-        try{
-          const verification=await verifyProviderMembership(membership.userId,channel);
-          if(!verification.ok){
-            result.skipped++;
-            result.errors.push({userId:membership.userId,channelId:channel.id,error:verification.error});
-            continue;
-          }
-          result.checked++;
-          const updated=await applyMembershipObservation(membership.userId,channel,verification,null);
-          if(updated.status==='active')result.active++;else result.inactive++;
-          if(updated.status!=='active'){
-            for(const claim of memory.loyaltyClaims.values()){
-              if(claim.userId!==membership.userId||claim.status!=='issued')continue;
-              const offer=memory.loyaltyOffers.find(o=>o.id===claim.offerId);
-              if(offer&&!evaluateLoyaltyOffer(claim.userId,offer).eligible){
-                claim.status='revoked';
-                await track('loyalty_claim_revoked',{claimId:claim.id,offerId:offer.id,reason:'social_reverification_failed'},claim.userId);
-              }
-            }
-          }
-        }catch(err){
-          result.errors.push({userId:membership.userId,channelId:channel.id,error:String(err&&err.message||err)});
-        }
-      }
-      await track('social_reverification_batch',result);
+      const result=await runSocialReverification('admin');
       return json(res,200,{data:result});
     }
     if(req.method==='POST'&&p==='/v1/admin/brand-content'){
       const b=await readBody(req);
       const brandId=String(b.brandId||'b1');
-      if(!memory.brands.find(x=>x.id===brandId))return json(res,404,{error:'brand_not_found'});
+      const brand=await brand365Store.brandByRef(brandId);
+      if(!brand)return json(res,404,{error:'brand_not_found'});
+      if(pool){
+        const post=await brand365Store.createPost(brandId,{...b,isPaid:!!b.isPaid});
+        if(post.isPaid&&post.status==='pending_review'){
+          const approved=await brand365Store.moderatePost(post.id,'published','Created by MFW Admin');
+          await track('brand_content_published',{brandId,postId:approved.id,isPaid:approved.isPaid});
+          return json(res,201,{data:approved});
+        }
+        await track('brand_content_published',{brandId,postId:post.id,isPaid:post.isPaid});
+        return json(res,201,{data:post});
+      }
       const post={id:'bp_'+crypto.randomBytes(6).toString('hex'),brandId,kind:String(b.kind||'news'),titleRu:String(b.titleRu||'Новая публикация'),titleEn:String(b.titleEn||'New post'),bodyRu:String(b.bodyRu||''),bodyEn:String(b.bodyEn||''),imageUrl:String(b.imageUrl||''),ctaLabelRu:String(b.ctaLabelRu||'Открыть'),ctaLabelEn:String(b.ctaLabelEn||'Open'),ctaUrl:String(b.ctaUrl||'#'),audienceScope:b.audienceScope||{kind:'brand_followers'},placementScope:b.placementScope||['brand_profile'],isPaid:!!b.isPaid,sponsorLabelRu:b.isPaid?'Реклама бренда':null,sponsorLabelEn:b.isPaid?'Brand promotion':null,status:'published',publishedAt:new Date().toISOString(),createdAt:new Date().toISOString(),demo:true};
       memory.brandPosts.unshift(post);
       await track('brand_content_published',{brandId,postId:post.id,isPaid:post.isPaid});
@@ -1928,6 +1986,8 @@ async function main(){
   const selfTest=await runDeepSelfTest();
   console.log(JSON.stringify({event:'mfw_deep_self_test',...selfTest}));
   if(!selfTest.ok)throw new Error('deep_self_test_failed');
+  const scheduler=startReverificationScheduler();
+  console.log(JSON.stringify({event:'mfw_reverification_scheduler',...scheduler}));
   const server=http.createServer((req,res)=>router(req,res).catch(err=>{
     console.error(err);
     json(res,500,{error:'internal_error'});
