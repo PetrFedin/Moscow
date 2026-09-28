@@ -92,6 +92,7 @@ export type DestinationDayJourneyProof = {
   }>;
   routingProofId: string;
   routingProvider: string;
+  routingProofExpiresAt: string;
   journeyStartsAt: string;
   journeyEndsAt: string;
   languages: ['ru', 'en', 'zh'];
@@ -200,6 +201,12 @@ export function validateDestinationDayRoutingProof(
   const refs = new Set<string>();
   let previousEnd = -Infinity;
   for (const [index, block] of proof.orderedBlocks.entries()) {
+    if (
+      block.ref.authority !== 'destination-route'
+      && block.ref.authority !== 'live-destination'
+    ) {
+      blockers.push(`journey-block-authority-invalid:${index}`);
+    }
     if (!block.ref.id.trim()) blockers.push(`journey-block-id-missing:${index}`);
     const key = refKey(block.ref);
     if (refs.has(key)) blockers.push(`journey-block-duplicate:${key}`);
@@ -237,13 +244,17 @@ function liveEntity(
 
 function validLiveProviderRecords(
   projection: LiveDestinationProjection | undefined,
-  records: LiveProviderIngestionRecord[] | undefined
+  records: LiveProviderIngestionRecord[] | undefined,
+  nowMs: number
 ) {
   if (!projection || !records) return new Map<string, LiveProviderIngestionRecord>();
   const map = new Map<string, LiveProviderIngestionRecord>();
   for (const record of records) {
+    const normalizedAt = Date.parse(record.normalizedAt);
     if (
       record.destinationId === projection.destinationId
+      && Number.isFinite(normalizedAt)
+      && normalizedAt <= nowMs
       && (record.snapshotFreshness === 'fresh' || record.snapshotFreshness === 'refresh-due')
     ) {
       map.set(record.providerId, record);
@@ -346,6 +357,9 @@ export function evaluateDestinationDayJourney(
     }
   }
 
+  const nowMs = Date.parse(input.now);
+  if (!Number.isFinite(nowMs)) blockers.push('journey-now-invalid');
+
   if (!input.pilotReview) {
     blockers.push('visitor-pilot-review-missing');
   } else if (
@@ -358,6 +372,11 @@ export function evaluateDestinationDayJourney(
     || iso(input.pilotReview.reviewedAt) === null
   ) {
     blockers.push('visitor-pilot-review-invalid');
+  } else if (
+    Number.isFinite(nowMs)
+    && Date.parse(input.pilotReview.reviewedAt) > nowMs
+  ) {
+    blockers.push('visitor-pilot-review-from-future');
   }
 
   if (!input.liveProjection) {
@@ -379,7 +398,8 @@ export function evaluateDestinationDayJourney(
 
   const providerRecords = validLiveProviderRecords(
     input.liveProjection,
-    input.liveIngestionRecords
+    input.liveIngestionRecords,
+    nowMs
   );
   for (const entity of [event, food].filter(
     (value): value is LiveDestinationProjectionEntity => Boolean(value)
@@ -405,11 +425,9 @@ export function evaluateDestinationDayJourney(
     const routingValidation = validateDestinationDayRoutingProof(input.routingProof);
     for (const blocker of routingValidation.blockers) blockers.push(blocker);
 
-    const nowMs = Date.parse(input.now);
     const generatedAt = Date.parse(input.routingProof.generatedAt);
     const expiresAt = Date.parse(input.routingProof.expiresAt);
-    if (!Number.isFinite(nowMs)) blockers.push('journey-now-invalid');
-    else {
+    if (Number.isFinite(nowMs)) {
       if (generatedAt > nowMs) blockers.push('routing-proof-from-future');
       if (expiresAt <= nowMs) blockers.push('routing-proof-stale');
     }
@@ -503,6 +521,7 @@ export function evaluateDestinationDayJourney(
       })),
       routingProofId: proof.id,
       routingProvider: proof.provider,
+      routingProofExpiresAt: proof.expiresAt,
       journeyStartsAt: proof.journeyStartsAt,
       journeyEndsAt: proof.journeyEndsAt,
       languages: ['ru', 'en', 'zh'],
