@@ -42,6 +42,12 @@ Therefore:
 
 For a controlled one-participant/one-device pilot, the study roster can record that a participant submitted one report, but the app analytics itself must not carry participant identity.
 
+## Operational study pack
+
+For the 20–50 participant supervised wave, use `docs/PILOT_OPERATIONAL_PACK.md`.
+
+It adds non-identifying participant slots, structured observer notes and a final study-report command while keeping recruitment/consent records outside analytics.
+
 ## Cohort aggregation
 
 Store the received aggregate JSON files in a study folder and run:
