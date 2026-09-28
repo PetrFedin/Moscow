@@ -13,8 +13,35 @@
 
   var DEFAULT_PROFILE={firstName:'Alex',lastName:'Morgan',email:'alex@example.com',phone:'+7 900 000-00-00',company:'Fashion Industry',title:'Guest',country:'Russia'};
   var EVENT_CONFIG={
-    mfw:{name:'Moscow Fashion Week',short:'MFW',types:['visitor','buyer','designer','media','speaker','partner']},
-    bfs:{name:'BRICS+ Fashion Summit',short:'BFS',types:['visitor','delegate','speaker','media','partner']}
+    mfw:{
+      name:'Moscow Fashion Week',short:'MFW',
+      roles:[
+        {id:'visitor',label:'Гость / посетитель',mode:'public',note:'Маркет, шоурум, лекторий и открытые форматы — по отдельной регистрации там, где она требуется.'},
+        {id:'buyer',label:'Байер',mode:'accreditation',note:'Профессиональная аккредитация байера.'},
+        {id:'stylist',label:'Стилист',mode:'accreditation',note:'Профессиональная аккредитация стилиста.'},
+        {id:'media',label:'СМИ',mode:'accreditation',note:'Медиа-аккредитация.'},
+        {id:'blogger',label:'Блогер / инфлюенсер',mode:'accreditation',note:'Медиа-аккредитация.'},
+        {id:'photo_video',label:'Фото / видео',mode:'accreditation',note:'Фото/видео-аккредитация с правилами доступа в залы.'},
+        {id:'volunteer',label:'Волонтёр',mode:'application',note:'Отдельная заявка волонтёра.'},
+        {id:'designer_brand',label:'Дизайнер / бренд-участник',mode:'selection',note:'Участие через конкурсный или внеконкурсный отбор организатора.'},
+        {id:'speaker',label:'Спикер / эксперт',mode:'managed',note:'Роль назначается или подтверждается организатором.'},
+        {id:'partner',label:'Партнёр',mode:'managed',note:'Партнёрский контур оформляется организатором.'}
+      ]
+    },
+    bfs:{
+      name:'BRICS+ Fashion Summit',short:'BFS',
+      roles:[
+        {id:'visitor',label:'Посетитель деловой программы',mode:'public',note:'Публичная регистрация; после неё доступны личный кабинет, выбор сессий и QR.'},
+        {id:'media',label:'СМИ',mode:'accreditation',note:'Медиа-аккредитация.'},
+        {id:'blogger',label:'Блогер',mode:'accreditation',note:'Медиа-аккредитация.'},
+        {id:'photo_video',label:'Фото / видео',mode:'accreditation',note:'Фото/видео-аккредитация.'},
+        {id:'volunteer',label:'Волонтёр',mode:'application',note:'Отдельная заявка волонтёра.'},
+        {id:'delegate',label:'Делегат',mode:'managed',note:'Профессиональная роль подтверждается организатором / делегацией.'},
+        {id:'speaker',label:'Спикер',mode:'managed',note:'Спикерский статус подтверждается организатором, не является публичной self-registration.'},
+        {id:'participant',label:'Участник / представитель организации',mode:'managed',note:'Участие в профессиональном контуре подтверждается организатором.'},
+        {id:'partner',label:'Партнёр',mode:'managed',note:'Партнёрская роль подтверждается организатором.'}
+      ]
+    }
   };
 
   function loadState(){
@@ -74,11 +101,14 @@
     document.getElementById('registrationTitle').textContent=cfg.name;
     document.getElementById('confirmLabel').textContent='Подтверждаю отдельную регистрацию именно на '+cfg.name;
     var select=document.getElementById('registrationType');
-    select.innerHTML=cfg.types.map(function(x){return '<option value="'+x+'">'+x.toUpperCase()+'</option>';}).join('');
+    select.innerHTML=cfg.roles.map(function(x){return '<option value="'+x.id+'">'+x.label+'</option>';}).join('');
+    var roleNote=document.getElementById('registrationRoleNote');
+    function updateRoleNote(){var role=cfg.roles.filter(function(x){return x.id===select.value;})[0];if(roleNote)roleNote.innerHTML='<b>'+role.label+'</b><span>'+role.note+'</span><small>FLOW: '+role.mode.toUpperCase()+'</small>';}
+    select.onchange=updateRoleNote;updateRoleNote();
     registrationForm.elements.company.value=(existing&&existing.company)||accountState.profile.company||'';
     registrationForm.elements.title.value=(existing&&existing.title)||accountState.profile.title||'';
     registrationForm.elements.purpose.value=(existing&&existing.purpose)||'';
-    registrationForm.elements.registrationType.value=(existing&&existing.registrationType)||cfg.types[0];
+    registrationForm.elements.registrationType.value=(existing&&existing.registrationType)||cfg.roles[0].id; if(select.onchange)select.onchange();
     registrationForm.elements.confirm.checked=false;
     if(copied){
       registrationForm.elements.company.value=accountState.profile.company||'';
