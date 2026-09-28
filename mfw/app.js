@@ -382,7 +382,8 @@
       content='<input class="input editorial-search" placeholder="Бренд, дизайнер, категория" />'+
       '<div class="editorial-brand-grid">'+brands.map(function(b,i){
         var img=[VISUALS.designer,VISUALS.runway,VISUALS.backstage,VISUALS.street][i%4];
-        var fav=state.favoriteBrands.indexOf(b.id)>=0;\n        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span>'+(fav?'<span class="brand-favorite">♥</span>':'')+'<div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(brandCity(b))+'</div></div></button>';
+        var fav=state.favoriteBrands.indexOf(b.id)>=0;
+        return '<button class="editorial-brand-card" data-action="brand" data-id="'+b.id+'" style="background-image:linear-gradient(180deg,transparent 20%,rgba(0,0,0,.84)),url('+img+')"><span class="brand-tag">'+esc(b.tag)+'</span>'+(fav?'<span class="brand-favorite">♥</span>':'')+'<div><h3>'+esc(b.name)+'</h3><div class="sub">'+esc(brandCity(b))+'</div></div></button>';
       }).join('')+'</div>';
     } else if(state.discoverTab==='speakers'){
       content='<div class="speaker-card"><div class="speaker-photo" style="background-image:url('+VISUALS.designer+')"></div><div class="speaker-copy"><div class="eyebrow">RETAIL · BUYING</div><div class="event-name">Анна · Buyer Perspective</div><div class="sub">Как байер принимает решение о бренде и коллекции.</div><div class="action-row"><button class="action primary" data-action="questions">Live Q&A</button><button class="action ghost" data-action="toggle-event" data-id="e3">В программу</button></div></div></div>'+
