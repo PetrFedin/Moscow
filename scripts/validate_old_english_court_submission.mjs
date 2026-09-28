@@ -45,12 +45,23 @@ try {
 
   const assetPath = path.resolve(process.cwd(), manifest.assetPath);
   const reportPath = path.resolve(process.cwd(), manifest.binaryReportPath);
+  const evidenceFiles = [
+    ['provenance', manifest.provenanceEvidenceRef],
+    ['rights', manifest.rightsEvidenceRef],
+    ['metric scale', manifest.metricScaleEvidenceRef]
+  ];
 
   if (!fs.existsSync(assetPath)) {
     throw new Error(`GLB does not exist: ${manifest.assetPath}`);
   }
   if (!fs.existsSync(reportPath)) {
     throw new Error(`binary report does not exist: ${manifest.binaryReportPath}`);
+  }
+  for (const [label, evidenceRef] of evidenceFiles) {
+    const evidencePath = path.resolve(process.cwd(), evidenceRef);
+    if (!fs.existsSync(evidencePath) || !fs.statSync(evidencePath).isFile()) {
+      throw new Error(`${label} evidence file does not exist: ${evidenceRef}`);
+    }
   }
 
   const actualReport = buildGlbBinaryReport(assetPath);
