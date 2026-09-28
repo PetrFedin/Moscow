@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var API='https://moscow-fashion-week-authority.onrender.com';
-var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,brandGrowth:null,retention:null,nativeReadiness:null};
+var state={tab:'overview',lang:localStorage.getItem('mfwAdminLang')||'ru',session:null,health:null,deep:null,overview:null,events:[],accreditations:[],streams:[],streamControl:null,commerce:null,sponsors:null,brandGrowth:null,retention:null,goldenPath:null,nativeReadiness:null};
 function T(ru,en){return state.lang==='en'?en:ru;}
 
 async function req(path,opts){
@@ -204,7 +204,7 @@ function brand365Screen(){
     '<div class="metric"><div class="eyebrow">Claims</div><strong>'+esc(b.issuedClaims)+'</strong><span>'+T('выданные награды','issued rewards')+'</span></div></div>'+
     '<div class="columns"><div class="card"><div class="eyebrow">LOYALTY ENGINE</div><h2>'+T('Условия и награды','Conditions & rewards')+'</h2>'+
       offers.map(function(o){return '<div class="brand365-row"><div><b>'+esc(state.lang==='ru'?o.titleRu:o.titleEn)+'</b><span>'+esc(o.rewardType)+' · '+esc(o.rewardValue==null?'gift':o.rewardValue)+'</span></div><div>'+badge(o.status)+(o.status==='pending'?'<button class="btn primary small" data-action="brand-approve-offer" data-id="'+esc(o.id)+'">'+T('Одобрить','Approve')+'</button>':'')+'</div></div>';}).join('')+
-      '<div class="brand365-note">'+T('Дата подписки не придумывается: provider timestamp → иначе first_verified_at MFW.','Subscription age is never invented: provider timestamp → otherwise MFW first_verified_at.')+'</div>'+
+      '<div class="brand365-note">'+T('Дата подписки не придумывается: provider timestamp → иначе first_verified_at MFW.','Subscription age is never invented: provider timestamp → otherwise MFW first_verified_at.')+'</div>'+      '<div class="actions"><button class="btn primary" data-action="brand-golden-path">'+T('Прогнать 30-дневный Golden Path','Run 30-day Golden Path')+'</button></div>'+      (state.goldenPath?'<div class="brand365-note"><b>Golden Path: '+(state.goldenPath.ok?'PASS':'FAIL')+'</b><br>'+        '31d eligible: '+esc(state.goldenPath.steps&&state.goldenPath.steps.eligibleAfter31d)+' · claim: '+esc(state.goldenPath.steps&&state.goldenPath.steps.claimIssued)+' · unfollow loss: '+esc(state.goldenPath.steps&&state.goldenPath.steps.eligibilityLostAfterUnfollow)+' · revoked: '+esc(state.goldenPath.steps&&state.goldenPath.steps.claimRevoked)+' · '+esc(state.goldenPath.dataMode||'')+'</div>':'')+
     '</div><div class="card"><div class="eyebrow">SOCIAL ADAPTERS</div><h2>'+T('Что реально можно проверить','What can actually be verified')+'</h2>'+
       (d.providers||[]).map(function(p){return '<div class="brand365-row"><div><b>'+esc(p.platform.toUpperCase())+'</b><span>'+esc(p.verification)+'</span></div><span class="badge '+(p.status==='ready_for_credentials'?'live':'wait')+'">'+esc(p.status)+'</span></div>';}).join('')+
       '<div class="actions"><button class="btn" data-action="brand-social-reverify">'+T('Перепроверить подписки','Reverify memberships')+'</button></div>'+
@@ -329,6 +329,7 @@ async function action(name,id){
     if(name==='brand-approve-post')await admin('/brand-content/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'published',moderationNote:'Approved in MFW Admin'})});
     if(name==='brand-approve-offer')await admin('/loyalty-offers/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({status:'published'})});
     if(name==='brand-social-reverify')await admin('/social/reverify',{method:'POST',body:JSON.stringify({})});
+    if(name==='brand-golden-path'){var gp=await admin('/golden-path/loyalty-30d',{method:'POST',body:JSON.stringify({})});state.goldenPath=gp.data;}
     toast('Server action: '+name);
     await load();
   }catch(err){toast('Action failed: '+err.message);}
