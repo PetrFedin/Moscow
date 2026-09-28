@@ -9,11 +9,53 @@
     <button class="event-button active" data-event="mfw">MFW</button>
     <button class="event-button" data-event="bfs">BRICS+ FASHION SUMMIT</button>
   </nav>
-  <div class="account">ONE ACCOUNT</div>
+  <button class="account" id="accountBtn">ACCOUNT</button>
 </header>
 <main class="experience">
   <iframe id="eventFrame" title="Event experience" src="../index.html"></iframe>
 </main>
 <div class="event-note" id="eventNote">MFW · ORIGINAL EXPERIENCE</div>
+
+<div class="account-drawer hidden" id="accountDrawer" aria-hidden="true">
+  <div class="drawer-card">
+    <div class="drawer-head">
+      <div><div class="drawer-kicker">ONE PLATFORM ACCOUNT</div><h2>Профиль и регистрации</h2></div>
+      <button class="drawer-close" id="accountClose">×</button>
+    </div>
+    <form id="profileForm" class="profile-form">
+      <label>Имя<input name="firstName" required></label>
+      <label>Фамилия<input name="lastName" required></label>
+      <label>Email<input name="email" type="email" required></label>
+      <label>Телефон<input name="phone" required></label>
+      <label>Компания<input name="company"></label>
+      <label>Должность<input name="title"></label>
+      <label>Страна<input name="country"></label>
+      <button class="save-profile" type="submit">СОХРАНИТЬ ОБЩИЙ ПРОФИЛЬ</button>
+    </form>
+    <div class="registration-grid" id="registrationGrid"></div>
+    <div class="drawer-foot">
+      <span>Общий профиль хранится один раз.</span>
+      <b>Каждое мероприятие подтверждается отдельно.</b>
+    </div>
+  </div>
+</div>
+
+<div class="registration-modal hidden" id="registrationModal" aria-hidden="true">
+  <div class="registration-card">
+    <button class="drawer-close" id="registrationClose">×</button>
+    <div class="drawer-kicker" id="registrationKicker"></div>
+    <h2 id="registrationTitle"></h2>
+    <p class="registration-copy">Данные общего профиля уже подставлены. Проверьте их и отдельно подтвердите участие именно в этом мероприятии.</p>
+    <form id="registrationForm" class="event-form">
+      <label>Тип участия<select name="registrationType" id="registrationType"></select></label>
+      <label>Компания<input name="company"></label>
+      <label>Должность<input name="title"></label>
+      <label>Профессиональная цель<textarea name="purpose" rows="3" placeholder="Что вы хотите получить от мероприятия"></textarea></label>
+      <label class="confirm-row"><input type="checkbox" name="confirm" required><span id="confirmLabel">Подтверждаю отдельную регистрацию</span></label>
+      <button class="save-profile" type="submit">ОТПРАВИТЬ РЕГИСТРАЦИЮ</button>
+    </form>
+  </div>
+</div>
+
 <script src="./platform.js"></script>
 </body></html>
