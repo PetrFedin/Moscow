@@ -230,7 +230,7 @@
     var mfw=event==='mfw';
     document.body.classList.toggle('bfs-mode',!mfw);
     buttons.forEach(function(b){b.classList.toggle('active',b.dataset.event===event);});
-    frame.src=mfw?'../index.html':'./bfs/index.html';
+    frame.src=mfw?'../mfw/index.html':'./bfs/index.html';
     note.textContent=mfw?'MFW · ORIGINAL EXPERIENCE':'BFS · OFFICIAL-BRAND EXPERIENCE';
     try{localStorage.setItem('mfp.activeEvent',event);}catch(e){}
   }
