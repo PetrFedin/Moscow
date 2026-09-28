@@ -88,8 +88,12 @@ export type SpatialFieldVerification = {
   surveyVerified?: boolean;
   surveyPacketId?: string;
   multiDeviceMatrixPassed?: boolean;
+  fieldConditionsComplete?: boolean;
+  daylightEvidence?: boolean;
   fieldSessionIds?: string[];
   persistentAnchorVerified?: boolean;
+  restartRecoveryVerified?: boolean;
+  restartRecoverySessionIds?: string[];
   persistentAnchorProofIds?: string[];
   verifiedAt?: string;
   releaseBlockers?: string[];
@@ -270,6 +274,8 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     if (!field.surveyVerified) blockers.push('survey-not-verified');
     if (!field.surveyPacketId?.trim()) blockers.push('survey-packet-id-missing');
     if (!field.multiDeviceMatrixPassed) blockers.push('multi-device-field-matrix-not-passed');
+    if (!field.fieldConditionsComplete) blockers.push('field-conditions-not-complete');
+    if (!field.daylightEvidence) blockers.push('daylight-evidence-missing');
     if (!uniqueNonEmpty(field.fieldSessionIds)) blockers.push('field-session-evidence-missing');
     if (
       field.minimumFieldSessions !== undefined
@@ -291,6 +297,8 @@ export function validatePublishedSpatialPackage(pkg: PublishedSpatialPackage): S
     }
     if (!field.persistentAnchorVerified) blockers.push('persistent-anchor-not-verified');
     if (!uniqueNonEmpty(field.persistentAnchorProofIds)) blockers.push('persistent-anchor-proof-missing');
+    if (!field.restartRecoveryVerified) blockers.push('restart-recovery-not-verified');
+    if (!uniqueNonEmpty(field.restartRecoverySessionIds)) blockers.push('restart-recovery-evidence-missing');
     if (!field.verifiedAt?.trim()) blockers.push('field-verified-at-missing');
     if ((field.releaseBlockers ?? []).length > 0) blockers.push('field-release-blockers-present');
     if (!pkg.publishedAt?.trim()) blockers.push('published-at-missing');
