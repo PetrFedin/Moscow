@@ -84,7 +84,7 @@ type Validation = {
   blockers: string[];
 };
 
-const SLOT_ID = /^P(?:0[0-4][0-9]|050)$/;
+const SLOT_ID = /^P(?:00[1-9]|0[1-4][0-9]|050)$/;
 const SAFE_STUDY_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const SAFE_RELATIVE_JSON = /\.json$/i;
 
@@ -314,13 +314,13 @@ export function buildPilotStudyReport(input: {
     plannedParticipantSlots: manifest.slots.length,
     receivedAggregateReports: reports.length,
     receivedObserverNotes: observers.length,
-    missingReportSlots,
-    missingObserverSlots,
+    missingAggregateReportCount: missingReportSlots.length,
+    missingObserverNoteCount: missingObserverSlots.length,
     completeForFirstReview:
       manifest.slots.length >= 20
       && reports.length + missingReportSlots.length === manifest.slots.length
-      && observers.length + missingObserverSlots.length === manifest.slots.length
-      && observers.length > 0,
+      && missingObserverSlots.length === 0
+      && observers.length === manifest.slots.length,
     dataQuality: {
       expectedContentVersion: manifest.expectedContentVersion,
       unexpectedContentVersions,
