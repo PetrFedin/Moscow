@@ -1,4 +1,29 @@
 -- 005_streaming_pipeline.sql
+-- Base stream authority must exist before source/output foreign keys.
+CREATE TABLE IF NOT EXISTS streams (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_key text UNIQUE,
+  event_id uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  status text NOT NULL DEFAULT 'scheduled'
+    CHECK (status IN ('scheduled','starting','live','paused','ended','failed','archived')),
+  provider_mode text NOT NULL DEFAULT 'disabled'
+    CHECK (provider_mode IN ('disabled','simulated','sandbox','live')),
+  playback_url text,
+  poster_url text,
+  current_look integer NOT NULL DEFAULT 0 CHECK (current_look >= 0),
+  total_looks integer NOT NULL DEFAULT 0 CHECK (total_looks >= 0),
+  started_at timestamptz,
+  ended_at timestamptz,
+  replay_available boolean NOT NULL DEFAULT false,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_streams_event_status ON streams(event_id,status);
+
 CREATE TABLE IF NOT EXISTS stream_providers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code text NOT NULL UNIQUE,
