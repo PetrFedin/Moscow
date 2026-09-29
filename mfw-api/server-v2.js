@@ -1985,6 +1985,15 @@ async function router(req,res){
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
       return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
     }
+    if(req.method==='POST'&&action==='campaign-queue'){
+      const b=await readBody(req);
+      if(!b.campaignId)return json(res,400,{error:'campaign_id_required'});
+      try{
+        const result=await brand365Store.queueCampaign(brandId,String(b.campaignId));
+        await track('brand_campaign_queued',{brandId,campaignId:String(b.campaignId),audience:result.audience||0,queued:result.queued||0,suppressed:result.suppressed||0},sessionFromRequest(req)?.sub||null);
+        return json(res,200,{data:result});
+      }catch(err){return json(res,400,{error:String(err&&err.message||err)});}
+    }
     if(req.method==='GET'&&action==='segments'){
       return json(res,200,{data:await brand365Store.savedSegments(brandId)});
     }
