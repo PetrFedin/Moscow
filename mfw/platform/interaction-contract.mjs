@@ -109,3 +109,10 @@ const migration014=fs.readFileSync(path.join(root,'..','..','mfw-api','migration
 ['notification_deliveries','paid_promotions_enabled','brand_campaign_queued','orders-import','brand_orders_imported'].forEach(x=>{if(!authority.includes(x))throw new Error('CRM delivery/import authority missing: '+x)});
 ['openNativeScanner(\'loyalty\')','navigator.mediaDevices.getUserMedia','MFW-LOYALTY:','Buyer + Favorite + 60+','crmCampaignAt','brand-order-import'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('Advanced CRM UX missing: '+x)});
 console.log('advanced Brand CRM quality contract: PASS');
+
+const migration015=fs.readFileSync(path.join(root,'..','..','mfw-api','migrations','015_brand_cdp.sql'),'utf8');
+['experiment_group','brand_customer_profiles','brand_journeys','brand_journey_enrollments','control_pct'].forEach(x=>{if(!migration015.includes(x))throw new Error('CDP migration missing: '+x)});
+['campaignIncrementality','incrementalRevenue','refreshCustomerLifecycle','runJourneys','controlConversion','repeatRate'].forEach(x=>{if(!store.includes(x))throw new Error('CDP authority missing: '+x)});
+['incrementality','lifecycle-refresh','journeys-run','brand_journey_created'].forEach(x=>{if(!authority.includes(x))throw new Error('CDP route missing: '+x)});
+['Incrementality / ROI','Lifecycle / RFM','At-risk → Reactivation','brand-journeys-run'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('CDP UX missing: '+x)});
+console.log('Brand 365 CDP contract: PASS');
