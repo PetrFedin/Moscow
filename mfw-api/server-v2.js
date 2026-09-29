@@ -1988,11 +1988,13 @@ async function router(req,res){
       const incrementality=await brand365Store.campaignIncrementality(brandId);
       const lifecycle=await brand365Store.refreshCustomerLifecycle(brandId);
       const journeys=await brand365Store.journeys(brandId);
+      const predictions=await brand365Store.scoreCustomerPredictions(brandId);
+      const acquisitionEconomics=await brand365Store.acquisitionEconomics(brandId);
       const offers=await brand365Store.offersForBrand(brandId,{publishedOnly:false});
       const posts=await brand365Store.postsForBrand(brandId,{publishedOnly:false});
       const claims=await brand365Store.claimsForBrand(brandId);
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
-      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,incrementality,lifecycle,journeys,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,incrementality,lifecycle,journeys,predictions,acquisitionEconomics,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
     }
     if(req.method==='POST'&&action==='acquisition'){
       const b=await readBody(req),brandRow=await brand365Store.brandByRef(brandId);
