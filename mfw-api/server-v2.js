@@ -1967,6 +1967,11 @@ async function router(req,res){
     return json(res,200,{data:{brandId,favorite}});
   }
 
+  if(req.method==='GET'&&p==='/v1/owner/audience-asset'){
+    const actor=sessionFromRequest(req);if(!actor)return json(res,401,{error:'authentication_required'});
+    return json(res,200,{data:await brand365Store.audienceAssetSummary()});
+  }
+
   if(p.startsWith('/v1/brand-portal/')){
     const parts=p.split('/').filter(Boolean);
     const brandId=parts[2];
@@ -1988,6 +1993,11 @@ async function router(req,res){
       const claims=await brand365Store.claimsForBrand(brandId);
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
       return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,incrementality,lifecycle,journeys,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+    }
+    if(req.method==='GET'&&action==='predictions')return json(res,200,{data:await brand365Store.scoreCustomerPredictions(brandId)});
+    if(req.method==='GET'&&action==='acquisition-economics')return json(res,200,{data:await brand365Store.acquisitionEconomics(brandId)});
+    if(req.method==='POST'&&action==='journeys-tick'){
+      const out=await brand365Store.advanceJourneyStateMachine(brandId);await track('brand_journey_tick',{brandId,...out},sessionFromRequest(req)?.sub||null);return json(res,200,{data:out});
     }
     if(req.method==='GET'&&action==='incrementality')return json(res,200,{data:await brand365Store.campaignIncrementality(brandId)});
     if(req.method==='POST'&&action==='lifecycle-refresh')return json(res,200,{data:await brand365Store.refreshCustomerLifecycle(brandId)});
