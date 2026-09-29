@@ -5,3 +5,5 @@
 @media(max-width:680px){.audience-value{grid-template-columns:1fr}.audience-value>div+div{border-left:0;border-top:1px solid #111}}
 
 .session-people{display:grid;gap:3px;margin-top:8px;border-left:3px solid var(--green);padding-left:8px}.session-people span{font-size:9px;font-weight:900}.session-people small{font-size:8px;line-height:1.35}.source-note,.empty-state{border:1px solid #111;padding:14px;margin-bottom:14px;font-size:9px;line-height:1.45}.empty-state{display:grid;gap:6px}.empty-state b{font-size:15px}.empty-state span{font-size:10px}
+
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.speaker-links{display:grid;gap:6px;margin:8px 0}.speaker-links .small-action{text-align:left;white-space:normal}.session-detail h2{font-size:32px;line-height:1.02;margin:10px 0 12px}.session-detail h3{margin:22px 0 8px}.media-status{display:grid;gap:5px;margin:18px 0;padding:14px;border:1px solid #111;background:#f2eee5}.media-status b{font-size:10px;letter-spacing:.12em}.media-status span{font-size:11px;line-height:1.45}
