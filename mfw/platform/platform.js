@@ -158,8 +158,12 @@
     (data.bfs.sessions||[]).forEach(function(x){out.push({kind:'bfs-session',event:'BFS',id:x.id,title:x.title,subtitle:x.date+' · '+x.time,meta:x.topic+' · '+x.hall});});
     return out;
   }
+  function sourceBadge(event){
+    var s=(window.MFP_DATA&&window.MFP_DATA.sources||{})[event==='MFW'?'mfw':'bfs'];
+    return s?'<span class="source-badge">OFFICIAL · '+(window.MFP_DATA.syncedAt||'')+'</span>':'';
+  }
   function renderDirectory(){
-    hubContent.innerHTML='<div class="directory-tools"><input class="directory-search" id="directorySearch" placeholder="Бренд, спикер, сессия, показ"><select class="directory-filter" id="directoryFilter"><option value="all">Все</option><option value="MFW">MFW</option><option value="BFS">BFS</option><option value="brand">Бренды</option><option value="speaker">Спикеры</option><option value="programme">Программа</option></select></div><div class="directory-grid" id="directoryGrid"></div><div class="hub-note">Каталог построен на подтверждённых сущностях текущего MVP. Для полного production-каталога данные должны синхронизироваться с официальными CMS/реестрами MFW и BFS.</div>';
+    hubContent.innerHTML='<div class="directory-tools"><input class="directory-search" id="directorySearch" placeholder="Бренд, спикер, сессия, показ"><select class="directory-filter" id="directoryFilter"><option value="all">Все</option><option value="MFW">MFW</option><option value="BFS">BFS</option><option value="brand">Бренды</option><option value="speaker">Спикеры</option><option value="programme">Программа</option></select></div><div class="directory-grid" id="directoryGrid"></div><div class="hub-note">Данные программы и участников импортированы из официальных сайтов MFW и BRICS+ Fashion Summit; дата синхронизации указана на карточках. Production-версия должна перейти с snapshot на автоматическую CMS/API-синхронизацию.</div>';
     function draw(){
       var q=(document.getElementById('directorySearch').value||'').toLowerCase(),f=document.getElementById('directoryFilter').value;
       var rows=directoryEntities().filter(function(x){
@@ -172,7 +176,7 @@
         if(x.kind==='mfw-event')action='<button data-agenda-kind="mfw" data-agenda-id="'+x.id+'">В КАЛЕНДАРЬ</button>';
         if(x.kind==='bfs-session')action='<button data-agenda-kind="bfs" data-agenda-id="'+x.id+'">В КАЛЕНДАРЬ</button>';
         if(x.kind==='mfw-brand'&&x.showId)action='<button class="secondary" data-link-show="'+x.showId+'">СВЯЗАННЫЙ ПОКАЗ</button>';
-        return '<article class="directory-card"><div class="kind">'+x.event+' · '+x.kind.replace('-',' ').toUpperCase()+'</div><h3>'+x.title+'</h3><p>'+x.subtitle+'</p><div class="entity-meta">'+x.meta+'</div><div class="directory-actions">'+action+'</div></article>';
+        return '<article class="directory-card"><div class="kind">'+x.event+' · '+x.kind.replace('-',' ').toUpperCase()+' '+sourceBadge(x.event)+'</div><h3>'+x.title+'</h3><p>'+x.subtitle+'</p><div class="entity-meta">'+x.meta+'</div><div class="directory-actions">'+action+'</div></article>';
       }).join('')||'<div class="hub-note">Ничего не найдено.</div>';
       [].slice.call(document.querySelectorAll('[data-agenda-kind]')).forEach(function(b){b.onclick=function(){addAgenda(b.dataset.agendaKind,b.dataset.agendaId);};});
       [].slice.call(document.querySelectorAll('[data-link-show]')).forEach(function(b){b.onclick=function(){
