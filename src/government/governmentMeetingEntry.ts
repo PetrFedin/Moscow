@@ -1,7 +1,8 @@
 export type GovernmentMeetingEntryMode =
   | 'overview'
   | 'guided'
-  | 'package';
+  | 'package'
+  | 'application';
 
 export function parseGovernmentMeetingEntryUrl(
   rawUrl: string | null | undefined
@@ -25,6 +26,9 @@ export function parseGovernmentMeetingEntryUrl(
   if (value === 'guided' || value === 'meeting') return 'guided';
   if (value === 'package' || value === 'data-room' || value === 'dataroom') {
     return 'package';
+  }
+  if (value === 'application' || value === 'apply' || value === 'pilot-application') {
+    return 'application';
   }
   return null;
 }
