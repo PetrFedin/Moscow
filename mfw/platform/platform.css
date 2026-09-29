@@ -86,3 +86,5 @@ body:not(.bfs-mode) .funnel-step{border-color:#343434}
  body:not(.bfs-mode) .for-you-card h2,
  body:not(.bfs-mode) .value-card h2{font-size:36px;line-height:.92}
 }
+
+.source-badge{display:inline-block;margin-left:6px;padding:3px 5px;border:1px solid currentColor;border-radius:99px;font-size:7px;letter-spacing:.08em;vertical-align:middle;opacity:.72}
