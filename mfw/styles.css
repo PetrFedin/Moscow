@@ -235,3 +235,5 @@ html,body{min-height:100%;min-height:100dvh}
   .nav-btn{font-size:10px!important;padding:7px 1px!important}
   .nav-btn b{font-size:17px!important}
 }
+
+.reward-qr{margin:18px 0;padding:18px;background:#fff;color:#070707;text-align:center;border-radius:18px}.reward-qr img{display:block;width:min(280px,82vw);height:auto;margin:0 auto 12px;border-radius:10px}.reward-qr span{display:block;font-size:11px;font-weight:800;letter-spacing:.04em}.audience-age-grid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid rgba(255,255,255,.18);border-radius:14px;overflow:hidden;margin:12px 0 18px}.audience-age-grid>div{padding:12px 8px;border-right:1px solid rgba(255,255,255,.14)}.audience-age-grid>div:last-child{border-right:0}.audience-age-grid b{display:block;font-size:20px}.audience-age-grid span{display:block;margin-top:4px;font-size:9px;opacity:.65}.brand-365-post{overflow:hidden}
