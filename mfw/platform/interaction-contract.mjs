@@ -87,3 +87,11 @@ const sync=fs.readFileSync(path.join(root,'event-sync.js'),'utf8');
 ['time_changed','venue_changed','access_changed','mfp-official-sync','setReminder','notifyDue'].forEach(x=>{if(!sync.includes(x))throw new Error('Sync/reminder authority missing: '+x)});
 ['organisations','meeting_requested','qualified_lead'].forEach(x=>{if(!(officialData+bfsApp).includes(x))throw new Error('B2B CRM graph missing: '+x)});
 console.log('sync + reminder + B2B CRM contract: PASS');
+
+const authority=fs.readFileSync(path.join(root,'..','..','mfw-api','server-v2.js'),'utf8');
+const store=fs.readFileSync(path.join(root,'..','..','mfw-api','brand365-store.js'),'utf8');
+const mfwApp=fs.readFileSync(path.join(root,'..','app.js'),'utf8');
+['brandAudience','averageFollowDays','eligible_30_59','verifiedSocial'].forEach(x=>{if(!store.includes(x))throw new Error('Brand audience authority missing: '+x)});
+['qrDataUrl','MFW-LOYALTY:','one_time_server_verified','market_or_brand_showroom','/v1/loyalty/redeem'].forEach(x=>{if(!authority.includes(x))throw new Error('Reward QR contract missing: '+x)});
+['openBrandComposer','brand-portal-compose-submit','brand-portal-invite','reward-qr','30+ verified'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('MFW relationship UI missing: '+x)});
+console.log('brand relationship + loyalty QR + blog contract: PASS');
