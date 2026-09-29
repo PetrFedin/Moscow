@@ -956,7 +956,7 @@ class Brand365Store{
 
   async createJourney(brandRef,input,createdBy){
     if(!this.pool){if(!this.memory.brandJourneys)this.memory.brandJourneys=new Map();const id='journey_'+require('crypto').randomBytes(6).toString('hex'),x={id,brandId:String(brandRef),name:String(input.name||'Journey'),trigger:input.trigger||{},steps:input.steps||[],status:input.status||'draft',createdAt:new Date().toISOString(),demo:true};this.memory.brandJourneys.set(id,x);return x;}
-    const brand=await this.brandByRef(brandRef);const r=await this.pool.query(`INSERT INTO brand_journeys(brand_id,external_key,name,trigger,steps,status,frequency_cap,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[brand.storageId,'journey_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Journey'),input.trigger||{},input.steps||[],String(input.status||'draft'),input.frequencyCap||{per_user_per_30d:3},createdBy||null]);return r.rows[0];
+    const brand=await this.brandByRef(brandRef);const r=await this.pool.query(`INSERT INTO brand_journeys(brand_id,external_key,name,trigger,steps,status,frequency_cap,created_by,holdout_pct,stop_conditions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[brand.storageId,'journey_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Journey'),input.trigger||{},input.steps||[],String(input.status||'draft'),input.frequencyCap||{per_user_per_30d:3},createdBy||null,Math.max(0,Math.min(50,Number(input.holdoutPct==null?10:input.holdoutPct))),input.stopConditions||{on_purchase:true}]);return r.rows[0];
   }
 
   async journeys(brandRef){
@@ -979,7 +979,9 @@ class Brand365Store{
         const cap=Number(j.frequency_cap&&j.frequency_cap.per_user_per_30d||3);
         const recent=await this.pool.query("SELECT count(*)::int n FROM notification_deliveries d JOIN notifications n ON n.id=d.notification_id WHERE d.user_id=$1 AND n.payload->>'journeyId'=$2 AND n.created_at>=now()-interval '30 days'",[uid,String(j.id)]);if(Number(recent.rows[0].n||0)>=cap){suppressed++;continue;}
         const steps=Array.isArray(j.steps)?j.steps:[],first=steps[0]||{type:'push',title:j.name,body:''};
-        await this.pool.query('INSERT INTO brand_journey_enrollments(journey_id,user_id,state,current_step,last_action_at,metadata) VALUES($1,$2,\'active\',0,now(),$3) ON CONFLICT DO NOTHING',[j.id,uid,{triggerLifecycle:lifecycle}]);enrolled++;
+        const holdoutPct=Math.max(0,Math.min(50,Number(j.holdout_pct||0))),h=require('crypto').createHash('sha256').update(String(j.id)+':'+uid).digest(),experimentGroup=(h.readUInt32BE(0)%10000)<Math.round(holdoutPct*100)?'holdout':'treatment';
+        await this.pool.query('INSERT INTO brand_journey_enrollments(journey_id,user_id,state,current_step,last_action_at,metadata,experiment_group,next_run_at) VALUES($1,$2,\'active\',0,now(),$3,$4,now()) ON CONFLICT DO NOTHING',[j.id,uid,{triggerLifecycle:lifecycle},experimentGroup]);enrolled++;
+        if(experimentGroup==='holdout')continue;
         if(first.type==='push'){
           const n=await this.pool.query(`INSERT INTO notifications(audience,category,title,body,payload,status,scheduled_at) VALUES($1,'brand_campaign',$2,$3,$4,'scheduled',now()) RETURNING id`,[{kind:'user',userId:uid},String(first.title||j.name),String(first.body||''),{brandId:brand.id,journeyId:String(j.id),step:0}]);
           await this.pool.query("INSERT INTO notification_deliveries(notification_id,user_id,channel,status,metadata) VALUES($1,$2,'push','queued',$3)",[n.rows[0].id,uid,{journeyId:String(j.id),step:0}]);queued++;
