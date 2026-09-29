@@ -43,7 +43,8 @@ test('Moscow executive package contains the buyer leave-behind and pilot truth b
     'pilot-positioning',
     'pilot-methodology',
     'pilot-acceptance',
-    'funding-scale-playbook'
+    'funding-scale-playbook',
+    'pilot-application-readiness'
   ]) {
     assert.equal(ids.has(required as never), true);
   }

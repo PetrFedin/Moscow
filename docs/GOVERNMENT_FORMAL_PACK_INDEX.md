@@ -35,8 +35,34 @@
 - Что нужно;
 - Финансирование;
 - Пакет;
+- Заявка;
 - Решение;
 - Масштаб.
+
+## Для перехода к официальной заявке
+
+### 2A. Moscow Pilot Application Readiness
+
+`docs/MOSCOW_PILOT_APPLICATION_READINESS.md`
+
+В приложении:
+
+`CITY PILOT → Заявка`
+
+Deep link:
+
+`?cityPilot=application`
+
+Показывает отдельно:
+
+- готовые project fields;
+- project drafts;
+- applicant-owned corporate/financial fields;
+- legal review;
+- external Moscow/site confirmation;
+- missing formal attachments.
+
+Application readiness не является подтверждением eligibility или присвоенного статуса участника.
 
 ## Для согласования пилота
 

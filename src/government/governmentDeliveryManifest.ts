@@ -16,6 +16,7 @@ export type GovernmentArtifactId =
   | 'funding-scale-playbook'
   | 'investment-decision-authority'
   | 'executive-one-pager'
+  | 'pilot-application-readiness'
   | 'decision-deck'
   | 'technical-specification'
   | 'architecture-integration'
@@ -132,6 +133,18 @@ export const currentGovernmentDeliveryManifest: GovernmentDeliveryManifest = {
       note: 'Compact buyer-facing leave-behind; rendered PDF/export can be produced from this content authority.'
     },
     {
+      id: 'pilot-application-readiness',
+      title: 'Moscow pilot application readiness',
+      status: 'ready',
+      refs: [
+        'src/government/moscowPilotApplicationReadiness.ts',
+        'src/government/MoscowPilotApplicationReadinessPanel.tsx',
+        'docs/MOSCOW_PILOT_APPLICATION_READINESS.md',
+        'tests/moscowPilotApplicationReadiness.test.ts'
+      ],
+      note: 'Maps project-ready fields against applicant/legal/city-owned inputs without inventing corporate data or claiming submission approval.'
+    },
+    {
       id: 'decision-deck',
       title: '10–12 slide decision deck',
       status: 'missing',
@@ -217,7 +230,8 @@ const STAGE_ARTIFACTS: Record<GovernmentDeliveryStageId, GovernmentArtifactId[]>
     'pilot-methodology',
     'pilot-acceptance',
     'funding-scale-playbook',
-    'executive-one-pager'
+    'executive-one-pager',
+    'pilot-application-readiness'
   ],
   'technical-pilot-approval': [
     'executive-one-pager',

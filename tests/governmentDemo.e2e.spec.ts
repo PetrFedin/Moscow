@@ -101,6 +101,20 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('MISSING', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Federal expansion proposal', { exact: true })).toBeVisible();
 
+  await page.getByText('Заявка', { exact: true }).click();
+  await expect(page.getByText('Из demo — в заявку', { exact: true })).toBeVisible();
+  await expect(page.getByText('I.MOSCOW · APPLICATION READINESS', { exact: true })).toBeVisible();
+  await expect(page.getByText('Moscow Pilot Application Readiness', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKED · 18 ПОЛЕЙ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Полное наименование юрлица / ИП, ИНН, КПП', { exact: true })).toBeVisible();
+  await expect(page.getByText('ДАННЫЕ ЗАЯВИТЕЛЯ', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('button', {
+    name: 'Показать раздел заявки Коммерциализация'
+  }).click();
+  await expect(page.getByText('Стоимость решения / тарифная сетка', { exact: true })).toBeVisible();
+  await expect(page.getByText('Фактическая выручка от реализации предлагаемого решения за 3 года', { exact: true })).toBeVisible();
+
   await page.getByText('Решение', { exact: true }).click();
   await expect(page.getByText('Инвестиционный пакет ещё не готов', { exact: true })).toBeVisible();
   await expect(page.getByText('ECONOMICS', { exact: true })).toBeVisible();
@@ -137,4 +151,13 @@ test('government package deep link opens Partner Investor Data Room directly', a
   await expect(page.getByText('Москва · первая официальная встреча', { exact: true })).toBeVisible();
   await expect(page.getByText('Москва · technical / procurement working session', { exact: true })).toBeVisible();
   await expect(page.getByText('Инвестор · scale decision room', { exact: true })).toBeVisible();
+});
+
+test('government application deep link opens application readiness directly', async ({ page }) => {
+  await page.goto('/?cityPilot=application');
+
+  await expect(page.getByText('MOSCOW · CITY PILOT', { exact: true })).toBeVisible();
+  await expect(page.getByText('Из demo — в заявку', { exact: true })).toBeVisible();
+  await expect(page.getByText('I.MOSCOW · APPLICATION READINESS', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKED · 18 ПОЛЕЙ', { exact: true })).toBeVisible();
 });

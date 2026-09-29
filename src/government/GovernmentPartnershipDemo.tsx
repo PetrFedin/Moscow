@@ -11,6 +11,7 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
 import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
 import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollaborationCharterPanel';
+import MoscowPilotApplicationReadinessPanel from './MoscowPilotApplicationReadinessPanel';
 import type { GovernmentMeetingEntryMode } from './governmentMeetingEntry';
 import {
   getGovernmentPilotReadiness,
@@ -27,7 +28,7 @@ import {
   type GovernmentArtifactId
 } from './governmentDeliveryManifest';
 
-type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'package' | 'decision' | 'scale';
+type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'package' | 'application' | 'decision' | 'scale';
 
 const sectionLabels: Record<Section, string> = {
   offer: 'Пилот',
@@ -35,6 +36,7 @@ const sectionLabels: Record<Section, string> = {
   ask: 'Что нужно',
   funding: 'Финансирование',
   package: 'Пакет',
+  application: 'Заявка',
   decision: 'Решение',
   scale: 'Масштаб'
 };
@@ -72,6 +74,7 @@ const governmentArtifactLabels: Record<GovernmentArtifactId, string> = {
   'funding-scale-playbook': 'Funding / scale playbook',
   'investment-decision-authority': 'Investment decision authority',
   'executive-one-pager': 'Executive one-pager',
+  'pilot-application-readiness': 'Moscow pilot application readiness',
   'decision-deck': '10–12 slide decision deck',
   'technical-specification': 'Консолидированное техническое задание',
   'architecture-integration': 'Architecture / integration scheme',
@@ -121,7 +124,11 @@ export default function GovernmentPartnershipDemo({
   initialMode?: GovernmentMeetingEntryMode;
 }) {
   const [section, setSection] = useState<Section>(
-    initialMode === 'package' ? 'package' : 'offer'
+    initialMode === 'application'
+      ? 'application'
+      : initialMode === 'package'
+        ? 'package'
+        : 'offer'
   );
   const [guidedRouteOpen, setGuidedRouteOpen] = useState(
     initialMode === 'guided'
@@ -431,6 +438,17 @@ export default function GovernmentPartnershipDemo({
                   <Text style={styles.artifactNote}>{artifact.note}</Text>
                 </View>
               ))}
+          </>
+        )}
+
+        {section === 'application' && (
+          <>
+            <SectionTitle
+              kicker="ОФИЦИАЛЬНЫЙ PILOT TRACK"
+              title="Из demo — в заявку"
+              body="Этот экран отделяет product-ready материалы от applicant/legal/city данных, которых нет в репозитории и которые нельзя придумывать."
+            />
+            <MoscowPilotApplicationReadinessPanel />
           </>
         )}
 

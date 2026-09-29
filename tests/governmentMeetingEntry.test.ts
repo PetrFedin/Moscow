@@ -19,6 +19,10 @@ test('government meeting entry parses overview guided and package links', () => 
     parseGovernmentMeetingEntryUrl('https://example.org/?cityPilot=package'),
     'package'
   );
+  assert.equal(
+    parseGovernmentMeetingEntryUrl('https://example.org/?cityPilot=application'),
+    'application'
+  );
 });
 
 test('meeting and data-room aliases stay deterministic', () => {
@@ -33,6 +37,14 @@ test('meeting and data-room aliases stay deterministic', () => {
   assert.equal(
     parseGovernmentMeetingEntryUrl('https://example.org/?cityPilot=dataroom'),
     'package'
+  );
+  assert.equal(
+    parseGovernmentMeetingEntryUrl('https://example.org/?cityPilot=apply'),
+    'application'
+  );
+  assert.equal(
+    parseGovernmentMeetingEntryUrl('https://example.org/?cityPilot=pilot-application'),
+    'application'
   );
 });
 
@@ -57,5 +69,12 @@ test('shareable link builder preserves the origin and sets one explicit meeting 
       'package'
     ),
     'https://moscow.example.org/path?foo=bar&cityPilot=package#demo'
+  );
+  assert.equal(
+    buildGovernmentMeetingUrl(
+      'https://moscow.example.org/path?foo=bar#demo',
+      'application'
+    ),
+    'https://moscow.example.org/path?foo=bar&cityPilot=application#demo'
   );
 });
