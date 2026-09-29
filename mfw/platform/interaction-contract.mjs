@@ -82,3 +82,8 @@ if(!mfwExperience.includes('event-data.js?v=20260929'))throw new Error('MFW expe
 if(!bfsExperience.includes('event-data.js?v=20260929'))throw new Error('BFS experience missing official data layer');
 ['openSession','speakerIds','media:{live:"unconfirmed",replay:"unconfirmed"}'].forEach(x=>{if(!(bfsApp+officialData).includes(x))throw new Error('Entity graph contract missing: '+x)});
 console.log('event-native official graph contract: PASS');
+
+const sync=fs.readFileSync(path.join(root,'event-sync.js'),'utf8');
+['time_changed','venue_changed','access_changed','mfp-official-sync','setReminder','notifyDue'].forEach(x=>{if(!sync.includes(x))throw new Error('Sync/reminder authority missing: '+x)});
+['organisations','meeting_requested','qualified_lead'].forEach(x=>{if(!(officialData+bfsApp).includes(x))throw new Error('B2B CRM graph missing: '+x)});
+console.log('sync + reminder + B2B CRM contract: PASS');
