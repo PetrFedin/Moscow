@@ -26,6 +26,8 @@ jobs:
         run: node --experimental-strip-types scripts/build_pilot_study_report.mjs --help
       - name: Government delivery readiness CLI smoke
         run: node --experimental-strip-types scripts/report_government_delivery_readiness.mjs --help
+      - name: Moscow pilot application readiness CLI smoke
+        run: node --experimental-strip-types scripts/report_moscow_pilot_application_readiness.mjs --help
       - run: npm run test:e2e-contract
       - run: npm run typecheck
       - run: npm run build:web

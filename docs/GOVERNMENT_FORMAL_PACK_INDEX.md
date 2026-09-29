@@ -64,6 +64,12 @@ Deep link:
 
 Application readiness не является подтверждением eligibility или присвоенного статуса участника.
 
+Machine-readable check:
+
+```bash
+npm run government:application-readiness -- --text
+```
+
 ## Для согласования пилота
 
 ### 3. Техническая спецификация
