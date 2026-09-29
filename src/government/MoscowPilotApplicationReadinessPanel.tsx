@@ -32,15 +32,6 @@ const groupLabels: Record<MoscowPilotApplicationFieldGroup, string> = {
   attachments: 'Приложения'
 };
 
-const statusStyleKey: Record<MoscowPilotApplicationFieldStatus, keyof typeof styles> = {
-  ready: 'badgeReady',
-  'project-draft': 'badgeDraft',
-  'applicant-input-required': 'badgeApplicant',
-  'external-confirmation-required': 'badgeExternal',
-  'legal-review-required': 'badgeLegal',
-  'missing-artifact': 'badgeMissing'
-};
-
 export default function MoscowPilotApplicationReadinessPanel() {
   const readiness = useMemo(
     () => evaluateMoscowPilotApplicationReadiness(),
@@ -131,7 +122,7 @@ export default function MoscowPilotApplicationReadinessPanel() {
                       <Text style={styles.fieldTitle}>{field.title}</Text>
                       <View style={[
                         styles.badge,
-                        styles[statusStyleKey[field.status]]
+                        getBadgeStyle(field.status)
                       ]}>
                         <Text style={styles.badgeText}>
                           {statusLabels[field.status]}
@@ -388,3 +379,21 @@ const styles = StyleSheet.create({
     lineHeight: 14
   }
 });
+
+
+function getBadgeStyle(status: MoscowPilotApplicationFieldStatus) {
+  switch (status) {
+    case 'ready':
+      return styles.badgeReady;
+    case 'project-draft':
+      return styles.badgeDraft;
+    case 'applicant-input-required':
+      return styles.badgeApplicant;
+    case 'external-confirmation-required':
+      return styles.badgeExternal;
+    case 'legal-review-required':
+      return styles.badgeLegal;
+    case 'missing-artifact':
+      return styles.badgeMissing;
+  }
+}
