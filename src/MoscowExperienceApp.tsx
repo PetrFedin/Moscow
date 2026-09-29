@@ -15,6 +15,7 @@ import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
+import DestinationDayPrototypeCard from './features/destination/DestinationDayPrototypeCard';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
@@ -564,6 +565,11 @@ export default function MoscowExperienceApp() {
                   </Text>
                 </PhysicalPressable>
               </View>
+
+              <DestinationDayPrototypeCard
+                language={language}
+                onStartHistory={openWalkFromHero}
+              />
 
               <NearbyNow
                 language={language}
