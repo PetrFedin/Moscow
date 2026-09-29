@@ -809,6 +809,77 @@ class Brand365Store{
     };
   }
 
+  async setBrandFavorite(userId,brandRef,favorite){
+    if(!this.pool){
+      if(!this.memory.brandFavorites)this.memory.brandFavorites=new Map();
+      const set=this.memory.brandFavorites.get(String(userId))||new Set();
+      if(favorite)set.add(String(brandRef));else set.delete(String(brandRef));
+      this.memory.brandFavorites.set(String(userId),set);return !!favorite;
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)throw new Error('brand_not_found');
+    if(favorite)await this.pool.query('INSERT INTO brand_favorites(user_id,brand_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[userId,brand.storageId]);
+    else await this.pool.query('DELETE FROM brand_favorites WHERE user_id=$1 AND brand_id=$2',[userId,brand.storageId]);
+    return !!favorite;
+  }
+
+  async brandCrmAudience(brandRef){
+    const base=await this.brandAudience(brandRef);
+    if(!this.pool){
+      const fav=this.memory.brandFavorites||new Map(),buyers=this.memory.shortlists||new Map();
+      const members=base.members.map(x=>({...x,favorite:[...fav.entries()].some(([u,s])=>String(u)===x.userId&&s.has(String(brandRef))),buyer:[...buyers.entries()].some(([u,s])=>String(u)===x.userId&&s.has(String(brandRef)))}));
+      return {...base,members,segments:{all:members.length,days30Plus:members.filter(x=>x.followDays>=30).length,days60Plus:members.filter(x=>x.followDays>=60).length,favorite:members.filter(x=>x.favorite).length,buyer:members.filter(x=>x.buyer).length}};
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return {...base,segments:{all:0,days30Plus:0,days60Plus:0,favorite:0,buyer:0}};
+    const fav=await this.pool.query('SELECT user_id FROM brand_favorites WHERE brand_id=$1',[brand.storageId]);
+    const favs=new Set(fav.rows.map(x=>String(x.user_id)));
+    const buyers=new Set();
+    try{
+      const q=await this.pool.query(`SELECT DISTINCT buyer_id::text user_id FROM commerce_leads WHERE brand_id=$1 AND stage IN ('shortlisted','qualified','meeting','follow_up','ordered')`,[brand.storageId]);
+      q.rows.forEach(x=>buyers.add(String(x.user_id)));
+    }catch(_){}
+    const members=base.members.map(x=>({...x,favorite:favs.has(x.userId),buyer:buyers.has(x.userId)}));
+    return {...base,members,segments:{all:members.length,days30Plus:members.filter(x=>x.followDays>=30).length,days60Plus:members.filter(x=>x.followDays>=60).length,favorite:members.filter(x=>x.favorite).length,buyer:members.filter(x=>x.buyer).length}};
+  }
+
+  async createBrandCampaign(brandRef,input,createdBy){
+    const segment=input.segment||{kind:'all_followers'};
+    if(!this.pool){
+      if(!this.memory.brandCampaigns)this.memory.brandCampaigns=new Map();
+      const id='bc_'+require('crypto').randomBytes(6).toString('hex');
+      const item={id,brandId:String(brandRef),name:String(input.name||'Campaign'),campaignType:String(input.campaignType||'invitation'),segment,channel:String(input.channel||'push'),messageRu:String(input.messageRu||''),messageEn:String(input.messageEn||''),status:'draft',createdBy:String(createdBy||''),createdAt:new Date().toISOString(),demo:true};
+      this.memory.brandCampaigns.set(id,item);return item;
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)throw new Error('brand_not_found');
+    const r=await this.pool.query(`INSERT INTO brand_campaigns(brand_id,external_key,name,campaign_type,segment,channel,message_ru,message_en,created_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[brand.storageId,'bc_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Campaign'),String(input.campaignType||'invitation'),segment,String(input.channel||'push'),String(input.messageRu||''),String(input.messageEn||''),createdBy||null]);
+    return r.rows[0];
+  }
+
+  async campaignAnalytics(brandRef){
+    if(!this.pool){
+      const campaigns=[...(this.memory.brandCampaigns||new Map()).values()].filter(x=>x.brandId===String(brandRef));
+      return {campaigns,funnel:{audience:0,sent:0,visits:0,claims:0,redeemed:0,purchases:0,revenue:0},currency:'RUB',dataMode:'memory'};
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return {campaigns:[],funnel:{},currency:'RUB',dataMode:'postgres'};
+    const campaigns=await this.pool.query(`SELECT c.*,
+      (SELECT count(*) FROM brand_campaign_audience a WHERE a.campaign_id=c.id)::int audience,
+      (SELECT count(*) FROM brand_campaign_events e WHERE e.campaign_id=c.id AND e.event_type='sent')::int sent,
+      (SELECT count(*) FROM brand_campaign_events e WHERE e.campaign_id=c.id AND e.event_type='visit')::int visits,
+      (SELECT count(*) FROM brand_campaign_events e WHERE e.campaign_id=c.id AND e.event_type='redeemed')::int redeemed,
+      (SELECT count(*) FROM brand_purchases p WHERE p.campaign_id=c.id)::int purchases,
+      (SELECT COALESCE(sum(p.amount),0) FROM brand_purchases p WHERE p.campaign_id=c.id) revenue
+      FROM brand_campaigns c WHERE c.brand_id=$1 ORDER BY c.created_at DESC`,[brand.storageId]);
+    const f=await this.pool.query(`SELECT
+      (SELECT count(*) FROM brand_campaign_audience a JOIN brand_campaigns c ON c.id=a.campaign_id WHERE c.brand_id=$1)::int audience,
+      (SELECT count(*) FROM brand_campaign_events e JOIN brand_campaigns c ON c.id=e.campaign_id WHERE c.brand_id=$1 AND e.event_type='sent')::int sent,
+      (SELECT count(*) FROM brand_campaign_events e JOIN brand_campaigns c ON c.id=e.campaign_id WHERE c.brand_id=$1 AND e.event_type='visit')::int visits,
+      (SELECT count(*) FROM brand_campaign_events e JOIN brand_campaigns c ON c.id=e.campaign_id WHERE c.brand_id=$1 AND e.event_type='claim')::int claims,
+      (SELECT count(*) FROM brand_campaign_events e JOIN brand_campaigns c ON c.id=e.campaign_id WHERE c.brand_id=$1 AND e.event_type='redeemed')::int redeemed,
+      (SELECT count(*) FROM brand_purchases p WHERE p.brand_id=$1)::int purchases,
+      (SELECT COALESCE(sum(amount),0) FROM brand_purchases WHERE brand_id=$1) revenue`,[brand.storageId]);
+    const x=f.rows[0];return {campaigns:campaigns.rows,funnel:{audience:Number(x.audience||0),sent:Number(x.sent||0),visits:Number(x.visits||0),claims:Number(x.claims||0),redeemed:Number(x.redeemed||0),purchases:Number(x.purchases||0),revenue:Number(x.revenue||0)},currency:'RUB',dataMode:'postgres'};
+  }
+
   async claimsForBrand(brandRef){
     if(!this.pool){
       const offerIds=new Set(this.memory.loyaltyOffers.filter(x=>x.brandId===String(brandRef)).map(x=>x.id));
