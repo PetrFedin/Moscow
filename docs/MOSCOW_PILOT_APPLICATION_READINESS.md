@@ -161,6 +161,22 @@ RUSSPASS / «Узнай Москву» лучше описывать как су
 
 Само соглашение о пилоте и статус участника не считаются возникшими до официального оформления.
 
+## Machine-readable readiness
+
+JSON:
+
+```bash
+npm run government:application-readiness
+```
+
+Короткий human-readable blocker list:
+
+```bash
+npm run government:application-readiness -- --text
+```
+
+Команда только читает текущую authority. Она не отправляет заявку и не меняет статусы.
+
 ## Application Working Session — 60 минут
 
 ### 0–10 минут — applicant identity
