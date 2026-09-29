@@ -320,7 +320,7 @@
   }
 
   function demoNote(){
-    return '<div class="demo-note"><b>CONCEPT DEMO.</b> '+T('Программа, бренды и права доступа на этом стенде — демонстрационные данные. Архитектура интерфейса предназначена для подключения к официальным данным MFW.','Programme, brands and access rights in this build are demo data. The interface architecture is designed to connect to official MFW data.')+'</div>';
+    return '<div class="demo-note"><b>CONCEPT DEMO.</b> '+T('Программа и каталог брендов синхронизированы с официальным snapshot MFW от 29.09.2026. Права доступа, LIVE и часть коммерческих сценариев остаются демонстрационными до подключения production authority.','Programme and brand catalogue use the official MFW snapshot synced on 29 Sep 2026. Access rights, LIVE and some commercial flows remain demo until production authority is connected.')+'</div>';
   }
 
   function lookVisual(n,label){
