@@ -37,6 +37,45 @@
     {id:'b11',name:'IgorGulyaev',cityRu:'Москва',cityEn:'Moscow',tag:'Runway · 1 OCT',descRu:'Участник официального расписания Московской недели моды 2026.',descEn:'Participant in the official Moscow Fashion Week 2026 schedule.'},
     {id:'b12',name:'Bitte_Ruhe',cityRu:'Москва',cityEn:'Moscow',tag:'Official participants',descRu:'Бренд присутствует в официальном каталоге участников Московской недели моды.',descEn:'Brand listed in the official Moscow Fashion Week participant catalogue.'}
   ];
+  if(window.MFP_DATA&&window.MFP_DATA.mfw){
+    var officialMfw=window.MFP_DATA.mfw;
+    demoEvents=(officialMfw.events||[]).map(function(e){
+      return {
+        id:e.id,
+        dateRu:(e.date||'').split('-').reverse().slice(0,2).join('.'),
+        dateEn:e.date||'',
+        time:e.time||'',
+        nameRu:e.title||'',
+        nameEn:e.title||'',
+        typeRu:e.type||'Событие',
+        typeEn:e.type||'Event',
+        venueRu:e.venue||'',
+        venueEn:e.venue||'',
+        status:e.access==='Регистрация'?'REGISTRATION':'SCHEDULED',
+        accessRu:e.access||'',
+        accessEn:e.access||'',
+        format:'PHYSICAL',
+        city:e.city||'',
+        moderator:e.moderator||'',
+        participants:e.participants||[],
+        source:'OFFICIAL'
+      };
+    });
+    brands=(officialMfw.brands||[]).map(function(b){
+      var linked=(officialMfw.events||[]).filter(function(e){return e.id===b.showId;})[0];
+      return {
+        id:b.id,
+        name:b.name,
+        cityRu:b.city||'',
+        cityEn:b.city||'',
+        tag:linked?('Runway · '+linked.date+' · '+linked.time):((b.tags||[]).join(' · ')||'Official participant'),
+        descRu:'Участник официального каталога Московской недели моды 2026.',
+        descEn:'Official Moscow Fashion Week 2026 participant.',
+        showId:b.showId||null,
+        source:'OFFICIAL'
+      };
+    });
+  }
   function brandCity(b){return state.lang==='en'?b.cityEn:b.cityRu;}
   function brandDesc(b){return state.lang==='en'?b.descEn:b.descRu;}
   var I18N={
@@ -554,11 +593,12 @@
     var saved=state.savedBrands.indexOf(id)>=0;
     var favorite=state.favoriteBrands.indexOf(id)>=0;
     var pro=(state.role==='Buyer'||state.role==='Media');
-    openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(brandCity(b))+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>SS27 · Moscow Fashion Week</p></div></div>'+
-      '<div class="brand-story"><div><div class="eyebrow">THE BRAND</div><h2>'+T('Новая российская мода<br>как культурный продукт.','New Russian fashion<br>as a cultural product.')+'</h2><p class="sub">'+esc(brandDesc(b))+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
+    var linkedShow=b.showId?demoEvents.filter(function(e){return e.id===b.showId;})[0]:null;
+    openSheet('<div class="brand-editorial-hero" style="background-image:linear-gradient(180deg,transparent,rgba(0,0,0,.84)),url('+VISUALS.runway+')"><div><div class="eyebrow">'+esc(brandCity(b))+' · '+esc(b.tag)+'</div><h1>'+esc(b.name)+'</h1><p>Moscow Fashion Week · OFFICIAL</p></div></div>'+
+      '<div class="brand-story"><div><div class="eyebrow">OFFICIAL PARTICIPANT</div><h2>'+T('Бренд в программе<br>Moscow Fashion Week.','Brand in the<br>Moscow Fashion Week programme.')+'</h2><p class="sub">'+esc(brandDesc(b))+'</p></div><div class="designer-portrait" style="background-image:url('+VISUALS.designer+')"><span>DESIGNER</span></div></div>'+
       '<div class="action-row"><button class="action primary" data-action="save-brand" data-id="'+b.id+'">'+(saved?'✓ '+T('Подписан в MFW','Following in MFW'):T('Подписаться в MFW','Follow in MFW'))+'</button><button class="action ghost" data-action="favorite-brand" data-id="'+b.id+'">'+(favorite?'♥ '+T('Любимый','Favorite'):'♡ '+T('В любимые','Favorite'))+'</button><button class="action ghost" data-action="brand-loyalty" data-id="'+b.id+'">✦ '+t('club')+'</button><button class="action ghost" data-action="brand-365" data-id="'+b.id+'">'+t('brand365')+'</button></div>'+
-      '<div class="section-head"><h2>SS27 runway</h2><span class="link">32 looks</span></div><div class="brand-look-grid">'+[1,2,3,4,5,6].map(function(n){return '<button data-action="save-look" data-look="'+b.id+'-look-'+n+'">'+lookVisual(n)+'</button>';}).join('')+'</div>'+
-      '<div class="brand-meta-grid"><div><span>SHOW</span><b>26 SEP · 17:00</b></div><div><span>CITY</span><b>'+esc(brandCity(b))+'</b></div><div><span>FORMAT</span><b>Runway + showroom</b></div></div>'+
+      (linkedShow?'<div class="section-head"><h2>'+T('Связанный показ','Linked show')+'</h2><span class="link">OFFICIAL</span></div><div class="card"><div class="eyebrow">'+esc(linkedShow.dateRu||'')+' · '+esc(linkedShow.time)+'</div><b>'+esc(eventField(linkedShow,'name'))+'</b><p class="sub">'+esc(eventField(linkedShow,'venue'))+' · '+esc(eventField(linkedShow,'access'))+'</p><button class="action primary" data-action="event" data-id="'+linkedShow.id+'">'+T('Открыть показ','Open show')+'</button></div>':'<div class="card"><b>'+T('Показ не привязан в текущем официальном snapshot','No linked show in the current official snapshot')+'</b></div>')+
+      '<div class="brand-meta-grid"><div><span>STATUS</span><b>OFFICIAL 2026</b></div><div><span>CITY</span><b>'+esc(brandCity(b))+'</b></div><div><span>FOLLOW</span><b>'+T('Для ленты и rewards','Feed & rewards')+'</b></div></div>'+
       (pro?'<div class="buyer-commerce-card"><div><div class="eyebrow">BUYER MODE · SERVER</div><b>Из вдохновения — в коммерческий контакт.</b><p>Line sheet · shortlist · meeting · follow-up.</p></div><div class="action-row"><button class="action primary" data-action="line-sheet" data-id="'+b.id+'">Line sheet</button><button class="action light" data-action="toggle-shortlist" data-id="'+b.id+'">'+(state.buyerShortlist.some(function(x){return x.id===b.id;})?'✓ Shortlisted':'＋ Shortlist')+'</button><button class="action light" data-action="meeting">Встреча</button><button class="action ghost" data-action="buyer-followup" data-id="'+b.id+'">Follow-up</button></div></div>':''));
   }
 
