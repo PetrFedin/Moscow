@@ -12,6 +12,13 @@ var sessions=[
 ];
 var speakers=[['Елена Ахмадуллина','Основатель бренда Alena Akhmadullina'],['Антон Алиханов','Министр промышленности и торговли РФ'],['Мустафа Джем Алтан','International Apparel Federation'],['Мадонна Мур','Основатель Fashion Paper']];
 var delegates=[];
+if(window.MFP_DATA&&window.MFP_DATA.bfs){
+  sessions=(window.MFP_DATA.bfs.sessions||[]).map(function(s){
+    return {id:s.id,date:s.date,time:s.time+(s.end?'–'+s.end:''),title:s.title,hall:s.hall,tag:s.topic||'Сессия',moderator:s.moderator||'',participants:s.speakers||[],source:'OFFICIAL'};
+  });
+  speakers=(window.MFP_DATA.bfs.speakers||[]).map(function(s){return [s.name,(s.role||'')+(s.org?' · '+s.org:'') ,s.id,s.org||'',s.role||''];});
+}
+
 function $(s){return document.querySelector(s)}function $$(s){return [].slice.call(document.querySelectorAll(s))}
 function registration(){return state.account&&state.account.registrations&&state.account.registrations.bfs}
 function projectKey(name){return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-')}
