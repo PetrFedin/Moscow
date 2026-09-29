@@ -964,6 +964,31 @@ class Brand365Store{
     const brand=await this.brandByRef(brandRef);if(!brand)return [];const r=await this.pool.query('SELECT * FROM brand_journeys WHERE brand_id=$1 ORDER BY created_at DESC',[brand.storageId]);return r.rows;
   }
 
+  async runJourneys(brandRef){
+    const journeys=(await this.journeys(brandRef)).filter(j=>j.status==='active');
+    if(!this.pool)return {journeys:journeys.length,enrolled:0,queued:0,dataMode:'memory'};
+    const brand=await this.brandByRef(brandRef);await this.refreshCustomerLifecycle(brandRef);
+    let enrolled=0,queued=0,suppressed=0;
+    for(const j of journeys){
+      const trigger=j.trigger||{},lifecycle=String(trigger.lifecycle||'at_risk');
+      const candidates=await this.pool.query('SELECT user_id,lifecycle FROM brand_customer_profiles WHERE brand_id=$1 AND lifecycle=$2',[brand.storageId,lifecycle]);
+      for(const row of candidates.rows){
+        const uid=String(row.user_id);
+        const already=await this.pool.query("SELECT 1 FROM brand_journey_enrollments WHERE journey_id=$1 AND user_id=$2 AND state='active'",[j.id,uid]);if(already.rowCount)continue;
+        const pref=await this.pool.query('SELECT paid_promotions_enabled FROM notification_preferences WHERE user_id=$1',[uid]);if(!pref.rowCount||!pref.rows[0].paid_promotions_enabled){suppressed++;continue;}
+        const cap=Number(j.frequency_cap&&j.frequency_cap.per_user_per_30d||3);
+        const recent=await this.pool.query("SELECT count(*)::int n FROM notification_deliveries d JOIN notifications n ON n.id=d.notification_id WHERE d.user_id=$1 AND n.payload->>'journeyId'=$2 AND n.created_at>=now()-interval '30 days'",[uid,String(j.id)]);if(Number(recent.rows[0].n||0)>=cap){suppressed++;continue;}
+        const steps=Array.isArray(j.steps)?j.steps:[],first=steps[0]||{type:'push',title:j.name,body:''};
+        await this.pool.query('INSERT INTO brand_journey_enrollments(journey_id,user_id,state,current_step,last_action_at,metadata) VALUES($1,$2,\'active\',0,now(),$3) ON CONFLICT DO NOTHING',[j.id,uid,{triggerLifecycle:lifecycle}]);enrolled++;
+        if(first.type==='push'){
+          const n=await this.pool.query(`INSERT INTO notifications(audience,category,title,body,payload,status,scheduled_at) VALUES($1,'brand_campaign',$2,$3,$4,'scheduled',now()) RETURNING id`,[{kind:'user',userId:uid},String(first.title||j.name),String(first.body||''),{brandId:brand.id,journeyId:String(j.id),step:0}]);
+          await this.pool.query("INSERT INTO notification_deliveries(notification_id,user_id,channel,status,metadata) VALUES($1,$2,'push','queued',$3)",[n.rows[0].id,uid,{journeyId:String(j.id),step:0}]);queued++;
+        }
+      }
+    }
+    return {journeys:journeys.length,enrolled,queued,suppressed,dataMode:'postgres'};
+  }
+
   async customerEconomics(brandRef){
     if(!this.pool){
       const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
