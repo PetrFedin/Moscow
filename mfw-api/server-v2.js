@@ -389,6 +389,7 @@ const memory={
   brandCampaignEvents:[],
   brandSavedSegments:new Map(),
   brandOrderImports:[],
+  brandJourneys:new Map(),
   brandPurchases:[],
   brandAccess:new Map(),
   loyaltyClaims:new Map(),
@@ -1979,11 +1980,25 @@ async function router(req,res){
       const campaignAnalytics=await brand365Store.campaignAnalytics(brandId);
       const savedSegments=await brand365Store.savedSegments(brandId);
       const economics=await brand365Store.customerEconomics(brandId);
+      const incrementality=await brand365Store.campaignIncrementality(brandId);
+      const lifecycle=await brand365Store.refreshCustomerLifecycle(brandId);
+      const journeys=await brand365Store.journeys(brandId);
       const offers=await brand365Store.offersForBrand(brandId,{publishedOnly:false});
       const posts=await brand365Store.postsForBrand(brandId,{publishedOnly:false});
       const claims=await brand365Store.claimsForBrand(brandId);
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
-      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,incrementality,lifecycle,journeys,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+    }
+    if(req.method==='GET'&&action==='incrementality')return json(res,200,{data:await brand365Store.campaignIncrementality(brandId)});
+    if(req.method==='POST'&&action==='lifecycle-refresh')return json(res,200,{data:await brand365Store.refreshCustomerLifecycle(brandId)});
+    if(req.method==='GET'&&action==='journeys')return json(res,200,{data:await brand365Store.journeys(brandId)});
+    if(req.method==='POST'&&action==='journeys'){
+      const b=await readBody(req),actor=sessionFromRequest(req),item=await brand365Store.createJourney(brandId,b,actor&&actor.sub||null);
+      await track('brand_journey_created',{brandId,journeyId:String(item.external_key||item.externalKey||item.id),trigger:b.trigger||{}},actor&&actor.sub||null);
+      return json(res,201,{data:item});
+    }
+    if(req.method==='POST'&&action==='journeys-run'){
+      const out=await brand365Store.runJourneys(brandId);await track('brand_journeys_run',{brandId,...out},sessionFromRequest(req)?.sub||null);return json(res,200,{data:out});
     }
     if(req.method==='POST'&&action==='campaign-queue'){
       const b=await readBody(req);
