@@ -40,7 +40,8 @@ export const governmentDataRoomPackages: GovernmentDataRoomPackage[] = [
       'pilot-positioning',
       'pilot-methodology',
       'pilot-acceptance',
-      'funding-scale-playbook'
+      'funding-scale-playbook',
+      'pilot-application-readiness'
     ],
     doNotClaim:
       'Не заявлять, что пилот уже доказан, бюджет одобрен или выбран конечный заказчик.'
