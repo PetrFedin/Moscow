@@ -628,8 +628,9 @@
       var postRows=posts.slice(0,5).map(function(p){var canPush=!p.isPaid&&p.status==='published'&&p.audienceScope&&p.audienceScope.kind==='brand_followers';return '<div class="brand-portal-row"><div><b>'+esc(state.lang==='ru'?p.titleRu:p.titleEn)+'</b><small>'+esc(p.kind)+' · '+esc(p.status)+'</small></div><div class="brand-portal-tools"><span>'+(p.isPaid?'AD':'ORG')+'</span>'+(canPush?'<button class="action ghost compact" data-action="brand-portal-notify" data-brand="'+esc(brandId)+'" data-post="'+esc(p.id)+'">'+T('Push подписчикам','Push followers')+'</button>':'')+'</div></div>';}).join('');
       var channelRows=channels.map(function(ch){return '<div class="brand-portal-row"><div><b>'+esc(ch.platform.toUpperCase())+' · '+esc(ch.handle||ch.externalChannelId)+'</b><small>'+esc(ch.verificationMode)+'</small></div><span>'+esc(ch.status)+'</span></div>';}).join('');
       openSheet('<div class="eyebrow">BRAND 365 STUDIO · SERVER</div><h1 style="font-size:42px">'+T('СОБСТВЕННАЯ<br>АУДИТОРИЯ','OWNED<br>AUDIENCE')+'</h1>'+
-        '<div class="stat-grid"><div class="stat"><b>'+esc(d.followers||0)+'</b><small>MFW followers</small></div><div class="stat"><b>'+esc(posts.length)+'</b><small>'+T('Публикации','Posts')+'</small></div><div class="stat"><b>'+esc(offers.length)+'</b><small>Offers</small></div></div>'+
-        '<div class="brand-portal-actions"><button class="action primary" data-action="brand-portal-news" data-id="'+esc(brandId)+'">'+T('+ Новость подписчикам','+ Follower news')+'</button><button class="action ghost" data-action="brand-portal-paid" data-id="'+esc(brandId)+'">'+T('+ Реклама на MFW','+ MFW-wide ad')+'</button><button class="action ghost" data-action="brand-portal-discount" data-id="'+esc(brandId)+'">'+T('+ Скидка 10%','+ 10% reward')+'</button><button class="action ghost" data-action="brand-portal-gift" data-id="'+esc(brandId)+'">'+T('+ Подарок','+ Gift')+'</button></div>'+
+        '<div class="stat-grid"><div class="stat"><b>'+esc(d.followers||0)+'</b><small>MFW followers</small></div><div class="stat"><b>'+esc(d.audience&&d.audience.verifiedSocial&&d.audience.verifiedSocial.days30Plus||0)+'</b><small>'+T('30+ дней verified','30+ verified days')+'</small></div><div class="stat"><b>'+esc((d.claims||[]).filter(function(x){return x.status==="redeemed"}).length)+'</b><small>'+T('Погашено','Redeemed')+'</small></div></div>'+
+        '<div class="audience-age-grid"><div><b>'+esc(d.audience&&d.audience.buckets&&d.audience.buckets.new_0_6||0)+'</b><span>0–6 '+T('дней','days')+'</span></div><div><b>'+esc(d.audience&&d.audience.buckets&&d.audience.buckets.growing_7_29||0)+'</b><span>7–29</span></div><div><b>'+esc(d.audience&&d.audience.buckets&&d.audience.buckets.eligible_30_59||0)+'</b><span>30–59</span></div><div><b>'+esc(d.audience&&d.audience.buckets&&d.audience.buckets.loyal_60_plus||0)+'</b><span>60+</span></div></div>'+
+        '<div class="brand-portal-actions"><button class="action primary" data-action="brand-portal-news" data-id="'+esc(brandId)+'">'+T('+ Новость / фото','+ News / photo')+'</button><button class="action ghost" data-action="brand-portal-invite" data-id="'+esc(brandId)+'">'+T('+ Приглашение','+ Invitation')+'</button><button class="action ghost" data-action="brand-portal-paid" data-id="'+esc(brandId)+'">'+T('+ Реклама на MFW','+ MFW-wide ad')+'</button><button class="action ghost" data-action="brand-portal-discount" data-id="'+esc(brandId)+'">'+T('+ Скидка 10%','+ 10% reward')+'</button><button class="action ghost" data-action="brand-portal-gift" data-id="'+esc(brandId)+'">'+T('+ Подарок','+ Gift')+'</button></div>'+
         '<h2>'+T('Контент','Content')+'</h2>'+postRows+
         '<h2>'+T('Привилегии','Rewards')+'</h2>'+offerRows+
         '<h2>'+T('Соцсети бренда','Brand social channels')+'</h2>'+channelRows+
@@ -646,6 +647,25 @@
       if(err&&err.data&&err.data.error==='brand_push_frequency_cap')toast(T('Лимит: не более 2 брендовых push за 7 дней','Limit: max 2 brand pushes per 7 days'));
       else toast(T('Push не создан','Push could not be created'));
     }
+  }
+
+  async function brandPortalInvite(brandId){
+    try{
+      var out=await brandPortalApi(brandId,'/content',{method:'POST',body:JSON.stringify({
+        kind:'event',
+        titleRu:'Приглашение для подписчиков бренда',
+        titleEn:'Invitation for brand followers',
+        bodyRu:'Закрытое приглашение для аудитории бренда внутри MFW.',
+        bodyEn:'Private invitation for the brand audience inside MFW.',
+        audienceScope:{kind:'brand_followers'},
+        placementScope:['brand_profile','discover_feed'],
+        isPaid:false
+      })});
+      var post=out.data||{};
+      if(post.id)await brandPortalApi(brandId,'/notify',{method:'POST',body:JSON.stringify({postId:post.id})});
+      toast(T('Приглашение опубликовано и поставлено в очередь подписчикам','Invitation published and queued for followers'));
+      openBrandPortal(brandId);
+    }catch(_){toast(T('Приглашение не создано','Could not create invitation'));}
   }
 
   async function brandPortalPublish(brandId,paid){
@@ -1240,7 +1260,10 @@
     try{
       var out=await userApi('/v1/loyalty/offers/'+encodeURIComponent(offerId)+'/claim',{method:'POST',body:JSON.stringify({userId:state.userId||'demo_user'})});
       var code=out.data&&out.data.code;
-      openSheet('<div class="eyebrow">MFW CLUB · CLAIM</div><h1 style="font-size:42px">'+T('НАГРАДА<br>ДОСТУПНА','REWARD<br>UNLOCKED')+'</h1><div class="reward-code"><span>'+T('Одноразовый код','One-time code')+'</span><b>'+esc(code||T('Уже выдано','Already issued'))+'</b></div><p class="sub">'+T('При погашении бренд или касса проверяют claim server-side. Скриншот сам по себе не является подтверждением.','At redemption the brand or POS validates the claim server-side. A screenshot alone is not proof.')+'</p><button class="action ghost" data-action="brand-loyalty" data-id="'+esc(brandId)+'">'+T('Назад в MFW Club','Back to MFW Club')+'</button>');
+      var qr=out.data&&out.data.qrDataUrl;
+      openSheet('<div class="eyebrow">MFW CLUB · CLAIM</div><h1 style="font-size:42px">'+T('НАГРАДА<br>ДОСТУПНА','REWARD<br>UNLOCKED')+'</h1>'+
+        (qr?'<div class="reward-qr"><img src="'+esc(qr)+'" alt="MFW reward QR"><span>'+T('Покажите на маркете или в шоуруме бренда','Show at the market or brand showroom')+'</span></div>':'')+
+        '<div class="reward-code"><span>'+T('Одноразовый код','One-time code')+'</span><b>'+esc(code||T('Уже выдано','Already issued'))+'</b></div><p class="sub">'+T('QR и код одноразовые. В момент применения бренд или касса повторно проверяют eligibility на сервере. Скриншот сам по себе не подтверждает скидку.','QR and code are one-time. At redemption the brand or POS re-checks eligibility server-side. A screenshot alone is not proof.')+'</p><button class="action ghost" data-action="brand-loyalty" data-id="'+esc(brandId)+'">'+T('Назад в MFW Club','Back to MFW Club')+'</button>');
     }catch(err){toast(T('Награда пока недоступна','Reward not available yet'));}
   }
 
@@ -1571,6 +1594,7 @@
       else if(a==='designer-workspace')openDesignerWorkspace(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal')openBrandPortal(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal-news')brandPortalPublish(el.getAttribute('data-id')||'b1',false);
+      else if(a==='brand-portal-invite')brandPortalInvite(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal-notify')brandPortalNotify(el.getAttribute('data-brand')||'b1',el.getAttribute('data-post'));
       else if(a==='brand-portal-paid')brandPortalPublish(el.getAttribute('data-id')||'b1',true);
       else if(a==='brand-portal-discount')brandPortalCreateOffer(el.getAttribute('data-id')||'b1','discount');
