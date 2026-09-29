@@ -11,6 +11,7 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
 import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
 import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollaborationCharterPanel';
+import MoscowPilotApplicationReadinessPanel from './MoscowPilotApplicationReadinessPanel';
 import type { GovernmentMeetingEntryMode } from './governmentMeetingEntry';
 import {
   getGovernmentPilotReadiness,
@@ -350,6 +351,8 @@ export default function GovernmentPartnershipDemo({
             </View>
 
             <GovernmentPartnerDataRoomPanel />
+
+            <MoscowPilotApplicationReadinessPanel />
 
             <SectionTitle
               kicker="СТАДИИ"
