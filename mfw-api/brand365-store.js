@@ -989,6 +989,106 @@ class Brand365Store{
     return {journeys:journeys.length,enrolled,queued,suppressed,dataMode:'postgres'};
   }
 
+  async scoreCustomerPredictions(brandRef){
+    if(!this.pool)return {updated:0,customers:[],dataMode:'memory'};
+    const brand=await this.brandByRef(brandRef);if(!brand)return {updated:0,customers:[],dataMode:'postgres'};
+    await this.refreshCustomerLifecycle(brandRef);
+    await this.pool.query(`UPDATE brand_customer_profiles SET
+      churn_score=LEAST(0.99999,GREATEST(0,
+        (COALESCE(recency_days,365)::numeric/365)*0.55 +
+        (CASE WHEN frequency_365d<=1 THEN 0.25 WHEN frequency_365d=2 THEN 0.15 ELSE 0.05 END) +
+        (CASE lifecycle WHEN 'churned' THEN 0.20 WHEN 'at_risk' THEN 0.12 ELSE 0 END))),
+      predicted_clv=ROUND((CASE WHEN frequency_365d>0 THEN monetary_365d/frequency_365d ELSE 0 END) *
+        GREATEST(1,LEAST(12,frequency_365d*1.5)) *
+        (1-LEAST(0.85,GREATEST(0,(COALESCE(recency_days,365)::numeric/365)*0.6))),2),
+      next_best_action=CASE
+        WHEN lifecycle='churned' THEN 'reactivate_with_offer'
+        WHEN lifecycle='at_risk' THEN 'personal_reactivation'
+        WHEN lifecycle='loyal' THEN 'vip_early_access'
+        WHEN lifecycle='active' AND frequency_365d>=2 THEN 'cross_sell'
+        WHEN lifecycle='active' THEN 'second_purchase'
+        ELSE 'nurture'
+      END,
+      updated_at=now()
+      WHERE brand_id=$1`,[brand.storageId]);
+    const r=await this.pool.query(`SELECT user_id,lifecycle,churn_score,predicted_clv,next_best_action,recency_days,frequency_365d,monetary_365d
+      FROM brand_customer_profiles WHERE brand_id=$1 ORDER BY churn_score DESC NULLS LAST,predicted_clv DESC LIMIT 200`,[brand.storageId]);
+    return {updated:r.rowCount,customers:r.rows,dataMode:'postgres'};
+  }
+
+  async acquisitionEconomics(brandRef){
+    if(!this.pool)return {sources:[],dataMode:'memory'};
+    const brand=await this.brandByRef(brandRef);if(!brand)return {sources:[],dataMode:'postgres'};
+    const r=await this.pool.query(`WITH src AS (
+      SELECT a.source,count(DISTINCT a.user_id)::int acquired,COALESCE(sum(a.cost_amount),0) cost,
+        count(DISTINCT p.user_id)::int buyers,COALESCE(sum(p.amount),0) revenue
+      FROM brand_acquisition_events a
+      LEFT JOIN brand_purchases p ON p.brand_id=a.brand_id AND p.user_id=a.user_id AND p.purchased_at>=a.acquired_at
+      WHERE a.brand_id=$1 GROUP BY a.source
+    ) SELECT source,acquired,cost,buyers,revenue,
+      CASE WHEN acquired>0 THEN cost/acquired ELSE NULL END cac,
+      CASE WHEN cost>0 THEN (revenue-cost)/cost ELSE NULL END roi,
+      CASE WHEN buyers>0 THEN revenue/buyers ELSE NULL END revenue_per_buyer
+      FROM src ORDER BY revenue DESC`,[brand.storageId]);
+    return {sources:r.rows,dataMode:'postgres'};
+  }
+
+  async advanceJourneyStateMachine(brandRef){
+    if(!this.pool)return {processed:0,queued:0,completed:0,stoppedOnPurchase:0,branched:0,dataMode:'memory'};
+    const brand=await this.brandByRef(brandRef);if(!brand)return {processed:0,queued:0,completed:0,stoppedOnPurchase:0,branched:0,dataMode:'postgres'};
+    const rows=await this.pool.query(`SELECT e.*,j.name,j.steps,j.stop_conditions,j.holdout_pct
+      FROM brand_journey_enrollments e JOIN brand_journeys j ON j.id=e.journey_id
+      WHERE j.brand_id=$1 AND j.status='active' AND e.state='active'
+        AND (e.next_run_at IS NULL OR e.next_run_at<=now())
+      ORDER BY COALESCE(e.next_run_at,e.enrolled_at) LIMIT 500`,[brand.storageId]);
+    let processed=0,queued=0,completed=0,stoppedOnPurchase=0,branched=0;
+    for(const e of rows.rows){
+      processed++;
+      const steps=Array.isArray(e.steps)?e.steps:[],idx=Number(e.current_step||0),step=steps[idx];
+      const stop=e.stop_conditions||{};
+      if(stop.on_purchase){
+        const buy=await this.pool.query('SELECT 1 FROM brand_purchases WHERE brand_id=$1 AND user_id=$2 AND purchased_at>=COALESCE($3,enrolled_at) LIMIT 1',[brand.storageId,e.user_id,e.enrolled_at]);
+        if(buy.rowCount){await this.pool.query("UPDATE brand_journey_enrollments SET state='completed',completed_at=now(),metadata=metadata||$3 WHERE journey_id=$1 AND user_id=$2",[e.journey_id,e.user_id,{stopReason:'purchase'}]);stoppedOnPurchase++;completed++;continue;}
+      }
+      if(e.experiment_group==='holdout'){await this.pool.query("UPDATE brand_journey_enrollments SET state='completed',completed_at=now(),metadata=metadata||$3 WHERE journey_id=$1 AND user_id=$2",[e.journey_id,e.user_id,{holdout:true}]);completed++;continue;}
+      if(!step){await this.pool.query("UPDATE brand_journey_enrollments SET state='completed',completed_at=now() WHERE journey_id=$1 AND user_id=$2",[e.journey_id,e.user_id]);completed++;continue;}
+      if(step.type==='wait'){
+        const days=Number(step.days||0),hours=Number(step.hours||0);
+        await this.pool.query("UPDATE brand_journey_enrollments SET current_step=current_step+1,next_run_at=now()+($3::text||' hours')::interval,last_action_at=now() WHERE journey_id=$1 AND user_id=$2",[e.journey_id,e.user_id,String(days*24+hours)]);
+        continue;
+      }
+      if(step.type==='branch'){
+        const prof=await this.pool.query('SELECT lifecycle,churn_score,frequency_365d,monetary_365d FROM brand_customer_profiles WHERE brand_id=$1 AND user_id=$2',[brand.storageId,e.user_id]);
+        const p=prof.rows[0]||{},field=String(step.field||'lifecycle'),value=p[field],eq=step.eq,next=value===eq?Number(step.thenStep||idx+1):Number(step.elseStep||idx+1);
+        await this.pool.query('UPDATE brand_journey_enrollments SET current_step=$3,branch_state=branch_state||$4,last_action_at=now(),next_run_at=now() WHERE journey_id=$1 AND user_id=$2',[e.journey_id,e.user_id,next,{field,value,matched:value===eq}]);branched++;continue;
+      }
+      if(step.type==='push'){
+        const n=await this.pool.query(`INSERT INTO notifications(audience,category,title,body,payload,status,scheduled_at) VALUES($1,'brand_campaign',$2,$3,$4,'scheduled',now()) RETURNING id`,[{kind:'user',userId:String(e.user_id)},String(step.title||e.name),String(step.body||''),{brandId:brand.id,journeyId:String(e.journey_id),step:idx}]);
+        await this.pool.query("INSERT INTO notification_deliveries(notification_id,user_id,channel,status,metadata) VALUES($1,$2,'push','queued',$3)",[n.rows[0].id,e.user_id,{journeyId:String(e.journey_id),step:idx}]);queued++;
+      }
+      await this.pool.query('UPDATE brand_journey_enrollments SET current_step=current_step+1,last_action_at=now(),next_run_at=now() WHERE journey_id=$1 AND user_id=$2',[e.journey_id,e.user_id]);
+    }
+    return {processed,queued,completed,stoppedOnPurchase,branched,dataMode:'postgres'};
+  }
+
+  async audienceAssetSummary(){
+    if(!this.pool)return {brands:0,identifiedCustomers:0,retainedCustomers:0,incrementalGmv:0,predictedClv:0,attributableValue:0,dataMode:'memory'};
+    const q=await this.pool.query(`WITH brands_active AS (
+      SELECT count(*)::int brands FROM brands
+    ), identified AS (
+      SELECT count(DISTINCT user_id)::int users FROM brand_customer_profiles
+    ), retained AS (
+      SELECT count(DISTINCT user_id)::int users FROM brand_customer_profiles WHERE lifecycle IN ('active','loyal','reactivated')
+    ), clv AS (
+      SELECT COALESCE(sum(predicted_clv),0) v FROM brand_customer_profiles
+    ), gm AS (
+      SELECT COALESCE(sum(p.amount),0) v FROM brand_purchases p
+    )
+    SELECT (SELECT brands FROM brands_active) brands,(SELECT users FROM identified) identified_customers,
+      (SELECT users FROM retained) retained_customers,(SELECT v FROM gm) attributable_gmv,(SELECT v FROM clv) predicted_clv`);
+    const x=q.rows[0];return {brands:Number(x.brands||0),identifiedCustomers:Number(x.identified_customers||0),retainedCustomers:Number(x.retained_customers||0),attributableGmv:Number(x.attributable_gmv||0),predictedClv:Number(x.predicted_clv||0),attributableValue:Number(x.attributable_gmv||0)+Number(x.predicted_clv||0),dataMode:'postgres'};
+  }
+
   async customerEconomics(brandRef){
     if(!this.pool){
       const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
