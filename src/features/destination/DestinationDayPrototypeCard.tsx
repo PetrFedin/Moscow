@@ -5,13 +5,13 @@ import {
   View
 } from 'react-native';
 
-import PhysicalPressable from '../ui/PhysicalPressable';
-import { tr, type AppLanguage } from '../i18n';
+import PhysicalPressable from '../../ui/PhysicalPressable';
+import { tr, type AppLanguage } from '../../i18n';
 import {
   buildDestinationDayPrototype,
   type DestinationDaySlot
-} from '../travel/destinationDayPrototype';
-import { moscowVarvarkaDestinationPackage } from '../travel/moscowDestinationPackage';
+} from '../../travel/destinationDayPrototype';
+import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 
 type Props = {
   language: AppLanguage;
