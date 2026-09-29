@@ -206,22 +206,21 @@
     });
     hubContent.innerHTML='<div class="wallet-grid">'+cards.map(function(x){var pct=Math.round(x.days/30*100),eligible=x.days>=30;return '<article class="wallet-card '+(eligible?'':'locked')+'"><div class="kind">'+x.event+' · '+(eligible?'ELIGIBLE':'LOCKED')+'</div><h3>'+x.name+'</h3><div class="days">'+x.days+' / 30</div><div class="wallet-progress"><i style="width:'+pct+'%"></i></div><small>'+x.note+'</small>'+(eligible?'<button class="wallet-action">ОТКРЫТЬ НАГРАДУ</button>':'')+'</article>';}).join('')+'</div>'+(cards.length?'':'<div class="hub-note">Подпишитесь на бренд MFW или проект/спикера BFS — здесь появится прогресс привилегий.</div>');
   }
-  function renderOwner(){
-    var i=getInterestState(),agenda=agendaLoad();
-    var stats={
-      registrations:(accountState.registrations.mfw?1:0)+(accountState.registrations.bfs?1:0),
-      agenda:agenda.length,
-      follows:(i.mfwFollowed||[]).length+Object.keys(i.bfsFollowed||{}).filter(function(k){return i.bfsFollowed[k];}).length,
-      favorites:(i.mfwFavorites||[]).length+Object.keys(i.bfsFavorites||{}).filter(function(k){return i.bfsFavorites[k];}).length
-    };
-    hubContent.innerHTML='<div class="analytics-grid">'+[['REGISTRATIONS',stats.registrations],['AGENDA ITEMS',stats.agenda],['FOLLOWS',stats.follows],['FAVORITES',stats.favorites]].map(function(x){return '<div class="analytics-stat"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>';}).join('')+'</div>'+
-      '<div class="kpi-map">'+
-      '<div class="kpi-row"><b>Acquisition</b><span>Registration source → role → approval → attendance</span><em>OWNER KPI</em></div>'+
-      '<div class="kpi-row"><b>Engagement</b><span>Programme saves → LIVE/Replay → speaker/brand opens → dwell</span><em>PRODUCT KPI</em></div>'+
-      '<div class="kpi-row"><b>Relationship</b><span>Follow → Favorite → verified 30-day continuity → reward claim</span><em>CRM KPI</em></div>'+
-      '<div class="kpi-row"><b>Commercial</b><span>Buyer/delegate discovery → meeting → qualified lead → follow-up</span><em>REVENUE KPI</em></div>'+
-      '<div class="kpi-row"><b>Sponsor</b><span>Campaign exposure → interaction → opt-in → visit/lead/reward attribution</span><em>PARTNER KPI</em></div>'+
-      '</div><div class="hub-note">Числа выше — только действия текущего demo-пользователя. Production Owner Analytics должен считать агрегаты на сервере и разделять MFW/BFS, роль, источник и consent.</div>';
+  async function renderOwner(){
+    hubContent.innerHTML='<div class="hub-note">Загружаем server-side Audience Asset…</div>';
+    try{
+      var headers={},token=localStorage.getItem('mfwAccessToken')||localStorage.getItem('mfw_access_token')||'';if(token)headers.Authorization='Bearer '+token;
+      var res=await fetch('/v1/owner/audience-asset',{headers:headers}),out=await res.json();if(!res.ok)throw new Error(out.error||'owner_unavailable');
+      var x=out.data||{};
+      hubContent.innerHTML='<div class="drawer-kicker">MFW AUDIENCE ASSET · SERVER AUTHORITY</div><div class="analytics-grid">'+
+        [['BRANDS',x.brands||0],['IDENTIFIED CUSTOMERS',x.identifiedCustomers||0],['RETAINED',x.retainedCustomers||0],['ATTRIBUTABLE GMV',Number(x.attributableGmv||0).toFixed(0)],['PREDICTED CLV',Number(x.predictedClv||0).toFixed(0)],['AUDIENCE VALUE',Number(x.attributableValue||0).toFixed(0)]].map(function(a){return '<div class="analytics-stat"><b>'+a[1]+'</b><span>'+a[0]+'</span></div>';}).join('')+'</div>'+
+        '<div class="asset-flow"><span>MFW AUDIENCE</span><i>→</i><span>BRANDS</span><i>→</i><span>IDENTIFIED</span><i>→</i><span>RETAINED</span><i>→</i><span>GMV + CLV</span></div>'+
+        '<div class="kpi-map"><div class="kpi-row"><b>Audience Asset</b><span>Идентифицированные отношения брендов с пользователями, а не охват события.</span><em>OWNER</em></div><div class="kpi-row"><b>Retention</b><span>Active + Loyal + Reactivated customers.</span><em>CDP</em></div><div class="kpi-row"><b>Commercial</b><span>POS/order purchases + campaign attribution + control-group incrementality.</span><em>GMV</em></div><div class="kpi-row"><b>Forward value</b><span>Explainable predicted CLV; не бухгалтерская оценка компании.</span><em>CLV</em></div></div>'+
+        '<div class="hub-note">Server-side metrics. Predicted CLV — модельная продуктовая оценка будущей клиентской ценности; она не является valuation MFW и должна валидироваться на исторических cohorts.</div>';
+    }catch(err){
+      var i=getInterestState(),agenda=agendaLoad();
+      hubContent.innerHTML='<div class="analytics-grid"><div class="analytics-stat"><b>'+((i.mfwFollowed||[]).length)+'</b><span>LOCAL FOLLOWS</span></div><div class="analytics-stat"><b>'+agenda.length+'</b><span>LOCAL AGENDA</span></div></div><div class="hub-note">Owner authority требует авторизованную owner-сессию. Локальные числа выше — только demo текущего устройства и не являются KPI MFW.</div>';
+    }
   }
   function renderHub(){
     [].slice.call(document.querySelectorAll('[data-hub-tab]')).forEach(function(b){b.classList.toggle('active',b.dataset.hubTab===hubTab);});
