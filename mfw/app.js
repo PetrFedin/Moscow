@@ -648,13 +648,23 @@
     var name=(document.getElementById('crmCampaignName')||{}).value||'Campaign',msg=(document.getElementById('crmCampaignMessage')||{}).value||'';
     try{await brandPortalApi(brandId,'/campaigns',{method:'POST',body:JSON.stringify({name:name,campaignType:'invitation',segment:{kind:segment},channel:'push',messageRu:msg,messageEn:msg})});toast(T('Кампания создана. Сегмент фиксируется сервером перед отправкой.','Campaign created. Audience is snapshotted server-side before send.'));openBrandPortal(brandId);}catch(_){toast(T('Кампания не создана','Campaign could not be created'));}
   }
-  function openBrandRedemptionScanner(brandId){
-    openSheet('<div class="eyebrow">BRAND CRM · POS</div><h1 style="font-size:42px">'+T('QR<br>REDEMPTION','QR<br>REDEMPTION')+'</h1><p class="sub">'+T('Сканер продавца принимает одноразовый MFW Loyalty QR. Сервер повторно проверяет eligibility и не допускает повторного погашения.','Seller scanner accepts a one-time MFW Loyalty QR. The server re-checks eligibility and prevents duplicate redemption.')+'</p><label class="brand-compose-field"><span>'+T('QR / код','QR / code')+'</span><input id="brandRedeemCode" class="input" placeholder="MFW-LOYALTY:…"></label><button class="action primary" data-action="brand-redeem-submit" data-id="'+esc(brandId)+'">'+T('Погасить','Redeem')+'</button>');
+  async function openBrandRedemptionScanner(brandId){
+    if(window.MFWNative&&window.MFWNative.isNative&&window.MFWNative.isNative()){
+      try{var nr=await window.MFWNative.openNativeScanner('loyalty');var nv=nr&&(nr.value||nr.data||nr.text);if(nv){await redeemBrandQr(brandId,String(nv));return;}}catch(_){}
+    }
+    openSheet('<div class="eyebrow">BRAND CRM · POS CAMERA</div><h1 style="font-size:42px">'+T('СКАНЕР<br>ПРОДАВЦА','SELLER<br>SCANNER')+'</h1><div class="scanner-camera"><video id="brand-redeem-video" playsinline muted></video><div class="frame"></div><div class="scan-line"></div></div><canvas id="brand-redeem-canvas" hidden></canvas><div id="brand-redeem-status" class="scan-status">'+T('Запрашиваем доступ к камере…','Requesting camera access…')+'</div><label class="brand-compose-field"><span>'+T('Резерв: QR / код вручную','Fallback: QR / code')+'</span><input id="brandRedeemCode" class="input" placeholder="MFW-LOYALTY:…"></label><button class="action ghost" data-action="brand-redeem-submit" data-id="'+esc(brandId)+'">'+T('Проверить код','Verify code')+'</button>');
+    var video=document.getElementById('brand-redeem-video'),canvas=document.getElementById('brand-redeem-canvas'),status=document.getElementById('brand-redeem-status');
+    try{
+      scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});video.srcObject=scannerStream;await video.play();status.textContent=T('Камера активна · ищем MFW Loyalty QR','Camera active · looking for MFW Loyalty QR');
+      var ctx=canvas.getContext('2d',{willReadFrequently:true});
+      function tick(){if(video.readyState===video.HAVE_ENOUGH_DATA){canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.drawImage(video,0,0,canvas.width,canvas.height);var img=ctx.getImageData(0,0,canvas.width,canvas.height);var code=window.jsQR?window.jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}):null;if(code&&String(code.data).startsWith('MFW-LOYALTY:')){stopCameraScanner();closeSheet();redeemBrandQr(brandId,String(code.data));return;}}scannerFrame=requestAnimationFrame(tick);}tick();
+    }catch(err){status.textContent=T('Камера недоступна — используйте ввод кода','Camera unavailable — use manual code');}
   }
-  async function submitBrandRedemption(brandId){
-    var code=(document.getElementById('brandRedeemCode')||{}).value||'';if(!code.trim()){toast(T('Отсканируйте QR или введите код','Scan QR or enter code'));return;}
-    try{await brandPortalApi(brandId,'/redeem',{method:'POST',body:JSON.stringify({code:code.trim()})});toast(T('Привилегия погашена','Reward redeemed'));openBrandPortal(brandId);}catch(err){toast(err&&err.data&&err.data.error==='already_redeemed'?T('Этот QR уже использован','This QR was already redeemed'):T('QR не прошёл проверку','QR verification failed'));}
+  async function redeemBrandQr(brandId,code){
+    try{await brandPortalApi(brandId,'/redeem',{method:'POST',body:JSON.stringify({code:String(code||'').trim()})});toast(T('Привилегия погашена','Reward redeemed'));openBrandPortal(brandId);}catch(err){toast(err&&err.data&&err.data.error==='already_redeemed'?T('Этот QR уже использован','This QR was already redeemed'):T('QR не прошёл проверку','QR verification failed'));}
   }
+  async function submitBrandRedemption(brandId){var code=(document.getElementById('brandRedeemCode')||{}).value||'';if(!code.trim()){toast(T('Отсканируйте QR или введите код','Scan QR or enter code'));return;}redeemBrandQr(brandId,code);}
+
 
   async function brandPortalNotify(brandId,postId){
     try{
