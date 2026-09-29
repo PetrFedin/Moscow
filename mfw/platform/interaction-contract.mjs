@@ -116,3 +116,12 @@ const migration015=fs.readFileSync(path.join(root,'..','..','mfw-api','migration
 ['incrementality','lifecycle-refresh','journeys-run','brand_journey_created'].forEach(x=>{if(!authority.includes(x))throw new Error('CDP route missing: '+x)});
 ['Incrementality / ROI','Lifecycle / RFM','At-risk → Reactivation','brand-journeys-run'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('CDP UX missing: '+x)});
 console.log('Brand 365 CDP contract: PASS');
+
+const migration016=fs.readFileSync(path.join(root,'..','..','mfw-api','migrations','016_brand_cdp_state_machine.sql'),'utf8');
+['holdout_pct','next_run_at','churn_score','predicted_clv','next_best_action','brand_acquisition_events'].forEach(x=>{if(!migration016.includes(x))throw new Error('State machine/CDP migration missing: '+x)});
+['advanceJourneyStateMachine','stopReason','experiment_group','scoreCustomerPredictions','acquisitionEconomics','audienceAssetSummary'].forEach(x=>{if(!store.includes(x))throw new Error('State machine/CDP authority missing: '+x)});
+['journeys-tick','acquisition-economics','/v1/owner/audience-asset','brand_customer_acquired'].forEach(x=>{if(!authority.includes(x))throw new Error('State machine/CDP API missing: '+x)});
+['Churn / Next Best Action','brand-journeys-tick','predicted_clv'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('State machine/CDP Brand UI missing: '+x)});
+const platformJs=fs.readFileSync(path.join(root,'platform.js'),'utf8');
+['MFW AUDIENCE ASSET','IDENTIFIED CUSTOMERS','ATTRIBUTABLE GMV','PREDICTED CLV','/v1/owner/audience-asset'].forEach(x=>{if(!platformJs.includes(x))throw new Error('Owner Audience Asset UI missing: '+x)});
+console.log('Brand 365 state machine + owner Audience Asset contract: PASS');
