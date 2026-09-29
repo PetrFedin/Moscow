@@ -69,3 +69,8 @@ if(appSource.includes("favoriteBrands.indexOf(b.id)>=0;\\n"))throw new Error('MF
 const platformCss=fs.readFileSync(path.join(root,'platform.css'),'utf8');
 if(!platformCss.includes('body:not(.bfs-mode) .hub-card')||!platformCss.includes('#c8ff00'))throw new Error('MFW contextual platform theme missing');
 console.log('MFW runtime + contextual theme regression contract: PASS');
+
+const officialData=fs.readFileSync(path.join(root,'event-data.js'),'utf8');
+['2026-10-01','Black Crown Label','Kazakhstan Fashion Week presents: Dinara Satzhan','China Fashion Week presents: Momiwei','World Fashion Shorts','Noir Fashion Week Global','Мода 0+','Сертификация и стандарты'].forEach(x=>{if(!officialData.includes(x))throw new Error('Official import missing: '+x)});
+if(!officialData.includes('syncedAt:"2026-09-29"'))throw new Error('Official data provenance date missing');
+console.log('official MFW/BFS data import contract: PASS');
