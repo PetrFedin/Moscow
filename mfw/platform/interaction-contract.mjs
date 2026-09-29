@@ -74,3 +74,11 @@ const officialData=fs.readFileSync(path.join(root,'event-data.js'),'utf8');
 ['2026-10-01','Black Crown Label','Kazakhstan Fashion Week presents: Dinara Satzhan','China Fashion Week presents: Momiwei','World Fashion Shorts','Noir Fashion Week Global','Мода 0+','Сертификация и стандарты'].forEach(x=>{if(!officialData.includes(x))throw new Error('Official import missing: '+x)});
 if(!officialData.includes('syncedAt:"2026-09-29"'))throw new Error('Official data provenance date missing');
 console.log('official MFW/BFS data import contract: PASS');
+
+const mfwExperience=fs.readFileSync(path.join(root,'..','mfw','index.html'),'utf8');
+const bfsExperience=fs.readFileSync(path.join(root,'bfs','index.html'),'utf8');
+const bfsApp=fs.readFileSync(path.join(root,'bfs','app.js'),'utf8');
+if(!mfwExperience.includes('event-data.js?v=20260929'))throw new Error('MFW experience missing official data layer');
+if(!bfsExperience.includes('event-data.js?v=20260929'))throw new Error('BFS experience missing official data layer');
+['openSession','speakerIds','media:{live:"unconfirmed",replay:"unconfirmed"}'].forEach(x=>{if(!(bfsApp+officialData).includes(x))throw new Error('Entity graph contract missing: '+x)});
+console.log('event-native official graph contract: PASS');
