@@ -152,3 +152,27 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
   await expect(page.getByText('Одна историческая модель — несколько режимов')).toBeVisible();
   await expect(page.getByLabel('3D · Только факты')).toBeVisible();
 });
+
+
+test('destination day prototype leads with a full-day journey and keeps live slots fail-closed', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await expect(page.getByText('МОЙ ДЕНЬ В МОСКВЕ · PROTOTYPE', { exact: true })).toBeVisible();
+  await expect(page.getByText('Не ищите по отдельности — соберите день целиком', { exact: true })).toBeVisible();
+  await expect(page.getByText('1/4', { exact: true })).toBeVisible();
+  await expect(page.getByText('История и город', { exact: true })).toBeVisible();
+  await expect(page.getByText('Где поесть', { exact: true })).toBeVisible();
+  await expect(page.getByText('Что происходит сегодня', { exact: true })).toBeVisible();
+  await expect(page.getByText('Куда дальше', { exact: true })).toBeVisible();
+
+  await expect(page.getByText('НУЖЕН LIVE FEED', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Не показываем demo-данные как реальные', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Выбрать 8 часов' }).click();
+  await expect(page.getByText('8 ч', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Начать историческую часть дня' }).click();
+  await expect(page.getByText('WALK · 01', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Варварка/).first()).toBeVisible();
+});
