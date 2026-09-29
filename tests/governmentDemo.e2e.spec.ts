@@ -91,6 +91,19 @@ test('city pilot demo explains Moscow collaboration, proof gaps, funding routes 
   await expect(page.getByText('Инвестор · scale decision room', { exact: true })).toBeVisible();
   await expect(page.getByText('Регион / федерация · expansion room', { exact: true })).toBeVisible();
   await expect(page.getByText('Intro + technical pack уже можно защищать', { exact: true })).toBeVisible();
+
+  await expect(page.getByText('I.MOSCOW · APPLICATION READINESS', { exact: true })).toBeVisible();
+  await expect(page.getByText('Moscow Pilot Application Readiness', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKED · 18 ПОЛЕЙ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Полное наименование юрлица / ИП, ИНН, КПП', { exact: true })).toBeVisible();
+  await expect(page.getByText('ДАННЫЕ ЗАЯВИТЕЛЯ', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('button', {
+    name: 'Показать раздел заявки Коммерциализация'
+  }).click();
+  await expect(page.getByText('Стоимость решения / тарифная сетка', { exact: true })).toBeVisible();
+  await expect(page.getByText('Фактическая выручка от реализации предлагаемого решения за 3 года', { exact: true })).toBeVisible();
+
   await expect(page.getByText('Demo conversation', { exact: true })).toBeVisible();
   await expect(page.getByText('READY', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Formal introductory meeting pack', { exact: true })).toBeVisible();
@@ -137,4 +150,6 @@ test('government package deep link opens Partner Investor Data Room directly', a
   await expect(page.getByText('Москва · первая официальная встреча', { exact: true })).toBeVisible();
   await expect(page.getByText('Москва · technical / procurement working session', { exact: true })).toBeVisible();
   await expect(page.getByText('Инвестор · scale decision room', { exact: true })).toBeVisible();
+  await expect(page.getByText('I.MOSCOW · APPLICATION READINESS', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKED · 18 ПОЛЕЙ', { exact: true })).toBeVisible();
 });
