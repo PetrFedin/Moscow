@@ -102,3 +102,10 @@ const migration013=fs.readFileSync(path.join(root,'..','..','mfw-api','migration
 ['brand-campaign','brand-redemption-scanner','crm-funnel','Attributed revenue'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('Brand CRM UI missing: '+x)});
 ['brand_purchase_attributed','brand_pos_redemption','claim_brand_mismatch'].forEach(x=>{if(!authority.includes(x))throw new Error('Brand CRM attribution missing: '+x)});
 console.log('Brand CRM audience -> campaign -> redemption -> purchase attribution contract: PASS');
+
+const migration014=fs.readFileSync(path.join(root,'..','..','mfw-api','migrations','014_brand_crm_hardening.sql'),'utf8');
+['brand_saved_segments','frequency_cap','require_marketing_consent','brand_order_imports','idx_brand_campaigns_schedule'].forEach(x=>{if(!migration014.includes(x))throw new Error('Advanced CRM migration missing: '+x)});
+['resolveSegmentAudience','queueCampaign','savedSegments','customerEconomics','repeatRate','ltv','retained_30d','retained_90d'].forEach(x=>{if(!store.includes(x))throw new Error('Advanced CRM authority missing: '+x)});
+['notification_deliveries','paid_promotions_enabled','brand_campaign_queued','orders-import','brand_orders_imported'].forEach(x=>{if(!authority.includes(x))throw new Error('CRM delivery/import authority missing: '+x)});
+['openNativeScanner(\'loyalty\')','navigator.mediaDevices.getUserMedia','MFW-LOYALTY:','Buyer + Favorite + 60+','crmCampaignAt','brand-order-import'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('Advanced CRM UX missing: '+x)});
+console.log('advanced Brand CRM quality contract: PASS');
