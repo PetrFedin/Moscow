@@ -841,6 +841,48 @@ class Brand365Store{
     return {...base,members,segments:{all:members.length,days30Plus:members.filter(x=>x.followDays>=30).length,days60Plus:members.filter(x=>x.followDays>=60).length,favorite:members.filter(x=>x.favorite).length,buyer:members.filter(x=>x.buyer).length}};
   }
 
+  async saveBrandSegment(brandRef,input,createdBy){
+    const definition=input.definition||{op:'and',rules:[]};
+    if(!this.pool){
+      if(!this.memory.brandSavedSegments)this.memory.brandSavedSegments=new Map();
+      const id='seg_'+require('crypto').randomBytes(6).toString('hex'),item={id,brandId:String(brandRef),name:String(input.name||'Segment'),definition,status:'active',createdBy:String(createdBy||''),createdAt:new Date().toISOString(),demo:true};
+      this.memory.brandSavedSegments.set(id,item);return item;
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)throw new Error('brand_not_found');
+    const r=await this.pool.query(`INSERT INTO brand_saved_segments(brand_id,external_key,name,definition,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *`,[brand.storageId,'seg_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Segment'),definition,createdBy||null]);
+    return r.rows[0];
+  }
+
+  async savedSegments(brandRef){
+    if(!this.pool)return [...(this.memory.brandSavedSegments||new Map()).values()].filter(x=>x.brandId===String(brandRef)&&x.status==='active');
+    const brand=await this.brandByRef(brandRef);if(!brand)return [];
+    const r=await this.pool.query('SELECT * FROM brand_saved_segments WHERE brand_id=$1 AND status=\'active\' ORDER BY created_at DESC',[brand.storageId]);return r.rows;
+  }
+
+  async customerEconomics(brandRef){
+    if(!this.pool){
+      const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
+      rows.forEach(x=>{const k=String(x.userId||'anonymous'),a=by.get(k)||[];a.push(x);by.set(k,a)});
+      const customers=[...by.entries()].map(([userId,a])=>({userId,orders:a.length,revenue:a.reduce((s,x)=>s+Number(x.amount||0),0),repeat:a.length>1}));
+      const revenue=customers.reduce((s,x)=>s+x.revenue,0),orders=rows.length;
+      return {customers:customers.length,orders,revenue,aov:orders?revenue/orders:0,repeatCustomers:customers.filter(x=>x.repeat).length,repeatRate:customers.length?customers.filter(x=>x.repeat).length/customers.length:0,ltv:customers.length?revenue/customers.length:0,cohorts:[],dataMode:'memory'};
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return {customers:0,orders:0,revenue:0,aov:0,repeatCustomers:0,repeatRate:0,ltv:0,cohorts:[],dataMode:'postgres'};
+    const r=await this.pool.query(`WITH per_user AS (
+      SELECT user_id,count(*) orders,sum(amount) revenue,min(purchased_at) first_purchase,max(purchased_at) last_purchase
+      FROM brand_purchases WHERE brand_id=$1 AND user_id IS NOT NULL GROUP BY user_id
+    ) SELECT count(*)::int customers,COALESCE(sum(orders),0)::int orders,COALESCE(sum(revenue),0) revenue,
+      count(*) FILTER (WHERE orders>1)::int repeat_customers FROM per_user`,[brand.storageId]);
+    const x=r.rows[0],customers=Number(x.customers||0),orders=Number(x.orders||0),revenue=Number(x.revenue||0),repeat=Number(x.repeat_customers||0);
+    const q=await this.pool.query(`WITH firsts AS (
+      SELECT user_id,date_trunc('month',min(purchased_at)) cohort FROM brand_purchases WHERE brand_id=$1 AND user_id IS NOT NULL GROUP BY user_id
+    ) SELECT to_char(f.cohort,'YYYY-MM') cohort,count(DISTINCT f.user_id)::int customers,
+      count(DISTINCT p.user_id) FILTER (WHERE p.purchased_at>=f.cohort+interval '1 month')::int retained_30d,
+      count(DISTINCT p.user_id) FILTER (WHERE p.purchased_at>=f.cohort+interval '3 months')::int retained_90d
+      FROM firsts f LEFT JOIN brand_purchases p ON p.brand_id=$1 AND p.user_id=f.user_id GROUP BY f.cohort ORDER BY f.cohort DESC LIMIT 12`,[brand.storageId]);
+    return {customers,orders,revenue,aov:orders?revenue/orders:0,repeatCustomers:repeat,repeatRate:customers?repeat/customers:0,ltv:customers?revenue/customers:0,cohorts:q.rows,dataMode:'postgres'};
+  }
+
   async createBrandCampaign(brandRef,input,createdBy){
     const segment=input.segment||{kind:'all_followers'};
     if(!this.pool){
@@ -850,8 +892,7 @@ class Brand365Store{
       this.memory.brandCampaigns.set(id,item);return item;
     }
     const brand=await this.brandByRef(brandRef);if(!brand)throw new Error('brand_not_found');
-    const r=await this.pool.query(`INSERT INTO brand_campaigns(brand_id,external_key,name,campaign_type,segment,channel,message_ru,message_en,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[brand.storageId,'bc_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Campaign'),String(input.campaignType||'invitation'),segment,String(input.channel||'push'),String(input.messageRu||''),String(input.messageEn||''),createdBy||null]);
+    const r=await this.pool.query(`INSERT INTO brand_campaigns(brand_id,external_key,name,campaign_type,segment,channel,message_ru,message_en,created_by,status,scheduled_at,frequency_cap,require_marketing_consent,saved_segment_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,[brand.storageId,'bc_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Campaign'),String(input.campaignType||'invitation'),segment,String(input.channel||'push'),String(input.messageRu||''),String(input.messageEn||''),createdBy||null,input.scheduledAt?'scheduled':'draft',input.scheduledAt||null,input.frequencyCap||{per_user_per_7d:2},input.requireMarketingConsent!==false,input.savedSegmentId||null]);
     return r.rows[0];
   }
 
