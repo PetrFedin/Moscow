@@ -12,6 +12,11 @@ var sessions=[
 ];
 var speakers=[['Елена Ахмадуллина','Основатель бренда Alena Akhmadullina'],['Антон Алиханов','Министр промышленности и торговли РФ'],['Мустафа Джем Алтан','International Apparel Federation'],['Мадонна Мур','Основатель Fashion Paper']];
 var delegates=[];
+var organisations=(window.MFP_DATA&&window.MFP_DATA.bfs&&window.MFP_DATA.bfs.organisations)||[];
+var leadState=(function(){try{return JSON.parse(localStorage.getItem('bfsLeadState')||'{}')}catch(e){return {}}})();
+function saveLeads(){try{localStorage.setItem('bfsLeadState',JSON.stringify(leadState))}catch(e){}}
+function leadStage(id,stage){leadState[id]={stage:stage,updatedAt:new Date().toISOString()};saveLeads();render();}
+
 if(window.MFP_DATA&&window.MFP_DATA.bfs){
   sessions=(window.MFP_DATA.bfs.sessions||[]).map(function(s){
     return {id:s.id,date:s.date,time:s.time+(s.end?'–'+s.end:''),title:s.title,hall:s.hall,tag:s.topic||'Сессия',moderator:s.moderator||'',participants:s.speakers||[],source:'OFFICIAL'};
@@ -43,7 +48,7 @@ function programme(){
  $('#content').innerHTML=alert+'<div class="section-head"><h2>Business programme</h2><span>GRAND · CHAMBER · OPEN HALL</span></div>'+cards();bindSessionActions()
 }
 function showSpeakers(){
- $('#content').innerHTML='<div class="section-head"><h2>Спикеры</h2><span>OFFICIAL DIRECTORY</span></div>'+speakers.map(function(s){var src=(window.MFP_DATA&&window.MFP_DATA.bfs.speakers||[]).filter(function(x){return x.id===s[2]})[0]||{};var linked=(src.sessionIds||[]).map(function(id){return sessions.filter(function(x){return x.id===id})[0]}).filter(Boolean);return '<div class="speaker"><div class="avatar"></div><div><b>'+s[0]+'</b><span>'+s[1]+'</span>'+(linked.length?'<div class="speaker-links">'+linked.map(function(x){return '<button class="small-action" data-open-session="'+x.id+'">'+x.time+' · '+x.title+'</button>'}).join(''):'<div class="meta">Связанные сессии ещё не подтверждены в текущем snapshot.</div>')+projectActions(s[0])+'</div></div>'}).join('');
+ $('#content').innerHTML='<div class="b2b-switch"><button id="orgDirectory">ОРГАНИЗАЦИИ</button></div><div class="section-head"><h2>Спикеры</h2><span>OFFICIAL DIRECTORY</span></div>'+speakers.map(function(s){var src=(window.MFP_DATA&&window.MFP_DATA.bfs.speakers||[]).filter(function(x){return x.id===s[2]})[0]||{};var linked=(src.sessionIds||[]).map(function(id){return sessions.filter(function(x){return x.id===id})[0]}).filter(Boolean);return '<div class="speaker"><div class="avatar"></div><div><b>'+s[0]+'</b><span>'+s[1]+'</span>'+(linked.length?'<div class="speaker-links">'+linked.map(function(x){return '<button class="small-action" data-open-session="'+x.id+'">'+x.time+' · '+x.title+'</button>'}).join(''):'<div class="meta">Связанные сессии ещё не подтверждены в текущем snapshot.</div>')+projectActions(s[0])+'</div></div>'}).join('');
  bindProjectActions();$('[data-open-session]').forEach(function(btn){btn.onclick=function(){openSession(btn.dataset.openSession)}})
 }
 function openSession(id){
@@ -55,7 +60,12 @@ function openSession(id){
 }
 function delegateDiscovery(){
  $('#content').innerHTML='<div class="section-head"><h2>Делегаты</h2><span>4 SAMPLE PROFILES</span></div>'+delegates.map(function(d,i){return '<article class="delegate"><div><span class="tag">'+d[0]+'</span><h3>'+d[1]+'</h3><p>'+d[2]+'</p>'+projectActions(d[1])+'</div><button data-meet="'+i+'">ЗАПРОСИТЬ ВСТРЕЧУ</button></article>'}).join('');
- bindProjectActions();$('[data-meet]').forEach(function(b){b.onclick=function(){var d=delegates[Number(b.dataset.meet)];state.meeting={delegate:d[1],slot:'29 SEP · 16:00',status:'requested'};try{localStorage.setItem('bfsMeetingRequested','1')}catch(e){}b2b();}});
+ var od=$('#orgDirectory');if(od)od.onclick=organisationDirectory;bindProjectActions();$('[data-meet]').forEach(function(b){b.onclick=function(){var d=delegates[Number(b.dataset.meet)];state.meeting={delegate:d[1],slot:'29 SEP · 16:00',status:'requested'};try{localStorage.setItem('bfsMeetingRequested','1')}catch(e){}b2b();}});
+}
+function organisationDirectory(){
+ $('#content').innerHTML='<div class="section-head"><h2>Организации</h2><span>PEOPLE → MEETING → LEAD</span></div>'+organisations.map(function(o){var people=(o.people||[]).map(function(id){return (window.MFP_DATA.bfs.speakers||[]).filter(function(p){return p.id===id})[0]}).filter(Boolean);var lead=leadState[o.id]||{stage:'new'};return '<article class="delegate"><div><span class="tag">'+o.type+'</span><h3>'+o.name+'</h3><p>'+o.country+'</p>'+people.map(function(p){return '<div class="org-person"><b>'+p.name+'</b><span>'+p.role+'</span></div>'}).join('')+'<div class="lead-stage">CRM · '+lead.stage.toUpperCase()+'</div></div><div class="org-actions"><button data-org-meet="'+o.id+'">ЗАПРОСИТЬ ВСТРЕЧУ</button><button data-org-lead="'+o.id+'">В LEAD</button></div></article>'}).join('');
+ $('[data-org-meet]').forEach(function(btn){btn.onclick=function(){leadStage(btn.dataset.orgMeet,'meeting_requested')}});
+ $('[data-org-lead]').forEach(function(btn){btn.onclick=function(){leadStage(btn.dataset.orgLead,'qualified_lead')}});
 }
 function b2b(){
  var meeting=state.meeting?'<div class="meeting-card"><b>'+state.meeting.delegate+'</b><span>'+state.meeting.slot+' · '+state.meeting.status.toUpperCase()+'</span><button id="cancelMeeting">CANCEL</button></div>':'';
