@@ -74,6 +74,7 @@ const governmentArtifactLabels: Record<GovernmentArtifactId, string> = {
   'funding-scale-playbook': 'Funding / scale playbook',
   'investment-decision-authority': 'Investment decision authority',
   'executive-one-pager': 'Executive one-pager',
+  'pilot-application-readiness': 'Moscow pilot application readiness',
   'decision-deck': '10–12 slide decision deck',
   'technical-specification': 'Консолидированное техническое задание',
   'architecture-integration': 'Architecture / integration scheme',
