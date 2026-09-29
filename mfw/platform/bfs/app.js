@@ -30,7 +30,7 @@ function projectActions(name){var k=projectKey(name),followed=!!state.followedPr
 function bindProjectActions(){$('[data-follow-project]').forEach(function(b){b.onclick=function(){followProject(b.dataset.followProject)}});$('[data-favorite-project]').forEach(function(b){b.onclick=function(){favoriteProject(b.dataset.favoriteProject)}})}
 
 function cards(){
- return '<div class="grid">'+sessions.map(function(x){var saved=!!state.saved[x.id];return '<article class="card"><div class="time">'+x.time+'</div><span class="tag">'+x.tag+'</span><h3>'+x.title+'</h3><div class="meta">'+x.hall+' · МКЗ «Зарядье»</div><button class="small-action" data-save="'+x.id+'">'+(saved?'✓ В МОЕЙ ПРОГРАММЕ':'+ ДОБАВИТЬ')+'</button></article>'}).join('')+'</div>';
+ return '<div class="grid">'+sessions.map(function(x){var saved=!!state.saved[x.id];return '<article class="card"><div class="time">'+x.time+'</div><span class="tag">'+x.tag+'</span><h3>'+x.title+'</h3><div class="meta">'+x.hall+' · МКЗ «Зарядье»</div><div class="card-actions"><button class="small-action" data-open-session="'+x.id+'">ПОДРОБНЕЕ</button><button class="small-action" data-save="'+x.id+'">'+(saved?'✓ В МОЕЙ ПРОГРАММЕ':'+ ДОБАВИТЬ')+'</button></div></article>'}).join('')+'</div>';
 }
 function bindSessionActions(){bindProjectActions();$('[data-save]').forEach(function(b){b.onclick=function(){state.saved[b.dataset.save]=!state.saved[b.dataset.save];persistBfs();render();}})}
 function today(){
@@ -38,7 +38,17 @@ function today(){
  $('#registrationCta').onclick=function(){parent.postMessage({type:registration()?'mfp-open-account':'mfp-open-registration',eventCode:'bfs'},'*')};bindSessionActions();
 }
 function programme(){$('#content').innerHTML='<div class="section-head"><h2>Business programme</h2><span>GRAND · CHAMBER · OPEN HALL</span></div>'+cards();bindSessionActions()}
-function showSpeakers(){$('#content').innerHTML='<div class="section-head"><h2>Спикеры</h2><span>INTERNATIONAL</span></div>'+speakers.map(function(s){return '<div class="speaker"><div class="avatar"></div><div><b>'+s[0]+'</b><span>'+s[1]+'</span>'+projectActions(s[0])+'</div></div>'}).join('');bindProjectActions()}
+function showSpeakers(){
+ $('#content').innerHTML='<div class="section-head"><h2>Спикеры</h2><span>OFFICIAL DIRECTORY</span></div>'+speakers.map(function(s){var src=(window.MFP_DATA&&window.MFP_DATA.bfs.speakers||[]).filter(function(x){return x.id===s[2]})[0]||{};var linked=(src.sessionIds||[]).map(function(id){return sessions.filter(function(x){return x.id===id})[0]}).filter(Boolean);return '<div class="speaker"><div class="avatar"></div><div><b>'+s[0]+'</b><span>'+s[1]+'</span>'+(linked.length?'<div class="speaker-links">'+linked.map(function(x){return '<button class="small-action" data-open-session="'+x.id+'">'+x.time+' · '+x.title+'</button>'}).join(''):'<div class="meta">Связанные сессии ещё не подтверждены в текущем snapshot.</div>')+projectActions(s[0])+'</div></div>'}).join('');
+ bindProjectActions();$('[data-open-session]').forEach(function(btn){btn.onclick=function(){openSession(btn.dataset.openSession)}})
+}
+function openSession(id){
+ var s=sessions.filter(function(x){return x.id===id})[0];if(!s)return;
+ var source=(window.MFP_DATA&&window.MFP_DATA.bfs.sessions||[]).filter(function(x){return x.id===id})[0]||{};
+ var people=(source.speakerIds||[]).map(function(pid){return (window.MFP_DATA.bfs.speakers||[]).filter(function(x){return x.id===pid})[0]}).filter(Boolean);
+ $('#content').innerHTML='<button class="small-action" id="backProgramme">← ПРОГРАММА</button><article class="card session-detail"><span class="tag">'+s.tag+'</span><h2>'+s.title+'</h2><div class="meta">'+s.date+' · '+s.time+' · '+s.hall+' · МКЗ «Зарядье»</div><h3>Участники</h3>'+(people.length?people.map(function(p){return '<div class="speaker"><div class="avatar"></div><div><b>'+p.name+'</b><span>'+p.role+' · '+p.org+'</span></div></div>'}).join(''):'<p class="meta">Состав участников ещё не связан в текущем официальном snapshot.</p>')+'<div class="media-status"><b>LIVE / REPLAY</b><span>На официальном источнике доступность трансляции или записи для этой сессии в текущем snapshot не подтверждена.</span></div><button class="small-action" data-save="'+s.id+'">'+(state.saved[s.id]?'✓ В МОЕЙ ПРОГРАММЕ':'+ ДОБАВИТЬ')+'</button></article>';
+ $('#backProgramme').onclick=programme;bindSessionActions();
+}
 function delegateDiscovery(){
  $('#content').innerHTML='<div class="section-head"><h2>Делегаты</h2><span>4 SAMPLE PROFILES</span></div>'+delegates.map(function(d,i){return '<article class="delegate"><div><span class="tag">'+d[0]+'</span><h3>'+d[1]+'</h3><p>'+d[2]+'</p>'+projectActions(d[1])+'</div><button data-meet="'+i+'">ЗАПРОСИТЬ ВСТРЕЧУ</button></article>'}).join('');
  bindProjectActions();$('[data-meet]').forEach(function(b){b.onclick=function(){var d=delegates[Number(b.dataset.meet)];state.meeting={delegate:d[1],slot:'29 SEP · 16:00',status:'requested'};try{localStorage.setItem('bfsMeetingRequested','1')}catch(e){}b2b();}});
