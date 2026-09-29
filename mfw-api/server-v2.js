@@ -387,6 +387,8 @@ const memory={
   brandFavorites:new Map(),
   brandCampaigns:new Map(),
   brandCampaignEvents:[],
+  brandSavedSegments:new Map(),
+  brandOrderImports:[],
   brandPurchases:[],
   brandAccess:new Map(),
   loyaltyClaims:new Map(),
@@ -1975,11 +1977,51 @@ async function router(req,res){
       const followers=await brand365Store.followerCount(brandId);
       const audience=await brand365Store.brandCrmAudience(brandId);
       const campaignAnalytics=await brand365Store.campaignAnalytics(brandId);
+      const savedSegments=await brand365Store.savedSegments(brandId);
+      const economics=await brand365Store.customerEconomics(brandId);
       const offers=await brand365Store.offersForBrand(brandId,{publishedOnly:false});
       const posts=await brand365Store.postsForBrand(brandId,{publishedOnly:false});
       const claims=await brand365Store.claimsForBrand(brandId);
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
-      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+    }
+    if(req.method==='GET'&&action==='segments'){
+      return json(res,200,{data:await brand365Store.savedSegments(brandId)});
+    }
+    if(req.method==='POST'&&action==='segments'){
+      const b=await readBody(req),actor=sessionFromRequest(req);
+      const item=await brand365Store.saveBrandSegment(brandId,b,actor&&actor.sub||null);
+      await track('brand_segment_saved',{brandId,segmentId:String(item.id),definition:b.definition||{}},actor&&actor.sub||null);
+      return json(res,201,{data:item});
+    }
+    if(req.method==='GET'&&action==='economics'){
+      return json(res,200,{data:await brand365Store.customerEconomics(brandId)});
+    }
+    if(req.method==='POST'&&action==='orders-import'){
+      const b=await readBody(req),rows=Array.isArray(b.orders)?b.orders:[];
+      if(rows.length>1000)return json(res,413,{error:'import_too_large',maxRows:1000});
+      const actor=sessionFromRequest(req),brandRow=await brand365Store.brandByRef(brandId);
+      let imported=0,rejected=0,totalRevenue=0;
+      if(pool){
+        const client=await pool.connect();
+        try{
+          await client.query('BEGIN');
+          const batch=await client.query(`INSERT INTO brand_order_imports(brand_id,import_source,external_batch_ref,status,row_count,created_by) VALUES($1,$2,$3,'processing',$4,$5) RETURNING id`,[brandRow.storageId,String(b.source||'api'),String(b.externalBatchRef||''),rows.length,actor&&actor.sub||null]);
+          const importId=batch.rows[0].id;
+          for(const row of rows){
+            const amount=Number(row.amount||0);if(!(amount>=0)){rejected++;continue;}
+            await client.query(`INSERT INTO brand_purchases(brand_id,user_id,campaign_id,claim_id,amount,currency,location_type,location_ref,external_order_ref,metadata,import_id,quantity,gross_amount,discount_amount,sku_count,purchased_at)
+              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,COALESCE($16,now()))`,[brandRow.storageId,row.userId||null,row.campaignId||null,row.claimId||null,amount,String(row.currency||'RUB'),String(row.locationType||'showroom'),String(row.locationRef||''),String(row.externalOrderRef||''),row.metadata||{},importId,Math.max(1,Number(row.quantity||1)),row.grossAmount==null?amount:Number(row.grossAmount),Math.max(0,Number(row.discountAmount||0)),Math.max(1,Number(row.skuCount||1)),row.purchasedAt||null]);
+            imported++;totalRevenue+=amount;
+          }
+          await client.query(`UPDATE brand_order_imports SET status=$2,imported_count=$3,rejected_count=$4,summary=$5,completed_at=now() WHERE id=$1`,[importId,rejected?'partial':'completed',imported,rejected,{revenue:totalRevenue,currency:String(b.currency||'RUB')}]);
+          await client.query('COMMIT');
+          await track('brand_orders_imported',{brandId,imported,rejected,revenue:totalRevenue},actor&&actor.sub||null);
+          return json(res,201,{data:{importId:String(importId),imported,rejected,revenue:totalRevenue}});
+        }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
+      }
+      rows.forEach(row=>{const amount=Number(row.amount||0);if(!(amount>=0)){rejected++;return;}memory.brandPurchases.push({id:'pur_'+crypto.randomBytes(6).toString('hex'),brandId,userId:String(row.userId||'demo_user'),campaignId:row.campaignId||null,claimId:row.claimId||null,amount,currency:String(row.currency||'RUB'),locationType:String(row.locationType||'showroom'),externalOrderRef:String(row.externalOrderRef||''),purchasedAt:row.purchasedAt||new Date().toISOString(),demo:true});imported++;totalRevenue+=amount;});
+      return json(res,201,{data:{imported,rejected,revenue:totalRevenue,demo:true}});
     }
     if(req.method==='GET'&&action==='audience'){
       return json(res,200,{data:await brand365Store.brandCrmAudience(brandId)});
