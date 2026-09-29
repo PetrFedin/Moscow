@@ -649,6 +649,29 @@
     }
   }
 
+  function openBrandComposer(brandId){
+    openSheet('<div class="eyebrow">BRAND 365 · BLOG</div><h1 style="font-size:42px">'+T('НОВОСТЬ<br>БРЕНДА','BRAND<br>POST')+'</h1>'+
+      '<label class="brand-compose-field"><span>'+T('Заголовок','Title')+'</span><input id="brandPostTitle" class="input" maxlength="120" placeholder="'+T('Новая коллекция / событие','New collection / event')+'"></label>'+
+      '<label class="brand-compose-field"><span>'+T('Текст','Copy')+'</span><textarea id="brandPostBody" class="input" rows="5" maxlength="1200" placeholder="'+T('Расскажите подписчикам, что нового','Tell followers what is new')+'"></textarea></label>'+
+      '<label class="brand-compose-field"><span>'+T('Фото · URL','Photo · URL')+'</span><input id="brandPostImage" class="input" inputmode="url" placeholder="https://…"></label>'+
+      '<div class="demo-note">'+T('Органическая публикация видна подписчикам бренда. Платное расширение охвата остаётся отдельным модерируемым продуктом.','Organic posts are shown to brand followers. Paid reach remains a separate moderated product.')+'</div>'+
+      '<button class="action primary" data-action="brand-portal-compose-submit" data-id="'+esc(brandId)+'">'+T('Опубликовать','Publish')+'</button>');
+  }
+  async function submitBrandComposer(brandId){
+    var title=(document.getElementById('brandPostTitle')||{}).value||'';
+    var body=(document.getElementById('brandPostBody')||{}).value||'';
+    var image=(document.getElementById('brandPostImage')||{}).value||'';
+    if(!title.trim()){toast(T('Добавьте заголовок','Add a title'));return;}
+    try{
+      await brandPortalApi(brandId,'/content',{method:'POST',body:JSON.stringify({
+        kind:'news',titleRu:title.trim(),titleEn:title.trim(),bodyRu:body.trim(),bodyEn:body.trim(),imageUrl:image.trim(),
+        ctaLabelRu:'Открыть бренд',ctaLabelEn:'Open brand',ctaUrl:'#brand-'+brandId,
+        audienceScope:{kind:'brand_followers'},placementScope:['brand_profile','discover_feed'],isPaid:false
+      })});
+      toast(T('Новость опубликована в блоге бренда','Post published to the brand blog'));openBrandPortal(brandId);
+    }catch(_){toast(T('Публикация не создана','Could not publish post'));}
+  }
+
   async function brandPortalInvite(brandId){
     try{
       var out=await brandPortalApi(brandId,'/content',{method:'POST',body:JSON.stringify({
@@ -1593,7 +1616,8 @@
       else if(a==='press-kit')openPressKit(el.getAttribute('data-id')||'e1');
       else if(a==='designer-workspace')openDesignerWorkspace(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal')openBrandPortal(el.getAttribute('data-id')||'b1');
-      else if(a==='brand-portal-news')brandPortalPublish(el.getAttribute('data-id')||'b1',false);
+      else if(a==='brand-portal-news')openBrandComposer(el.getAttribute('data-id')||'b1');
+      else if(a==='brand-portal-compose-submit')submitBrandComposer(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal-invite')brandPortalInvite(el.getAttribute('data-id')||'b1');
       else if(a==='brand-portal-notify')brandPortalNotify(el.getAttribute('data-brand')||'b1',el.getAttribute('data-post'));
       else if(a==='brand-portal-paid')brandPortalPublish(el.getAttribute('data-id')||'b1',true);
