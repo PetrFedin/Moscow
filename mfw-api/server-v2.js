@@ -1994,6 +1994,15 @@ async function router(req,res){
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
       return json(res,200,{data:{brand,followers,audience,campaignAnalytics,savedSegments,economics,incrementality,lifecycle,journeys,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
     }
+    if(req.method==='POST'&&action==='acquisition'){
+      const b=await readBody(req),brandRow=await brand365Store.brandByRef(brandId);
+      if(!b.source)return json(res,400,{error:'source_required'});
+      if(pool){
+        const r=await pool.query(`INSERT INTO brand_acquisition_events(brand_id,user_id,source,campaign_ref,cost_amount,currency,metadata) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[brandRow.storageId,b.userId||null,String(b.source),String(b.campaignRef||''),Math.max(0,Number(b.costAmount||0)),String(b.currency||'RUB'),b.metadata||{}]);
+        await track('brand_customer_acquired',{brandId,source:String(b.source),cost:Number(b.costAmount||0)},b.userId||null);return json(res,201,{data:r.rows[0]});
+      }
+      return json(res,201,{data:{brandId,source:String(b.source),userId:b.userId||null,costAmount:Number(b.costAmount||0),demo:true}});
+    }
     if(req.method==='GET'&&action==='predictions')return json(res,200,{data:await brand365Store.scoreCustomerPredictions(brandId)});
     if(req.method==='GET'&&action==='acquisition-economics')return json(res,200,{data:await brand365Store.acquisitionEconomics(brandId)});
     if(req.method==='POST'&&action==='journeys-tick'){
