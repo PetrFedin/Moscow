@@ -1823,7 +1823,8 @@ async function router(req,res){
       if(created.stockExhausted)return json(res,409,{error:'reward_stock_exhausted'});
       if(created.existing)return json(res,200,{data:{id:String(created.claim.id),userId:String(created.claim.user_id),offerId:offer.id,status:created.claim.status,issuedAt:created.claim.issued_at,expiresAt:created.claim.expires_at},alreadyIssued:true});
       await track('loyalty_claim_issued',{offerId:offer.id,claimId:String(created.claim.id),rewardType:offer.rewardType},userId);
-      return json(res,201,{data:{id:String(created.claim.id),userId,status:created.claim.status,offerId:offer.id,issuedAt:created.claim.issued_at,expiresAt:created.claim.expires_at,code}});
+      const qrDataUrl=await QRCode.toDataURL('MFW-LOYALTY:'+code,{width:360,margin:2,errorCorrectionLevel:'M'});
+      return json(res,201,{data:{id:String(created.claim.id),userId,status:created.claim.status,offerId:offer.id,issuedAt:created.claim.issued_at,expiresAt:created.claim.expires_at,code,qrDataUrl,redemption:{mode:'one_time_server_verified',surface:'market_or_brand_showroom'}}});
     }
     const existing=[...memory.loyaltyClaims.values()].find(x=>x.userId===userId&&x.offerId===offerId&&['issued','redeemed'].includes(x.status));
     if(existing)return json(res,200,{data:{...existing,code:undefined},alreadyIssued:true});
@@ -1832,11 +1833,12 @@ async function router(req,res){
     const claim={id,userId,offerId,claimTokenHash:crypto.createHash('sha256').update(code).digest('hex'),status:'issued',issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+7*86400000).toISOString(),demo:true};
     memory.loyaltyClaims.set(id,claim);
     await track('loyalty_claim_issued',{offerId,claimId:id,rewardType:offer.rewardType},userId);
-    return json(res,201,{data:{...claim,code}});
+    const qrDataUrl=await QRCode.toDataURL('MFW-LOYALTY:'+code,{width:360,margin:2,errorCorrectionLevel:'M'});
+    return json(res,201,{data:{...claim,code,qrDataUrl,redemption:{mode:'one_time_server_verified',surface:'market_or_brand_showroom'}}});
   }
   if(req.method==='POST'&&p==='/v1/loyalty/redeem'){
     const b=await readBody(req);
-    const code=String(b.code||'').trim();
+    const code=String(b.code||'').trim().replace(/^MFW-LOYALTY:/,'');
     if(!code)return json(res,400,{error:'claim_code_required'});
     const hash=crypto.createHash('sha256').update(code).digest('hex');
     if(pool){
@@ -1959,11 +1961,12 @@ async function router(req,res){
     if(!(await brandPortalOk(req,brandId)))return json(res,403,{error:'brand_access_required'});
     if(req.method==='GET'&&action==='overview'){
       const followers=await brand365Store.followerCount(brandId);
+      const audience=await brand365Store.brandAudience(brandId);
       const offers=await brand365Store.offersForBrand(brandId,{publishedOnly:false});
       const posts=await brand365Store.postsForBrand(brandId,{publishedOnly:false});
       const claims=await brand365Store.claimsForBrand(brandId);
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
-      return json(res,200,{data:{brand,followers,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+      return json(res,200,{data:{brand,followers,audience,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
     }
     if(req.method==='POST'&&action==='content'){
       const b=await readBody(req);
