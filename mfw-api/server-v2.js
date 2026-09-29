@@ -384,6 +384,10 @@ const memory={
   socialConnections:new Map(),
   socialMemberships:new Map(),
   brandFollows:new Map(),
+  brandFavorites:new Map(),
+  brandCampaigns:new Map(),
+  brandCampaignEvents:[],
+  brandPurchases:[],
   brandAccess:new Map(),
   loyaltyClaims:new Map(),
   contentInteractions:[],
@@ -1952,6 +1956,14 @@ async function router(req,res){
     await track('notification_preferences_updated',{paidPromotionsEnabled:pref.paidPromotionsEnabled},userId);
     return json(res,200,{data:pref});
   }
+  if(req.method==='POST'&&p.startsWith('/v1/brands/')&&p.endsWith('/favorite')){
+    const brandId=p.split('/')[3],b=await readBody(req),userId=userSubject(req,b.userId||'demo_user');
+    if(!userId)return json(res,401,{error:'authenticated_mfw_id_required'});
+    const favorite=await brand365Store.setBrandFavorite(userId,brandId,b.action!=='remove');
+    await track(favorite?'brand_favorited':'brand_unfavorited',{brandId},userId);
+    return json(res,200,{data:{brandId,favorite}});
+  }
+
   if(p.startsWith('/v1/brand-portal/')){
     const parts=p.split('/').filter(Boolean);
     const brandId=parts[2];
@@ -1961,12 +1973,39 @@ async function router(req,res){
     if(!(await brandPortalOk(req,brandId)))return json(res,403,{error:'brand_access_required'});
     if(req.method==='GET'&&action==='overview'){
       const followers=await brand365Store.followerCount(brandId);
-      const audience=await brand365Store.brandAudience(brandId);
+      const audience=await brand365Store.brandCrmAudience(brandId);
+      const campaignAnalytics=await brand365Store.campaignAnalytics(brandId);
       const offers=await brand365Store.offersForBrand(brandId,{publishedOnly:false});
       const posts=await brand365Store.postsForBrand(brandId,{publishedOnly:false});
       const claims=await brand365Store.claimsForBrand(brandId);
       const channels=(await brand365Store.channelsForBrand(brandId)).filter(x=>x.ownerType==='brand');
-      return json(res,200,{data:{brand,followers,audience,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+      return json(res,200,{data:{brand,followers,audience,campaignAnalytics,offers,posts,claims,channels,providers:memory.socialProviderAdapters,dataMode:pool?'postgres':'memory'}});
+    }
+    if(req.method==='GET'&&action==='audience'){
+      return json(res,200,{data:await brand365Store.brandCrmAudience(brandId)});
+    }
+    if(req.method==='GET'&&action==='analytics'){
+      return json(res,200,{data:await brand365Store.campaignAnalytics(brandId)});
+    }
+    if(req.method==='POST'&&action==='campaigns'){
+      const b=await readBody(req),actor=sessionFromRequest(req);
+      const campaign=await brand365Store.createBrandCampaign(brandId,b,actor&&actor.sub||null);
+      await track('brand_campaign_created',{brandId,campaignId:String(campaign.id),segment:b.segment||{}},actor&&actor.sub||null);
+      return json(res,201,{data:campaign});
+    }
+    if(req.method==='POST'&&action==='purchase'){
+      const b=await readBody(req),amount=Number(b.amount||0);
+      if(!(amount>=0))return json(res,400,{error:'invalid_amount'});
+      if(pool){
+        const brandRow=await brand365Store.brandByRef(brandId);
+        const r=await pool.query(`INSERT INTO brand_purchases(brand_id,user_id,campaign_id,claim_id,amount,currency,location_type,location_ref,external_order_ref,metadata)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[brandRow.storageId,b.userId||null,b.campaignId||null,b.claimId||null,amount,String(b.currency||'RUB'),String(b.locationType||'market'),String(b.locationRef||''),String(b.externalOrderRef||''),b.metadata||{}]);
+        if(b.campaignId)await pool.query(`INSERT INTO brand_campaign_events(campaign_id,user_id,event_type,claim_id,location_type,location_ref,metadata) VALUES($1,$2,'purchase',$3,$4,$5,$6)`,[b.campaignId,b.userId||null,b.claimId||null,String(b.locationType||'market'),String(b.locationRef||''),{amount,currency:String(b.currency||'RUB')}]);
+        await track('brand_purchase_attributed',{brandId,campaignId:b.campaignId||null,amount,currency:String(b.currency||'RUB')},b.userId||null);
+        return json(res,201,{data:r.rows[0]});
+      }
+      const item={id:'pur_'+crypto.randomBytes(6).toString('hex'),brandId,userId:String(b.userId||'demo_user'),campaignId:b.campaignId||null,claimId:b.claimId||null,amount,currency:String(b.currency||'RUB'),locationType:String(b.locationType||'market'),locationRef:String(b.locationRef||''),purchasedAt:new Date().toISOString(),demo:true};
+      memory.brandPurchases.push(item);return json(res,201,{data:item});
     }
     if(req.method==='POST'&&action==='content'){
       const b=await readBody(req);
