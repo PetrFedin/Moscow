@@ -1023,6 +1023,7 @@ class Brand365Store{
     }
     const brand=await this.brandByRef(brandRef);if(!brand)throw new Error('brand_not_found');
     const r=await this.pool.query(`INSERT INTO brand_campaigns(brand_id,external_key,name,campaign_type,segment,channel,message_ru,message_en,created_by,status,scheduled_at,frequency_cap,require_marketing_consent,saved_segment_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,[brand.storageId,'bc_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Campaign'),String(input.campaignType||'invitation'),segment,String(input.channel||'push'),String(input.messageRu||''),String(input.messageEn||''),createdBy||null,input.scheduledAt?'scheduled':'draft',input.scheduledAt||null,input.frequencyCap||{per_user_per_7d:2},input.requireMarketingConsent!==false,input.savedSegmentId||null]);
+    if(input.controlPct!=null||input.costAmount!=null)await this.pool.query('UPDATE brand_campaigns SET control_pct=$2,cost_amount=$3,cost_currency=$4 WHERE id=$1',[r.rows[0].id,Math.max(0,Math.min(50,Number(input.controlPct||0))),Math.max(0,Number(input.costAmount||0)),String(input.costCurrency||'RUB')]);
     return r.rows[0];
   }
 
