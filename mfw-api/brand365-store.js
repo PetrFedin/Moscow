@@ -859,6 +859,56 @@ class Brand365Store{
     const r=await this.pool.query('SELECT * FROM brand_saved_segments WHERE brand_id=$1 AND status=\'active\' ORDER BY created_at DESC',[brand.storageId]);return r.rows;
   }
 
+  async resolveSegmentAudience(brandRef,definition){
+    const audience=await this.brandCrmAudience(brandRef),rules=Array.isArray(definition&&definition.rules)?definition.rules:[],op=String(definition&&definition.op||'and').toLowerCase();
+    function pass(member,rule){
+      if(rule.field==='followDays')return Number(member.followDays||0)>=Number(rule.gte||0);
+      if(rule.field==='verifiedSocialDays')return Number(member.verifiedSocialDays||0)>=Number(rule.gte||0);
+      if(rule.field==='favorite')return !!member.favorite===!!rule.eq;
+      if(rule.field==='buyer')return !!member.buyer===!!rule.eq;
+      return false;
+    }
+    const members=audience.members.filter(m=>!rules.length||op==='or'?rules.some(r=>pass(m,r)):rules.every(r=>pass(m,r)));
+    return {definition:{op,rules},count:members.length,members};
+  }
+
+  async queueCampaign(brandRef,campaignRef){
+    if(!this.pool){
+      const campaign=(this.memory.brandCampaigns||new Map()).get(String(campaignRef));if(!campaign)throw new Error('campaign_not_found');
+      const definition=campaign.segment&&campaign.segment.rules?campaign.segment:{op:'and',rules:campaign.segment&&campaign.segment.kind==='days60Plus'?[{field:'followDays',gte:60}]:campaign.segment&&campaign.segment.kind==='days30Plus'?[{field:'followDays',gte:30}]:campaign.segment&&campaign.segment.kind==='favorite'?[{field:'favorite',eq:true}]:campaign.segment&&campaign.segment.kind==='buyer'?[{field:'buyer',eq:true}]:[]};
+      const resolved=await this.resolveSegmentAudience(brandRef,definition);campaign.status='scheduled';campaign.audienceCount=resolved.count;return {campaign,queued:resolved.count,suppressed:0,dataMode:'memory'};
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)throw new Error('brand_not_found');
+    const cr=await this.pool.query('SELECT * FROM brand_campaigns WHERE brand_id=$1 AND (external_key=$2 OR id::text=$2) LIMIT 1',[brand.storageId,String(campaignRef)]);
+    if(!cr.rowCount)throw new Error('campaign_not_found');
+    const campaign=cr.rows[0];
+    let definition=campaign.segment||{op:'and',rules:[]};
+    if(campaign.saved_segment_id){const sr=await this.pool.query('SELECT definition FROM brand_saved_segments WHERE id=$1',[campaign.saved_segment_id]);if(sr.rowCount)definition=sr.rows[0].definition;}
+    if(definition.kind&&!definition.rules){
+      definition={op:'and',rules:definition.kind==='days60Plus'?[{field:'followDays',gte:60}]:definition.kind==='days30Plus'?[{field:'followDays',gte:30}]:definition.kind==='favorite'?[{field:'favorite',eq:true}]:definition.kind==='buyer'?[{field:'buyer',eq:true}]:[]};
+    }
+    const resolved=await this.resolveSegmentAudience(brandRef,definition),client=await this.pool.connect();
+    try{
+      await client.query('BEGIN');
+      let queued=0,suppressed=0;
+      for(const m of resolved.members){
+        const uid=String(m.userId);
+        const pref=await client.query('SELECT paid_promotions_enabled,quiet_hours FROM notification_preferences WHERE user_id=$1',[uid]);
+        const consent=!campaign.require_marketing_consent||(pref.rowCount&&pref.rows[0].paid_promotions_enabled);
+        const cap=Number(campaign.frequency_cap&&campaign.frequency_cap.per_user_per_7d||2);
+        const recent=await client.query(`SELECT count(*)::int n FROM notification_deliveries d JOIN notifications n ON n.id=d.notification_id WHERE d.user_id=$1 AND n.category='brand_campaign' AND d.status IN ('queued','sent','delivered','opened') AND n.created_at>=now()-interval '7 days'`,[uid]);
+        const allowed=consent&&Number(recent.rows[0].n||0)<cap;
+        await client.query('INSERT INTO brand_campaign_audience(campaign_id,user_id,segment_reason) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[campaign.id,uid,{definition}]);
+        if(!allowed){suppressed++;continue;}
+        const n=await client.query(`INSERT INTO notifications(audience,category,title,body,payload,status,scheduled_at) VALUES($1,'brand_campaign',$2,$3,$4,'scheduled',COALESCE($5,now())) RETURNING id`,[{kind:'user',userId:uid},campaign.name,campaign.message_ru,{brandId:brand.id,campaignId:String(campaign.id)},campaign.scheduled_at]);
+        await client.query(`INSERT INTO notification_deliveries(notification_id,user_id,channel,status,metadata) VALUES($1,$2,$3,'queued',$4)`,[n.rows[0].id,uid,campaign.channel,{campaignId:String(campaign.id)}]);
+        await client.query(`INSERT INTO brand_campaign_events(campaign_id,user_id,event_type,metadata) VALUES($1,$2,'queued',$3)`,[campaign.id,uid,{channel:campaign.channel}]);queued++;
+      }
+      await client.query(`UPDATE brand_campaigns SET status='scheduled',updated_at=now() WHERE id=$1`,[campaign.id]);
+      await client.query('COMMIT');return {campaign:{id:String(campaign.id),name:campaign.name,status:'scheduled'},audience:resolved.count,queued,suppressed,dataMode:'postgres'};
+    }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
+  }
+
   async customerEconomics(brandRef){
     if(!this.pool){
       const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
