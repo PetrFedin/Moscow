@@ -193,7 +193,15 @@ class Brand365Store{
   async setBrandFollow(userId,brandRef,following){
     if(!this.pool){
       const set=this.memory.brandFollows.get(String(userId))||new Set();
-      if(following)set.add(String(brandRef));else set.delete(String(brandRef));
+      if(!this.memory.brandFollowStartedAt)this.memory.brandFollowStartedAt=new Map();
+      const key=String(userId)+':'+String(brandRef);
+      if(following){
+        set.add(String(brandRef));
+        if(!this.memory.brandFollowStartedAt.has(key))this.memory.brandFollowStartedAt.set(key,new Date().toISOString());
+      }else{
+        set.delete(String(brandRef));
+        this.memory.brandFollowStartedAt.delete(key);
+      }
       this.memory.brandFollows.set(String(userId),set);
       return !!following;
     }
@@ -751,6 +759,54 @@ class Brand365Store{
     const brand=await this.brandByRef(brandRef);if(!brand)return 0;
     const r=await this.pool.query('SELECT count(*)::int n FROM brand_follows WHERE brand_id=$1',[brand.storageId]);
     return Number(r.rows[0].n||0);
+  }
+
+  async brandAudience(brandRef){
+    const bucket=function(days){
+      if(days<7)return 'new_0_6';
+      if(days<30)return 'growing_7_29';
+      if(days<60)return 'eligible_30_59';
+      return 'loyal_60_plus';
+    };
+    if(!this.pool){
+      const now=Date.now(),rows=[];
+      for(const [userId,set] of this.memory.brandFollows.entries()){
+        if(!set.has(String(brandRef)))continue;
+        const key=String(userId)+':'+String(brandRef);
+        const started=this.memory.brandFollowStartedAt&&this.memory.brandFollowStartedAt.get(key);
+        const days=started?Math.max(0,Math.floor((now-new Date(started).getTime())/86400000)):0;
+        rows.push({userId:String(userId),followDays:days,bucket:bucket(days),verifiedSocialDays:null});
+      }
+      const buckets={new_0_6:0,growing_7_29:0,eligible_30_59:0,loyal_60_plus:0};
+      rows.forEach(x=>{buckets[x.bucket]++;});
+      const avg=rows.length?Math.round(rows.reduce((s,x)=>s+x.followDays,0)/rows.length*10)/10:0;
+      return {total:rows.length,averageFollowDays:avg,buckets,verifiedSocial:{active:0,days30Plus:0},members:rows,dataMode:'memory'};
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return {total:0,averageFollowDays:0,buckets:{new_0_6:0,growing_7_29:0,eligible_30_59:0,loyal_60_plus:0},verifiedSocial:{active:0,days30Plus:0},members:[],dataMode:'postgres'};
+    const follows=await this.pool.query(`SELECT f.user_id,f.created_at,
+      GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (now()-f.created_at))/86400))::int follow_days
+      FROM brand_follows f WHERE f.brand_id=$1 ORDER BY f.created_at`,[brand.storageId]);
+    const social=await this.pool.query(`SELECT sm.user_id,
+      MAX(CASE WHEN sm.status='active' THEN 1 ELSE 0 END)::int active,
+      MAX(CASE WHEN sm.status='active' AND sm.continuous_since IS NOT NULL
+        THEN GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (now()-sm.continuous_since))/86400)) ELSE 0 END)::int verified_days
+      FROM social_memberships sm
+      JOIN brand_social_channels ch ON ch.id=sm.channel_id
+      WHERE ch.brand_id=$1
+      GROUP BY sm.user_id`,[brand.storageId]);
+    const sm=new Map(social.rows.map(x=>[String(x.user_id),{active:Number(x.active||0)>0,verifiedDays:Number(x.verified_days||0)}]));
+    const buckets={new_0_6:0,growing_7_29:0,eligible_30_59:0,loyal_60_plus:0};
+    const members=follows.rows.map(x=>{
+      const days=Number(x.follow_days||0),v=sm.get(String(x.user_id))||{active:false,verifiedDays:0};
+      const b=bucket(days);buckets[b]++;
+      return {userId:String(x.user_id),followDays:days,bucket:b,verifiedSocialActive:v.active,verifiedSocialDays:v.verifiedDays};
+    });
+    const avg=members.length?Math.round(members.reduce((s,x)=>s+x.followDays,0)/members.length*10)/10:0;
+    return {
+      total:members.length,averageFollowDays:avg,buckets,
+      verifiedSocial:{active:members.filter(x=>x.verifiedSocialActive).length,days30Plus:members.filter(x=>x.verifiedSocialDays>=30).length},
+      members:members.slice(0,200),dataMode:'postgres'
+    };
   }
 
   async claimsForBrand(brandRef){
