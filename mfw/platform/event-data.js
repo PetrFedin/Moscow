@@ -155,6 +155,20 @@ window.MFP_DATA={
       {id:"bfs-3009-designer-business",date:"2026-09-30",time:"11:00",end:"12:15",hall:"Малый зал",title:"Дизайнерский бизнес. Как принимать решения в меняющемся рынке?",topic:"Предпринимательство и инвестиции"},
       {id:"bfs-3009-digital-identity",date:"2026-09-30",time:"11:00",end:"12:15",hall:"Открытый зал",title:"Цифровая идентичность. Как визуальные миры создают новые субкультуры",topic:"Креативные индустрии"}
     ],
+    organisations:[
+      {id:"fashion-paper",name:"Fashion Paper",type:"Media",country:"Russia",people:["madonna-mur"]},
+      {id:"noir-fashion-week-global",name:"Noir Fashion Week Global",type:"Fashion platform",country:"International",people:["nichole-bess"]},
+      {id:"jordan-fashion-week",name:"Jordan Fashion Week | Shirene Consulting",type:"Fashion platform",country:"Jordan",people:["shirene-rifai"]},
+      {id:"yatobuy",name:"Yatobuy",type:"Commerce",country:"International",people:["adilya-akbash"]},
+      {id:"alena-akhmadullina",name:"Alena Akhmadullina",type:"Fashion brand",country:"Russia",people:["elena-akhmadullina"]},
+      {id:"locals",name:"Locals",type:"Fashion business",country:"Russia",people:["aleksei-aksenov"]},
+      {id:"moskvichka",name:"Moskvichka Magazine",type:"Media",country:"Russia",people:["darina-alekseeva"]},
+      {id:"minpromtorg-rf",name:"Ministry of Industry and Trade of the Russian Federation",type:"Government",country:"Russia",people:["anton-alikhanov"]},
+      {id:"rome-business-school",name:"Rome Business School",type:"Education",country:"Italy",people:["antonio-alizzi"]},
+      {id:"iaf",name:"International Apparel Federation",type:"Industry association",country:"International",people:["mustafa-cem-altan"]},
+      {id:"mauritius-fashion-festival-week",name:"Mauritius Fashion Festival Week",type:"Fashion platform",country:"Mauritius",people:["rick-anderson"]},
+      {id:"bosco-di-ciliegi",name:"Bosco di Ciliegi",type:"Retail",country:"Russia",people:["constantin-andricopoulos"]}
+    ],
     speakers:[
       {id:"madonna-mur",name:"Madonna Mur",role:"Основатель журнала Fashion Paper",org:"Fashion Paper",sessionIds:["bfs-2909-1100"]},
       {id:"nichole-bess",name:"Nichole M. Bess",role:"Founder and CEO",org:"Noir Fashion Week Global"},
