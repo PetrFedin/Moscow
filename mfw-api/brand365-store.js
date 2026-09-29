@@ -909,6 +909,58 @@ class Brand365Store{
     }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
   }
 
+  async refreshCustomerLifecycle(brandRef){
+    const now=Date.now();
+    if(!this.pool){
+      const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
+      rows.forEach(x=>{if(!x.userId)return;const a=by.get(String(x.userId))||[];a.push(x);by.set(String(x.userId),a)});
+      return [...by.entries()].map(([userId,a])=>{a.sort((x,y)=>new Date(x.purchasedAt)-new Date(y.purchasedAt));const recency=Math.floor((now-new Date(a[a.length-1].purchasedAt).getTime())/86400000),frequency=a.length,monetary=a.reduce((s,x)=>s+Number(x.amount||0),0);return {userId,recencyDays:recency,frequency365d:frequency,monetary365d:monetary,lifecycle:frequency>=4&&recency<=60?'loyal':recency<=90?'active':recency<=180?'at_risk':'churned'}});
+    }
+    const brand=await this.brandByRef(brandRef);if(!brand)return [];
+    await this.pool.query(`WITH p AS (
+      SELECT user_id,min(purchased_at) first_purchase,max(purchased_at) last_purchase,
+        count(*) FILTER (WHERE purchased_at>=now()-interval '365 days')::int frequency_365d,
+        COALESCE(sum(amount) FILTER (WHERE purchased_at>=now()-interval '365 days'),0) monetary_365d
+      FROM brand_purchases WHERE brand_id=$1 AND user_id IS NOT NULL GROUP BY user_id
+    ), scored AS (
+      SELECT *,GREATEST(1,LEAST(5,6-ntile(5) OVER(ORDER BY last_purchase DESC))) r_score,
+        ntile(5) OVER(ORDER BY frequency_365d) f_score,ntile(5) OVER(ORDER BY monetary_365d) m_score
+      FROM p
+    ) INSERT INTO brand_customer_profiles(brand_id,user_id,recency_days,frequency_365d,monetary_365d,r_score,f_score,m_score,lifecycle,last_purchase_at,first_purchase_at,updated_at)
+      SELECT $1,user_id,EXTRACT(day FROM now()-last_purchase)::int,frequency_365d,monetary_365d,r_score,f_score,m_score,
+        CASE WHEN frequency_365d>=4 AND last_purchase>=now()-interval '60 days' THEN 'loyal'
+             WHEN last_purchase>=now()-interval '90 days' THEN 'active'
+             WHEN last_purchase>=now()-interval '180 days' THEN 'at_risk' ELSE 'churned' END,last_purchase,first_purchase,now()
+      FROM scored ON CONFLICT(brand_id,user_id) DO UPDATE SET recency_days=excluded.recency_days,frequency_365d=excluded.frequency_365d,monetary_365d=excluded.monetary_365d,r_score=excluded.r_score,f_score=excluded.f_score,m_score=excluded.m_score,lifecycle=excluded.lifecycle,last_purchase_at=excluded.last_purchase_at,updated_at=now()`,[brand.storageId]);
+    const r=await this.pool.query('SELECT lifecycle,count(*)::int customers,avg(recency_days)::numeric(10,1) avg_recency,avg(frequency_365d)::numeric(10,1) avg_frequency,avg(monetary_365d)::numeric(14,2) avg_monetary FROM brand_customer_profiles WHERE brand_id=$1 GROUP BY lifecycle ORDER BY customers DESC',[brand.storageId]);return r.rows;
+  }
+
+  async campaignIncrementality(brandRef){
+    if(!this.pool)return {campaigns:[],dataMode:'memory'};
+    const brand=await this.brandByRef(brandRef);if(!brand)return {campaigns:[],dataMode:'postgres'};
+    const r=await this.pool.query(`WITH perf AS (
+      SELECT c.id,c.external_key,c.name,c.cost_amount,c.cost_currency,a.experiment_group,
+        count(DISTINCT a.user_id)::int audience,
+        count(DISTINCT p.user_id)::int buyers,COALESCE(sum(p.amount),0) revenue
+      FROM brand_campaigns c JOIN brand_campaign_audience a ON a.campaign_id=c.id
+      LEFT JOIN brand_purchases p ON p.brand_id=c.brand_id AND p.user_id=a.user_id AND p.purchased_at>=COALESCE(c.sent_at,c.scheduled_at,c.created_at) AND p.purchased_at<COALESCE(c.sent_at,c.scheduled_at,c.created_at)+interval '30 days'
+      WHERE c.brand_id=$1 GROUP BY c.id,a.experiment_group
+    ) SELECT * FROM perf ORDER BY id,experiment_group`,[brand.storageId]);
+    const grouped={};for(const x of r.rows){const k=String(x.external_key||x.id);if(!grouped[k])grouped[k]={id:k,name:x.name,cost:Number(x.cost_amount||0),currency:x.cost_currency,treatment:null,control:null};grouped[k][x.experiment_group]={audience:Number(x.audience||0),buyers:Number(x.buyers||0),revenue:Number(x.revenue||0)};}
+    const campaigns=Object.values(grouped).map(x=>{const t=x.treatment||{audience:0,buyers:0,revenue:0},k=x.control||{audience:0,buyers:0,revenue:0},tr=t.audience?t.buyers/t.audience:0,cr=k.audience?k.buyers/k.audience:0,incrementalBuyers=Math.max(0,t.buyers-(cr*t.audience)),incrementalRevenue=Math.max(0,t.revenue-(k.audience?k.revenue/k.audience*t.audience:0));return {...x,treatment:t,control:k,treatmentConversion:tr,controlConversion:cr,lift:cr?(tr-cr)/cr:null,incrementalBuyers,incrementalRevenue,roi:x.cost?(incrementalRevenue-x.cost)/x.cost:null,cac:incrementalBuyers?x.cost/incrementalBuyers:null};});
+    return {campaigns,dataMode:'postgres'};
+  }
+
+  async createJourney(brandRef,input,createdBy){
+    if(!this.pool){if(!this.memory.brandJourneys)this.memory.brandJourneys=new Map();const id='journey_'+require('crypto').randomBytes(6).toString('hex'),x={id,brandId:String(brandRef),name:String(input.name||'Journey'),trigger:input.trigger||{},steps:input.steps||[],status:input.status||'draft',createdAt:new Date().toISOString(),demo:true};this.memory.brandJourneys.set(id,x);return x;}
+    const brand=await this.brandByRef(brandRef);const r=await this.pool.query(`INSERT INTO brand_journeys(brand_id,external_key,name,trigger,steps,status,frequency_cap,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[brand.storageId,'journey_'+require('crypto').randomBytes(8).toString('hex'),String(input.name||'Journey'),input.trigger||{},input.steps||[],String(input.status||'draft'),input.frequencyCap||{per_user_per_30d:3},createdBy||null]);return r.rows[0];
+  }
+
+  async journeys(brandRef){
+    if(!this.pool)return [...(this.memory.brandJourneys||new Map()).values()].filter(x=>x.brandId===String(brandRef));
+    const brand=await this.brandByRef(brandRef);if(!brand)return [];const r=await this.pool.query('SELECT * FROM brand_journeys WHERE brand_id=$1 ORDER BY created_at DESC',[brand.storageId]);return r.rows;
+  }
+
   async customerEconomics(brandRef){
     if(!this.pool){
       const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
