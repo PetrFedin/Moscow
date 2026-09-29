@@ -898,14 +898,17 @@ class Brand365Store{
         const cap=Number(campaign.frequency_cap&&campaign.frequency_cap.per_user_per_7d||2);
         const recent=await client.query(`SELECT count(*)::int n FROM notification_deliveries d JOIN notifications n ON n.id=d.notification_id WHERE d.user_id=$1 AND n.category='brand_campaign' AND d.status IN ('queued','sent','delivered','opened') AND n.created_at>=now()-interval '7 days'`,[uid]);
         const allowed=consent&&Number(recent.rows[0].n||0)<cap;
-        await client.query('INSERT INTO brand_campaign_audience(campaign_id,user_id,segment_reason) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[campaign.id,uid,{definition}]);
+        const controlPct=Math.max(0,Math.min(50,Number(campaign.control_pct||0))),hash=require('crypto').createHash('sha256').update(String(campaign.id)+':'+uid).digest(),bucket=hash.readUInt32BE(0)%10000,experimentGroup=bucket<Math.round(controlPct*100)?'control':'treatment';
+        await client.query('INSERT INTO brand_campaign_audience(campaign_id,user_id,segment_reason,experiment_group) VALUES($1,$2,$3,$4) ON CONFLICT(campaign_id,user_id) DO UPDATE SET segment_reason=excluded.segment_reason,experiment_group=excluded.experiment_group',[campaign.id,uid,{definition},experimentGroup]);
+        if(experimentGroup==='control')continue;
         if(!allowed){suppressed++;continue;}
         const n=await client.query(`INSERT INTO notifications(audience,category,title,body,payload,status,scheduled_at) VALUES($1,'brand_campaign',$2,$3,$4,'scheduled',COALESCE($5,now())) RETURNING id`,[{kind:'user',userId:uid},campaign.name,campaign.message_ru,{brandId:brand.id,campaignId:String(campaign.id)},campaign.scheduled_at]);
         await client.query(`INSERT INTO notification_deliveries(notification_id,user_id,channel,status,metadata) VALUES($1,$2,$3,'queued',$4)`,[n.rows[0].id,uid,campaign.channel,{campaignId:String(campaign.id)}]);
         await client.query(`INSERT INTO brand_campaign_events(campaign_id,user_id,event_type,metadata) VALUES($1,$2,'queued',$3)`,[campaign.id,uid,{channel:campaign.channel}]);queued++;
       }
       await client.query(`UPDATE brand_campaigns SET status='scheduled',updated_at=now() WHERE id=$1`,[campaign.id]);
-      await client.query('COMMIT');return {campaign:{id:String(campaign.id),name:campaign.name,status:'scheduled'},audience:resolved.count,queued,suppressed,dataMode:'postgres'};
+      const ctrl=await client.query("SELECT count(*)::int n FROM brand_campaign_audience WHERE campaign_id=$1 AND experiment_group='control'",[campaign.id]);
+      await client.query('COMMIT');return {campaign:{id:String(campaign.id),name:campaign.name,status:'scheduled'},audience:resolved.count,queued,suppressed,control:Number(ctrl.rows[0].n||0),dataMode:'postgres'};
     }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
   }
 
