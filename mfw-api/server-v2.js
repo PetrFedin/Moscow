@@ -1993,6 +1993,29 @@ async function router(req,res){
       await track('brand_campaign_created',{brandId,campaignId:String(campaign.id),segment:b.segment||{}},actor&&actor.sub||null);
       return json(res,201,{data:campaign});
     }
+    if(req.method==='POST'&&action==='redeem'){
+      const b=await readBody(req),code=String(b.code||'').trim().replace(/^MFW-LOYALTY:/,'');
+      if(!code)return json(res,400,{error:'claim_code_required'});
+      const hash=crypto.createHash('sha256').update(code).digest('hex');
+      if(pool){
+        const claim=await brand365Store.claimByHash(hash);if(!claim)return json(res,404,{error:'claim_not_found'});
+        const offer=await brand365Store.offerByRef(claim.offer_external_key||String(claim.offer_id));
+        if(!offer||String(offer.brandId)!==String(brandId))return json(res,403,{error:'claim_brand_mismatch'});
+        if(claim.status==='redeemed')return json(res,409,{error:'already_redeemed',redeemedAt:claim.redeemed_at});
+        const eligibility=await evaluateLoyaltyOfferAuthority(String(claim.user_id),offer);
+        if(!eligibility.eligible){await brand365Store.updateClaimStatus(claim.id,'revoked');return json(res,409,{error:'eligibility_lost',eligibility});}
+        const actor=sessionFromRequest(req),updated=await brand365Store.updateClaimStatus(claim.id,'redeemed',actor&&actor.sub||null);
+        await track('brand_pos_redemption',{brandId,claimId:String(claim.id),offerId:offer.id},String(claim.user_id));
+        return json(res,200,{data:{id:String(updated.id),status:updated.status,redeemedAt:updated.redeemed_at,claimId:String(claim.id),userId:String(claim.user_id)}});
+      }
+      const claim=[...memory.loyaltyClaims.values()].find(x=>x.claimTokenHash===hash);if(!claim)return json(res,404,{error:'claim_not_found'});
+      const offer=memory.loyaltyOffers.find(x=>x.id===claim.offerId);if(!offer||String(offer.brandId)!==String(brandId))return json(res,403,{error:'claim_brand_mismatch'});
+      if(claim.status==='redeemed')return json(res,409,{error:'already_redeemed',redeemedAt:claim.redeemedAt});
+      const eligibility=evaluateLoyaltyOffer(claim.userId,offer);if(!eligibility.eligible)return json(res,409,{error:'eligibility_lost',eligibility});
+      claim.status='redeemed';claim.redeemedAt=new Date().toISOString();claim.redeemedBy=sessionFromRequest(req)?.sub||'brand';
+      await track('brand_pos_redemption',{brandId,claimId:claim.id,offerId:offer.id},claim.userId);
+      return json(res,200,{data:{id:claim.id,status:claim.status,redeemedAt:claim.redeemedAt,claimId:claim.id,userId:claim.userId}});
+    }
     if(req.method==='POST'&&action==='purchase'){
       const b=await readBody(req),amount=Number(b.amount||0);
       if(!(amount>=0))return json(res,400,{error:'invalid_amount'});
