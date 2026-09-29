@@ -95,3 +95,10 @@ const mfwApp=fs.readFileSync(path.join(root,'..','app.js'),'utf8');
 ['qrDataUrl','MFW-LOYALTY:','one_time_server_verified','market_or_brand_showroom','/v1/loyalty/redeem'].forEach(x=>{if(!authority.includes(x))throw new Error('Reward QR contract missing: '+x)});
 ['openBrandComposer','brand-portal-compose-submit','brand-portal-invite','reward-qr','30+ verified'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('MFW relationship UI missing: '+x)});
 console.log('brand relationship + loyalty QR + blog contract: PASS');
+
+const migration013=fs.readFileSync(path.join(root,'..','..','mfw-api','migrations','013_brand_crm.sql'),'utf8');
+['brand_favorites','brand_campaigns','brand_campaign_audience','brand_campaign_events','brand_purchases'].forEach(x=>{if(!migration013.includes(x))throw new Error('Brand CRM migration missing: '+x)});
+['brandCrmAudience','createBrandCampaign','campaignAnalytics','days30Plus','days60Plus','favorite','buyer'].forEach(x=>{if(!store.includes(x))throw new Error('Brand CRM store missing: '+x)});
+['brand-campaign','brand-redemption-scanner','crm-funnel','Attributed revenue'].forEach(x=>{if(!mfwApp.includes(x))throw new Error('Brand CRM UI missing: '+x)});
+['brand_purchase_attributed','brand_pos_redemption','claim_brand_mismatch'].forEach(x=>{if(!authority.includes(x))throw new Error('Brand CRM attribution missing: '+x)});
+console.log('Brand CRM audience -> campaign -> redemption -> purchase attribution contract: PASS');
