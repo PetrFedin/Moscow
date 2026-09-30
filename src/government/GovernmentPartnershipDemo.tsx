@@ -13,6 +13,7 @@ import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
 import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollaborationCharterPanel';
 import MoscowPilotApplicationReadinessPanel from './MoscowPilotApplicationReadinessPanel';
 import PilotOutcomeEvidencePanel from './PilotOutcomeEvidencePanel';
+import CityJourneyControlCenter from './CityJourneyControlCenter';
 import type { GovernmentMeetingEntryMode } from './governmentMeetingEntry';
 import {
   getGovernmentPilotReadiness,
@@ -29,11 +30,12 @@ import {
   type GovernmentArtifactId
 } from './governmentDeliveryManifest';
 
-type Section = 'offer' | 'proof' | 'ask' | 'funding' | 'package' | 'application' | 'decision' | 'scale';
+type Section = 'offer' | 'proof' | 'journey' | 'ask' | 'funding' | 'package' | 'application' | 'decision' | 'scale';
 
 const sectionLabels: Record<Section, string> = {
   offer: 'Пилот',
   proof: 'Доказательства',
+  journey: 'Городской путь',
   ask: 'Что нужно',
   funding: 'Финансирование',
   package: 'Пакет',
@@ -289,6 +291,17 @@ export default function GovernmentPartnershipDemo({
               body="Это повышает доверие к пилоту и облегчает формальную приёмку."
             />
             <BulletCard items={governmentPilotOffer.guardrails} />
+          </>
+        )}
+
+        {section === 'journey' && (
+          <>
+            <SectionTitle
+              kicker="LIVE DESTINATION"
+              title="City Journey Control Center"
+              body="Операционный контур от verified heritage до provider-confirmed результата. Никаких live-утверждений без свежего evidence."
+            />
+            <CityJourneyControlCenter />
           </>
         )}
 
