@@ -1091,6 +1091,147 @@ class Brand365Store{
     const x=q.rows[0];return {brands:Number(x.brands||0),identifiedCustomers:Number(x.identified_customers||0),retainedCustomers:Number(x.retained_customers||0),attributableGmv:Number(x.attributable_gmv||0),predictedClv:Number(x.predicted_clv||0),attributableValue:Number(x.attributable_gmv||0)+Number(x.predicted_clv||0),dataMode:'postgres'};
   }
 
+  async ownerControlTower(options={}){
+    if(!this.pool)return {summary:{},brands:[],cohorts:[],migration:[],crossEvent:{},acquisitionMix:[],scenarios:[],dataMode:'memory'};
+    const retentionRate=Number(options.retentionRate==null?0.30:options.retentionRate);
+    const clvRealization=Number(options.clvRealization==null?0.50:options.clvRealization);
+
+    const brandsQ=await this.pool.query(`WITH base AS (
+      SELECT b.id,b.external_key,b.name,
+        count(DISTINCT p.user_id)::int customers,
+        count(p.id)::int orders,
+        COALESCE(sum(p.amount),0) attributable_gmv,
+        COALESCE(avg(p.amount),0) aov,
+        count(DISTINCT cp.user_id) FILTER (WHERE cp.lifecycle IN ('active','loyal','reactivated'))::int retained_customers,
+        COALESCE(sum(cp.predicted_clv),0) predicted_clv
+      FROM brands b
+      LEFT JOIN brand_purchases p ON p.brand_id=b.id
+      LEFT JOIN brand_customer_profiles cp ON cp.brand_id=b.id
+      GROUP BY b.id
+    ), campaign_perf AS (
+      SELECT c.brand_id,c.id,c.cost_amount,a.experiment_group,
+        count(DISTINCT a.user_id)::numeric audience,
+        count(DISTINCT p.user_id)::numeric buyers,
+        COALESCE(sum(p.amount),0)::numeric revenue
+      FROM brand_campaigns c
+      JOIN brand_campaign_audience a ON a.campaign_id=c.id
+      LEFT JOIN brand_purchases p ON p.brand_id=c.brand_id AND p.user_id=a.user_id
+        AND p.purchased_at>=COALESCE(c.sent_at,c.scheduled_at,c.created_at)
+        AND p.purchased_at<COALESCE(c.sent_at,c.scheduled_at,c.created_at)+interval '30 days'
+      GROUP BY c.brand_id,c.id,c.cost_amount,a.experiment_group
+    ), inc AS (
+      SELECT brand_id,
+        sum(GREATEST(0,
+          COALESCE(max(revenue) FILTER (WHERE experiment_group='treatment'),0) -
+          CASE WHEN COALESCE(max(audience) FILTER (WHERE experiment_group='control'),0)>0
+            THEN COALESCE(max(revenue) FILTER (WHERE experiment_group='control'),0) /
+                 max(audience) FILTER (WHERE experiment_group='control') *
+                 COALESCE(max(audience) FILTER (WHERE experiment_group='treatment'),0)
+            ELSE 0 END
+        )) incremental_gmv,
+        sum(DISTINCT cost_amount) campaign_cost
+      FROM campaign_perf GROUP BY brand_id
+    )
+    SELECT base.*,COALESCE(inc.incremental_gmv,0) incremental_gmv,COALESCE(inc.campaign_cost,0) campaign_cost
+    FROM base LEFT JOIN inc ON inc.brand_id=base.id
+    ORDER BY base.attributable_gmv DESC,base.customers DESC`);
+
+    const cohortQ=await this.pool.query(`WITH firsts AS (
+      SELECT user_id,min(purchased_at) first_purchase FROM brand_purchases WHERE user_id IS NOT NULL GROUP BY user_id
+    ), cohorts AS (
+      SELECT user_id,date_trunc('month',first_purchase) cohort FROM firsts
+    )
+    SELECT to_char(c.cohort,'YYYY-MM') cohort,count(DISTINCT c.user_id)::int customers,
+      count(DISTINCT p.user_id) FILTER (WHERE p.purchased_at>=c.cohort+interval '1 month')::int retained_m1,
+      count(DISTINCT p.user_id) FILTER (WHERE p.purchased_at>=c.cohort+interval '3 months')::int retained_m3,
+      count(DISTINCT p.user_id) FILTER (WHERE p.purchased_at>=c.cohort+interval '6 months')::int retained_m6
+    FROM cohorts c
+    LEFT JOIN brand_purchases p ON p.user_id=c.user_id
+    GROUP BY c.cohort ORDER BY c.cohort DESC LIMIT 18`);
+
+    const migrationQ=await this.pool.query(`WITH ordered AS (
+      SELECT p.user_id,p.brand_id,b.name brand_name,p.purchased_at,
+        lag(p.brand_id) OVER(PARTITION BY p.user_id ORDER BY p.purchased_at) prev_brand_id,
+        lag(b.name) OVER(PARTITION BY p.user_id ORDER BY p.purchased_at) prev_brand_name
+      FROM brand_purchases p JOIN brands b ON b.id=p.brand_id WHERE p.user_id IS NOT NULL
+    )
+    SELECT prev_brand_name from_brand,brand_name to_brand,count(*)::int transitions,
+      count(DISTINCT user_id)::int users
+    FROM ordered WHERE prev_brand_id IS NOT NULL AND prev_brand_id<>brand_id
+    GROUP BY prev_brand_name,brand_name ORDER BY transitions DESC LIMIT 30`);
+
+    const crossBrandQ=await this.pool.query(`WITH u AS (
+      SELECT user_id,count(DISTINCT brand_id)::int brands FROM brand_purchases WHERE user_id IS NOT NULL GROUP BY user_id
+    ) SELECT count(*)::int buyers,count(*) FILTER (WHERE brands>1)::int multi_brand_buyers,
+      COALESCE(avg(brands),0)::numeric(10,2) avg_brands_per_buyer FROM u`);
+
+    const crossEventQ=await this.pool.query(`WITH regs AS (
+      SELECT er.user_id,
+        CASE
+          WHEN lower(COALESCE(e.metadata->>'eventCode',e.metadata->>'event_code',e.external_key,e.title,'')) LIKE '%bfs%'
+            OR lower(COALESCE(e.metadata->>'eventCode',e.metadata->>'event_code',e.external_key,e.title,'')) LIKE '%brics%' THEN 'bfs'
+          ELSE 'mfw'
+        END event_brand
+      FROM event_registrations er JOIN events e ON e.id=er.event_id
+      WHERE er.status NOT IN ('cancelled','no_show')
+    ), per_user AS (
+      SELECT user_id,bool_or(event_brand='mfw') mfw,bool_or(event_brand='bfs') bfs FROM regs GROUP BY user_id
+    )
+    SELECT count(*)::int registered_users,
+      count(*) FILTER(WHERE mfw)::int mfw_users,
+      count(*) FILTER(WHERE bfs)::int bfs_users,
+      count(*) FILTER(WHERE mfw AND bfs)::int cross_event_users
+    FROM per_user`);
+
+    const acquisitionQ=await this.pool.query(`SELECT source,count(DISTINCT user_id)::int acquired,
+      COALESCE(sum(cost_amount),0) cost,
+      count(DISTINCT p.user_id)::int buyers,COALESCE(sum(p.amount),0) revenue
+    FROM brand_acquisition_events a
+    LEFT JOIN brand_purchases p ON p.user_id=a.user_id AND p.brand_id=a.brand_id AND p.purchased_at>=a.acquired_at
+    GROUP BY source ORDER BY acquired DESC,revenue DESC`);
+
+    const brands=brandsQ.rows.map(x=>({
+      id:String(x.external_key||x.id),name:x.name,customers:Number(x.customers||0),orders:Number(x.orders||0),
+      attributableGmv:Number(x.attributable_gmv||0),incrementalGmv:Number(x.incremental_gmv||0),
+      retainedCustomers:Number(x.retained_customers||0),predictedClv:Number(x.predicted_clv||0),
+      aov:Number(x.aov||0),campaignCost:Number(x.campaign_cost||0)
+    }));
+    const summary={
+      brands:brands.length,
+      customers:brands.reduce((s,x)=>s+x.customers,0),
+      retainedCustomers:brands.reduce((s,x)=>s+x.retainedCustomers,0),
+      attributableGmv:brands.reduce((s,x)=>s+x.attributableGmv,0),
+      incrementalGmv:brands.reduce((s,x)=>s+x.incrementalGmv,0),
+      predictedClv:brands.reduce((s,x)=>s+x.predictedClv,0),
+      campaignCost:brands.reduce((s,x)=>s+x.campaignCost,0)
+    };
+    summary.ecosystemRetention=summary.customers?summary.retainedCustomers/summary.customers:0;
+    const cb=crossBrandQ.rows[0]||{},ce=crossEventQ.rows[0]||{};
+    const crossEvent={registeredUsers:Number(ce.registered_users||0),mfwUsers:Number(ce.mfw_users||0),bfsUsers:Number(ce.bfs_users||0),crossEventUsers:Number(ce.cross_event_users||0)};
+    crossEvent.overlapRate=crossEvent.registeredUsers?crossEvent.crossEventUsers/crossEvent.registeredUsers:0;
+    const crossBrand={buyers:Number(cb.buyers||0),multiBrandBuyers:Number(cb.multi_brand_buyers||0),avgBrandsPerBuyer:Number(cb.avg_brands_per_buyer||0)};
+    crossBrand.migrationRate=crossBrand.buyers?crossBrand.multiBrandBuyers/crossBrand.buyers:0;
+    const acquisitionMix=acquisitionQ.rows.map(x=>({source:x.source,acquired:Number(x.acquired||0),cost:Number(x.cost||0),buyers:Number(x.buyers||0),revenue:Number(x.revenue||0),cac:Number(x.acquired||0)?Number(x.cost||0)/Number(x.acquired||0):null,roi:Number(x.cost||0)?(Number(x.revenue||0)-Number(x.cost||0))/Number(x.cost||0):null}));
+    const scenarios=[
+      {id:'conservative',label:'Conservative',retentionUplift:0.00,gmvUplift:0.00,clvRealization:Math.max(0,clvRealization-0.20)},
+      {id:'base',label:'Base',retentionUplift:0.10,gmvUplift:0.15,clvRealization:clvRealization},
+      {id:'upside',label:'Upside',retentionUplift:0.20,gmvUplift:0.30,clvRealization:Math.min(1,clvRealization+0.20)}
+    ].map(s=>({
+      ...s,
+      illustrativeValue:
+        summary.incrementalGmv*(1+s.gmvUplift)*retentionRate +
+        summary.predictedClv*s.clvRealization*(1+s.retentionUplift)
+    }));
+    return {
+      summary,brands,
+      cohorts:cohortQ.rows.map(x=>({cohort:x.cohort,customers:Number(x.customers||0),m1:Number(x.retained_m1||0),m3:Number(x.retained_m3||0),m6:Number(x.retained_m6||0)})),
+      migration:migrationQ.rows.map(x=>({from:x.from_brand,to:x.to_brand,transitions:Number(x.transitions||0),users:Number(x.users||0)})),
+      crossBrand,crossEvent,acquisitionMix,scenarios,
+      scenarioAssumptions:{retentionContributionRate:retentionRate,clvRealizationRate:clvRealization,note:'Illustrative product-value scenario; not enterprise valuation.'},
+      dataMode:'postgres'
+    };
+  }
+
   async customerEconomics(brandRef){
     if(!this.pool){
       const rows=(this.memory.brandPurchases||[]).filter(x=>x.brandId===String(brandRef)),by=new Map();
