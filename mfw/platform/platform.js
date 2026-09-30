@@ -206,20 +206,29 @@
     });
     hubContent.innerHTML='<div class="wallet-grid">'+cards.map(function(x){var pct=Math.round(x.days/30*100),eligible=x.days>=30;return '<article class="wallet-card '+(eligible?'':'locked')+'"><div class="kind">'+x.event+' · '+(eligible?'ELIGIBLE':'LOCKED')+'</div><h3>'+x.name+'</h3><div class="days">'+x.days+' / 30</div><div class="wallet-progress"><i style="width:'+pct+'%"></i></div><small>'+x.note+'</small>'+(eligible?'<button class="wallet-action">ОТКРЫТЬ НАГРАДУ</button>':'')+'</article>';}).join('')+'</div>'+(cards.length?'':'<div class="hub-note">Подпишитесь на бренд MFW или проект/спикера BFS — здесь появится прогресс привилегий.</div>');
   }
+  function money(v){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(v||0));}
+  function pct(v){return Math.round(Number(v||0)*100)+'%';}
   async function renderOwner(){
-    hubContent.innerHTML='<div class="hub-note">Загружаем server-side Audience Asset…</div>';
+    hubContent.innerHTML='<div class="hub-note">Загружаем Owner Control Tower…</div>';
     try{
       var headers={},token=localStorage.getItem('mfwAccessToken')||localStorage.getItem('mfw_access_token')||'';if(token)headers.Authorization='Bearer '+token;
-      var res=await fetch('/v1/owner/audience-asset',{headers:headers}),out=await res.json();if(!res.ok)throw new Error(out.error||'owner_unavailable');
-      var x=out.data||{};
-      hubContent.innerHTML='<div class="drawer-kicker">MFW AUDIENCE ASSET · SERVER AUTHORITY</div><div class="analytics-grid">'+
-        [['BRANDS',x.brands||0],['IDENTIFIED CUSTOMERS',x.identifiedCustomers||0],['RETAINED',x.retainedCustomers||0],['ATTRIBUTABLE GMV',Number(x.attributableGmv||0).toFixed(0)],['PREDICTED CLV',Number(x.predictedClv||0).toFixed(0)],['AUDIENCE VALUE',Number(x.attributableValue||0).toFixed(0)]].map(function(a){return '<div class="analytics-stat"><b>'+a[1]+'</b><span>'+a[0]+'</span></div>';}).join('')+'</div>'+
-        '<div class="asset-flow"><span>MFW AUDIENCE</span><i>→</i><span>BRANDS</span><i>→</i><span>IDENTIFIED</span><i>→</i><span>RETAINED</span><i>→</i><span>GMV + CLV</span></div>'+
-        '<div class="kpi-map"><div class="kpi-row"><b>Audience Asset</b><span>Идентифицированные отношения брендов с пользователями, а не охват события.</span><em>OWNER</em></div><div class="kpi-row"><b>Retention</b><span>Active + Loyal + Reactivated customers.</span><em>CDP</em></div><div class="kpi-row"><b>Commercial</b><span>POS/order purchases + campaign attribution + control-group incrementality.</span><em>GMV</em></div><div class="kpi-row"><b>Forward value</b><span>Explainable predicted CLV; не бухгалтерская оценка компании.</span><em>CLV</em></div></div>'+
-        '<div class="hub-note">Server-side metrics. Predicted CLV — модельная продуктовая оценка будущей клиентской ценности; она не является valuation MFW и должна валидироваться на исторических cohorts.</div>';
+      var res=await fetch('/v1/owner/control-tower',{headers:headers}),out=await res.json();if(!res.ok)throw new Error(out.error||'owner_unavailable');
+      var x=out.data||{},s=x.summary||{},brands=x.brands||[],cohorts=x.cohorts||[],migration=x.migration||[],acq=x.acquisitionMix||[],scenarios=x.scenarios||[],ce=x.crossEvent||{},cb=x.crossBrand||{};
+      var brandRows=brands.slice(0,10).map(function(b){return '<div class="tower-row"><b>'+b.name+'</b><span>'+b.customers+' customers</span><span>'+money(b.attributableGmv)+' attr. GMV</span><span>'+money(b.incrementalGmv)+' incr. GMV</span><span>'+money(b.predictedClv)+' CLV</span></div>';}).join('');
+      var cohortRows=cohorts.slice(0,8).map(function(q){return '<div class="cohort-row"><b>'+q.cohort+'</b><span>'+q.customers+'</span><span>'+pct(q.customers?q.m1/q.customers:0)+'</span><span>'+pct(q.customers?q.m3/q.customers:0)+'</span><span>'+pct(q.customers?q.m6/q.customers:0)+'</span></div>';}).join('');
+      var migrationRows=migration.slice(0,6).map(function(m){return '<div class="migration-row"><span>'+m.from+'</span><i>→</i><span>'+m.to+'</span><b>'+m.users+'</b></div>';}).join('');
+      var acqRows=acq.slice(0,6).map(function(a){return '<div class="tower-row"><b>'+a.source+'</b><span>'+a.acquired+' acquired</span><span>CAC '+(a.cac==null?'—':money(a.cac))+'</span><span>ROI '+(a.roi==null?'—':pct(a.roi))+'</span><span>'+money(a.revenue)+' revenue</span></div>';}).join('');
+      var scenarioRows=scenarios.map(function(v){return '<div class="scenario-card"><span>MODELLED · '+v.label+'</span><b>'+money(v.illustrativeValue)+'</b><small>illustrative ecosystem value</small><em>GMV uplift '+pct(v.gmvUplift)+' · retention uplift '+pct(v.retentionUplift)+' · CLV realization '+pct(v.clvRealization)+'</em></div>';}).join('');
+      hubContent.innerHTML='<div class="drawer-kicker">OWNER CONTROL TOWER · SERVER AUTHORITY</div><h3 class="tower-title">MFW Audience → Commercial Asset</h3>'+
+        '<div class="metric-legend"><span>OBSERVED</span><span>ATTRIBUTED</span><span>INCREMENTAL</span><span>MODELLED</span></div>'+
+        '<div class="analytics-grid">'+
+        [['BRANDS',s.brands||0],['CUSTOMERS',s.customers||0],['RETENTION',pct(s.ecosystemRetention)],['ATTR. GMV',money(s.attributableGmv)],['INCR. GMV',money(s.incrementalGmv)],['PREDICTED CLV',money(s.predictedClv)]].map(function(a){return '<div class="analytics-stat"><b>'+a[1]+'</b><span>'+a[0]+'</span></div>';}).join('')+'</div>'+
+        '<div class="tower-section"><h3>Brand-by-brand contribution</h3><div class="tower-table">'+(brandRows||'<div class="hub-note">Нет коммерческих данных брендов.</div>')+'</div></div>'+
+        '<div class="tower-split"><section><h3>Cohort retention</h3><div class="cohort-head"><b>COHORT</b><span>N</span><span>M1</span><span>M3</span><span>M6</span></div>'+(cohortRows||'<div class="hub-note">Нужна история покупок.</div>')+'</section><section><h3>Cross-brand migration</h3><div class="tower-mini"><b>'+pct(cb.migrationRate)+'</b><span>multi-brand buyers</span><small>'+Number(cb.avgBrandsPerBuyer||0).toFixed(1)+' brands / buyer</small></div>'+(migrationRows||'<div class="hub-note">Переходов пока нет.</div>')+'</section></div>'+
+        '<div class="tower-split"><section><h3>MFW ↔ BFS cross-event</h3><div class="cross-event-ring"><b>'+pct(ce.overlapRate)+'</b><span>cross-event overlap</span></div><div class="tower-foot">'+(ce.mfwUsers||0)+' MFW · '+(ce.bfsUsers||0)+' BFS · '+(ce.crossEventUsers||0)+' both</div></section><section><h3>Acquisition-source mix</h3><div class="tower-table">'+(acqRows||'<div class="hub-note">Добавьте server acquisition events.</div>')+'</div></section></div>'+
+        '<div class="tower-section"><h3>Scenario valuation</h3><div class="scenario-grid">'+scenarioRows+'</div><div class="hub-note">MODELLED: это сценарная продуктовая оценка создаваемой клиентской ценности, а не enterprise valuation компании. Она использует incremental GMV и predicted CLV с явными коэффициентами реализации.</div></div>';
     }catch(err){
-      var i=getInterestState(),agenda=agendaLoad();
-      hubContent.innerHTML='<div class="analytics-grid"><div class="analytics-stat"><b>'+((i.mfwFollowed||[]).length)+'</b><span>LOCAL FOLLOWS</span></div><div class="analytics-stat"><b>'+agenda.length+'</b><span>LOCAL AGENDA</span></div></div><div class="hub-note">Owner authority требует авторизованную owner-сессию. Локальные числа выше — только demo текущего устройства и не являются KPI MFW.</div>';
+      hubContent.innerHTML='<div class="hub-note">Owner Control Tower требует авторизованную owner-сессию и server-side данные. Локальные demo-метрики намеренно не подменяют агрегаты экосистемы.</div>';
     }
   }
   function renderHub(){
