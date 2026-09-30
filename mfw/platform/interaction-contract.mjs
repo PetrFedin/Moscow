@@ -125,3 +125,9 @@ const migration016=fs.readFileSync(path.join(root,'..','..','mfw-api','migration
 const platformJs=fs.readFileSync(path.join(root,'platform.js'),'utf8');
 ['MFW AUDIENCE ASSET','IDENTIFIED CUSTOMERS','ATTRIBUTABLE GMV','PREDICTED CLV','/v1/owner/audience-asset'].forEach(x=>{if(!platformJs.includes(x))throw new Error('Owner Audience Asset UI missing: '+x)});
 console.log('Brand 365 state machine + owner Audience Asset contract: PASS');
+
+['ownerControlTower','incremental_gmv','cohort','prev_brand_name','cross_event_users','scenarioAssumptions'].forEach(x=>{if(!store.includes(x))throw new Error('Owner Control Tower authority missing: '+x)});
+['/v1/owner/control-tower','retentionRate','clvRealization'].forEach(x=>{if(!authority.includes(x))throw new Error('Owner Control Tower API missing: '+x)});
+const platformTower=fs.readFileSync(path.join(root,'platform.js'),'utf8');
+['OWNER CONTROL TOWER','Brand-by-brand contribution','Cohort retention','Cross-brand migration','MFW ↔ BFS cross-event','Scenario valuation'].forEach(x=>{if(!platformTower.includes(x))throw new Error('Owner Control Tower UI missing: '+x)});
+console.log('Owner Control Tower contract: PASS');
