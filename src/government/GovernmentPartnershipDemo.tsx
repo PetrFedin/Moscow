@@ -12,6 +12,7 @@ import GovernmentInvestorGuidedRoute from './GovernmentInvestorGuidedRoute';
 import GovernmentPartnerDataRoomPanel from './GovernmentPartnerDataRoomPanel';
 import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollaborationCharterPanel';
 import MoscowPilotApplicationReadinessPanel from './MoscowPilotApplicationReadinessPanel';
+import PilotOutcomeEvidencePanel from './PilotOutcomeEvidencePanel';
 import type { GovernmentMeetingEntryMode } from './governmentMeetingEntry';
 import {
   getGovernmentPilotReadiness,
@@ -500,6 +501,13 @@ export default function GovernmentPartnershipDemo({
                 </View>
               ))}
             </View>
+
+            <SectionTitle
+              kicker="ЧТО ПОЛУЧИЛ ПОЛЬЗОВАТЕЛЬ"
+              title="Outcome отдельно от технического proof"
+              body="До реального supervised pilot здесь нет процентов: только статус отсутствующего evidence."
+            />
+            <PilotOutcomeEvidencePanel />
 
             <SectionTitle
               kicker="ЧТО ДОЛЖЕН ИЗМЕРИТЬ ПИЛОТ"
