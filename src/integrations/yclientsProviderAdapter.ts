@@ -92,7 +92,8 @@ export function normalizeYclientsBookingRecord(
 }
 
 export function normalizeYclientsWebhookReceipt(
-  payload: unknown
+  payload: unknown,
+  receiverObservedAt?: string
 ): ProviderSandboxReceipt {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('YCLIENTS webhook receipt must be an object');
@@ -128,13 +129,16 @@ export function normalizeYclientsWebhookReceipt(
         ? 'confirmed'
         : 'confirmed';
 
-  const occurredAt =
+  const providerOccurredAt =
     text(data.last_change_date)
+    ?? text(data.create_date)
     ?? text(data.datetime)
-    ?? new Date(0).toISOString();
+    ?? text(data.date);
+  const observedAt = text(receiverObservedAt);
+  const occurredAt = providerOccurredAt ?? observedAt;
 
-  if (occurredAt === new Date(0).toISOString()) {
-    throw new Error('YCLIENTS receipt requires provider timestamp');
+  if (!occurredAt || !Number.isFinite(Date.parse(occurredAt))) {
+    throw new Error('YCLIENTS receipt requires provider timestamp or receiver observed time');
   }
 
   return {
