@@ -3,8 +3,9 @@ import test from 'node:test';
 
 import { buildProviderIntegrationHarnessResult } from '../src/integrations/providerIntegrationHarness.ts';
 import { buildJourneyEvidencePack, verifyJourneyEvidencePack } from '../src/integrations/journeyEvidencePack.ts';
+import type { LiveProviderIngestionRecord } from '../src/travel/liveProviderIngestion.ts';
 
-const ingestion = {
+const ingestion: LiveProviderIngestionRecord = {
   schemaVersion: 1,
   adapterId: 'sandbox-city',
   destinationId: 'moscow',
