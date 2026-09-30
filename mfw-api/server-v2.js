@@ -1967,6 +1967,14 @@ async function router(req,res){
     return json(res,200,{data:{brandId,favorite}});
   }
 
+  if(req.method==='GET'&&p==='/v1/owner/control-tower'){
+    const actor=sessionFromRequest(req);if(!actor)return json(res,401,{error:'authentication_required'});
+    const url=new URL(req.url,'http://localhost');
+    const retentionRate=Math.max(0,Math.min(1,Number(url.searchParams.get('retentionRate')||0.30)));
+    const clvRealization=Math.max(0,Math.min(1,Number(url.searchParams.get('clvRealization')||0.50)));
+    return json(res,200,{data:await brand365Store.ownerControlTower({retentionRate,clvRealization})});
+  }
+
   if(req.method==='GET'&&p==='/v1/owner/audience-asset'){
     const actor=sessionFromRequest(req);if(!actor)return json(res,401,{error:'authentication_required'});
     return json(res,200,{data:await brand365Store.audienceAssetSummary()});
