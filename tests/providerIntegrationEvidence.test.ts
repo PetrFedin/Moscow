@@ -16,8 +16,8 @@ const ingestion = {
   normalizedAt: '2026-09-30T08:01:00Z',
   snapshotFreshness: 'fresh',
   normalizedEntityCount: 3,
-  warnings: []
-} as const;
+  warnings: [] as string[]
+};
 
 const runtime = {
   version: 1,
