@@ -122,6 +122,16 @@ export default function CityJourneyControlCenter({
         ))}
       </View>
 
+      <View style={styles.evidenceCard}>
+        <Text style={styles.sectionKicker}>JOURNEY EVIDENCE PACK</Text>
+        <Text style={styles.evidenceTitle}>Проверяемая цепочка фактического дня</Text>
+        <Text style={styles.evidenceBody}>
+          snapshot → live verification → provider change → replan → resume → provider receipt.
+          Пакет формируется только после полного proof и получает детерминированный SHA-256.
+        </Text>
+        <Text style={styles.evidencePending}>СЕЙЧАС: ОЖИДАЕТ РЕАЛЬНЫЙ PROVIDER SANDBOX / FEED</Text>
+      </View>
+
       <View style={styles.guardrail}>
         <Text style={styles.guardrailTitle}>FAIL-CLOSED RULE</Text>
         <Text style={styles.guardrailBody}>
@@ -180,6 +190,10 @@ const styles = StyleSheet.create({
   runtimeSteps: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 3 },
   runtimeStep: { borderRadius: 12, backgroundColor: '#211c14', paddingHorizontal: 9, paddingVertical: 6 },
   runtimeStepText: { color: '#c9ab77', fontSize: 9, fontWeight: '800' },
+  evidenceCard: { borderWidth: 1, borderColor: '#5a4931', borderRadius: 18, padding: 15, backgroundColor: '#17130e', gap: 6 },
+  evidenceTitle: { color: '#efe7da', fontSize: 16, fontWeight: '900' },
+  evidenceBody: { color: '#9f978b', fontSize: 11, lineHeight: 17 },
+  evidencePending: { color: '#c5a267', fontSize: 9, fontWeight: '900', letterSpacing: 0.7, marginTop: 3 },
   guardrail: { backgroundColor: '#1a1712', borderRadius: 16, padding: 14 },
   guardrailTitle: { color: '#c8a66e', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   guardrailBody: { color: '#9e9588', fontSize: 11, lineHeight: 17, marginTop: 5 }
