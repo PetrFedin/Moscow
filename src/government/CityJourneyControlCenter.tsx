@@ -73,6 +73,22 @@ export default function CityJourneyControlCenter({
         ))}
       </View>
 
+      <View style={styles.runtimeCard}>
+        <Text style={styles.sectionKicker}>DESTINATION JOURNEY RUNTIME</Text>
+        <Text style={styles.runtimeTitle}>planned → verified → executing → replanned → executed</Text>
+        <Text style={styles.runtimeBody}>
+          Если provider закрывает объект, отменяет событие или evidence протухает, текущий день
+          переходит в replan-required. Замена принимается только с новым routing proof.
+        </Text>
+        <View style={styles.runtimeSteps}>
+          {['Утро', 'Heritage + AR', 'Музей', 'Обед', 'Событие', 'Вечер'].map((step) => (
+            <View key={step} style={styles.runtimeStep}>
+              <Text style={styles.runtimeStepText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
       <Text style={styles.sectionKicker}>MEASURED OUTCOME</Text>
       {snapshot.metrics.length === 0 ? (
         <View style={styles.empty}>
@@ -158,6 +174,12 @@ const styles = StyleSheet.create({
   blockerRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   blockerMark: { color: '#8e7652' },
   blockerText: { color: '#aaa195', fontSize: 11, lineHeight: 16, flex: 1 },
+  runtimeCard: { borderWidth: 1, borderColor: '#4b402f', borderRadius: 18, padding: 15, backgroundColor: '#14110d', gap: 7 },
+  runtimeTitle: { color: '#f0e8dc', fontSize: 16, fontWeight: '900' },
+  runtimeBody: { color: '#9f978b', fontSize: 11, lineHeight: 17 },
+  runtimeSteps: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 3 },
+  runtimeStep: { borderRadius: 12, backgroundColor: '#211c14', paddingHorizontal: 9, paddingVertical: 6 },
+  runtimeStepText: { color: '#c9ab77', fontSize: 9, fontWeight: '800' },
   guardrail: { backgroundColor: '#1a1712', borderRadius: 16, padding: 14 },
   guardrailTitle: { color: '#c8a66e', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   guardrailBody: { color: '#9e9588', fontSize: 11, lineHeight: 17, marginTop: 5 }
