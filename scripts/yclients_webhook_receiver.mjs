@@ -102,16 +102,17 @@ const server = http.createServer(async (req, res) => {
       return json(res, 400, { ok: false, error: 'invalid-json' });
     }
 
+    const receivedAt = new Date().toISOString();
     let receipt;
     try {
-      receipt = normalizeYclientsWebhookReceipt(parsed);
+      receipt = normalizeYclientsWebhookReceipt(parsed, receivedAt);
     } catch (error) {
       return json(res, 422, { ok: false, error: error instanceof Error ? error.message : 'normalization-failed' });
     }
 
     const payloadSha256 = sha256(raw);
     latestEvidence = {
-      receivedAt: new Date().toISOString(),
+      receivedAt,
       payloadSha256,
       normalizedReceipt: receipt,
       ...(captureTestPayload ? { rawBase64: raw.toString('base64') } : {})
