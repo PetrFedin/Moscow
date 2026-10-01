@@ -120,6 +120,9 @@ export function buildProviderIntegrationHarnessResult(input: {
   if (!input.receipt) {
     blockers.push('integration-provider-receipt-missing');
   } else {
+    if (input.receipt.outcome === 'observed') {
+      blockers.push('integration-provider-receipt-not-terminal');
+    }
     if (!uniqueSteps.has('provider-receipt-observed')) blockers.push('integration-receipt-step-missing');
     const event = evidence.find((item) => item.step === 'provider-receipt-observed');
     if (event?.providerId && event.providerId !== input.receipt.providerId) {
