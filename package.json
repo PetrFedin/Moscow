@@ -24,7 +24,8 @@
     "validate:oec-model-submission": "node --experimental-strip-types scripts/validate_old_english_court_submission.mjs",
     "validate:romanov-p0-evidence": "node --experimental-strip-types scripts/validate_romanov_p0_evidence.mjs",
     "provider:yclients-receiver": "node --experimental-strip-types scripts/yclients_webhook_receiver.mjs",
-    "integration:status": "node --experimental-strip-types scripts/report_integration_master_plan.mjs"
+    "integration:status": "node --experimental-strip-types scripts/report_integration_master_plan.mjs",
+    "integration:validate-phase0": "node --experimental-strip-types scripts/validate_phase0_evidence_manifest.mjs"
   },
   "dependencies": {
     "@google/model-viewer": "4.3.1",
