@@ -42,6 +42,20 @@ module.exports = () => {
     return plugin;
   });
 
+  const sentryOrganization = process.env.SENTRY_ORG?.trim();
+  const sentryProject = process.env.SENTRY_PROJECT?.trim();
+  if (sentryOrganization && sentryProject) {
+    plugins.push([
+      '@sentry/react-native/expo',
+      {
+        url: 'https://sentry.io/',
+        organization: sentryOrganization,
+        project: sentryProject,
+        disableAutoUpload: !process.env.SENTRY_AUTH_TOKEN?.trim()
+      }
+    ]);
+  }
+
   return {
     ...staticConfig,
     plugins,
