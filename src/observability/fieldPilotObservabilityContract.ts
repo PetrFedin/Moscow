@@ -89,26 +89,27 @@ const ALLOWED_EVENT_TAGS = new Set([
   'error.class'
 ]);
 
-export function sanitizeFieldPilotSentryEvent<T extends SentryLikeEvent>(event: T): T {
+export function sanitizeFieldPilotSentryEvent<T extends object>(event: T): T {
+  const source = event as unknown as SentryLikeEvent;
   const safeTags: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(event.tags ?? {})) {
+  for (const [key, raw] of Object.entries(source.tags ?? {})) {
     if (!ALLOWED_EVENT_TAGS.has(key)) continue;
     const safe = bounded(raw);
     if (safe) safeTags[key] = safe;
   }
 
-  const safeException = event.exception?.values
+  const safeException = source.exception?.values
     ? {
-        ...event.exception,
-        values: event.exception.values.map((value) => ({
+        ...source.exception,
+        values: source.exception.values.map((value) => ({
           ...value,
           value: 'Field pilot diagnostic message redacted'
         }))
       }
-    : event.exception;
+    : source.exception;
 
   const sanitized = {
-    ...event,
+    ...source,
     message: safeTags['field.kind']
       ? `field-pilot:${safeTags['field.kind']}`
       : 'field-pilot:crash',
@@ -123,7 +124,7 @@ export function sanitizeFieldPilotSentryEvent<T extends SentryLikeEvent>(event: 
     transaction: undefined
   };
 
-  return sanitized as T;
+  return sanitized as unknown as T;
 }
 
 export function fieldPilotObservabilityEnabled(input: {
