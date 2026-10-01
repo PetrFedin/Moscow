@@ -61,6 +61,7 @@ import PhysicalPressable from '../../ui/PhysicalPressable';
 import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
 import { tr, type AppLanguage } from '../../i18n';
+import { recordFieldPilotFailure } from '../../observability/fieldPilotObservability';
 import RomanovEvidenceTransferPanel from './RomanovEvidenceTransferPanel.native';
 import RomanovFieldTest from './RomanovFieldTest.native';
 import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
@@ -402,7 +403,20 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
 
   const modelContents = (
     <>
-      <Viro3DObject source={getRomanovModelSource(era, trustMode)} type="GLB" />
+      <Viro3DObject
+        source={getRomanovModelSource(era, trustMode)}
+        type="GLB"
+        onError={() => {
+          recordFieldPilotFailure({
+            kind: 'model-load-failed',
+            packageId: 'romanov-spatial',
+            packageVersion: String(calibration.version),
+            sceneId: `romanov-${era}`,
+            objectId: 'romanov-chambers',
+            errorClass: 'viro-glb-load'
+          });
+        }}
+      />
       <ViroText
         text={`${era === '1857' ? '1857' : '1859 / 1883'} · ${trustMode === 'documented' ? tr(language, 'ФАКТ', 'FACT', '事实') : tr(language, 'РЕКОНСТРУКЦИЯ', 'RESEARCH', '重建')}`}
         position={[0, 14.2, 0]}
@@ -636,6 +650,14 @@ export default function MoscowSpatialJourney({
   };
 
   const handleAnchorError = (message: string) => {
+    recordFieldPilotFailure({
+      kind: message.includes('AR scene') ? 'ar-session-init-failed' : 'anchor-placement-failed',
+      packageId: 'romanov-spatial',
+      packageVersion: String(calibration.version),
+      sceneId: `romanov-${era}`,
+      objectId: 'romanov-chambers',
+      errorClass: message.includes('AR scene') ? 'scene-not-ready' : 'anchor-placement'
+    });
     setStage('searching');
     setStatusMessage(message);
     void haptic('field-warning');
@@ -730,6 +752,14 @@ export default function MoscowSpatialJourney({
   const handleMeasurementError = (requestId: number, message: string) => {
     const pending = measurementResolver.current;
     if (!pending || pending.requestId !== requestId) return;
+    recordFieldPilotFailure({
+      kind: 'anchor-placement-failed',
+      packageId: 'romanov-spatial',
+      packageVersion: String(calibration.version),
+      sceneId: `romanov-${era}`,
+      objectId: 'romanov-chambers',
+      errorClass: message.includes('Tracking') ? 'tracking-not-normal' : 'measurement-hit-failed'
+    });
     pending.reject(new Error(message));
     measurementResolver.current = null;
     setMeasurementRequest(null);
@@ -749,8 +779,30 @@ export default function MoscowSpatialJourney({
   const hostPersistentAnchor = async (anchorId: string, ttlDays: number) => {
     if (isQuest) throw new Error('Phone cloud anchors are not hosted from the Quest runtime.');
     const navigator = cloudAnchorNavigator(xrNavigatorRef.current);
-    if (!navigator?.hostCloudAnchor) throw new Error('AR cloud-anchor navigator is not mounted yet.');
-    return navigator.hostCloudAnchor(anchorId, ttlDays);
+    if (!navigator?.hostCloudAnchor) {
+      recordFieldPilotFailure({
+        kind: 'ar-session-init-failed',
+        packageId: 'romanov-spatial',
+        packageVersion: String(calibration.version),
+        sceneId: `romanov-${era}`,
+        objectId: 'romanov-chambers',
+        errorClass: 'cloud-anchor-navigator-unavailable'
+      });
+      throw new Error('AR cloud-anchor navigator is not mounted yet.');
+    }
+    try {
+      return await navigator.hostCloudAnchor(anchorId, ttlDays);
+    } catch (error) {
+      recordFieldPilotFailure({
+        kind: 'anchor-placement-failed',
+        packageId: 'romanov-spatial',
+        packageVersion: String(calibration.version),
+        sceneId: `romanov-${era}`,
+        objectId: 'romanov-chambers',
+        errorClass: 'persistent-anchor-host-failed'
+      });
+      throw error;
+    }
   };
 
   const handlePersistentLocalized = async (sample: PersistentResolveSample) => {
@@ -826,6 +878,14 @@ export default function MoscowSpatialJourney({
   };
 
   const handlePersistentLocalizeError = (message: string) => {
+    recordFieldPilotFailure({
+      kind: 'anchor-placement-failed',
+      packageId: 'romanov-spatial',
+      packageVersion: String(calibration.version),
+      sceneId: `romanov-${era}`,
+      objectId: 'romanov-chambers',
+      errorClass: 'persistent-anchor-resolve-failed'
+    });
     setStatusMessage(`Persistent anchor resolve failed: ${message}`);
     void haptic('field-warning');
   };
