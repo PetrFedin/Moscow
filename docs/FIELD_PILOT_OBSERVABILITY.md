@@ -56,6 +56,14 @@ Before any event leaves the app, the project sanitizer removes:
 
 Attachments are removed in `beforeSend`.
 
+Sentry 8.28 native privacy switches are also explicitly disabled:
+
+- network breadcrumbs (iOS/Android);
+- automatic/app/activity/system/component breadcrumbs;
+- accessibility identifiers;
+- screenshots and view hierarchy attachments;
+- raw MetricKit payload.
+
 The field helper never accepts latitude/longitude, a route trace, camera data, email, phone, name, provider token or arbitrary metadata.
 
 Sentry project-side data scrubbing and IP-address storage settings should also be reviewed before enabling a real DSN.
