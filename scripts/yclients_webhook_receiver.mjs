@@ -69,9 +69,12 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/ready') {
     const receiverReady = Boolean(webhookToken && retrievalToken);
-    return json(res, receiverReady ? 200 : 503, {
+    const providerSecretsReady = Boolean(companyId && partnerTokenPresent && userTokenPresent);
+    const proofReady = receiverReady && providerSecretsReady;
+    return json(res, proofReady ? 200 : 503, {
+      proofReady,
       receiverReady,
-      providerSecretsReady: Boolean(companyId && partnerTokenPresent && userTokenPresent),
+      providerSecretsReady,
       companyIdConfigured: Boolean(companyId),
       partnerTokenConfigured: partnerTokenPresent,
       userTokenConfigured: userTokenPresent,
