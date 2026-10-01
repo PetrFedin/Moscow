@@ -135,3 +135,72 @@ Evidence Signing Authority remains explicitly deferred until the first real prov
 10. [MOSCOW-INT-09 City-scale 3D gate — #87](https://github.com/PetrFedin/Moscow/issues/87)
 
 **Implementation instruction:** prove spatial truth and repeatability first; scale second.
+
+## Additional wave — signed offline packages and field observability
+
+### Signed Destination Package manifest — ADOPT
+
+Reference: https://github.com/panva/jose
+
+Each Published Spatial / Destination Package should carry a signed manifest covering:
+
+- package ID/version;
+- publication timestamp;
+- app compatibility version;
+- hashes of POI/narrative/geometry/media/3D/route payloads;
+- localisation set;
+- key ID/signature algorithm.
+
+Flow:
+
+`reviewed package -> deterministic manifest -> signature -> upload/distribution -> mobile verification -> local activation`
+
+The mobile client must reject/treat as untrusted a package whose manifest/signature/hash validation fails.
+
+This is especially important once packages are cached/offline and updated independently of the app binary.
+
+Do not put private signing keys in the mobile bundle.
+
+### Sentry React Native field-pilot observability — ADOPT
+
+Reference: https://github.com/getsentry/sentry-react-native
+
+Instrument privacy-safe pilot failures:
+
+- destination package download/verify;
+- model load;
+- AR session initialization;
+- anchor placement failure class;
+- location/compass permission/state;
+- offline cache failure;
+- route screen crash.
+
+Attach:
+
+- app/build version;
+- device/OS class;
+- package ID/version;
+- scene/object ID;
+- error class.
+
+Do not capture camera frames, exact user routes or precise location histories by default.
+
+Field Verification evidence remains the product truth; Sentry is operational diagnostics.
+
+### 3D Tiles tooling — DEFER with Cesium gate
+
+Reference: https://github.com/CesiumGS/3d-tiles-tools
+
+If/when the existing Cesium city-scale gate is opened, use 3D Tiles tooling for validation/processing of city-scale datasets rather than inventing a proprietary tile format.
+
+This does not move local object GLB/AR assets out of the current glTF admission pipeline.
+
+### Acceptance extension
+
+- offline package activation is cryptographically integrity-checked;
+- a stale/tampered package cannot silently replace an approved package;
+- field crashes can be resolved to exact app + package version;
+- privacy rules prohibit collecting unnecessary visitor location/camera content.
+
+**Sequencing:** package signing belongs with Destination Package v2; field observability can start during the Romanov/Old English Court pilot; 3D Tiles remains behind the city-scale gate.
+
