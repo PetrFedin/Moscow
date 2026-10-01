@@ -127,7 +127,7 @@ export function normalizeYclientsWebhookReceipt(
       ? 'cancelled'
       : confirmed === 1 || confirmed === 2 || attendance === 1 || attendance === 2
         ? 'confirmed'
-        : 'confirmed';
+        : 'observed';
 
   const providerOccurredAt =
     text(data.last_change_date)
