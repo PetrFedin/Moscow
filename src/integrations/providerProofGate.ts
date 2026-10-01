@@ -21,6 +21,22 @@ export type ProviderProofGate = {
   blockers: string[];
 };
 
+function sameAdmissionAuthority(a: RealProviderAdmission, b: RealProviderAdmission) {
+  return a.providerId === b.providerId
+    && a.adapterId === b.adapterId
+    && a.destinationId === b.destinationId
+    && a.sourceUrl === b.sourceUrl
+    && a.credentials.mode === b.credentials.mode
+    && a.credentials.secretRef === b.credentials.secretRef
+    && a.credentials.evidenceRef === b.credentials.evidenceRef
+    && a.capabilityEvidenceRef === b.capabilityEvidenceRef
+    && a.schemaMapping.providerSchemaVersion === b.schemaMapping.providerSchemaVersion
+    && a.schemaMapping.mappingVersion === b.schemaMapping.mappingVersion
+    && a.schemaMapping.evidenceRef === b.schemaMapping.evidenceRef
+    && [...a.discoveredCapabilities].sort().join('|')
+      === [...b.discoveredCapabilities].sort().join('|');
+}
+
 export function evaluateProviderProofGate(input: {
   providerId: string;
   runtimeCredentialsConfigured?: boolean;
@@ -31,6 +47,14 @@ export function evaluateProviderProofGate(input: {
   const blockers: string[] = [];
   const runtimeCredentialsConfigured = Boolean(input.runtimeCredentialsConfigured);
   const effectiveAdmission = input.admission ?? input.evidenceRun?.admission ?? null;
+
+  if (
+    input.admission
+    && input.evidenceRun
+    && !sameAdmissionAuthority(input.admission, input.evidenceRun.admission)
+  ) {
+    blockers.push('provider-admission-evidence-mismatch');
+  }
 
   let admissionPassed = false;
   if (!effectiveAdmission) {
@@ -57,13 +81,15 @@ export function evaluateProviderProofGate(input: {
     if (!pack.valid) blockers.push('journey-evidence-pack-integrity-failed');
   }
 
+  if (!providerId) blockers.push('provider-id-missing');
+
   const realProviderPass =
     Boolean(providerId)
     && admissionPassed
     && realEvidenceRunPassed
-    && journeyEvidenceIntegrity;
+    && journeyEvidenceIntegrity
+    && blockers.length === 0;
 
-  if (!providerId) blockers.push('provider-id-missing');
   if (!runtimeCredentialsConfigured && !realProviderPass) {
     blockers.push('provider-runtime-credentials-not-configured');
   }
