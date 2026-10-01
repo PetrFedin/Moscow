@@ -28,6 +28,17 @@ export function initFieldPilotObservability() {
     dsn,
     sendDefaultPii: false,
     tracesSampleRate: 0,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
+    enableNetworkBreadcrumbs: false,
+    enableNetworkEventBreadcrumbs: false,
+    enableAutoBreadcrumbTracking: false,
+    enableActivityLifecycleBreadcrumbs: false,
+    enableAppLifecycleBreadcrumbs: false,
+    enableSystemEventBreadcrumbs: false,
+    enableAppComponentBreadcrumbs: false,
+    reportAccessibilityIdentifier: false,
+    enableMetricKitRawPayload: false,
     beforeSend(event, hint) {
       if (hint?.attachments) hint.attachments = [];
       return sanitizeFieldPilotSentryEvent(event);
