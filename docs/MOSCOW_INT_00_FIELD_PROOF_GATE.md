@@ -36,11 +36,17 @@ While Phase 0 is blocked:
 
 ## CLI
 
-Run:
+Run repository-truth status:
 
 `npm run integration:status`
 
-The command prints the current roadmap and exits non-zero while Phase 0 is blocked. That non-zero result is intentional and must not be added to the normal CI quality workflow until real Phase 0 evidence is expected to exist in CI.
+After real evidence exists, re-evaluate without manual flags:
+
+`npm run integration:status -- --romanov evidence/romanov/.../romanov-p0-evidence-package.json --oec evidence/old-english-court/.../repeatability-proof.json --pilot evidence/pilot/.../study-report.json --pilot-ref evidence/pilot/.../study-report.json`
+
+The Romanov package is parsed through the existing release-ready validator. Old English Court and pilot evidence are then checked by the Phase 0 gate. The command exits non-zero while Phase 0 is blocked.
+
+That non-zero result is intentional and must not be added to the normal CI quality workflow until real Phase 0 evidence is expected to exist in CI.
 
 ## Next physical evidence
 
