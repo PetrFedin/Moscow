@@ -22,7 +22,7 @@ export type ProviderSandboxReceipt = {
   receiptId: string;
   handoffId: string;
   providerEntityId: string;
-  outcome: 'confirmed' | 'rejected' | 'cancelled' | 'expired';
+  outcome: 'observed' | 'confirmed' | 'rejected' | 'cancelled' | 'expired';
   occurredAt: string;
   evidenceRef: string;
 };
@@ -71,7 +71,7 @@ export function validateProviderSandboxReceipt(
   if (!receipt.receiptId.trim()) blockers.push('sandbox-receipt-id-missing');
   if (!receipt.handoffId.trim()) blockers.push('sandbox-receipt-handoff-id-missing');
   if (!receipt.providerEntityId.trim()) blockers.push('sandbox-receipt-entity-id-missing');
-  if (!['confirmed', 'rejected', 'cancelled', 'expired'].includes(receipt.outcome)) blockers.push('sandbox-receipt-outcome-invalid');
+  if (!['observed', 'confirmed', 'rejected', 'cancelled', 'expired'].includes(receipt.outcome)) blockers.push('sandbox-receipt-outcome-invalid');
   if (!validIso(receipt.occurredAt)) blockers.push('sandbox-receipt-time-invalid');
   if (!receipt.evidenceRef.trim()) blockers.push('sandbox-receipt-evidence-missing');
   return { valid: blockers.length === 0, blockers };
