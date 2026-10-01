@@ -1,5 +1,11 @@
-const { getDefaultConfig } = require('expo/metro-config');
-const config = getDefaultConfig(__dirname);
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+
+const config = getSentryExpoConfig(__dirname, {
+  includeWebReplay: false,
+  includeWebFeedback: false,
+  autoWrapExpoRouterErrorBoundary: false
+});
+
 config.resolver.assetExts = Array.from(new Set([
   ...config.resolver.assetExts,
   'glb',
@@ -8,4 +14,5 @@ config.resolver.assetExts = Array.from(new Set([
   'obj',
   'mtl'
 ]));
+
 module.exports = config;
