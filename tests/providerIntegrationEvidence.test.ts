@@ -115,3 +115,43 @@ test('tampered evidence pack fails integrity verification', () => {
   };
   assert.equal(verifyJourneyEvidencePack(tampered).valid, false);
 });
+
+
+test('observed-only provider receipt cannot complete integration proof', () => {
+  const observedReceipt = {
+    ...receipt,
+    outcome: 'observed' as const
+  };
+  const result = buildProviderIntegrationHarnessResult({
+    ingestionRecord: ingestion,
+    runtime,
+    receipt: observedReceipt,
+    events
+  });
+  assert.equal(result.status, 'blocked');
+  assert.ok(result.blockers.includes('integration-provider-receipt-not-terminal'));
+});
+
+test('journey evidence pack rejects observed-only provider receipt', () => {
+  const observedReceipt = {
+    ...receipt,
+    outcome: 'observed' as const
+  };
+  const proof = {
+    ...buildProviderIntegrationHarnessResult({
+      ingestionRecord: ingestion,
+      runtime,
+      receipt,
+      events
+    }),
+    status: 'complete' as const
+  };
+
+  assert.throws(() => buildJourneyEvidencePack({
+    generatedAt: '2026-09-30T18:05:00Z',
+    ingestion,
+    runtime,
+    receipt: observedReceipt,
+    integrationProof: proof
+  }), /terminal provider receipt outcome/);
+});
