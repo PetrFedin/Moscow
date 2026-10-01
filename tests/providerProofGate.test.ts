@@ -202,3 +202,26 @@ test('real-provider run cannot trust a forged admitted result when admission evi
   assert.equal(result.status, 'blocked');
   assert.ok(result.blockers.includes('provider-admission:credential-admission-evidence-missing'));
 });
+
+
+test('separate admission evidence must match the admission embedded in the evidence run', () => {
+  const run = buildValidRun();
+  const otherAdmission = {
+    ...admission,
+    credentials: {
+      ...admission.credentials,
+      evidenceRef: 'evidence/credentials/different-admission.json'
+    }
+  };
+
+  const gate = evaluateProviderProofGate({
+    providerId,
+    runtimeCredentialsConfigured: true,
+    admission: otherAdmission as any,
+    evidenceRun: run as any
+  });
+
+  assert.equal(gate.status, 'blocked');
+  assert.equal(gate.evidenceSigningAuthority, 'locked');
+  assert.ok(gate.blockers.includes('provider-admission-evidence-mismatch'));
+});
