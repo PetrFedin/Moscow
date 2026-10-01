@@ -60,3 +60,27 @@ With the flag disabled the receiver retains only the payload checksum and normal
 ## Current status
 
 Software receiver and adapter can be deployed before YCLIENTS credentials exist. PASS #74 remains blocked until a real authorized API/feed event and provider receipt are captured.
+
+
+## Machine-readable provider proof gate
+
+Use:
+
+`npm run provider:proof-status`
+
+Before real evidence exists, the command must exit non-zero and report:
+
+- provider proof: `blocked`;
+- Evidence Signing Authority: `locked`;
+- missing admission/evidence-run checkpoints;
+- whether runtime YCLIENTS secrets are configured, without printing secret values.
+
+After a real run has been archived:
+
+`npm run provider:proof-status -- --provider yclients --admission <admission.json> --run <real-provider-evidence-run.json>`
+
+The status command independently revalidates the admission, the real-provider run, Journey Evidence Pack integrity and archive structure. A previously stored `admissionResult` is not trusted as authority by itself.
+
+Runtime credentials are required to execute the real provider proof, but they are not the proof. After a validated real run has been archived, later credential rotation/removal does not invalidate the historical evidence run.
+
+**Sequencing invariant:** Evidence Signing Authority remains `locked` until the real-provider gate returns `pass`.
