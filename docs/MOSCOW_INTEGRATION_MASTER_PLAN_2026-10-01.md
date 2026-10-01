@@ -204,3 +204,120 @@ This does not move local object GLB/AR assets out of the current glTF admission 
 
 **Sequencing:** package signing belongs with Destination Package v2; field observability can start during the Romanov/Old English Court pilot; 3D Tiles remains behind the city-scale gate.
 
+## Additional wave — anchor calibration, temporal scenes and accessibility routing
+
+This wave is aimed at the exact pilot problem: making the physical-to-digital scene more repeatable, testable and accessible before content scale.
+
+### AprilTag-assisted field calibration — ADOPT/CONDITIONAL TOOLING
+
+Reference: https://github.com/AprilRobotics/apriltag
+
+Use temporary printed AprilTags during authoring/field calibration, not necessarily in the public visitor experience.
+
+Calibration workflow:
+
+known physical marker pose -> device camera observation -> estimated camera/site transform -> compare expected AR anchor -> record offset/error -> adjust/review package
+
+Persist:
+
+- site/object;
+- marker/calibration set ID;
+- device/build;
+- observed pose;
+- expected pose;
+- translation/rotation error;
+- capture timestamp;
+- pass/fail threshold;
+- evidence media/reference.
+
+This can provide repeatable anchor measurements instead of relying only on visual judgement.
+
+Remove/ignore calibration markers from published visitor logic unless a deliberate operational decision says otherwise.
+
+### Sensor Quality Gate — ADOPT
+
+Before launching a spatial scene, calculate a client-side quality state from available signals:
+
+- location accuracy;
+- heading accuracy;
+- motion/orientation availability;
+- AR tracking state;
+- downloaded package/version;
+- device capability.
+
+States such as:
+
+- precise/ready;
+- degraded;
+- insufficient.
+
+Narrative/AR behavior must adapt:
+
+- precise -> full anchored experience;
+- degraded -> guided fallback/manual alignment;
+- insufficient -> map/media/story fallback.
+
+Do not pretend a precise placement when sensors say otherwise.
+
+### Temporal Scene Model — ADOPT
+
+Add explicit valid-time relationships:
+
+- scene/asset;
+- historical period;
+- valid_from / valid_to or approximate period;
+- confidence;
+- source evidence;
+- reconstruction status.
+
+A location can therefore expose multiple historically distinct states without treating them as simultaneous truth.
+
+Flow:
+
+place -> epoch/period -> historical evidence -> reconstructed scene -> publication version
+
+UI can support a time slider/epoch switch only after the underlying temporal records exist.
+
+### Accessibility Route Profile — ADOPT
+
+Extend curated walks with accessibility constraints:
+
+- step-free preference;
+- stairs;
+- steep slope where known;
+- surface/temporary obstruction;
+- entrance accessibility;
+- lift/ramp availability where verified;
+- rest point;
+- accessible toilet/amenity where sourced.
+
+Valhalla or another router may provide route candidates, but Moscow retains verified accessibility metadata and curated route approval.
+
+If accessibility status is unknown or stale, show it as unknown rather than asserting accessibility.
+
+### Audio/subtitle narrative package — ADOPT
+
+For eligible stories/scenes, package:
+
+- narration audio;
+- transcript;
+- subtitle/caption timings;
+- language;
+- narrator/source;
+- version;
+- rights.
+
+Use standard WebVTT-compatible caption assets where practical.
+
+This provides an accessible low-visual-attention path and supports offline narration without requiring AR.
+
+### Additional acceptance
+
+- calibration error can be reproduced with a known marker/setup;
+- sensor degradation triggers an explicit fallback rather than false precision;
+- every historical scene has period/evidence/confidence metadata;
+- accessibility claims identify source/verification freshness;
+- audio/captions remain synchronized and versioned inside Destination Package.
+
+**Sequencing:** Field Verification -> AprilTag calibration + sensor gate -> temporal scene model -> accessibility/audio layers -> larger spatial-trigger rollout.
+
