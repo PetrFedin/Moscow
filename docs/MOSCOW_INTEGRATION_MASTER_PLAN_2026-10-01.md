@@ -122,6 +122,18 @@ No provider PASS may be claimed from mock/synthetic receipts.
 
 Evidence Signing Authority remains explicitly deferred until the first real provider PASS. Signing a pre-proof package would prove integrity of an unproven scenario, not real provider execution.
 
+This is now enforced by `src/integrations/providerProofGate.ts`.
+
+Machine-readable check:
+
+`npm run provider:proof-status`
+
+The gate distinguishes four states that must not be conflated:
+
+`runtime credentials configured → admission validated → real evidence run PASS → Evidence Signing Authority AVAILABLE`.
+
+Credentials or admission alone never unlock signing. A real archived provider PASS can remain historically valid after credentials are later rotated or removed.
+
 ## Issue order
 1. [MOSCOW-INT-00 Field proof gate — #78](https://github.com/PetrFedin/Moscow/issues/78)
 2. [MOSCOW-INT-01 Destination Package v2 — #79](https://github.com/PetrFedin/Moscow/issues/79)
