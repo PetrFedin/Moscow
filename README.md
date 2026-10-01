@@ -130,3 +130,11 @@ Human audio master проверяется отдельно для каждой �
 - **CITY PILOT** — встроенный government/investor flow: предмет пилота, доказательства, внешние gates, запрос к Москве, контуры финансирования и масштаб Москва → регион → федеральный уровень.
 
 CITY PILOT намеренно показывает незакрытые доказательства и не утверждает, что городской пилот уже проведён, финансирование одобрено или Romanov field-verified.
+
+## Planned integration roadmap
+
+Canonical implementation plan:
+
+- [docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md](./docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md)
+
+This file is a planned implementation source, not evidence that every listed capability is already live. Future full-roadmap work should cite this filename and follow its sequence, authority boundaries, dependencies and acceptance gates.
