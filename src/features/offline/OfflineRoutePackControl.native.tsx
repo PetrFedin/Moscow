@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { tr, type AppLanguage } from '../../i18n';
 import { pilotRoute } from '../../data/places';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { recordFieldPilotFailure } from '../../observability/fieldPilotObservability';
 import {
   downloadRoutePack,
   getDownloadedRoutePack,
@@ -30,6 +31,12 @@ export default function OfflineRoutePackControl({ language }: { language: AppLan
         setState(pack.version === VARVARKA_OFFLINE_PACK_VERSION ? 'ready' : 'stale');
       }
     } catch (reason) {
+      recordFieldPilotFailure({
+        kind: 'offline-cache-failed',
+        packageId: pilotRoute.id,
+        packageVersion: VARVARKA_OFFLINE_PACK_VERSION,
+        errorClass: 'pack-read-failed'
+      });
       setError(reason instanceof Error ? reason.message : String(reason));
       setState('error');
     }
@@ -47,6 +54,14 @@ export default function OfflineRoutePackControl({ language }: { language: AppLan
       await downloadRoutePack(manifest);
       setState('ready');
     } catch (reason) {
+      recordFieldPilotFailure({
+        kind: 'destination-package-download-failed',
+        packageId: pilotRoute.id,
+        packageVersion: VARVARKA_OFFLINE_PACK_VERSION,
+        errorClass: reason instanceof Error && reason.message.includes('Checksum mismatch')
+          ? 'checksum-mismatch'
+          : 'download-failed'
+      });
       setError(reason instanceof Error ? reason.message : String(reason));
       setState('error');
     }
@@ -59,6 +74,12 @@ export default function OfflineRoutePackControl({ language }: { language: AppLan
       await removeRoutePack(pilotRoute.id, language);
       setState('missing');
     } catch (reason) {
+      recordFieldPilotFailure({
+        kind: 'offline-cache-failed',
+        packageId: pilotRoute.id,
+        packageVersion: VARVARKA_OFFLINE_PACK_VERSION,
+        errorClass: 'pack-remove-failed'
+      });
       setError(reason instanceof Error ? reason.message : String(reason));
       setState('error');
     }

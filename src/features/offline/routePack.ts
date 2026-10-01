@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
+import { recordFieldPilotFailure } from '../../observability/fieldPilotObservability';
 import {
   assertRoutePackManifest,
   type RoutePackManifest
@@ -101,7 +102,8 @@ export async function getDownloadedRoutePackAssetUri(
   assetId: string
 ) {
   const manifest = await getDownloadedRoutePack(routeId, locale);
-  const asset = manifest?.files.find((item) => item.id === assetId);
+  if (!manifest) return null;
+  const asset = manifest.files.find((item) => item.id === assetId);
   if (!asset) return null;
 
   const directory = packDirectory(routeId, locale, false);
@@ -112,6 +114,13 @@ export async function getDownloadedRoutePackAssetUri(
     await assertDownloadedAssetIntegrity(target, asset);
     return target.uri;
   } catch {
+    recordFieldPilotFailure({
+      kind: 'destination-package-verify-failed',
+      packageId: routeId,
+      packageVersion: manifest.version,
+      objectId: asset.id,
+      errorClass: 'asset-integrity-failed'
+    });
     return null;
   }
 }

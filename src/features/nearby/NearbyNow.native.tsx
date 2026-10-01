@@ -5,6 +5,7 @@ import { localizePlaces } from '../../data/places.en';
 import { places } from '../../data/places';
 import { tr, type AppLanguage } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { recordFieldPilotFailure } from '../../observability/fieldPilotObservability';
 import type { TouristRoutePlan } from '../planning/touristPlanner';
 import {
   buildNearbyWalkPlan,
@@ -36,6 +37,13 @@ export default function NearbyNow({
         ? await Location.requestForegroundPermissionsAsync()
         : await Location.getForegroundPermissionsAsync();
       if (permission.status !== 'granted') {
+        if (prompt) {
+          recordFieldPilotFailure({
+            kind: 'location-state',
+            sceneId: 'nearby-now',
+            errorClass: 'permission-denied'
+          });
+        }
         setState(prompt ? 'denied' : 'idle');
         return;
       }
@@ -46,6 +54,11 @@ export default function NearbyNow({
       });
       setState('ready');
     } catch {
+      recordFieldPilotFailure({
+        kind: 'location-state',
+        sceneId: 'nearby-now',
+        errorClass: 'locate-failed'
+      });
       setState('error');
     }
   }, []);
