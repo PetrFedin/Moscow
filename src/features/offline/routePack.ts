@@ -102,7 +102,8 @@ export async function getDownloadedRoutePackAssetUri(
   assetId: string
 ) {
   const manifest = await getDownloadedRoutePack(routeId, locale);
-  const asset = manifest?.files.find((item) => item.id === assetId);
+  if (!manifest) return null;
+  const asset = manifest.files.find((item) => item.id === assetId);
   if (!asset) return null;
 
   const directory = packDirectory(routeId, locale, false);
