@@ -59,6 +59,9 @@ export function buildJourneyEvidencePack(input: {
   if (input.integrationProof.status !== 'complete') {
     throw new Error('Journey evidence pack requires complete provider integration proof');
   }
+  if (input.receipt.outcome === 'observed') {
+    throw new Error('Journey evidence pack requires terminal provider receipt outcome');
+  }
   if (input.runtime.state !== 'executed' && input.runtime.state !== 'executing') {
     throw new Error('Journey evidence pack requires resumed or executed runtime');
   }
