@@ -68,3 +68,19 @@ test('partial update webhook uses receiver observed time when provider timestamp
 
   assert.equal(receipt.occurredAt, '2026-09-30T15:32:00Z');
 });
+
+
+test('partial update webhook is observed, not confirmed', () => {
+  const receipt = normalizeYclientsWebhookReceipt({
+    company_id: 1,
+    resource: 'record',
+    resource_id: 1561921428,
+    status: 'update',
+    data: {
+      id: 1561921428,
+      comment: 'test'
+    }
+  }, '2026-09-30T15:32:00Z');
+
+  assert.equal(receipt.outcome, 'observed');
+});
