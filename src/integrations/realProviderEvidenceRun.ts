@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
 
-import type { JourneyEvidencePack } from './journeyEvidencePack.ts';
-import type { ProviderAdmissionResult, RealProviderAdmission } from './realProviderAdmission.ts';
+import { verifyJourneyEvidencePack, type JourneyEvidencePack } from './journeyEvidencePack.ts';
+import {
+  validateRealProviderAdmission,
+  type ProviderAdmissionResult,
+  type RealProviderAdmission
+} from './realProviderAdmission.ts';
 
 export const REAL_PROVIDER_EVIDENCE_RUN_VERSION = 1 as const;
 
@@ -88,11 +92,36 @@ export function validateRealProviderEvidenceRun(
   if (!Number.isFinite(Date.parse(run.startedAt))) blockers.push('evidence-run-start-invalid');
   if (!Number.isFinite(Date.parse(run.completedAt))) blockers.push('evidence-run-completion-invalid');
   if (Date.parse(run.completedAt) < Date.parse(run.startedAt)) blockers.push('evidence-run-time-order-invalid');
-  if (run.admissionResult.status !== 'admitted') blockers.push('provider-admission-not-passed');
+  const recomputedAdmission = validateRealProviderAdmission(run.admission);
+  if (recomputedAdmission.status !== 'admitted') {
+    blockers.push('provider-admission-not-passed');
+    blockers.push(...recomputedAdmission.blockers.map((blocker) => `provider-admission:${blocker}`));
+  }
+  if (
+    run.admissionResult.status !== recomputedAdmission.status
+    || run.admissionResult.providerId !== recomputedAdmission.providerId
+  ) {
+    blockers.push('provider-admission-result-does-not-match-evidence');
+  }
   if (run.providerId !== run.admission.providerId) blockers.push('run-admission-provider-mismatch');
   if (run.providerId !== run.journeyEvidencePack.providerId) blockers.push('run-pack-provider-mismatch');
   if (run.journeyEvidencePack.source.integrationProof.status !== 'complete') blockers.push('integration-proof-not-complete');
+
+  const packIntegrity = verifyJourneyEvidencePack(run.journeyEvidencePack);
+  if (!packIntegrity.valid) blockers.push('journey-evidence-pack-integrity-failed');
+
   if (run.archive.length === 0) blockers.push('immutable-archive-empty');
+
+  const archivePaths = new Set<string>();
+  for (const entry of run.archive) {
+    if (!entry.path.trim() || entry.path.startsWith('/') || entry.path.includes('..')) {
+      blockers.push('immutable-archive-path-invalid');
+    }
+    if (archivePaths.has(entry.path)) blockers.push('immutable-archive-path-duplicate');
+    archivePaths.add(entry.path);
+    if (!/^[a-f0-9]{64}$/i.test(entry.sha256)) blockers.push('immutable-archive-sha256-invalid');
+    if (!entry.evidenceRef.trim()) blockers.push('immutable-archive-evidence-ref-missing');
+  }
 
   const requiredEvidence = [
     'credentials',
