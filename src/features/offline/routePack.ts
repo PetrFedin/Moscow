@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as SQLite from 'expo-sqlite';
+import { recordFieldPilotFailure } from '../../observability/fieldPilotObservability';
 import {
   assertRoutePackManifest,
   type RoutePackManifest
@@ -112,6 +113,13 @@ export async function getDownloadedRoutePackAssetUri(
     await assertDownloadedAssetIntegrity(target, asset);
     return target.uri;
   } catch {
+    recordFieldPilotFailure({
+      kind: 'destination-package-verify-failed',
+      packageId: routeId,
+      packageVersion: manifest.version,
+      objectId: asset.id,
+      errorClass: 'asset-integrity-failed'
+    });
     return null;
   }
 }
