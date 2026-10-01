@@ -14,6 +14,7 @@ import GovernmentPilotCollaborationCharterPanel from './GovernmentPilotCollabora
 import MoscowPilotApplicationReadinessPanel from './MoscowPilotApplicationReadinessPanel';
 import PilotOutcomeEvidencePanel from './PilotOutcomeEvidencePanel';
 import CityJourneyControlCenter from './CityJourneyControlCenter';
+import IntegrationMasterPlanGatePanel from './IntegrationMasterPlanGatePanel';
 import type { GovernmentMeetingEntryMode } from './governmentMeetingEntry';
 import {
   getGovernmentPilotReadiness,
@@ -554,6 +555,7 @@ export default function GovernmentPartnershipDemo({
               title="Москва → регион → федеральный слой"
               body="Федеральный narrative появляется только после доказанной Москвы."
             />
+            <IntegrationMasterPlanGatePanel />
 
             {governmentPilotOffer.scale.map((stage, index) => (
               <View key={stage.id} style={styles.scaleRow}>

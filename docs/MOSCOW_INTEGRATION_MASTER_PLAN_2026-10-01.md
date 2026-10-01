@@ -1,6 +1,6 @@
 # Moscow — Spatial Heritage Integration Master Plan
 
-**Status:** PLANNED  
+**Status:** EXECUTING — MOSCOW-INT-00 BLOCKED ON REAL FIELD / USER EVIDENCE  
 **Date:** 2026-10-01  
 **Canonical file:** `docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md`
 
@@ -94,16 +94,44 @@ Real booking/event providers require authorised credentials and permitted test c
 - inventing live provider data;
 - bypassing rights/localisation.
 
+## Execution authority
+
+The plan is enforced by `src/spatial/integrationMasterPlanGate.ts`.
+
+Current repository state on 2026-10-01:
+
+- `MOSCOW-INT-00`: active and blocked;
+- `MOSCOW-INT-01...09`: locked by Phase 0;
+- Romanov field tooling: ready, real field evidence archive: missing;
+- Old English Court: intake only, repeatability proof: missing;
+- supervised visitor pilot tooling: ready, reviewed real pilot evidence: missing;
+- government technical-pilot artifact package: structurally ready;
+- Yandex MapKit remains the primary renderer.
+
+Run `npm run integration:status` for the machine-readable gate report.
+
+## Parallel external-provider proof
+
+The Live Destination / YCLIENTS proof remains a parallel external-provider track and does not unlock spatial scaling.
+
+Current provider sequence remains:
+
+`YCLIENTS access → Render secrets → real API call → raw response → SHA-256 → admission → controlled record → real webhook → provider state change → Journey Runtime replan-required → verified replacement route → continuation → terminal provider receipt → immutable archive → provider PASS`.
+
+No provider PASS may be claimed from mock/synthetic receipts.
+
+Evidence Signing Authority remains explicitly deferred until the first real provider PASS. Signing a pre-proof package would prove integrity of an unproven scenario, not real provider execution.
+
 ## Issue order
-1. MOSCOW-INT-00 Field proof gate
-2. MOSCOW-INT-01 Destination Package v2
-3. MOSCOW-INT-02 H3/Turf
-4. MOSCOW-INT-03 GeoTIFF/Proj4
-5. MOSCOW-INT-04 IIIF
-6. MOSCOW-INT-05 Field Verification
-7. MOSCOW-INT-06 3D admission
-8. MOSCOW-INT-07 Routing
-9. MOSCOW-INT-08 Spatial narrative
-10. MOSCOW-INT-09 City-scale 3D gate
+1. [MOSCOW-INT-00 Field proof gate — #78](https://github.com/PetrFedin/Moscow/issues/78)
+2. [MOSCOW-INT-01 Destination Package v2 — #79](https://github.com/PetrFedin/Moscow/issues/79)
+3. [MOSCOW-INT-02 H3/Turf — #80](https://github.com/PetrFedin/Moscow/issues/80)
+4. [MOSCOW-INT-03 GeoTIFF/Proj4 — #81](https://github.com/PetrFedin/Moscow/issues/81)
+5. [MOSCOW-INT-04 IIIF — #82](https://github.com/PetrFedin/Moscow/issues/82)
+6. [MOSCOW-INT-05 Field Verification — #83](https://github.com/PetrFedin/Moscow/issues/83)
+7. [MOSCOW-INT-06 3D admission — #84](https://github.com/PetrFedin/Moscow/issues/84)
+8. [MOSCOW-INT-07 Routing — #85](https://github.com/PetrFedin/Moscow/issues/85)
+9. [MOSCOW-INT-08 Spatial narrative — #86](https://github.com/PetrFedin/Moscow/issues/86)
+10. [MOSCOW-INT-09 City-scale 3D gate — #87](https://github.com/PetrFedin/Moscow/issues/87)
 
 **Implementation instruction:** prove spatial truth and repeatability first; scale second.
