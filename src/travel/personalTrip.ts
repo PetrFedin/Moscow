@@ -266,20 +266,21 @@ export function resolvePersonalTripPreferences(trip: PersonalTrip): ResolvedPers
 
 export function setTripPreferences(input: {
   trip: PersonalTrip;
-  preferences: Partial<PersonalTripPreferences>;
+  preferences: Partial<Omit<PersonalTripPreferences, 'lunchWindow'>> & { lunchWindow?: TripLunchWindow | null };
   updatedAt: string;
 }): PersonalTrip {
   parseIso(input.updatedAt);
   const next = clone(input.trip);
+  const { lunchWindow, ...rest } = input.preferences;
   const merged: PersonalTripPreferences = {
     ...(next.preferences ?? {}),
-    ...input.preferences,
-    ...(input.preferences.lunchWindow
-      ? { lunchWindow: { ...input.preferences.lunchWindow } }
-      : input.preferences.lunchWindow === undefined
-        ? {}
-        : { lunchWindow: undefined })
+    ...rest
   };
+  if (lunchWindow === null) {
+    delete merged.lunchWindow;
+  } else if (lunchWindow) {
+    merged.lunchWindow = { ...lunchWindow };
+  }
   validatePersonalTripPreferences(merged);
   next.preferences = merged;
   return touch(next, input.updatedAt);
