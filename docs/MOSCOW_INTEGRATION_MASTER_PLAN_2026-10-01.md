@@ -656,3 +656,33 @@ After the first slice is green:
 8. multi-day trip recap.
 
 Do not use the absence of provider access as a reason to stop product development, but do not fabricate live availability, prices, opening status, bookings or ticket outcomes.
+
+
+### Trip Scheduler v2 — IMPLEMENTING (#103)
+
+Build the editable multi-day layer on top of Personal Trip OS:
+
+- explicit day ordering;
+- move unvisited items between trip days;
+- preserve ticket/reservation verification state when a planned item moves;
+- refuse moves that would rewrite recorded visit history;
+- detect overlap between fixed confirmed commitments;
+- derive schedule-only free windows from all timed plan items;
+- keep every free-window feasibility claim at `routingVerified=false` until routing authority is connected;
+- capture start/end time, stay/transport items, booking source, order reference and HTTPS confirmation link.
+
+Do not convert a user-entered ticket, booking source or URL into provider-confirmed evidence.
+
+### Tourist Today cockpit — NEXT (#105)
+
+After the scheduler is stable, expose the active-day operating view:
+
+`Now -> Next commitment -> Remaining plan -> Free windows -> Seen today -> What else`.
+
+This layer may use the user's clock and stored plan immediately. It must not claim:
+
+- route feasibility without routing authority;
+- current opening status without trusted live hours;
+- current ticket availability without provider authority.
+
+The absence of those live authorities must degrade the claim, not block the personal trip product.
