@@ -167,6 +167,9 @@ export function validateCaptionSyncEvidence(
   if (!Number.isInteger(evidence.sampledCueCount) || evidence.sampledCueCount < 1) {
     throw new Error('Caption sync sampled cue count must be a positive integer');
   }
+  if (evidence.sampledCueCount > captions.cues.length) {
+    throw new Error('Caption sync sampled cue count cannot exceed caption cue count');
+  }
   for (const [field, value] of [
     ['p95 drift', evidence.p95AbsDriftMs],
     ['max drift', evidence.maxAbsDriftMs]
@@ -175,6 +178,21 @@ export function validateCaptionSyncEvidence(
   }
   if (evidence.p95AbsDriftMs > evidence.maxAbsDriftMs) {
     throw new Error('Caption sync p95 drift cannot exceed max drift');
+  }
+}
+
+export function validateCaptionSyncThresholds(thresholds: CaptionSyncThresholds) {
+  if (!Number.isInteger(thresholds.minimumSampledCues) || thresholds.minimumSampledCues < 1) {
+    throw new Error('Caption sync minimum sampled cues must be a positive integer');
+  }
+  if (!Number.isFinite(thresholds.maximumP95AbsDriftMs) || thresholds.maximumP95AbsDriftMs < 0) {
+    throw new Error('Caption sync maximum p95 drift must be non-negative');
+  }
+  if (!Number.isFinite(thresholds.maximumAbsDriftMs) || thresholds.maximumAbsDriftMs < 0) {
+    throw new Error('Caption sync maximum drift must be non-negative');
+  }
+  if (thresholds.maximumP95AbsDriftMs > thresholds.maximumAbsDriftMs) {
+    throw new Error('Caption sync maximum p95 drift cannot exceed maximum drift');
   }
 }
 
@@ -216,6 +234,7 @@ export function evaluateTimedNarrativeRelease(input: {
   }
 
   const thresholds = input.thresholds ?? DEFAULT_CAPTION_SYNC_THRESHOLDS;
+  validateCaptionSyncThresholds(thresholds);
   if (input.syncEvidence.sampledCueCount < thresholds.minimumSampledCues) {
     reasons.push('caption-sync-insufficient-samples');
   }
