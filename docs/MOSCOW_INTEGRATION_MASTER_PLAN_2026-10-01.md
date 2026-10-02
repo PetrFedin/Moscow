@@ -695,3 +695,32 @@ This layer may use the user's clock and stored plan immediately. It must not cla
 - current ticket availability without provider authority.
 
 User-entered tickets/reservations remain `user-declared`. The absence of live routing/opening/provider authorities must degrade the claim, not block the personal trip product.
+
+
+### Moscow Passport — IMPLEMENTING (#107)
+
+Complete the Personal Itinerary / Plan Reconciliation loop with a semantic personal history:
+
+`plan -> actual visit -> evidence -> semantic category -> day recap -> trip passport`.
+
+Repository authority:
+
+- semantic model: `src/travel/moscowPassport.ts`;
+- visit kind persistence: `src/travel/personalTrip.ts`;
+- UI: `src/features/trip/MoscowPassportCard.tsx`;
+- contract tests: `tests/moscowPassport.test.ts`;
+- browser journey: `tests/personalTrip.e2e.spec.ts`.
+
+Categories distinguish what the tourist saw, where they ate, nightlife, culture, activities, shopping, stay and transport.
+
+Guardrails:
+
+- semantic grouping does not change evidence class;
+- old v1 visits without a semantic kind resolve from their linked plan item or DestinationPackage node;
+- user-confirmed remains user-confirmed;
+- route-completed remains route-completed;
+- provider-receipt remains provider-receipt;
+- no continuous GPS history is required;
+- the passport itself is not physical-presence proof.
+
+This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
