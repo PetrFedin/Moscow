@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
@@ -46,6 +46,8 @@ const manualKinds: PersonalTripItemKind[] = [
   'theatre',
   'bar',
   'activity',
+  'stay',
+  'transport',
   'shopping',
   'other'
 ];
@@ -58,6 +60,8 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
     theatre: 'Театр',
     bar: 'Бар',
     activity: 'Активность',
+    stay: 'Отель',
+    transport: 'Транспорт',
     shopping: 'Покупки',
     other: 'Другое'
   },
@@ -68,6 +72,8 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
     theatre: 'Theatre',
     bar: 'Bar',
     activity: 'Activity',
+    stay: 'Stay',
+    transport: 'Transport',
     shopping: 'Shopping',
     other: 'Other'
   },
@@ -78,6 +84,8 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
     theatre: '剧院',
     bar: '酒吧',
     activity: '体验',
+    stay: '住宿',
+    transport: '交通',
     shopping: '购物',
     other: '其他'
   }
@@ -161,6 +169,9 @@ export default function PersonalTripPlanner({
   const [manualEndTime, setManualEndTime] = useState('21:00');
   const [commitmentChoice, setCommitmentChoice] = useState<CommitmentChoice>('none');
   const [manualReference, setManualReference] = useState('');
+  const [manualProvider, setManualProvider] = useState('');
+  const [manualExternalUrl, setManualExternalUrl] = useState('');
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY)
@@ -252,7 +263,8 @@ export default function PersonalTripPlanner({
       });
       setTrip(next);
       setSelectedDay(next.days[0] ?? startDateInput);
-    } catch {
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'invalid-trip-item');
       return;
     }
   };
@@ -282,10 +294,13 @@ export default function PersonalTripPlanner({
           kind: commitmentChoice,
           status: 'confirmed',
           verification: 'user-declared',
-          ...(manualReference.trim() ? { reference: manualReference.trim() } : {})
+          ...(manualReference.trim() ? { reference: manualReference.trim() } : {}),
+          ...(manualProvider.trim() ? { provider: manualProvider.trim() } : {}),
+          ...(manualExternalUrl.trim() ? { externalUrl: manualExternalUrl.trim() } : {})
         };
 
     try {
+      setFormError('');
       setTrip(addManualTripItem({
         trip,
         itemId: itemId('manual'),
@@ -299,6 +314,8 @@ export default function PersonalTripPlanner({
       }));
       setManualTitle('');
       setManualReference('');
+      setManualProvider('');
+      setManualExternalUrl('');
       setManualTime('19:00');
       setManualEndTime('21:00');
       setCommitmentChoice('none');
@@ -555,15 +572,37 @@ export default function PersonalTripPlanner({
                 )}
               </Text>
               <TextInput
+                value={manualProvider}
+                onChangeText={setManualProvider}
+                placeholder={tr(language, 'Где куплено / забронировано', 'Where it was booked / bought', '购买 / 预订平台')}
+                placeholderTextColor="#626972"
+                style={styles.input}
+              />
+              <TextInput
                 value={manualReference}
                 onChangeText={setManualReference}
                 placeholder={tr(language, 'Номер заказа / заметка (необязательно)', 'Order reference / note (optional)', '订单号 / 备注（可选）')}
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input, styles.inputSpaced]}
+              />
+              <TextInput
+                value={manualExternalUrl}
+                onChangeText={setManualExternalUrl}
+                placeholder={tr(language, 'https:// ссылка на билет / бронь', 'https:// ticket / reservation link', 'https:// 门票 / 预订链接')}
+                placeholderTextColor="#626972"
+                autoCapitalize="none"
+                style={[styles.input, styles.inputSpaced]}
               />
             </>
           )}
 
+          {formError ? (
+            <Text style={styles.formError}>
+              {formError.includes('HTTPS')
+                ? tr(language, 'Ссылка должна начинаться с https://', 'The link must start with https://', '链接必须以 https:// 开头')
+                : tr(language, 'Проверьте время и данные пункта', 'Check the time and item details', '请检查时间和项目详情')}
+            </Text>
+          ) : null}
           <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={addManual}>
             <Text style={styles.primaryText}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
           </PhysicalPressable>
@@ -615,6 +654,12 @@ export default function PersonalTripPlanner({
                   ? ` · ${item.commitment.kind === 'ticket' ? tr(language, 'билет', 'ticket', '门票') : tr(language, 'бронь', 'reservation', '预订')}`
                   : ''}
               </Text>
+              {item.commitment?.provider ? (
+                <Text style={styles.commitmentProvider}>
+                  {tr(language, 'Источник', 'Source', '来源')}: {item.commitment.provider}
+                  {item.commitment.reference ? ` · ${item.commitment.reference}` : ''}
+                </Text>
+              ) : null}
               {item.commitment && (
                 <Text style={styles.commitmentStatus}>
                   {item.commitment.verification === 'provider-confirmed'
@@ -651,6 +696,15 @@ export default function PersonalTripPlanner({
                 {!visited && trip.days.indexOf(item.dayDate) < trip.days.length - 1 && (
                   <PhysicalPressable style={styles.iconButton} contentStyle={styles.center} onPress={() => moveItemToAdjacentDay(item.id, 1)}>
                     <Text style={styles.iconButtonText}>→</Text>
+                  </PhysicalPressable>
+                )}
+                {item.commitment?.externalUrl && (
+                  <PhysicalPressable
+                    style={styles.textButton}
+                    contentStyle={styles.center}
+                    onPress={() => { void Linking.openURL(item.commitment!.externalUrl!); }}
+                  >
+                    <Text style={styles.textButtonText}>{tr(language, 'Билет / бронь', 'Ticket / booking', '门票 / 预订')}</Text>
                   </PhysicalPressable>
                 )}
                 {item.destinationNodeId && (
@@ -770,6 +824,8 @@ const styles = StyleSheet.create({
   body: { color: '#9da2aa', fontSize: 12, lineHeight: 18, marginTop: 6 },
   label: { color: '#737a83', fontSize: 8, letterSpacing: 1.15, fontWeight: '900', marginTop: 16, marginBottom: 7 },
   input: { minHeight: 47, borderRadius: 14, borderWidth: 1, borderColor: '#363c44', backgroundColor: '#171b20', color: '#f2eee5', paddingHorizontal: 13, fontSize: 13 },
+  inputSpaced: { marginTop: 7 },
+  formError: { color: '#dc9e94', fontSize: 9, lineHeight: 14, marginTop: 8 },
   chips: { flexDirection: 'row', gap: 7 },
   chip: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#3b424a' },
   chipActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
@@ -820,6 +876,7 @@ const styles = StyleSheet.create({
   timelineCopy: { flex: 1, minWidth: 0 },
   itemTitle: { color: '#f1ede5', fontSize: 14, fontWeight: '900' },
   itemMeta: { color: '#969ca4', fontSize: 9, marginTop: 3 },
+  commitmentProvider: { color: '#9ea5ad', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
   commitmentStatus: { color: '#b69a67', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
   itemActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
   iconButton: { width: 34, minHeight: 34, borderRadius: 11, borderWidth: 1, borderColor: '#3b4149' },
