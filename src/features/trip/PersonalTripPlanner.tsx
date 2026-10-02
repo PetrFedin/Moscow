@@ -150,8 +150,14 @@ function shortDay(language: AppLanguage, dateOnly: string) {
 
 function timeLabel(value?: string) {
   if (!value) return '';
-  const match = /T(\d{2}:\d{2})/.exec(value);
-  return match?.[1] ?? '';
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Moscow'
+  }).format(parsed);
 }
 
 function moscowTimeLabel(language: AppLanguage, value: string) {
