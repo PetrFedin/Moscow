@@ -143,3 +143,27 @@ test('parser rejects unsupported pace and priority instead of guessing', () => {
     /Invalid Personal Trip pace/
   );
 });
+
+
+test('Tourist Today excludes lunch preference from free-time window', () => {
+  const updated = setTripPreferences({
+    trip: trip(),
+    preferences: {
+      dayStart: '10:00',
+      dayEnd: '18:00',
+      lunchWindow: { start: '13:00', end: '14:00' }
+    },
+    updatedAt: '2026-10-02T07:00:00.000Z'
+  });
+
+  const state = deriveTouristTodayState({
+    trip: updated,
+    nowIso: '2026-10-02T08:00:00.000Z'
+  });
+
+  assert.ok(state.currentFreeWindow);
+  assert.equal(state.currentFreeWindow?.minutes, 180);
+  assert.ok(state.nextFreeWindow);
+  assert.equal(state.nextFreeWindow?.minutes, 240);
+  assert.ok([state.currentFreeWindow, state.nextFreeWindow].every((window) => window?.routingVerified === false));
+});
