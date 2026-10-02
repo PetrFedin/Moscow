@@ -267,9 +267,23 @@ export default function PersonalTripPlanner({
       dayDate: selectedDay,
       dayStartsAt: moscowTimestamp(selectedDay, tripPreferences?.dayStart ?? '09:00'),
       dayEndsAt: moscowTimestamp(selectedDay, tripPreferences?.dayEnd ?? '23:00'),
-      minimumMinutes: 45
+      minimumMinutes: 45,
+      reservedWindows: tripPreferences?.lunchWindow
+        ? [{
+            startsAt: moscowTimestamp(selectedDay, tripPreferences.lunchWindow.start),
+            endsAt: moscowTimestamp(selectedDay, tripPreferences.lunchWindow.end),
+            reason: 'meal'
+          }]
+        : []
     });
-  }, [selectedDay, trip, tripPreferences?.dayStart, tripPreferences?.dayEnd]);
+  }, [
+    selectedDay,
+    trip,
+    tripPreferences?.dayStart,
+    tripPreferences?.dayEnd,
+    tripPreferences?.lunchWindow?.start,
+    tripPreferences?.lunchWindow?.end
+  ]);
 
   const createTrip = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
