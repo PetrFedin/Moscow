@@ -288,6 +288,9 @@ export function reviewAprilTagCalibrationEvidence(
   if (!validation.valid) {
     throw new Error(`Cannot review invalid AprilTag calibration evidence: ${validation.blockers.join('; ')}`);
   }
+  if (evidence.reviewerStatus !== 'pending') {
+    throw new Error('AprilTag calibration review is write-once; create a superseding evidence record instead');
+  }
   if (!input.reviewedBy.trim()) throw new Error('AprilTag reviewer identity is required');
 
   const reviewedAt = input.reviewedAt ?? new Date().toISOString();
