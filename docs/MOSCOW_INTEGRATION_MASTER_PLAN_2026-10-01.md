@@ -339,8 +339,7 @@ A location can therefore expose multiple historically distinct states without tr
 Time Machine UI is navigation only; it does not own historical truth.
 
 This layer does not add unsupported dates, promote field verification or unlock `MOSCOW-INT-00`.
-
-### Accessibility Route Profile — ADOPT
+### Accessibility Route Profile — ADOPT / PHASE 1 IMPLEMENTING (#100)
 
 Extend curated walks with accessibility constraints:
 
@@ -356,6 +355,15 @@ Extend curated walks with accessibility constraints:
 Valhalla or another router may provide route candidates, but Moscow retains verified accessibility metadata and curated route approval.
 
 If accessibility status is unknown or stale, show it as unknown rather than asserting accessibility.
+
+Phase 1 repository authority:
+
+- generic evidence-bound contract: `src/travel/accessibilityRouteProfile.ts`;
+- fail-closed tests: `tests/accessibilityRouteProfile.test.ts`;
+- Personal Trip step-free intent persistence: `tests/tripAccessibilityPreference.test.ts`;
+- runbook: `docs/ACCESSIBILITY_ROUTE_PROFILE.md`.
+
+Current Phase 1 adds no real Moscow accessibility facts. `step-free required` is a user intent, not evidence. Missing, stale or conflicting required facts return `needs-accessibility-authority` rather than a fabricated accessible route.
 
 ### Audio/subtitle narrative package — ADOPT
 
@@ -460,3 +468,606 @@ Keep the current Tippecanoe/PMTiles and Yandex MapKit plan unchanged. Mapillary 
 
 **Dependency note:** the Mapillary JS repository is MIT-licensed, but service/API/data usage has separate provider terms and credentials that must be reviewed before adoption.
 
+## Additional wave — personal day itinerary, reservations and multimodal routing
+
+This wave implements the product direction: a visitor should be able to build a real day or multi-day plan for Moscow, combine things they want to see with already purchased/booked activities, and later understand what they actually visited.
+
+### Personal Itinerary Authority — ADOPT
+
+Create native entities:
+
+- trip/visit;
+- day;
+- itinerary item;
+- place/event/restaurant/theatre/activity reference;
+- fixed vs flexible item;
+- planned start/end;
+- opening-hours constraint snapshot;
+- reservation/ticket reference;
+- priority;
+- travel segment;
+- status;
+- notes;
+- visited/completed evidence.
+
+Item types:
+
+- attraction/place;
+- historical scene/walk;
+- museum/exhibition;
+- theatre/show;
+- restaurant/bar/cafe;
+- booked activity;
+- personal/free-time block;
+- imported ticket/reservation.
+
+Moscow remains the itinerary authority.
+
+### Fixed vs Flexible Planning — ADOPT
+
+A purchased ticket or confirmed restaurant/theatre booking becomes a **fixed constraint**.
+
+A wishlist place is flexible.
+
+Planner therefore solves around:
+
+- fixed ticket time;
+- opening hours;
+- visit duration;
+- travel time;
+- user priority;
+- geography;
+- meal/rest windows;
+- day start/end;
+- accessibility preference;
+- already visited places;
+- weather/temporary conditions only when an authoritative provider is integrated.
+
+Do not silently move a confirmed reservation.
+
+### OpenTripPlanner multimodal routing — CONDITIONAL SIDECAR
+
+Reference:
+
+https://github.com/opentripplanner/OpenTripPlanner
+
+Use only when GTFS/transit/street data quality and deployment requirements justify it.
+
+Possible role:
+
+- public-transport route candidate;
+- walking+transit travel-time estimate;
+- transfer count;
+- accessibility-related routing attributes where data supports them.
+
+Architecture:
+
+Moscow itinerary -> routing request -> candidate journeys -> Moscow planner selects/combines -> itinerary travel segment
+
+OpenTripPlanner does not own the itinerary or destination catalogue.
+
+Yandex may remain the primary map/rendering/navigation handoff even if OTP provides analytical route candidates.
+
+### Time-window Itinerary Optimisation — ADAPT
+
+Reuse Google OR-Tools patterns already evaluated elsewhere in the portfolio for a bounded itinerary scenario solver.
+
+Inputs:
+
+- flexible places;
+- fixed reservations;
+- opening windows;
+- expected visit duration;
+- travel-time matrix;
+- priority/interest;
+- start/end location;
+- accessibility constraints.
+
+Output:
+
+- feasible ordered candidate plan;
+- skipped items with reason;
+- expected arrival/departure;
+- buffer;
+- total travel/visit time.
+
+Human/user acceptance writes the actual plan. Solver output never silently replaces it.
+
+### Ticket / Reservation Import — ADOPT
+
+Allow the user to add an already purchased booking manually or from supported structured inputs.
+
+Store:
+
+- provider;
+- venue/event;
+- booking/ticket reference;
+- date/time;
+- party size/seats;
+- address/location;
+- QR/barcode attachment where appropriate;
+- source document/email/file;
+- verification status;
+- notes.
+
+Do not claim provider verification unless a real provider API/receipt has been checked.
+
+Sensitive ticket QR/barcodes must not appear in public/social surfaces.
+
+### Plan Reconciliation / Visited History — ADOPT
+
+After the day:
+
+planned -> actually visited / skipped / rescheduled -> evidence/source -> personal history
+
+Possible evidence:
+
+- explicit user confirmation;
+- app check-in/QR;
+- verified booking attendance/provider receipt;
+- field/location event with consent and sufficient accuracy.
+
+Do not mark a place visited merely because the user passed nearby.
+
+History can then answer:
+
+- what I have already seen;
+- neighbourhoods/epochs visited;
+- places saved but not visited;
+- what fits my next free day.
+
+### Day Replan — ADOPT
+
+When a fixed item changes/cancels or the user skips something:
+
+current time/location + remaining fixed constraints + remaining flexible items -> proposed replacement plan
+
+This builds directly on the existing Journey Runtime / replan-required concepts.
+
+### Additional acceptance
+
+- fixed reservations are never moved without explicit user action;
+- itinerary solver records input snapshot/config;
+- every travel-time source/provider is identifiable;
+- imported ticket/provider verification state is explicit;
+- visit history distinguishes user-confirmed, provider-verified and inferred/location-assisted evidence;
+- replanning preserves future fixed commitments;
+- itinerary works without requiring continuous precise-location history.
+
+**Sequencing:** destination/place catalogue + field-proven content -> Personal Itinerary -> fixed ticket/reservation import -> route-time adapters -> optional OR-Tools planning -> Journey Runtime replan -> visited-history loop.
+
+**Dependency note:** OpenTripPlanner upstream is active, but license/data/GTFS deployment requirements must be reviewed before adoption; it remains a replaceable routing sidecar.
+
+## Product wave — Personal Trip OS
+
+Issue: #101. Detailed contract: `docs/PERSONAL_TRIP_OS.md`.
+
+### Goal
+
+Move the consumer product from a single destination-day prototype to a persistent personal trip layer:
+
+`Trip -> Day -> Plan item -> Ticket/Reservation -> Visit -> History -> What next`.
+
+The user must be able to plan several Moscow days, combine published Moscow inventory with their own tickets/reservations, record actual visits and understand what remains unseen.
+
+### Architecture boundary
+
+Personal Trip is a visitor-owned layer above the existing authorities:
+
+- `DestinationPackage` remains source-backed destination content authority;
+- `DestinationJourneyRuntime` remains live execution/replan authority;
+- provider receipts remain the only way to promote a booking to provider-confirmed;
+- field verification remains independent of personal trip state;
+- #74/#73 provider PASS remains required before Evidence Signing Authority.
+
+Manual ticket/reservation entry is useful personal data but must remain `user-declared`; it cannot satisfy provider proof.
+
+### First slice — IMPLEMENTING
+
+- multi-day local-first trip;
+- day timeline;
+- saved-place quick add;
+- manual museum/restaurant/theatre/bar/event/activity entries;
+- manual ticket/reservation capture;
+- visit ledger;
+- completed in-app route stop -> trip history sync;
+- source-backed "what else to see";
+- RU / EN / ZH UI;
+- contract tests.
+
+### Next sequence
+
+After the first slice is green:
+
+1. reorder and move items across days;
+2. detect fixed-time conflicts;
+3. introduce routing-authority travel slots;
+4. import provider receipt/deep-link return;
+5. add stay/hotel anchors;
+6. trusted live opening-hours/weather context;
+7. free-window recommendations;
+8. multi-day trip recap.
+
+Do not use the absence of provider access as a reason to stop product development, but do not fabricate live availability, prices, opening status, bookings or ticket outcomes.
+
+
+### Trip Scheduler v2 — IMPLEMENTING (#103)
+
+Build the editable multi-day layer on top of Personal Trip OS:
+
+- explicit day ordering;
+- move unvisited items between trip days;
+- preserve ticket/reservation verification state when a planned item moves;
+- refuse moves that would rewrite recorded visit history;
+- detect overlap between fixed confirmed commitments;
+- derive schedule-only free windows from all timed plan items;
+- keep every free-window feasibility claim at `routingVerified=false` until routing authority is connected;
+- capture start/end time, stay/transport items, booking source, order reference and HTTPS confirmation link.
+
+Do not convert a user-entered ticket, booking source or URL into provider-confirmed evidence.
+
+### Tourist Today cockpit — IMPLEMENTING (#105)
+
+Expose the active-day operating view:
+
+`Now -> Next commitment -> Remaining plan -> Free windows -> Seen today -> What else`.
+
+Current implementation authority:
+
+- pure clock/plan derivation: `src/travel/touristToday.ts`;
+- contract tests: `tests/touristToday.test.ts`;
+- user-facing cockpit: `src/features/trip/TouristTodayCard.tsx`;
+- browser journey coverage remains in `tests/personalTrip.e2e.spec.ts`.
+
+The cockpit derives the current Moscow trip day, current planned item, next item, next fixed ticket/reservation, completed/remaining progress, visits today, schedule-only free window and time-conflict count.
+
+This layer may use the user's clock and stored plan immediately. It must not claim:
+
+- route feasibility without routing authority;
+- current opening status without trusted live hours;
+- current ticket availability without provider authority.
+
+User-entered tickets/reservations remain `user-declared`. The absence of live routing/opening/provider authorities must degrade the claim, not block the personal trip product.
+
+
+### Moscow Passport — IMPLEMENTING (#107)
+
+Complete the Personal Itinerary / Plan Reconciliation loop with a semantic personal history:
+
+`plan -> actual visit -> evidence -> semantic category -> day recap -> trip passport`.
+
+Repository authority:
+
+- semantic model: `src/travel/moscowPassport.ts`;
+- visit kind persistence: `src/travel/personalTrip.ts`;
+- UI: `src/features/trip/MoscowPassportCard.tsx`;
+- contract tests: `tests/moscowPassport.test.ts`;
+- browser journey: `tests/personalTrip.e2e.spec.ts`.
+
+Categories distinguish what the tourist saw, where they ate, nightlife, culture, activities, shopping, stay and transport.
+
+Guardrails:
+
+- semantic grouping does not change evidence class;
+- old v1 visits without a semantic kind resolve from their linked plan item or DestinationPackage node;
+- user-confirmed remains user-confirmed;
+- route-completed remains route-completed;
+- provider-receipt remains provider-receipt;
+- no continuous GPS history is required;
+- the passport itself is not physical-presence proof.
+
+This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
+
+
+### Trip Booking Wallet — IMPLEMENTING (#110)
+
+Implements the current Ticket / Reservation Import direction inside Personal Trip OS.
+
+Data captured for a user-supplied commitment may include:
+
+- provider/source;
+- booking/ticket reference;
+- planned date/time;
+- party size;
+- seats/row/sector;
+- address/meeting point;
+- source reference;
+- HTTPS confirmation link;
+- verification state.
+
+Repository authority:
+
+- commitment contract/validation: `src/travel/personalTrip.ts`;
+- trip-wide wallet UI: `src/features/trip/BookingWalletCard.tsx`;
+- day integration: `src/features/trip/PersonalTripPlanner.tsx`;
+- contract tests: `tests/bookingWallet.test.ts`;
+- browser journey: `tests/personalTrip.e2e.spec.ts`.
+
+Guardrails:
+
+- manual import remains `user-declared`;
+- detail fields cannot upgrade a commitment to provider-confirmed;
+- provider-confirmed still requires receipt/evidence reference;
+- raw QR/barcode payloads are not persisted in this first slice;
+- QR/barcode data must never enter public/social surfaces;
+- complete confirmed time intervals remain fixed scheduling constraints;
+- fixed commitments are never silently moved by planner/solver logic.
+
+This does not satisfy #74/#73 and does not create live provider validity.
+
+## Premium innovation wave — camera-based visual positioning and instant historical reveal
+
+This wave creates a signature time-machine interaction: the visitor points the camera at a verified landmark/facade, Moscow recognizes the place/context and opens the correct historical layer even where GPS/compass are noisy.
+
+### Visual Landmark Reference Set — ADOPT / PHASE 1 IMPLEMENTING (#114)
+
+For field-proven places store approved reference imagery/descriptors:
+
+- site/object/facade;
+- viewpoint/heading;
+- source image/version;
+- capture date;
+- reference feature metadata;
+- field verification state;
+- rights;
+- descriptor/model version.
+
+Only verified public landmarks/facades enter the set.
+
+Phase 1 repository authority:
+
+- evidence-bound set and descriptor metadata: `src/spatial/visualLandmarkReference.ts`;
+- external field-verification admission: a reference set cannot self-declare physical PASS;
+- strict candidate decision: `matched / needs-user-confirmation / not-sure / blocked-unverified-site`;
+- geographic and heading incompatibility rejection;
+- contract tests: `tests/visualLandmarkReference.test.ts`;
+- runbook: `docs/VISUAL_LANDMARK_REFERENCE_SET.md`.
+
+No real Romanov or Old English Court visual reference set is activated by Phase 1. The existing physical field gates remain authoritative.
+
+### On-device Visual Recognition — ADAPT
+
+Candidate libraries:
+
+- https://github.com/google-ai-edge/mediapipe
+- https://github.com/opencv/opencv
+
+Flow:
+
+camera frame -> local feature/model inference -> candidate landmark -> confidence/geometry check -> package lookup -> user confirmation or strict-threshold reveal
+
+Prefer on-device processing to avoid uploading continuous camera video.
+
+### Visual + Sensor Fusion — ADOPT
+
+Combine:
+
+- visual candidate;
+- coarse GPS;
+- heading;
+- orientation;
+- known destination package;
+- optional AprilTag calibration in authoring mode.
+
+Reject visually plausible but geographically impossible matches.
+
+### Instant Historical Reveal — ADOPT
+
+After confirmed place/context:
+
+current facade -> matched historical scene/period -> overlay/reconstruction -> evidence panel -> optional audio narrative
+
+Show historical period, reconstruction confidence and source evidence.
+
+### Privacy Boundary — REQUIRED
+
+Do not implement face recognition or identify passers-by.
+
+Default:
+
+- no continuous camera upload;
+- no biometric profile;
+- no background person tracking;
+- ephemeral frames unless user explicitly saves/captures.
+
+### Recognition Quality Gate — ADOPT / PHASE 1 IMPLEMENTING (#114)
+
+Per site measure:
+
+- true-match rate;
+- false-positive rate;
+- unknown/failure rate;
+- viewpoint/lighting coverage;
+- device performance;
+- inference latency.
+
+If insufficient, fall back to map/manual selection.
+
+Phase 1 quality authority records measured sample count, true-match/false-positive/unknown rates, viewpoint and lighting coverage, tested device classes and p95 inference latency. Missing evidence fails closed. Pilot thresholds are repository-configurable and are not presented as external standards.
+
+Release requires both external field admission and quality evidence for the same canonical site.
+
+### Additional acceptance
+
+- recognized place resolves to field-verified canonical site ID;
+- impossible geographic matches are rejected;
+- false positives produce safe not-sure behavior;
+- historical reveal shows evidence/period/confidence;
+- camera flow works without face identification;
+- unsupported devices degrade gracefully.
+
+**Sequencing:** field-proven packages -> visual reference set -> on-device matching -> sensor fusion -> historical reveal -> broader rollout.
+
+## Premium commercial wave — governed AI City Concierge
+
+This wave turns the existing itinerary, routing, booking/ticket and historical-content stack into one natural-language premium interface.
+
+### City Concierge Agent — ADOPT
+
+Typed-agent pattern candidate:
+
+https://github.com/pydantic/pydantic-ai
+
+The agent may use only explicit Moscow tools such as:
+
+Read:
+- search places/events/content;
+- inspect opening hours/source freshness;
+- inspect current itinerary;
+- inspect imported tickets/reservations;
+- calculate travel-time candidates;
+- inspect visited-history;
+- fetch historical/source context.
+
+Propose:
+- day plan;
+- replacement item;
+- route;
+- restaurant/theatre/activity candidate;
+- ticket/reservation addition;
+- itinerary replan.
+
+Side effects:
+- itinerary changes;
+- booking/provider actions;
+- notifications/reminders;
+
+require explicit user approval unless they are harmless reversible local edits the user directly requested.
+
+### Source-grounded Answers — REQUIRED
+
+Every factual answer about:
+
+- opening hours;
+- ticket time;
+- booking;
+- address;
+- historical fact;
+- accessibility;
+- temporary closure;
+
+must identify the source/verification state used by Moscow.
+
+If current data is unavailable, say it is unknown/stale instead of inventing availability.
+
+### Conversational Constraint Capture — ADOPT
+
+The user can say:
+
+- I have a theatre ticket at 19:00;
+- I want architecture, no museums;
+- lunch around 14:00;
+- I have already seen the Kremlin;
+- keep walking under 8 km;
+- step-free route;
+- two days with children.
+
+Translate these into visible itinerary constraints that the user can edit.
+
+Do not hide inferred constraints inside the model.
+
+### Plan Explanation — ADOPT
+
+For each proposed item show why it is there:
+
+- requested interest;
+- near a fixed booking;
+- fits opening window;
+- new vs already visited;
+- route efficiency;
+- historical/theme relation;
+- accessibility match where verified.
+
+### Live Replan — ADOPT
+
+When the user says:
+
+- we are late;
+- skip this;
+- I am here now;
+- restaurant cancelled;
+- I have 90 free minutes;
+
+invoke the existing replan authority and preserve future fixed constraints.
+
+### Concierge Memory Boundary — ADOPT
+
+Persist only useful user-approved travel preferences/history according to account/privacy policy.
+
+Do not infer religion, politics, health or other sensitive traits from visited places or questions.
+
+### Additional acceptance
+
+- agent cannot invent provider availability;
+- every itinerary mutation has structured diff/approval;
+- fixed tickets/reservations are preserved unless user explicitly changes them;
+- answers link to canonical/source data;
+- no booking action executes without configured provider + user approval;
+- service degrades to ordinary search/itinerary UI without AI.
+
+**Sequencing:** Personal Itinerary + source authority + provider boundaries -> read-only concierge -> plan proposals -> replan -> approved booking/action tools.
+
+**Commercial framing:** Moscow becomes a personal city operating system, not a directory or static guide.
+
+
+### Trip Preferences — IMPLEMENTING (#112)
+
+Implements user-level planning constraints from the current Personal Itinerary / Fixed vs Flexible / Time-window optimisation direction without pretending external facts.
+
+Persisted user intent:
+
+- pace: relaxed / balanced / intensive;
+- preferred day start/end;
+- step-free intent: none / preferred / required;
+- maximum continuous walking minutes;
+- optional lunch window;
+- priority mode: must-see / balanced / discover-more.
+
+Immediate bounded execution:
+
+- Trip Scheduler uses configured day bounds;
+- lunch is treated as a reserved preference window and removed from schedule-only free time;
+- Tourist Today uses the same day bounds;
+- step-free intent is ready for Accessibility Route Profile evaluation.
+
+Guardrails:
+
+- preferences are not venue, route or provider facts;
+- lunch preference is not a restaurant reservation;
+- walking limit is not route travel-time evidence;
+- day bounds are not opening-hours evidence;
+- step-free intent does not make a route verified accessible;
+- pace/priority cannot silently move fixed bookings;
+- no optimisation solver is allowed to claim feasibility until routing/opening/accessibility inputs are authoritative;
+- any future solver proposal requires explicit user acceptance before mutating the trip.
+
+Repository authority:
+
+- domain/defaults/validation: `src/travel/personalTrip.ts`;
+- editor: `src/features/trip/TripPreferencesCard.tsx`;
+- free-time constraints: `src/travel/tripScheduler.ts`;
+- active-day consumption: `src/travel/touristToday.ts`;
+- contract tests: `tests/tripPreferences.test.ts`;
+- browser coverage: `tests/personalTrip.e2e.spec.ts`.
+
+
+### Day Replan — ADOPT / PHASE 1 IMPLEMENTING (#116)
+
+When a fixed item changes/cancels or the user skips something:
+
+current time/location + remaining fixed constraints + remaining flexible items -> proposed replacement plan
+
+This builds directly on the existing Journey Runtime / replan-required concepts.
+
+Phase 1 repository authority:
+
+- schedule-only proposal/apply engine: `src/travel/personalTripReplan.ts`;
+- visitor UI: `src/features/trip/DayReplanCard.tsx`;
+- contract tests: `tests/personalTripReplan.test.ts`;
+- browser flow: `tests/personalTrip.e2e.spec.ts`.
+
+Phase 1 preserves confirmed fixed commitments exactly, consumes Personal Trip day/lunch preferences, and only moves remaining flexible items with known duration. Missing-duration and no-window items stay unscheduled rather than receiving invented values.
+
+Every proposal records `routingVerified=false`, `openingHoursVerified=false`, `accessibilityVerified=false`, and `weatherVerified=false`. Creating a proposal does not mutate the trip. Applying it requires an unchanged baseline and explicit user acceptance.
+
+This personal schedule layer does not weaken `DestinationJourneyRuntime`: live/provider invalidation still requires the existing `replan-required` state and routing proof.

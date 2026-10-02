@@ -20,6 +20,7 @@ import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
 import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
+import PersonalTripPlanner from './features/trip/PersonalTripPlanner';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -50,7 +51,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 const copy = {
   ru: {
-    discover: 'Открыть', map: 'Карта', walk: 'Прогулка', savedTab: 'Моя Москва',
+    discover: 'Открыть', map: 'Карта', walk: 'Прогулка', trip: 'Поездка', savedTab: 'Моя Москва',
     cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
     hero: 'Москва раскрывается прямо вокруг вас',
     heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
@@ -65,7 +66,7 @@ const copy = {
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
   },
   en: {
-    discover: 'Discover', map: 'Map', walk: 'Walk', savedTab: 'My Moscow',
+    discover: 'Discover', map: 'Map', walk: 'Walk', trip: 'My Trip', savedTab: 'My Moscow',
     cityTime: 'THE CITY AS A TIME MACHINE',
     hero: 'Moscow reveals itself around you',
     heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
@@ -81,7 +82,7 @@ const copy = {
   }
 ,
   zh: {
-    discover: '发现', map: '地图', walk: '路线', savedTab: '我的莫斯科',
+    discover: '发现', map: '地图', walk: '路线', trip: '行程', savedTab: '我的莫斯科',
     cityTime: '把城市变成时光机',
     hero: '莫斯科就在你身边逐层展开',
     heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
@@ -139,6 +140,7 @@ export default function MoscowExperienceApp() {
     discover: ui.discover,
     map: ui.map,
     walk: ui.walk,
+    trip: ui.trip,
     saved: ui.savedTab
   };
   const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
@@ -571,6 +573,17 @@ export default function MoscowExperienceApp() {
                 onStartHistory={openWalkFromHero}
               />
 
+              <PhysicalPressable
+                style={styles.secondary}
+                contentStyle={styles.center}
+                onPress={() => setTab('trip')}
+                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
+              >
+                <Text style={styles.secondaryText}>
+                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
+                </Text>
+              </PhysicalPressable>
+
               <NearbyNow
                 language={language}
                 visitedIds={visitedIds}
@@ -818,6 +831,18 @@ export default function MoscowExperienceApp() {
             </>
           )}
 
+          {tab === 'trip' && (
+            <PersonalTripPlanner
+              language={language}
+              savedIds={savedIds}
+              visitedIds={visitedIds}
+              onOpenPlace={(id) => {
+                selectPlace(id);
+                setTab('discover');
+              }}
+            />
+          )}
+
           {tab === 'saved' && (
             <>
               <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
@@ -847,7 +872,7 @@ export default function MoscowExperienceApp() {
       )}
 
       <View style={styles.nav}>
-        {(['discover', 'map', 'walk', 'saved'] as Tab[]).map((item) => (
+        {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
           <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
             <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
           </PhysicalPressable>
