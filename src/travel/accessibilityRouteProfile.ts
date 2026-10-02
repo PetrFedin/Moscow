@@ -167,7 +167,10 @@ function selectStepFreeClaim(
       evidenceRefs: claims.flatMap((claim) => claim.evidenceRefs ?? []),
       sourceRefs: claims.flatMap((claim) => claim.sourceRefs ?? []),
       authority: 'multiple-claims',
-      verifiedAt: claims.map((claim) => claim.verifiedAt).filter(Boolean).sort().at(-1)
+      verifiedAt: (() => {
+        const values = claims.map((claim) => claim.verifiedAt).filter((value): value is string => Boolean(value)).sort();
+        return values[values.length - 1];
+      })()
     };
   }
   return claims[0];
