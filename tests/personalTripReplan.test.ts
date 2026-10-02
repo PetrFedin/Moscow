@@ -313,3 +313,105 @@ test('accepted proposal changes flexible schedule and keeps fixed time exact', (
   assert.ok(flexible.every((item) => Boolean(item.plannedStartAt && item.plannedEndAt)));
   assert.notEqual(applied.updatedAt, trip.updatedAt);
 });
+
+
+test('forged proposal cannot change flexible item duration', () => {
+  const trip = baseTrip();
+  const proposal = buildPersonalTripReplanProposal({
+    trip,
+    proposalId: 'proposal-forged-duration',
+    dayDate: '2026-10-03',
+    nowIso: '2026-10-03T05:00:00.000Z',
+    trigger: 'manual'
+  });
+  const placement = proposal.placements.find((item) => item.itemId === 'flex-a');
+  assert.ok(placement);
+  placement!.proposedEndAt = new Date(Date.parse(placement!.proposedStartAt) + 30 * 60_000).toISOString();
+  placement!.durationMinutes = 30;
+
+  assert.throws(
+    () => applyPersonalTripReplanProposal({
+      trip,
+      proposal,
+      userAccepted: true,
+      updatedAt: '2026-10-03T05:01:00.000Z'
+    }),
+    /preserve existing item duration/
+  );
+});
+
+test('forged proposal cannot unschedule a completed item', () => {
+  let trip = baseTrip();
+  trip = setTripItemStatus({
+    trip,
+    itemId: 'flex-a',
+    status: 'completed',
+    updatedAt: '2026-10-03T04:06:00.000Z'
+  });
+  const proposal = buildPersonalTripReplanProposal({
+    trip,
+    proposalId: 'proposal-forged-completed',
+    dayDate: '2026-10-03',
+    nowIso: '2026-10-03T05:00:00.000Z',
+    trigger: 'manual'
+  });
+  proposal.unplaced.push({
+    itemId: 'flex-a',
+    reason: 'missing-duration',
+    action: 'unschedule'
+  });
+
+  assert.throws(
+    () => applyPersonalTripReplanProposal({
+      trip,
+      proposal,
+      userAccepted: true,
+      updatedAt: '2026-10-03T05:01:00.000Z'
+    }),
+    /cannot unschedule resolved item/
+  );
+});
+
+test('forged proposal cannot assert routing or accessibility verification', () => {
+  const trip = baseTrip();
+  const proposal = buildPersonalTripReplanProposal({
+    trip,
+    proposalId: 'proposal-forged-truth',
+    dayDate: '2026-10-03',
+    nowIso: '2026-10-03T05:00:00.000Z',
+    trigger: 'manual'
+  });
+  (proposal.assumptions as { routingVerified: boolean }).routingVerified = true;
+
+  assert.throws(
+    () => applyPersonalTripReplanProposal({
+      trip,
+      proposal,
+      userAccepted: true,
+      updatedAt: '2026-10-03T05:01:00.000Z'
+    }),
+    /cannot assert verified external assumptions/
+  );
+});
+
+test('forged proposal cannot rewrite the preference snapshot', () => {
+  const trip = baseTrip();
+  const proposal = buildPersonalTripReplanProposal({
+    trip,
+    proposalId: 'proposal-forged-preferences',
+    dayDate: '2026-10-03',
+    nowIso: '2026-10-03T05:00:00.000Z',
+    trigger: 'manual'
+  });
+  proposal.inputSnapshot.dayEnd = '23:59';
+
+  assert.throws(
+    () => applyPersonalTripReplanProposal({
+      trip,
+      proposal,
+      userAccepted: true,
+      updatedAt: '2026-10-03T05:01:00.000Z'
+    }),
+    /preference snapshot/
+  );
+});
