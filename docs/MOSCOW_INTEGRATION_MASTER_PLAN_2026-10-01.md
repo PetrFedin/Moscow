@@ -770,3 +770,44 @@ Guardrails:
 - fixed commitments are never silently moved by planner/solver logic.
 
 This does not satisfy #74/#73 and does not create live provider validity.
+
+
+### Trip Preferences — IMPLEMENTING (#112)
+
+Implements user-level planning constraints from the current Personal Itinerary / Fixed vs Flexible / Time-window optimisation direction without pretending external facts.
+
+Persisted user intent:
+
+- pace: relaxed / balanced / intensive;
+- preferred day start/end;
+- step-free intent: none / preferred / required;
+- maximum continuous walking minutes;
+- optional lunch window;
+- priority mode: must-see / balanced / discover-more.
+
+Immediate bounded execution:
+
+- Trip Scheduler uses configured day bounds;
+- lunch is treated as a reserved preference window and removed from schedule-only free time;
+- Tourist Today uses the same day bounds;
+- step-free intent is ready for Accessibility Route Profile evaluation.
+
+Guardrails:
+
+- preferences are not venue, route or provider facts;
+- lunch preference is not a restaurant reservation;
+- walking limit is not route travel-time evidence;
+- day bounds are not opening-hours evidence;
+- step-free intent does not make a route verified accessible;
+- pace/priority cannot silently move fixed bookings;
+- no optimisation solver is allowed to claim feasibility until routing/opening/accessibility inputs are authoritative;
+- any future solver proposal requires explicit user acceptance before mutating the trip.
+
+Repository authority:
+
+- domain/defaults/validation: `src/travel/personalTrip.ts`;
+- editor: `src/features/trip/TripPreferencesCard.tsx`;
+- free-time constraints: `src/travel/tripScheduler.ts`;
+- active-day consumption: `src/travel/touristToday.ts`;
+- contract tests: `tests/tripPreferences.test.ts`;
+- browser coverage: `tests/personalTrip.e2e.spec.ts`.
