@@ -294,6 +294,38 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     throw new Error('Replan proposal is stale for current trip');
   }
   if (!trip.days.includes(proposal.dayDate)) throw new Error('Replan proposal day is outside trip range');
+  if (proposal.source !== 'schedule-only') throw new Error('Unsupported replan proposal source');
+  parseIso(proposal.createdAt, 'replan proposal createdAt');
+  parseIso(proposal.inputSnapshot.nowIso, 'replan proposal now');
+  if (proposal.createdAt !== proposal.inputSnapshot.nowIso) {
+    throw new Error('Replan proposal clock snapshot mismatch');
+  }
+  if (Object.values(proposal.assumptions).some((value) => value !== false)) {
+    throw new Error('Schedule-only replan cannot assert verified external assumptions');
+  }
+
+  const preferences = resolvePersonalTripPreferences(trip);
+  const expectedPreferenceSnapshot = {
+    dayStart: preferences.dayStart,
+    dayEnd: preferences.dayEnd,
+    ...(preferences.lunchWindow ? { lunchWindow: { ...preferences.lunchWindow } } : {}),
+    pace: preferences.pace,
+    priorityMode: preferences.priorityMode,
+    maxContinuousWalkingMinutes: preferences.maxContinuousWalkingMinutes,
+    stepFreeIntent: preferences.stepFreeIntent
+  };
+  const actualPreferenceSnapshot = {
+    dayStart: proposal.inputSnapshot.dayStart,
+    dayEnd: proposal.inputSnapshot.dayEnd,
+    ...(proposal.inputSnapshot.lunchWindow ? { lunchWindow: { ...proposal.inputSnapshot.lunchWindow } } : {}),
+    pace: proposal.inputSnapshot.pace,
+    priorityMode: proposal.inputSnapshot.priorityMode,
+    maxContinuousWalkingMinutes: proposal.inputSnapshot.maxContinuousWalkingMinutes,
+    stepFreeIntent: proposal.inputSnapshot.stepFreeIntent
+  };
+  if (JSON.stringify(expectedPreferenceSnapshot) !== JSON.stringify(actualPreferenceSnapshot)) {
+    throw new Error('Replan proposal preference snapshot does not match current trip');
+  }
 
   const currentFixed = trip.items
     .filter((item) => item.dayDate === proposal.dayDate)
@@ -325,6 +357,10 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     if (end <= start) throw new Error(`Invalid replan interval: ${placement.itemId}`);
     const minutes = Math.floor((end - start) / 60_000);
     if (minutes !== placement.durationMinutes) throw new Error(`Replan duration mismatch: ${placement.itemId}`);
+    const originalDuration = itemDurationMinutes(item);
+    if (!originalDuration || originalDuration !== placement.durationMinutes) {
+      throw new Error(`Replan must preserve existing item duration: ${placement.itemId}`);
+    }
   }
 
   for (const item of proposal.unplaced) {
@@ -332,10 +368,10 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     seen.add(item.itemId);
     const tripItem = trip.items.find((candidate) => candidate.id === item.itemId);
     if (!tripItem || tripItem.dayDate !== proposal.dayDate) throw new Error(`Unplaced item not found in day: ${item.itemId}`);
+    if (tripItem.status !== 'planned') throw new Error(`Replan cannot unschedule resolved item: ${item.itemId}`);
     if (isFixedCommitment(tripItem)) throw new Error(`Replan cannot unschedule fixed commitment: ${item.itemId}`);
   }
 
-  const preferences = resolvePersonalTripPreferences(trip);
   const dayStart = parseIso(dayBoundary(proposal.dayDate, preferences.dayStart));
   const dayEnd = parseIso(dayBoundary(proposal.dayDate, preferences.dayEnd));
   const busy = currentFixed.map((item) => ({
@@ -351,6 +387,9 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     });
   }
 
+  const proposalNow = parseIso(proposal.inputSnapshot.nowIso);
+  const effectiveStart = Math.min(dayEnd, Math.max(dayStart, proposalNow));
+
   const proposedIntervals = proposal.placements
     .map((placement) => ({
       itemId: placement.itemId,
@@ -360,8 +399,8 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     .sort((a, b) => a.start - b.start || a.itemId.localeCompare(b.itemId));
 
   for (const intervalValue of proposedIntervals) {
-    if (intervalValue.start < dayStart || intervalValue.end > dayEnd) {
-      throw new Error(`Replan interval outside day bounds: ${intervalValue.itemId}`);
+    if (intervalValue.start < effectiveStart || intervalValue.end > dayEnd) {
+      throw new Error(`Replan interval outside remaining day bounds: ${intervalValue.itemId}`);
     }
     for (const blocked of busy) {
       if (intervalValue.start < blocked.end && blocked.start < intervalValue.end) {
