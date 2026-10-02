@@ -93,7 +93,7 @@ test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved
   await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toHaveCount(0);
 
   await page.getByText('День 2', { exact: true }).click();
-  await expect(page.getByText('Театр · фиксированная бронь', { exact: true })).toBeVisible();
+  await expect(page.getByText('Театр · фиксированная бронь', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/11:00–13:00/)).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
 });
