@@ -674,6 +674,7 @@ export default function PersonalTripPlanner({
                       style={styles.iconButton}
                       contentStyle={styles.center}
                       disabled={activeItems[0]?.id === item.id}
+                      accessibilityLabel={tr(language, `Переместить ${item.title} выше`, `Move ${item.title} up`, `将 ${item.title} 上移`)}
                       onPress={() => reorderItem(item.id, -1)}
                     >
                       <Text style={styles.iconButtonText}>↑</Text>
@@ -682,6 +683,7 @@ export default function PersonalTripPlanner({
                       style={styles.iconButton}
                       contentStyle={styles.center}
                       disabled={activeItems[activeItems.length - 1]?.id === item.id}
+                      accessibilityLabel={tr(language, `Переместить ${item.title} ниже`, `Move ${item.title} down`, `将 ${item.title} 下移`)}
                       onPress={() => reorderItem(item.id, 1)}
                     >
                       <Text style={styles.iconButtonText}>↓</Text>
@@ -689,12 +691,22 @@ export default function PersonalTripPlanner({
                   </>
                 )}
                 {!visited && trip.days.indexOf(item.dayDate) > 0 && (
-                  <PhysicalPressable style={styles.iconButton} contentStyle={styles.center} onPress={() => moveItemToAdjacentDay(item.id, -1)}>
+                  <PhysicalPressable
+                    style={styles.iconButton}
+                    contentStyle={styles.center}
+                    accessibilityLabel={tr(language, `Перенести ${item.title} на предыдущий день`, `Move ${item.title} to previous day`, `将 ${item.title} 移到前一天`)}
+                    onPress={() => moveItemToAdjacentDay(item.id, -1)}
+                  >
                     <Text style={styles.iconButtonText}>←</Text>
                   </PhysicalPressable>
                 )}
                 {!visited && trip.days.indexOf(item.dayDate) < trip.days.length - 1 && (
-                  <PhysicalPressable style={styles.iconButton} contentStyle={styles.center} onPress={() => moveItemToAdjacentDay(item.id, 1)}>
+                  <PhysicalPressable
+                    style={styles.iconButton}
+                    contentStyle={styles.center}
+                    accessibilityLabel={tr(language, `Перенести ${item.title} на следующий день`, `Move ${item.title} to next day`, `将 ${item.title} 移到后一天`)}
+                    onPress={() => moveItemToAdjacentDay(item.id, 1)}
+                  >
                     <Text style={styles.iconButtonText}>→</Text>
                   </PhysicalPressable>
                 )}
