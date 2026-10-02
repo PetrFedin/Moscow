@@ -859,3 +859,114 @@ If insufficient, fall back to map/manual selection.
 
 **Sequencing:** field-proven packages -> visual reference set -> on-device matching -> sensor fusion -> historical reveal -> broader rollout.
 
+## Premium commercial wave — governed AI City Concierge
+
+This wave turns the existing itinerary, routing, booking/ticket and historical-content stack into one natural-language premium interface.
+
+### City Concierge Agent — ADOPT
+
+Typed-agent pattern candidate:
+
+https://github.com/pydantic/pydantic-ai
+
+The agent may use only explicit Moscow tools such as:
+
+Read:
+- search places/events/content;
+- inspect opening hours/source freshness;
+- inspect current itinerary;
+- inspect imported tickets/reservations;
+- calculate travel-time candidates;
+- inspect visited-history;
+- fetch historical/source context.
+
+Propose:
+- day plan;
+- replacement item;
+- route;
+- restaurant/theatre/activity candidate;
+- ticket/reservation addition;
+- itinerary replan.
+
+Side effects:
+- itinerary changes;
+- booking/provider actions;
+- notifications/reminders;
+
+require explicit user approval unless they are harmless reversible local edits the user directly requested.
+
+### Source-grounded Answers — REQUIRED
+
+Every factual answer about:
+
+- opening hours;
+- ticket time;
+- booking;
+- address;
+- historical fact;
+- accessibility;
+- temporary closure;
+
+must identify the source/verification state used by Moscow.
+
+If current data is unavailable, say it is unknown/stale instead of inventing availability.
+
+### Conversational Constraint Capture — ADOPT
+
+The user can say:
+
+- I have a theatre ticket at 19:00;
+- I want architecture, no museums;
+- lunch around 14:00;
+- I have already seen the Kremlin;
+- keep walking under 8 km;
+- step-free route;
+- two days with children.
+
+Translate these into visible itinerary constraints that the user can edit.
+
+Do not hide inferred constraints inside the model.
+
+### Plan Explanation — ADOPT
+
+For each proposed item show why it is there:
+
+- requested interest;
+- near a fixed booking;
+- fits opening window;
+- new vs already visited;
+- route efficiency;
+- historical/theme relation;
+- accessibility match where verified.
+
+### Live Replan — ADOPT
+
+When the user says:
+
+- we are late;
+- skip this;
+- I am here now;
+- restaurant cancelled;
+- I have 90 free minutes;
+
+invoke the existing replan authority and preserve future fixed constraints.
+
+### Concierge Memory Boundary — ADOPT
+
+Persist only useful user-approved travel preferences/history according to account/privacy policy.
+
+Do not infer religion, politics, health or other sensitive traits from visited places or questions.
+
+### Additional acceptance
+
+- agent cannot invent provider availability;
+- every itinerary mutation has structured diff/approval;
+- fixed tickets/reservations are preserved unless user explicitly changes them;
+- answers link to canonical/source data;
+- no booking action executes without configured provider + user approval;
+- service degrades to ordinary search/itinerary UI without AI.
+
+**Sequencing:** Personal Itinerary + source authority + provider boundaries -> read-only concierge -> plan proposals -> replan -> approved booking/action tools.
+
+**Commercial framing:** Moscow becomes a personal city operating system, not a directory or static guide.
+
