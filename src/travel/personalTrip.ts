@@ -17,6 +17,10 @@ export type PersonalTripCommitment = {
   verification: 'user-declared' | 'provider-confirmed';
   provider?: string;
   reference?: string;
+  partySize?: number;
+  seats?: string;
+  address?: string;
+  sourceRef?: string;
   externalUrl?: string;
   receiptEvidenceRef?: string;
 };
@@ -114,6 +118,19 @@ function assertUniqueItemId(trip: PersonalTrip, itemId: string) {
 function validateCommitment(commitment: PersonalTripCommitment) {
   if (commitment.provider !== undefined && !commitment.provider.trim()) {
     throw new Error('Commitment provider cannot be blank');
+  }
+  if (commitment.partySize !== undefined
+    && (!Number.isInteger(commitment.partySize) || commitment.partySize < 1 || commitment.partySize > 50)) {
+    throw new Error('Commitment party size must be an integer between 1 and 50');
+  }
+  for (const [field, value, max] of [
+    ['seats', commitment.seats, 160],
+    ['address', commitment.address, 240],
+    ['sourceRef', commitment.sourceRef, 240]
+  ] as const) {
+    if (value !== undefined && (!value.trim() || value.trim().length > max)) {
+      throw new Error(`Commitment ${field} must be non-empty and at most ${max} characters`);
+    }
   }
   if (commitment.externalUrl && !/^https:\/\//i.test(commitment.externalUrl)) {
     throw new Error('Commitment external URL must use HTTPS');
