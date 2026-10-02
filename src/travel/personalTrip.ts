@@ -31,6 +31,7 @@ export type PersonalTripItem = {
   plannedStartAt?: string;
   plannedEndAt?: string;
   status: 'planned' | 'completed' | 'skipped' | 'cancelled';
+  displayOrder?: number;
   commitment?: PersonalTripCommitment;
   note?: string;
 };
@@ -374,7 +375,15 @@ export function personalTripDayItems(trip: PersonalTrip, dayDate: string) {
   assertTripDay(trip, dayDate);
   return trip.items
     .filter((item) => item.dayDate === dayDate)
-    .sort((a, b) => (a.plannedStartAt ?? '').localeCompare(b.plannedStartAt ?? '') || a.title.localeCompare(b.title, 'ru'));
+    .sort((a, b) => {
+      const aOrder = a.displayOrder;
+      const bOrder = b.displayOrder;
+      if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) return aOrder - bOrder;
+      if (aOrder !== undefined && bOrder === undefined) return -1;
+      if (aOrder === undefined && bOrder !== undefined) return 1;
+      return (a.plannedStartAt ?? '').localeCompare(b.plannedStartAt ?? '')
+        || a.title.localeCompare(b.title, 'ru');
+    });
 }
 
 export function personalTripDayVisits(trip: PersonalTrip, dayDate: string) {

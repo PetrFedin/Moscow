@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
@@ -19,6 +19,12 @@ import {
   type PersonalTripCommitment,
   type PersonalTripItemKind
 } from '../../travel/personalTrip';
+import {
+  deriveTripFreeWindows,
+  detectTripScheduleConflicts,
+  moveTripItem,
+  reorderTripDayItems
+} from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
@@ -40,6 +46,8 @@ const manualKinds: PersonalTripItemKind[] = [
   'theatre',
   'bar',
   'activity',
+  'stay',
+  'transport',
   'shopping',
   'other'
 ];
@@ -52,6 +60,8 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
     theatre: 'Театр',
     bar: 'Бар',
     activity: 'Активность',
+    stay: 'Отель',
+    transport: 'Транспорт',
     shopping: 'Покупки',
     other: 'Другое'
   },
@@ -62,6 +72,8 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
     theatre: 'Theatre',
     bar: 'Bar',
     activity: 'Activity',
+    stay: 'Stay',
+    transport: 'Transport',
     shopping: 'Shopping',
     other: 'Other'
   },
@@ -72,6 +84,8 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
     theatre: '剧院',
     bar: '酒吧',
     activity: '体验',
+    stay: '住宿',
+    transport: '交通',
     shopping: '购物',
     other: '其他'
   }
@@ -121,6 +135,16 @@ function timeLabel(value?: string) {
   return match?.[1] ?? '';
 }
 
+function moscowTimeLabel(language: AppLanguage, value: string) {
+  const locale = language === 'ru' ? 'ru-RU' : language === 'zh' ? 'zh-CN' : 'en-GB';
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Moscow'
+  }).format(new Date(value));
+}
+
 function nodeTitle(language: AppLanguage, node: typeof moscowVarvarkaDestinationPackage.nodes[number]) {
   if (language === 'en') return node.titleEn ?? node.titleRu;
   if (language === 'zh') return node.titleZh ?? node.titleRu;
@@ -142,8 +166,12 @@ export default function PersonalTripPlanner({
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
   const [manualTime, setManualTime] = useState('19:00');
+  const [manualEndTime, setManualEndTime] = useState('21:00');
   const [commitmentChoice, setCommitmentChoice] = useState<CommitmentChoice>('none');
   const [manualReference, setManualReference] = useState('');
+  const [manualProvider, setManualProvider] = useState('');
+  const [manualExternalUrl, setManualExternalUrl] = useState('');
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY)
@@ -206,6 +234,20 @@ export default function PersonalTripPlanner({
     () => new Map((trip?.visits ?? []).flatMap((visit) => visit.itemId ? [[visit.itemId, visit] as const] : [])),
     [trip]
   );
+  const dayConflicts = useMemo(
+    () => trip ? detectTripScheduleConflicts(trip).filter((conflict) => conflict.dayDate === selectedDay) : [],
+    [selectedDay, trip]
+  );
+  const freeWindows = useMemo(() => {
+    if (!trip || !trip.days.includes(selectedDay)) return [];
+    return deriveTripFreeWindows({
+      trip,
+      dayDate: selectedDay,
+      dayStartsAt: moscowTimestamp(selectedDay, '09:00'),
+      dayEndsAt: moscowTimestamp(selectedDay, '23:00'),
+      minimumMinutes: 45
+    });
+  }, [selectedDay, trip]);
 
   const createTrip = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
@@ -251,10 +293,13 @@ export default function PersonalTripPlanner({
           kind: commitmentChoice,
           status: 'confirmed',
           verification: 'user-declared',
-          ...(manualReference.trim() ? { reference: manualReference.trim() } : {})
+          ...(manualReference.trim() ? { reference: manualReference.trim() } : {}),
+          ...(manualProvider.trim() ? { provider: manualProvider.trim() } : {}),
+          ...(manualExternalUrl.trim() ? { externalUrl: manualExternalUrl.trim() } : {})
         };
 
     try {
+      setFormError('');
       setTrip(addManualTripItem({
         trip,
         itemId: itemId('manual'),
@@ -262,13 +307,57 @@ export default function PersonalTripPlanner({
         title: manualTitle,
         kind: manualKind,
         plannedStartAt: moscowTimestamp(selectedDay, manualTime),
+        plannedEndAt: moscowTimestamp(selectedDay, manualEndTime),
         updatedAt: now,
         ...(commitment ? { commitment } : {})
       }));
       setManualTitle('');
       setManualReference('');
+      setManualProvider('');
+      setManualExternalUrl('');
+      setManualTime('19:00');
+      setManualEndTime('21:00');
       setCommitmentChoice('none');
       setManualOpen(false);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'invalid-trip-item');
+      return;
+    }
+  };
+
+  const moveItemToAdjacentDay = (tripItemId: string, offset: -1 | 1) => {
+    if (!trip) return;
+    const item = trip.items.find((candidate) => candidate.id === tripItemId);
+    if (!item || visitByItemId.has(item.id)) return;
+    const currentIndex = trip.days.indexOf(item.dayDate);
+    const targetDay = trip.days[currentIndex + offset];
+    if (!targetDay) return;
+    try {
+      setTrip(moveTripItem({
+        trip,
+        itemId: item.id,
+        targetDayDate: targetDay,
+        updatedAt: new Date().toISOString()
+      }));
+    } catch {
+      return;
+    }
+  };
+
+  const reorderItem = (tripItemId: string, offset: -1 | 1) => {
+    if (!trip) return;
+    const ids = activeItems.map((item) => item.id);
+    const index = ids.indexOf(tripItemId);
+    const target = index + offset;
+    if (index < 0 || target < 0 || target >= ids.length) return;
+    [ids[index], ids[target]] = [ids[target]!, ids[index]!];
+    try {
+      setTrip(reorderTripDayItems({
+        trip,
+        dayDate: selectedDay,
+        orderedItemIds: ids,
+        updatedAt: new Date().toISOString()
+      }));
     } catch {
       return;
     }
@@ -440,6 +529,16 @@ export default function PersonalTripPlanner({
                 style={styles.input}
               />
             </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>{tr(language, 'ДО', 'UNTIL', '结束')}</Text>
+              <TextInput
+                value={manualEndTime}
+                onChangeText={setManualEndTime}
+                placeholder="21:00"
+                placeholderTextColor="#626972"
+                style={styles.input}
+              />
+            </View>
           </View>
 
           <Text style={styles.label}>{tr(language, 'УЖЕ ЕСТЬ', 'ALREADY HAVE', '已有')}</Text>
@@ -473,18 +572,57 @@ export default function PersonalTripPlanner({
                 )}
               </Text>
               <TextInput
+                value={manualProvider}
+                onChangeText={setManualProvider}
+                placeholder={tr(language, 'Где куплено / забронировано', 'Where it was booked / bought', '购买 / 预订平台')}
+                placeholderTextColor="#626972"
+                style={styles.input}
+              />
+              <TextInput
                 value={manualReference}
                 onChangeText={setManualReference}
                 placeholder={tr(language, 'Номер заказа / заметка (необязательно)', 'Order reference / note (optional)', '订单号 / 备注（可选）')}
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input, styles.inputSpaced]}
+              />
+              <TextInput
+                value={manualExternalUrl}
+                onChangeText={setManualExternalUrl}
+                placeholder={tr(language, 'https:// ссылка на билет / бронь', 'https:// ticket / reservation link', 'https:// 门票 / 预订链接')}
+                placeholderTextColor="#626972"
+                autoCapitalize="none"
+                style={[styles.input, styles.inputSpaced]}
               />
             </>
           )}
 
+          {formError ? (
+            <Text style={styles.formError}>
+              {formError.includes('HTTPS')
+                ? tr(language, 'Ссылка должна начинаться с https://', 'The link must start with https://', '链接必须以 https:// 开头')
+                : tr(language, 'Проверьте время и данные пункта', 'Check the time and item details', '请检查时间和项目详情')}
+            </Text>
+          ) : null}
           <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={addManual}>
             <Text style={styles.primaryText}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
           </PhysicalPressable>
+        </View>
+      )}
+
+      {dayConflicts.length > 0 && (
+        <View style={styles.conflictBox}>
+          <Text style={styles.conflictTitle}>
+            {tr(language, 'КОНФЛИКТ ВРЕМЕНИ', 'TIME CONFLICT', '时间冲突')}
+          </Text>
+          {dayConflicts.map((conflict) => {
+            const left = trip.items.find((item) => item.id === conflict.itemIds[0]);
+            const right = trip.items.find((item) => item.id === conflict.itemIds[1]);
+            return (
+              <Text key={conflict.itemIds.join(':')} style={styles.conflictText}>
+                {left?.title ?? conflict.itemIds[0]} ↔ {right?.title ?? conflict.itemIds[1]} · {moscowTimeLabel(language, conflict.overlapStartAt)}–{moscowTimeLabel(language, conflict.overlapEndAt)}
+              </Text>
+            );
+          })}
         </View>
       )}
 
@@ -511,10 +649,17 @@ export default function PersonalTripPlanner({
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.itemMeta}>
                 {(kindLabels[language][item.kind] ?? item.kind)}
+                {item.plannedStartAt ? ` · ${timeLabel(item.plannedStartAt)}${item.plannedEndAt ? `–${timeLabel(item.plannedEndAt)}` : ''}` : ''}
                 {item.commitment
                   ? ` · ${item.commitment.kind === 'ticket' ? tr(language, 'билет', 'ticket', '门票') : tr(language, 'бронь', 'reservation', '预订')}`
                   : ''}
               </Text>
+              {item.commitment?.provider ? (
+                <Text style={styles.commitmentProvider}>
+                  {tr(language, 'Источник', 'Source', '来源')}: {item.commitment.provider}
+                  {item.commitment.reference ? ` · ${item.commitment.reference}` : ''}
+                </Text>
+              ) : null}
               {item.commitment && (
                 <Text style={styles.commitmentStatus}>
                   {item.commitment.verification === 'provider-confirmed'
@@ -523,6 +668,57 @@ export default function PersonalTripPlanner({
                 </Text>
               )}
               <View style={styles.itemActions}>
+                {!visited && item.commitment?.status !== 'confirmed' && activeItems.length > 1 && (
+                  <>
+                    <PhysicalPressable
+                      style={styles.iconButton}
+                      contentStyle={styles.center}
+                      disabled={activeItems[0]?.id === item.id}
+                      accessibilityLabel={tr(language, `Переместить ${item.title} выше`, `Move ${item.title} up`, `将 ${item.title} 上移`)}
+                      onPress={() => reorderItem(item.id, -1)}
+                    >
+                      <Text style={styles.iconButtonText}>↑</Text>
+                    </PhysicalPressable>
+                    <PhysicalPressable
+                      style={styles.iconButton}
+                      contentStyle={styles.center}
+                      disabled={activeItems[activeItems.length - 1]?.id === item.id}
+                      accessibilityLabel={tr(language, `Переместить ${item.title} ниже`, `Move ${item.title} down`, `将 ${item.title} 下移`)}
+                      onPress={() => reorderItem(item.id, 1)}
+                    >
+                      <Text style={styles.iconButtonText}>↓</Text>
+                    </PhysicalPressable>
+                  </>
+                )}
+                {!visited && trip.days.indexOf(item.dayDate) > 0 && (
+                  <PhysicalPressable
+                    style={styles.iconButton}
+                    contentStyle={styles.center}
+                    accessibilityLabel={tr(language, `Перенести ${item.title} на предыдущий день`, `Move ${item.title} to previous day`, `将 ${item.title} 移到前一天`)}
+                    onPress={() => moveItemToAdjacentDay(item.id, -1)}
+                  >
+                    <Text style={styles.iconButtonText}>←</Text>
+                  </PhysicalPressable>
+                )}
+                {!visited && trip.days.indexOf(item.dayDate) < trip.days.length - 1 && (
+                  <PhysicalPressable
+                    style={styles.iconButton}
+                    contentStyle={styles.center}
+                    accessibilityLabel={tr(language, `Перенести ${item.title} на следующий день`, `Move ${item.title} to next day`, `将 ${item.title} 移到后一天`)}
+                    onPress={() => moveItemToAdjacentDay(item.id, 1)}
+                  >
+                    <Text style={styles.iconButtonText}>→</Text>
+                  </PhysicalPressable>
+                )}
+                {item.commitment?.externalUrl && (
+                  <PhysicalPressable
+                    style={styles.textButton}
+                    contentStyle={styles.center}
+                    onPress={() => { void Linking.openURL(item.commitment!.externalUrl!); }}
+                  >
+                    <Text style={styles.textButtonText}>{tr(language, 'Билет / бронь', 'Ticket / booking', '门票 / 预订')}</Text>
+                  </PhysicalPressable>
+                )}
                 {item.destinationNodeId && (
                   <PhysicalPressable
                     style={styles.textButton}
@@ -542,6 +738,22 @@ export default function PersonalTripPlanner({
           </View>
         );
       })}
+
+      {freeWindows.length > 0 && (
+        <>
+          <Text style={styles.label}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'FREE WINDOWS', '空闲时段')}</Text>
+          <View style={styles.freeWindows}>
+            {freeWindows.map((window) => (
+              <View key={`${window.startsAt}:${window.endsAt}`} style={styles.freeWindow}>
+                <Text style={styles.freeWindowTime}>{moscowTimeLabel(language, window.startsAt)}–{moscowTimeLabel(language, window.endsAt)}</Text>
+                <Text style={styles.freeWindowMeta}>
+                  {window.minutes} {tr(language, 'мин · без учёта дороги и часов работы', 'min · travel/opening hours not verified', '分钟 · 未核验交通与营业时间')}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
 
       {savedNodes.length > 0 && (
         <>
@@ -624,6 +836,8 @@ const styles = StyleSheet.create({
   body: { color: '#9da2aa', fontSize: 12, lineHeight: 18, marginTop: 6 },
   label: { color: '#737a83', fontSize: 8, letterSpacing: 1.15, fontWeight: '900', marginTop: 16, marginBottom: 7 },
   input: { minHeight: 47, borderRadius: 14, borderWidth: 1, borderColor: '#363c44', backgroundColor: '#171b20', color: '#f2eee5', paddingHorizontal: 13, fontSize: 13 },
+  inputSpaced: { marginTop: 7 },
+  formError: { color: '#dc9e94', fontSize: 9, lineHeight: 14, marginTop: 8 },
   chips: { flexDirection: 'row', gap: 7 },
   chip: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#3b424a' },
   chipActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
@@ -674,8 +888,11 @@ const styles = StyleSheet.create({
   timelineCopy: { flex: 1, minWidth: 0 },
   itemTitle: { color: '#f1ede5', fontSize: 14, fontWeight: '900' },
   itemMeta: { color: '#969ca4', fontSize: 9, marginTop: 3 },
+  commitmentProvider: { color: '#9ea5ad', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
   commitmentStatus: { color: '#b69a67', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
-  itemActions: { flexDirection: 'row', gap: 7, marginTop: 9 },
+  itemActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
+  iconButton: { width: 34, minHeight: 34, borderRadius: 11, borderWidth: 1, borderColor: '#3b4149' },
+  iconButtonText: { color: '#c7b58e', fontSize: 13, fontWeight: '900' },
   textButton: { minHeight: 34, borderRadius: 11, borderWidth: 1, borderColor: '#3b4149', paddingHorizontal: 9 },
   textButtonText: { color: '#c5b28c', fontSize: 8.5, fontWeight: '900' },
   visitButton: { minHeight: 34, borderRadius: 11, backgroundColor: '#d3b578', paddingHorizontal: 10 },
@@ -689,6 +906,13 @@ const styles = StyleSheet.create({
   addButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#282116' },
   addButtonText: { color: '#e2c283', fontSize: 18, fontWeight: '900' },
   disabled: { opacity: 0.42 },
+  conflictBox: { borderRadius: 15, borderWidth: 1, borderColor: '#754f47', backgroundColor: '#241716', padding: 12, marginBottom: 10 },
+  conflictTitle: { color: '#e3a99e', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  conflictText: { color: '#c8a39c', fontSize: 9, lineHeight: 14, marginTop: 5 },
+  freeWindows: { gap: 6 },
+  freeWindow: { borderRadius: 13, borderWidth: 1, borderColor: '#313941', backgroundColor: '#151a1f', padding: 10 },
+  freeWindowTime: { color: '#d5bd8d', fontSize: 11, fontWeight: '900' },
+  freeWindowMeta: { color: '#79818a', fontSize: 8.5, marginTop: 3 },
   history: { gap: 6 },
   historyRow: { flexDirection: 'row', gap: 9, alignItems: 'center', borderRadius: 14, backgroundColor: '#15191e', padding: 11 },
   historyCheck: { color: '#9ec2a5', fontSize: 15, fontWeight: '900' },
