@@ -89,6 +89,30 @@ test('derives free windows from fixed commitments without claiming routing feasi
   assert.ok(windows.every((window) => window.routingVerified === false));
 });
 
+test('free windows also subtract flexible scheduled plan items', () => {
+  let value = trip();
+  value = addManualTripItem({
+    trip: value,
+    itemId: 'lunch',
+    dayDate: '2026-10-02',
+    title: 'Обед',
+    kind: 'food',
+    plannedStartAt: '2026-10-02T14:00:00+03:00',
+    plannedEndAt: '2026-10-02T15:00:00+03:00',
+    updatedAt: createdAt
+  });
+
+  const windows = deriveTripFreeWindows({
+    trip: value,
+    dayDate: '2026-10-02',
+    dayStartsAt: '2026-10-02T13:00:00+03:00',
+    dayEndsAt: '2026-10-02T16:00:00+03:00'
+  });
+
+  assert.deepEqual(windows.map((window) => window.minutes), [60, 60]);
+  assert.ok(windows.every((window) => window.routingVerified === false));
+});
+
 test('moving a planned ticket to another day preserves truth class and local clock time', () => {
   let value = trip();
   value = addFixed(value, 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
