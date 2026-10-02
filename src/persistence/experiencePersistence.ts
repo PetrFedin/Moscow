@@ -3,7 +3,7 @@ import type { AppLanguage } from '../i18n/index.ts';
 import { modelEraFromTimeIndex } from '../spatial/placeExperienceRegistry.ts';
 import { buildTouristRoutePlan, type TouristInterest, type TouristTimeBudget } from '../features/planning/touristPlanner.ts';
 
-export type PersistedTab = 'discover' | 'map' | 'walk' | 'saved';
+export type PersistedTab = 'discover' | 'map' | 'walk' | 'trip' | 'saved';
 export type PersistedRomanovEra = '1857' | '1859';
 export type PersistedTrustMode = 'documented' | 'public';
 
@@ -31,7 +31,7 @@ export type PersistedExperienceState = {
 export const EXPERIENCE_STORAGE_KEY = 'moscow:v4:experience';
 
 const validPlaceIds = new Set(places.map((place) => place.id));
-const validTabs = new Set<PersistedTab>(['discover', 'map', 'walk', 'saved']);
+const validTabs = new Set<PersistedTab>(['discover', 'map', 'walk', 'trip', 'saved']);
 
 const defaultState: PersistedExperienceState = {
   savedIds: [],
