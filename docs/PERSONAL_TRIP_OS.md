@@ -170,3 +170,31 @@ After v1 is stable:
 10. trip recap with visited neighborhoods, themes and unvisited saved places.
 
 These layers must not manufacture provider availability, opening status or route geometry.
+
+
+## Trip Scheduler v2
+
+Issue: #103.
+
+The next layer turns the day list into an editable trip schedule while preserving truth boundaries.
+
+Implemented in the stacked branch:
+
+- explicit display ordering for day items;
+- move planned items between trip days;
+- fixed-time rebasing keeps the supplied local clock time when the user explicitly moves an item;
+- visited items cannot be moved to rewrite historical visit facts;
+- overlap detection for confirmed commitments with complete start/end timestamps;
+- free-window derivation from fixed commitments;
+- every free window is marked `routingVerified: false`;
+- the UI never claims travel feasibility or opening-hours feasibility from a time gap alone;
+- RU / EN / ZH scheduler controls and conflict/free-window surfaces.
+
+Reordering does not mutate supplied timestamps. Provider/user verification state remains unchanged when a planned item moves.
+
+The following still requires later authorities:
+
+- route/travel-time feasibility;
+- current opening hours;
+- live capacity or ticket inventory;
+- automatic replan after provider state change.
