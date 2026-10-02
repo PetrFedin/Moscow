@@ -257,3 +257,59 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
   await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
   await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
 });
+
+
+test('Day Replan requires explicit apply and preserves fixed booking', async ({ page }) => {
+  const today = moscowNowParts().date;
+  const tomorrowDate = new Date(today + 'T12:00:00.000Z');
+  tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
+  const tomorrow = tomorrowDate.toISOString().slice(0, 10);
+
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await page.getByText('Поездка', { exact: true }).last().click();
+  await page.getByPlaceholder('2026-10-02').fill(tomorrow);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Гибкий музей · replan');
+  await page.getByText('Музей', { exact: true }).click();
+  await page.getByPlaceholder('19:00').fill('10:00');
+  await page.getByPlaceholder('21:00').fill('11:00');
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Фиксированный театр · replan');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByPlaceholder('19:00').fill('12:00');
+  await page.getByPlaceholder('21:00').fill('13:00');
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Гибкая прогулка · replan');
+  await page.getByText('Активность', { exact: true }).click();
+  await page.getByPlaceholder('19:00').fill('14:00');
+  await page.getByPlaceholder('21:00').fill('15:00');
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await expect(page.getByText('Пересобрать остаток дня', { exact: true })).toBeVisible();
+  await page.getByText('Предложить', { exact: true }).click();
+
+  await expect(page.getByText('СОХРАНЯЕМ ТОЧНО', { exact: true })).toBeVisible();
+  await expect(page.getByText(/12:00–13:00 · Фиксированный театр · replan/)).toBeVisible();
+  await expect(page.getByText(/09:00–10:00 · Гибкий музей · replan/)).toBeVisible();
+  await expect(page.getByText(/10:00–11:00 · Гибкая прогулка · replan/)).toBeVisible();
+  await expect(page.getByText(/Маршрут, часы работы, доступность и погода не подтверждены/)).toBeVisible();
+
+  // Proposal is preview-only until explicit Apply.
+  await expect(page.getByText(/10:00–11:00/).first()).toBeVisible();
+
+  await page.getByText('Применить', { exact: true }).click();
+
+  await expect(page.getByText(/09:00–10:00/).first()).toBeVisible();
+  await expect(page.getByText(/12:00–13:00/).first()).toBeVisible();
+  await expect(page.getByText('СОХРАНЯЕМ ТОЧНО', { exact: true })).toHaveCount(0);
+});
