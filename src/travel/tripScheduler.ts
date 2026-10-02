@@ -48,11 +48,17 @@ function rebaseTimestampDay(value: string | undefined, dayDate: string) {
   return rebased;
 }
 
+function hasScheduledInterval(item: PersonalTripItem) {
+  return item.status !== 'cancelled'
+    && item.status !== 'skipped'
+    && Boolean(item.plannedStartAt)
+    && Boolean(item.plannedEndAt);
+}
+
 function isFixedCommitment(item: PersonalTripItem) {
   return item.status === 'planned'
     && item.commitment?.status === 'confirmed'
-    && Boolean(item.plannedStartAt)
-    && Boolean(item.plannedEndAt);
+    && hasScheduledInterval(item);
 }
 
 function interval(item: PersonalTripItem) {
@@ -182,7 +188,7 @@ export function deriveTripFreeWindows(input: {
   }
 
   const fixedIntervals = input.trip.items
-    .filter((item) => item.dayDate === input.dayDate && isFixedCommitment(item))
+    .filter((item) => item.dayDate === input.dayDate && hasScheduledInterval(item))
     .map((item) => interval(item))
     .map(({ start, end }) => ({
       start: Math.max(start, dayStart),
