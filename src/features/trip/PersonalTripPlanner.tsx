@@ -185,6 +185,9 @@ export default function PersonalTripPlanner({
   const [commitmentChoice, setCommitmentChoice] = useState<CommitmentChoice>('none');
   const [manualReference, setManualReference] = useState('');
   const [manualProvider, setManualProvider] = useState('');
+  const [manualPartySize, setManualPartySize] = useState('');
+  const [manualSeats, setManualSeats] = useState('');
+  const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
 
@@ -310,6 +313,9 @@ export default function PersonalTripPlanner({
           verification: 'user-declared',
           ...(manualReference.trim() ? { reference: manualReference.trim() } : {}),
           ...(manualProvider.trim() ? { provider: manualProvider.trim() } : {}),
+          ...(manualPartySize.trim() ? { partySize: Number(manualPartySize.trim()) } : {}),
+          ...(manualSeats.trim() ? { seats: manualSeats.trim() } : {}),
+          ...(manualAddress.trim() ? { address: manualAddress.trim() } : {}),
           ...(manualExternalUrl.trim() ? { externalUrl: manualExternalUrl.trim() } : {})
         };
 
@@ -329,6 +335,9 @@ export default function PersonalTripPlanner({
       setManualTitle('');
       setManualReference('');
       setManualProvider('');
+      setManualPartySize('');
+      setManualSeats('');
+      setManualAddress('');
       setManualExternalUrl('');
       setManualTime('19:00');
       setManualEndTime('21:00');
@@ -609,6 +618,28 @@ export default function PersonalTripPlanner({
                 style={[styles.input, styles.inputSpaced]}
               />
               <TextInput
+                value={manualPartySize}
+                onChangeText={setManualPartySize}
+                placeholder={tr(language, 'Количество гостей / билетов', 'Party size / ticket count', '人数 / 门票数量')}
+                placeholderTextColor="#626972"
+                keyboardType="number-pad"
+                style={[styles.input, styles.inputSpaced]}
+              />
+              <TextInput
+                value={manualSeats}
+                onChangeText={setManualSeats}
+                placeholder={tr(language, 'Сектор, ряд, места', 'Section, row, seats', '区域、排、座位')}
+                placeholderTextColor="#626972"
+                style={[styles.input, styles.inputSpaced]}
+              />
+              <TextInput
+                value={manualAddress}
+                onChangeText={setManualAddress}
+                placeholder={tr(language, 'Адрес / место встречи', 'Address / meeting point', '地址 / 集合地点')}
+                placeholderTextColor="#626972"
+                style={[styles.input, styles.inputSpaced]}
+              />
+              <TextInput
                 value={manualExternalUrl}
                 onChangeText={setManualExternalUrl}
                 placeholder={tr(language, 'https:// ссылка на билет / бронь', 'https:// ticket / reservation link', 'https:// 门票 / 预订链接')}
@@ -677,10 +708,25 @@ export default function PersonalTripPlanner({
                   ? ` · ${item.commitment.kind === 'ticket' ? tr(language, 'билет', 'ticket', '门票') : tr(language, 'бронь', 'reservation', '预订')}`
                   : ''}
               </Text>
-              {item.commitment?.provider ? (
+              {item.commitment?.provider || item.commitment?.reference ? (
                 <Text style={styles.commitmentProvider}>
-                  {tr(language, 'Источник', 'Source', '来源')}: {item.commitment.provider}
-                  {item.commitment.reference ? ` · ${item.commitment.reference}` : ''}
+                  {item.commitment.provider ? `${tr(language, 'Источник', 'Source', '来源')}: ${item.commitment.provider}` : ''}
+                  {item.commitment.reference ? `${item.commitment.provider ? ' · ' : ''}${item.commitment.reference}` : ''}
+                </Text>
+              ) : null}
+              {item.commitment?.partySize ? (
+                <Text style={styles.commitmentDetail}>
+                  {tr(language, 'Гостей / билетов', 'Guests / tickets', '人数 / 门票')}: {item.commitment.partySize}
+                </Text>
+              ) : null}
+              {item.commitment?.seats ? (
+                <Text style={styles.commitmentDetail}>
+                  {tr(language, 'Места', 'Seats', '座位')}: {item.commitment.seats}
+                </Text>
+              ) : null}
+              {item.commitment?.address ? (
+                <Text style={styles.commitmentDetail}>
+                  {tr(language, 'Адрес', 'Address', '地址')}: {item.commitment.address}
                 </Text>
               ) : null}
               {item.commitment && (
@@ -895,6 +941,7 @@ const styles = StyleSheet.create({
   itemTitle: { color: '#f1ede5', fontSize: 14, fontWeight: '900' },
   itemMeta: { color: '#969ca4', fontSize: 9, marginTop: 3 },
   commitmentProvider: { color: '#9ea5ad', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
+  commitmentDetail: { color: '#858d95', fontSize: 8.5, lineHeight: 12, marginTop: 2 },
   commitmentStatus: { color: '#b69a67', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
   itemActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
   iconButton: { width: 34, minHeight: 34, borderRadius: 11, borderWidth: 1, borderColor: '#3b4149' },
