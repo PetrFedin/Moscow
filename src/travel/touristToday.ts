@@ -118,7 +118,14 @@ export function deriveTouristTodayState(input: {
     dayDate,
     dayStartsAt: dayStart,
     dayEndsAt: dayEnd,
-    minimumMinutes: 30
+    minimumMinutes: 30,
+    reservedWindows: preferences.lunchWindow
+      ? [{
+          startsAt: dayBoundary(dayDate, preferences.lunchWindow.start),
+          endsAt: dayBoundary(dayDate, preferences.lunchWindow.end),
+          reason: 'meal'
+        }]
+      : []
   });
 
   const currentFreeWindow = freeWindows.find((window) =>
