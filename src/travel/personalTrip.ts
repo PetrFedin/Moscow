@@ -194,7 +194,12 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
     visits: trip.visits.map((visit) => ({ ...visit })),
-    ...(trip.preferences ? { preferences: { ...trip.preferences } } : {})
+    ...(trip.preferences ? {
+      preferences: {
+        ...trip.preferences,
+        ...(trip.preferences.lunchWindow ? { lunchWindow: { ...trip.preferences.lunchWindow } } : {})
+      }
+    } : {})
   };
 }
 
