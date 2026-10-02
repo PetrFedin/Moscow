@@ -1,4 +1,5 @@
 import type { DestinationPackage, ExperienceNode, ExperienceNodeKind } from './destinationPackage.ts';
+import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -47,6 +48,10 @@ export type PersonalTripVisit = {
   evidenceRef?: string;
 };
 
+export type PersonalTripPreferences = {
+  stepFreeIntent?: StepFreeIntent;
+};
+
 export type PersonalTrip = {
   schemaVersion: typeof PERSONAL_TRIP_SCHEMA_VERSION;
   id: string;
@@ -57,6 +62,7 @@ export type PersonalTrip = {
   days: string[];
   items: PersonalTripItem[];
   visits: PersonalTripVisit[];
+  preferences?: PersonalTripPreferences;
   createdAt: string;
   updatedAt: string;
 };
@@ -136,7 +142,8 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...item,
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
-    visits: trip.visits.map((visit) => ({ ...visit }))
+    visits: trip.visits.map((visit) => ({ ...visit })),
+    ...(trip.preferences ? { preferences: { ...trip.preferences } } : {})
   };
 }
 
@@ -402,6 +409,10 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   if (!Array.isArray(parsed.days) || parsed.days.join('|') !== expectedDays.join('|')) throw new Error('Personal Trip day range mismatch');
   if (!Array.isArray(parsed.items) || !Array.isArray(parsed.visits)) throw new Error('Invalid Personal Trip collections');
   if (!parsed.createdAt || !parsed.updatedAt) throw new Error('Invalid Personal Trip timestamps');
+  if (parsed.preferences?.stepFreeIntent
+    && !['none', 'preferred', 'required'].includes(parsed.preferences.stepFreeIntent)) {
+    throw new Error('Invalid Personal Trip step-free intent');
+  }
   parseIso(parsed.createdAt);
   parseIso(parsed.updatedAt);
 
@@ -416,4 +427,26 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
     parseIso(visit.visitedAt);
   }
   return clone(trip);
+}
+
+
+export function setTripStepFreeIntent(input: {
+  trip: PersonalTrip;
+  intent: StepFreeIntent;
+  updatedAt: string;
+}): PersonalTrip {
+  parseIso(input.updatedAt);
+  const next = clone(input.trip);
+  next.preferences = {
+    ...(next.preferences ?? {}),
+    stepFreeIntent: input.intent
+  };
+  return touch(next, input.updatedAt);
+}
+
+export function tripStepFreeIntent(trip: PersonalTrip): StepFreeIntent {
+  const intent = trip.preferences?.stepFreeIntent;
+  return intent === 'required' || intent === 'preferred' || intent === 'none'
+    ? intent
+    : 'none';
 }
