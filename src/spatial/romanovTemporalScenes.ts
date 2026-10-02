@@ -85,8 +85,8 @@ export const romanovTemporalScenes: TemporalSceneRecord[] = [
     id: 'romanov-restoration-reference-state',
     placeId: 'romanov-chambers',
     version: 1,
-    periodLabelRu: 'Реставрация / состояние конца XIX века · 1859 / 1883',
-    periodLabelEn: 'Restoration / late-19th-century state · 1859 / 1883',
+    periodLabelRu: 'Реставрация Рихтера / архивная опора · 1859 / 1883',
+    periodLabelEn: 'Richter restoration / archival reference · 1859 / 1883',
     extent: { kind: 'reference-points', years: [1859, 1883] },
     confidence: 'not-assessed',
     reconstructionStatus: reconstructionStatusFor(elementsRestoration),
@@ -107,6 +107,9 @@ const authority = {
   claimIds: new Set(romanovPublishedCandidate.claims.map((claim) => claim.id)),
   evidenceElementIds: new Set(romanovPublishedCandidate.elements.map((element) => element.id)),
   assetIds: new Set(romanovPublishedCandidate.models.map((model) => model.id)),
+  assetSourceIds: new Map(
+    romanovPublishedCandidate.models.map((model) => [model.id, model.sourceIds] as const)
+  ),
   experiencePeriodIds: new Set(romanovPlace.periods.map((period) => period.id))
 };
 
