@@ -67,7 +67,7 @@ Expected and observed poses must use the same explicit frame before errors are c
 
 Records begin as `pending`.
 
-A reviewer may mark them `accepted` or `rejected` with reviewer identity and timestamp. Review does not modify:
+A reviewer may mark them `accepted` or `rejected` with reviewer identity and timestamp. The review is write-once: a reviewed record cannot be silently rewritten; a later correction must be represented by a separate superseding evidence record. Review does not modify:
 
 - survey points;
 - `RomanovFieldSession.passed`;
