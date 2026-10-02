@@ -7,7 +7,6 @@ export type TemporalReconstructionStatus =
 export type TemporalPublicationState =
   | 'draft'
   | 'production-candidate'
-  | 'field-verified'
   | 'superseded';
 export type TemporalInterpretationMode =
   | 'documented-only'
@@ -77,6 +76,15 @@ function validYear(value: unknown) {
   return isFiniteInteger(value) && (value as number) >= 1 && (value as number) <= 9999;
 }
 
+function leapYear(year: number) {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function daysInMonth(year: number, month: number) {
+  if (month === 2) return leapYear(year) ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
 function validTemporalDate(value: TemporalDate, exactDate = false) {
   if (!value || !validYear(value.year)) return false;
   if (value.month === undefined && value.day !== undefined) return false;
@@ -84,30 +92,33 @@ function validTemporalDate(value: TemporalDate, exactDate = false) {
     return false;
   }
   if (value.day !== undefined) {
-    if (!isFiniteInteger(value.day) || value.day < 1 || value.day > 31 || value.month === undefined) return false;
-    const candidate = new Date(Date.UTC(value.year, value.month - 1, value.day));
     if (
-      candidate.getUTCFullYear() !== value.year
-      || candidate.getUTCMonth() !== value.month - 1
-      || candidate.getUTCDate() !== value.day
+      !isFiniteInteger(value.day)
+      || value.month === undefined
+      || value.day < 1
+      || value.day > daysInMonth(value.year, value.month)
     ) return false;
   }
   if (exactDate && (value.month === undefined || value.day === undefined)) return false;
   return true;
 }
 
+function dateOrdinal(year: number, month: number, day: number) {
+  return year * 10000 + month * 100 + day;
+}
+
 function dateFloor(value: TemporalDate) {
-  return Date.UTC(value.year, (value.month ?? 1) - 1, value.day ?? 1);
+  return dateOrdinal(value.year, value.month ?? 1, value.day ?? 1);
 }
 
 function dateCeil(value: TemporalDate) {
   if (value.day !== undefined && value.month !== undefined) {
-    return Date.UTC(value.year, value.month - 1, value.day);
+    return dateOrdinal(value.year, value.month, value.day);
   }
   if (value.month !== undefined) {
-    return Date.UTC(value.year, value.month, 0);
+    return dateOrdinal(value.year, value.month, daysInMonth(value.year, value.month));
   }
-  return Date.UTC(value.year, 11, 31);
+  return dateOrdinal(value.year, 12, 31);
 }
 
 function uniqueNonEmpty(values: string[] | undefined) {
@@ -129,8 +140,8 @@ function extentBounds(extent: TemporalExtent): { start: number; end: number } | 
     case 'exact-year':
       if (!validYear(extent.year)) return null;
       return {
-        start: Date.UTC(extent.year, 0, 1),
-        end: Date.UTC(extent.year, 11, 31)
+        start: dateOrdinal(extent.year, 1, 1),
+        end: dateOrdinal(extent.year, 12, 31)
       };
     case 'bounded-range':
     case 'approximate-range':
@@ -143,7 +154,7 @@ function extentBounds(extent: TemporalExtent): { start: number; end: number } | 
         || new Set(extent.years).size !== extent.years.length
       ) return null;
       const years = [...extent.years].sort((a, b) => a - b);
-      return { start: Date.UTC(years[0]!, 0, 1), end: Date.UTC(years.at(-1)!, 11, 31) };
+      return { start: dateOrdinal(years[0]!, 1, 1), end: dateOrdinal(years.at(-1)!, 12, 31) };
     }
     case 'undated':
       return null;
@@ -220,7 +231,14 @@ export function validateTemporalSceneRecord(scene: TemporalSceneRecord): Tempora
   if (!scene.assetBindings.length) blockers.push('temporal-asset-bindings-missing');
   const assetKeys = scene.assetBindings.map((asset) => `${asset.kind}:${asset.id}`);
   if (
-    scene.assetBindings.some((asset) => !asset.id?.trim())
+    scene.assetBindings.some((asset) =>
+      !asset.id?.trim()
+      || (
+        asset.trustMode !== undefined
+        && asset.trustMode !== 'documented'
+        && asset.trustMode !== 'public-research'
+      )
+    )
     || new Set(assetKeys).size !== assetKeys.length
   ) blockers.push('temporal-asset-bindings-invalid');
 
@@ -240,7 +258,6 @@ export function validateTemporalSceneRecord(scene: TemporalSceneRecord): Tempora
   if (
     scene.publicationState !== 'draft'
     && scene.publicationState !== 'production-candidate'
-    && scene.publicationState !== 'field-verified'
     && scene.publicationState !== 'superseded'
   ) blockers.push('temporal-publication-state-invalid');
 
@@ -263,8 +280,8 @@ function overlap(left: TemporalExtent, right: TemporalExtent) {
     if (right.kind === 'reference-points') return right.years.some((year) => years.has(year));
     const bounds = extentBounds(right);
     return left.years.some((year) => {
-      const yearStart = Date.UTC(year, 0, 1);
-      const yearEnd = Date.UTC(year, 11, 31);
+      const yearStart = dateOrdinal(year, 1, 1);
+      const yearEnd = dateOrdinal(year, 12, 31);
       return Boolean(bounds && yearStart <= bounds.end && bounds.start <= yearEnd);
     });
   }
