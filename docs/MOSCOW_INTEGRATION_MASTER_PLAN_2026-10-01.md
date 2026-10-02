@@ -315,7 +315,7 @@ place -> epoch/period -> historical evidence -> reconstructed scene -> publicati
 
 UI can support a time slider/epoch switch only after the underlying temporal records exist.
 
-### Accessibility Route Profile — ADOPT
+### Accessibility Route Profile — ADOPT / PHASE 1 IMPLEMENTING (#100)
 
 Extend curated walks with accessibility constraints:
 
@@ -331,6 +331,15 @@ Extend curated walks with accessibility constraints:
 Valhalla or another router may provide route candidates, but Moscow retains verified accessibility metadata and curated route approval.
 
 If accessibility status is unknown or stale, show it as unknown rather than asserting accessibility.
+
+Phase 1 repository authority:
+
+- generic evidence-bound contract: `src/travel/accessibilityRouteProfile.ts`;
+- fail-closed tests: `tests/accessibilityRouteProfile.test.ts`;
+- Personal Trip step-free intent persistence: `tests/tripAccessibilityPreference.test.ts`;
+- runbook: `docs/ACCESSIBILITY_ROUTE_PROFILE.md`.
+
+Current Phase 1 adds no real Moscow accessibility facts. `step-free required` is a user intent, not evidence. Missing, stale or conflicting required facts return `needs-accessibility-authority` rather than a fabricated accessible route.
 
 ### Audio/subtitle narrative package — ADOPT
 
