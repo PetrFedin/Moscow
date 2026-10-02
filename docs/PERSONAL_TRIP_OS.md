@@ -304,3 +304,55 @@ The old flat visit list is replaced with Moscow Passport:
 - evidence label per visit.
 
 No background GPS history is required.
+
+
+## Trip Booking Wallet
+
+Issue: #110.
+
+This layer implements the master-plan Ticket / Reservation Import direction as a practical personal trip wallet.
+
+A commitment may store, when supplied:
+
+- provider/source;
+- booking/ticket reference;
+- date and planned time from the trip item;
+- party size;
+- section/row/seats as bounded free text;
+- address/meeting point;
+- source reference;
+- HTTPS confirmation link;
+- verification state.
+
+### Truth boundary
+
+Manual import remains `user-declared`.
+
+Adding a provider name, order number, seat, address or confirmation URL does not prove that the provider accepts or still recognizes the booking.
+
+`provider-confirmed` still requires provider identity plus receipt/evidence reference.
+
+QR/barcode payloads are treated as sensitive booking material. This first slice does not persist raw QR/barcode images and does not expose them on public/social surfaces.
+
+### Booking Wallet UI
+
+`src/features/trip/BookingWalletCard.tsx` gives one trip-wide surface for all active tickets/reservations:
+
+- date/time;
+- ticket vs reservation;
+- source/reference;
+- party size;
+- seats;
+- address;
+- verification state;
+- confirmation link.
+
+The day timeline continues to carry the same commitment and remains the scheduling authority.
+
+### Fixed vs flexible planning
+
+A confirmed commitment with a complete start/end interval is treated by Trip Scheduler as a fixed commitment.
+
+Flexible plan items may be reordered. Fixed commitments are never silently moved by the scheduler; moving them to another day requires an explicit user action.
+
+The application still does not claim route feasibility, venue opening status or ticket validity without the appropriate authorities.
