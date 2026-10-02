@@ -119,7 +119,23 @@ export const romanovTemporalSceneValidation = validateTemporalSceneRegistry(
 );
 
 export function getRomanovTemporalSceneAtTimeIndex(index: number) {
-  return temporalSceneAtTimeMachineIndex(romanovTemporalScenes, 'romanov-chambers', index);
+  const exact = temporalSceneAtTimeMachineIndex(romanovTemporalScenes, 'romanov-chambers', index);
+  if (exact) return exact;
+
+  const active = romanovTemporalScenes.filter((scene) =>
+    scene.placeId === 'romanov-chambers'
+    && scene.publicationState !== 'superseded'
+    && (scene.timeMachineIndexes?.length ?? 0) > 0
+  );
+  const maximumIndex = Math.max(
+    ...active.flatMap((scene) => scene.timeMachineIndexes ?? [])
+  );
+  if (!Number.isFinite(maximumIndex)) return null;
+
+  const rounded = Math.max(0, Math.round(index));
+  return rounded > maximumIndex
+    ? active.find((scene) => scene.timeMachineIndexes?.includes(maximumIndex)) ?? null
+    : null;
 }
 
 export function getRomanovRuntimeEraAtTimeIndex(index: number): RomanovEra | null {
