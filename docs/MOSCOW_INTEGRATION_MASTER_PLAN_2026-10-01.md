@@ -246,28 +246,39 @@ This can provide repeatable anchor measurements instead of relying only on visua
 
 Remove/ignore calibration markers from published visitor logic unless a deliberate operational decision says otherwise.
 
-### Sensor Quality Gate — ADOPT
+### Sensor Quality Gate — ADOPT / IMPLEMENTING (#94)
 
-Before launching a spatial scene, calculate a client-side quality state from available signals:
+Before launching or re-anchoring a spatial scene, calculate a client-side quality state from available signals:
 
-- location accuracy;
-- heading accuracy;
+- location uncertainty radius;
+- compass calibration quality;
 - motion/orientation availability;
 - AR tracking state;
-- downloaded package/version;
-- device capability.
+- model/package readiness;
+- device AR capability.
 
-States such as:
+Runtime states are now explicit:
 
-- precise/ready;
-- degraded;
-- insufficient.
+- `precise`;
+- `degraded`;
+- `insufficient`.
 
 Narrative/AR behavior must adapt:
 
-- precise -> full anchored experience;
-- degraded -> guided fallback/manual alignment;
-- insufficient -> map/media/story fallback.
+- `precise` -> sensor-ready anchored workflow may proceed;
+- `degraded` -> guided/manual alignment only; no precise-placement claim;
+- `insufficient` -> anchor placement blocked; use 3D/story fallback.
+
+Current pilot implementation authority:
+
+- pure deterministic gate: `src/spatial/sensorQualityGate.ts`;
+- native Romanov integration: `src/features/spatial/MoscowSpatialJourney.native.tsx`;
+- contract tests: `tests/sensorQualityGate.test.ts`;
+- runbook: `docs/SENSOR_QUALITY_GATE.md`.
+
+Privacy boundary: only permission class, location uncertainty radius and compass calibration level may enter gate state. Latitude/longitude, raw heading, route history and camera content are not persisted or emitted by this gate.
+
+This is a runtime safety layer only. It cannot mark Romanov/Old English Court field evidence PASS and cannot unlock `MOSCOW-INT-00`.
 
 Do not pretend a precise placement when sensors say otherwise.
 
