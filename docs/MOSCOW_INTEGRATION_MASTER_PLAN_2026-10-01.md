@@ -344,3 +344,80 @@ This provides an accessible low-visual-attention path and supports offline narra
 
 **Sequencing:** Field Verification -> AprilTag calibration + sensor gate -> temporal scene model -> accessibility/audio layers -> larger spatial-trigger rollout.
 
+## Additional wave — street-level reference imagery for field verification
+
+This wave adds a practical authoring/review tool for entrances, facades, approach paths and accessibility checks without replacing field evidence.
+
+### Mapillary JS reference viewer — CONDITIONAL ADAPT
+
+Reference: https://github.com/mapillary/mapillary-js
+
+Use Mapillary JS only as a bounded reviewer/authoring surface when provider access and imagery terms permit.
+
+Possible uses:
+
+- compare current street-level context with the Moscow destination package;
+- verify likely approach direction/entrance before field visit;
+- identify facade/streetscape changes that require package review;
+- pre-screen accessibility/route questions;
+- support editorial orientation for a historical scene.
+
+The imagery is external contextual evidence, not the authoritative current-site state.
+
+### Street-level Reference Record — ADOPT
+
+When an editor uses an external street-level image, store only the necessary reference metadata:
+
+- provider;
+- external image/sequence ID;
+- capture date where supplied;
+- coordinates/heading where supplied;
+- reviewed_at;
+- reviewer;
+- linked site/entrance/route;
+- note/status.
+
+Do not copy or redistribute imagery outside provider terms.
+
+### Field Verification comparison workflow — ADOPT
+
+Flow:
+
+external/reference imagery -> pre-field hypothesis -> actual field verification -> discrepancy -> destination-package update/review
+
+Examples:
+
+- expected entrance no longer accessible;
+- facade changed;
+- temporary obstruction;
+- current path differs from archived assumptions.
+
+Only direct field verification or an explicitly trusted live source may confirm current operational state.
+
+### Freshness / Staleness rule — ADOPT
+
+Street-level imagery can be months or years old. UI/editor tooling should always expose capture date/freshness where available and support statuses such as:
+
+- current enough for orientation;
+- stale/context only;
+- conflicts with field evidence;
+- no usable reference.
+
+Never assert accessibility, closure or current entrance availability solely from old imagery.
+
+### Existing offline map boundary
+
+Keep the current Tippecanoe/PMTiles and Yandex MapKit plan unchanged. Mapillary is an optional reference viewer, not the base map or offline route authority.
+
+### Additional acceptance
+
+- external imagery references have capture/provider metadata where available;
+- field evidence overrides conflicting street-level reference imagery;
+- no external image is redistributed beyond provider permissions;
+- stale imagery is visibly labeled;
+- the optional provider can be disabled without breaking published Destination Packages.
+
+**Sequencing:** Field Verification Mode first -> optional street-level reference reviewer -> discrepancy workflow -> package updates.
+
+**Dependency note:** the Mapillary JS repository is MIT-licensed, but service/API/data usage has separate provider terms and credentials that must be reviewed before adoption.
+
