@@ -31,6 +31,7 @@ import TouristTodayCard from './TouristTodayCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
+import DayReplanCard from './DayReplanCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -149,8 +150,14 @@ function shortDay(language: AppLanguage, dateOnly: string) {
 
 function timeLabel(value?: string) {
   if (!value) return '';
-  const match = /T(\d{2}:\d{2})/.exec(value);
-  return match?.[1] ?? '';
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Moscow'
+  }).format(parsed);
 }
 
 function moscowTimeLabel(language: AppLanguage, value: string) {
@@ -521,6 +528,13 @@ export default function PersonalTripPlanner({
       />
 
       <BookingWalletCard trip={trip} language={language} />
+
+      <DayReplanCard
+        trip={trip}
+        dayDate={selectedDay}
+        language={language}
+        onUpdate={setTrip}
+      />
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>

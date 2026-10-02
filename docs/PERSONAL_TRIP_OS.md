@@ -408,3 +408,88 @@ Repository authority:
 - active-day use: `src/travel/touristToday.ts`;
 - contract tests: `tests/tripPreferences.test.ts`;
 - browser E2E: `tests/personalTrip.e2e.spec.ts`.
+
+
+## Day Replan v1
+
+Issue: #116.
+
+Day Replan rebuilds the remaining schedule without weakening live/provider runtime authority.
+
+Input:
+
+`current time + day bounds + lunch preference + remaining fixed commitments + remaining flexible items`.
+
+Output is a **schedule-only proposal**.
+
+### Hard boundary
+
+A proposal explicitly records:
+
+- `routingVerified=false`;
+- `openingHoursVerified=false`;
+- `accessibilityVerified=false`;
+- `weatherVerified=false`.
+
+It must never be described as a feasible route until those authorities exist.
+
+### Fixed commitments
+
+A planned item with a confirmed ticket/reservation and a complete time interval is fixed.
+
+Day Replan:
+
+- preserves its exact start/end;
+- never places flexible items across it;
+- rejects a forged proposal that changes the fixed interval.
+
+### Flexible items
+
+Only remaining planned non-fixed items can move.
+
+A known existing interval supplies duration. If duration is missing, Day Replan does not invent one; the item remains unscheduled with `missing-duration`.
+
+If no contiguous time window is large enough, the item remains unscheduled with `no-schedule-window`.
+
+### Preferences
+
+Day Replan consumes the same Personal Trip Preferences as Scheduler/Today:
+
+- day start/end;
+- lunch window;
+- pace;
+- priority mode;
+- max continuous walking;
+- step-free intent.
+
+In Phase 1 only day bounds and lunch constrain placement. The other values are persisted in the proposal input snapshot for future authoritative routing/solver phases; they do not create fake travel/accessibility facts.
+
+### Explicit acceptance
+
+Proposal creation does not mutate Personal Trip.
+
+Apply requires:
+
+- exact trip ID;
+- exact baseline `trip.updatedAt`;
+- fixed-commitment preservation;
+- no overlap with fixed/lunch windows;
+- no overlap between proposed flexible intervals;
+- explicit `userAccepted=true`.
+
+Any trip change after proposal creation makes the proposal stale.
+
+### Relationship to DestinationJourneyRuntime
+
+Personal Day Replan does **not** replace `DestinationJourneyRuntime.replan-required`.
+
+Live/provider invalidation still uses the verified runtime and its routing-proof requirement.
+
+Personal Day Replan is the visitor-owned, local schedule layer above that authority.
+
+### Repository authority
+
+- proposal/apply engine: `src/travel/personalTripReplan.ts`;
+- UI: `src/features/trip/DayReplanCard.tsx`;
+- contract tests: `tests/personalTripReplan.test.ts`;
+- browser flow: `tests/personalTrip.e2e.spec.ts`.
