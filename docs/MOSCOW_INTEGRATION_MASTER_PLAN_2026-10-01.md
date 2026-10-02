@@ -592,26 +592,13 @@ History can then answer:
 - places saved but not visited;
 - what fits my next free day.
 
-### Day Replan — ADOPT / PHASE 1 IMPLEMENTING (#116)
+### Day Replan — ADOPT
 
 When a fixed item changes/cancels or the user skips something:
 
 current time/location + remaining fixed constraints + remaining flexible items -> proposed replacement plan
 
 This builds directly on the existing Journey Runtime / replan-required concepts.
-
-Phase 1 repository authority:
-
-- schedule-only proposal/apply engine: `src/travel/personalTripReplan.ts`;
-- visitor UI: `src/features/trip/DayReplanCard.tsx`;
-- contract tests: `tests/personalTripReplan.test.ts`;
-- browser flow: `tests/personalTrip.e2e.spec.ts`.
-
-Phase 1 preserves confirmed fixed commitments exactly, consumes Personal Trip day/lunch preferences, and only moves remaining flexible items with known duration. Missing-duration and no-window items stay unscheduled rather than receiving invented values.
-
-Every proposal records `routingVerified=false`, `openingHoursVerified=false`, `accessibilityVerified=false`, and `weatherVerified=false`. Creating a proposal does not mutate the trip. Applying it requires an unchanged baseline and explicit user acceptance.
-
-This personal schedule layer does not weaken `DestinationJourneyRuntime`: live/provider invalidation still requires the existing `replan-required` state and routing proof.
 
 ### Additional acceptance
 
@@ -788,7 +775,7 @@ This does not satisfy #74/#73 and does not create live provider validity.
 
 This wave creates a signature time-machine interaction: the visitor points the camera at a verified landmark/facade, Moscow recognizes the place/context and opens the correct historical layer even where GPS/compass are noisy.
 
-### Visual Landmark Reference Set — ADOPT
+### Visual Landmark Reference Set — ADOPT / PHASE 1 IMPLEMENTING (#114)
 
 For field-proven places store approved reference imagery/descriptors:
 
@@ -802,6 +789,17 @@ For field-proven places store approved reference imagery/descriptors:
 - descriptor/model version.
 
 Only verified public landmarks/facades enter the set.
+
+Phase 1 repository authority:
+
+- evidence-bound set and descriptor metadata: `src/spatial/visualLandmarkReference.ts`;
+- external field-verification admission: a reference set cannot self-declare physical PASS;
+- strict candidate decision: `matched / needs-user-confirmation / not-sure / blocked-unverified-site`;
+- geographic and heading incompatibility rejection;
+- contract tests: `tests/visualLandmarkReference.test.ts`;
+- runbook: `docs/VISUAL_LANDMARK_REFERENCE_SET.md`.
+
+No real Romanov or Old English Court visual reference set is activated by Phase 1. The existing physical field gates remain authoritative.
 
 ### On-device Visual Recognition — ADAPT
 
@@ -848,7 +846,7 @@ Default:
 - no background person tracking;
 - ephemeral frames unless user explicitly saves/captures.
 
-### Recognition Quality Gate — ADOPT
+### Recognition Quality Gate — ADOPT / PHASE 1 IMPLEMENTING (#114)
 
 Per site measure:
 
@@ -861,6 +859,10 @@ Per site measure:
 
 If insufficient, fall back to map/manual selection.
 
+Phase 1 quality authority records measured sample count, true-match/false-positive/unknown rates, viewpoint and lighting coverage, tested device classes and p95 inference latency. Missing evidence fails closed. Pilot thresholds are repository-configurable and are not presented as external standards.
+
+Release requires both external field admission and quality evidence for the same canonical site.
+
 ### Additional acceptance
 
 - recognized place resolves to field-verified canonical site ID;
@@ -871,6 +873,117 @@ If insufficient, fall back to map/manual selection.
 - unsupported devices degrade gracefully.
 
 **Sequencing:** field-proven packages -> visual reference set -> on-device matching -> sensor fusion -> historical reveal -> broader rollout.
+
+## Premium commercial wave — governed AI City Concierge
+
+This wave turns the existing itinerary, routing, booking/ticket and historical-content stack into one natural-language premium interface.
+
+### City Concierge Agent — ADOPT
+
+Typed-agent pattern candidate:
+
+https://github.com/pydantic/pydantic-ai
+
+The agent may use only explicit Moscow tools such as:
+
+Read:
+- search places/events/content;
+- inspect opening hours/source freshness;
+- inspect current itinerary;
+- inspect imported tickets/reservations;
+- calculate travel-time candidates;
+- inspect visited-history;
+- fetch historical/source context.
+
+Propose:
+- day plan;
+- replacement item;
+- route;
+- restaurant/theatre/activity candidate;
+- ticket/reservation addition;
+- itinerary replan.
+
+Side effects:
+- itinerary changes;
+- booking/provider actions;
+- notifications/reminders;
+
+require explicit user approval unless they are harmless reversible local edits the user directly requested.
+
+### Source-grounded Answers — REQUIRED
+
+Every factual answer about:
+
+- opening hours;
+- ticket time;
+- booking;
+- address;
+- historical fact;
+- accessibility;
+- temporary closure;
+
+must identify the source/verification state used by Moscow.
+
+If current data is unavailable, say it is unknown/stale instead of inventing availability.
+
+### Conversational Constraint Capture — ADOPT
+
+The user can say:
+
+- I have a theatre ticket at 19:00;
+- I want architecture, no museums;
+- lunch around 14:00;
+- I have already seen the Kremlin;
+- keep walking under 8 km;
+- step-free route;
+- two days with children.
+
+Translate these into visible itinerary constraints that the user can edit.
+
+Do not hide inferred constraints inside the model.
+
+### Plan Explanation — ADOPT
+
+For each proposed item show why it is there:
+
+- requested interest;
+- near a fixed booking;
+- fits opening window;
+- new vs already visited;
+- route efficiency;
+- historical/theme relation;
+- accessibility match where verified.
+
+### Live Replan — ADOPT
+
+When the user says:
+
+- we are late;
+- skip this;
+- I am here now;
+- restaurant cancelled;
+- I have 90 free minutes;
+
+invoke the existing replan authority and preserve future fixed constraints.
+
+### Concierge Memory Boundary — ADOPT
+
+Persist only useful user-approved travel preferences/history according to account/privacy policy.
+
+Do not infer religion, politics, health or other sensitive traits from visited places or questions.
+
+### Additional acceptance
+
+- agent cannot invent provider availability;
+- every itinerary mutation has structured diff/approval;
+- fixed tickets/reservations are preserved unless user explicitly changes them;
+- answers link to canonical/source data;
+- no booking action executes without configured provider + user approval;
+- service degrades to ordinary search/itinerary UI without AI.
+
+**Sequencing:** Personal Itinerary + source authority + provider boundaries -> read-only concierge -> plan proposals -> replan -> approved booking/action tools.
+
+**Commercial framing:** Moscow becomes a personal city operating system, not a directory or static guide.
 
 
 ### Trip Preferences — IMPLEMENTING (#112)
@@ -912,3 +1025,25 @@ Repository authority:
 - active-day consumption: `src/travel/touristToday.ts`;
 - contract tests: `tests/tripPreferences.test.ts`;
 - browser coverage: `tests/personalTrip.e2e.spec.ts`.
+
+
+### Day Replan — ADOPT / PHASE 1 IMPLEMENTING (#116)
+
+When a fixed item changes/cancels or the user skips something:
+
+current time/location + remaining fixed constraints + remaining flexible items -> proposed replacement plan
+
+This builds directly on the existing Journey Runtime / replan-required concepts.
+
+Phase 1 repository authority:
+
+- schedule-only proposal/apply engine: `src/travel/personalTripReplan.ts`;
+- visitor UI: `src/features/trip/DayReplanCard.tsx`;
+- contract tests: `tests/personalTripReplan.test.ts`;
+- browser flow: `tests/personalTrip.e2e.spec.ts`.
+
+Phase 1 preserves confirmed fixed commitments exactly, consumes Personal Trip day/lunch preferences, and only moves remaining flexible items with known duration. Missing-duration and no-window items stay unscheduled rather than receiving invented values.
+
+Every proposal records `routingVerified=false`, `openingHoursVerified=false`, `accessibilityVerified=false`, and `weatherVerified=false`. Creating a proposal does not mutate the trip. Applying it requires an unchanged baseline and explicit user acceptance.
+
+This personal schedule layer does not weaken `DestinationJourneyRuntime`: live/provider invalidation still requires the existing `replan-required` state and routing proof.
