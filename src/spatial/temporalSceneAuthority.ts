@@ -65,6 +65,7 @@ export type TemporalSceneRegistryAuthority = {
   claimIds: ReadonlySet<string>;
   evidenceElementIds: ReadonlySet<string>;
   assetIds: ReadonlySet<string>;
+  assetSourceIds?: ReadonlyMap<string, readonly string[]>;
   experiencePeriodIds?: ReadonlySet<string>;
 };
 
@@ -318,7 +319,15 @@ export function validateTemporalSceneRegistry(
       }
     }
     for (const asset of scene.assetBindings) {
-      if (!authority.assetIds.has(asset.id)) blockers.push(`temporal-asset-not-found:${scene.id}:${asset.id}`);
+      if (!authority.assetIds.has(asset.id)) {
+        blockers.push(`temporal-asset-not-found:${scene.id}:${asset.id}`);
+        continue;
+      }
+      for (const sourceId of authority.assetSourceIds?.get(asset.id) ?? []) {
+        if (!scene.sourceIds.includes(sourceId)) {
+          blockers.push(`temporal-scene-source-does-not-cover-asset:${scene.id}:${asset.id}:${sourceId}`);
+        }
+      }
     }
     for (const periodId of scene.experiencePeriodIds ?? []) {
       if (authority.experiencePeriodIds && !authority.experiencePeriodIds.has(periodId)) {
