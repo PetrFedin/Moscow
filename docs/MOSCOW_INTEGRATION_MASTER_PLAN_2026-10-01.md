@@ -605,3 +605,54 @@ This builds directly on the existing Journey Runtime / replan-required concepts.
 
 **Dependency note:** OpenTripPlanner upstream is active, but license/data/GTFS deployment requirements must be reviewed before adoption; it remains a replaceable routing sidecar.
 
+## Product wave — Personal Trip OS
+
+Issue: #101. Detailed contract: `docs/PERSONAL_TRIP_OS.md`.
+
+### Goal
+
+Move the consumer product from a single destination-day prototype to a persistent personal trip layer:
+
+`Trip -> Day -> Plan item -> Ticket/Reservation -> Visit -> History -> What next`.
+
+The user must be able to plan several Moscow days, combine published Moscow inventory with their own tickets/reservations, record actual visits and understand what remains unseen.
+
+### Architecture boundary
+
+Personal Trip is a visitor-owned layer above the existing authorities:
+
+- `DestinationPackage` remains source-backed destination content authority;
+- `DestinationJourneyRuntime` remains live execution/replan authority;
+- provider receipts remain the only way to promote a booking to provider-confirmed;
+- field verification remains independent of personal trip state;
+- #74/#73 provider PASS remains required before Evidence Signing Authority.
+
+Manual ticket/reservation entry is useful personal data but must remain `user-declared`; it cannot satisfy provider proof.
+
+### First slice — IMPLEMENTING
+
+- multi-day local-first trip;
+- day timeline;
+- saved-place quick add;
+- manual museum/restaurant/theatre/bar/event/activity entries;
+- manual ticket/reservation capture;
+- visit ledger;
+- completed in-app route stop -> trip history sync;
+- source-backed "what else to see";
+- RU / EN / ZH UI;
+- contract tests.
+
+### Next sequence
+
+After the first slice is green:
+
+1. reorder and move items across days;
+2. detect fixed-time conflicts;
+3. introduce routing-authority travel slots;
+4. import provider receipt/deep-link return;
+5. add stay/hotel anchors;
+6. trusted live opening-hours/weather context;
+7. free-window recommendations;
+8. multi-day trip recap.
+
+Do not use the absence of provider access as a reason to stop product development, but do not fabricate live availability, prices, opening status, bookings or ticket outcomes.
