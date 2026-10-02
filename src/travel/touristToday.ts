@@ -1,4 +1,4 @@
-import type { PersonalTrip, PersonalTripItem, PersonalTripVisit } from './personalTrip.ts';
+import { resolvePersonalTripPreferences, type PersonalTrip, type PersonalTripItem, type PersonalTripVisit } from './personalTrip.ts';
 import { deriveTripFreeWindows, detectTripScheduleConflicts, type TripFreeWindow } from './tripScheduler.ts';
 
 export type TouristTodayState = {
@@ -110,8 +110,9 @@ export function deriveTouristTodayState(input: {
     .filter((item) => !item.plannedStartAt || itemStart(item) > now)
     .sort((a, b) => itemStart(a) - itemStart(b))[0];
 
-  const dayStart = input.dayStartsAt ?? dayBoundary(dayDate, '09:00');
-  const dayEnd = input.dayEndsAt ?? dayBoundary(dayDate, '23:00');
+  const preferences = resolvePersonalTripPreferences(input.trip);
+  const dayStart = input.dayStartsAt ?? dayBoundary(dayDate, preferences.dayStart);
+  const dayEnd = input.dayEndsAt ?? dayBoundary(dayDate, preferences.dayEnd);
   const freeWindows = deriveTripFreeWindows({
     trip: input.trip,
     dayDate,
