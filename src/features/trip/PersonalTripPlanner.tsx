@@ -263,8 +263,7 @@ export default function PersonalTripPlanner({
       });
       setTrip(next);
       setSelectedDay(next.days[0] ?? startDateInput);
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'invalid-trip-item');
+    } catch {
       return;
     }
   };
@@ -320,7 +319,8 @@ export default function PersonalTripPlanner({
       setManualEndTime('21:00');
       setCommitmentChoice('none');
       setManualOpen(false);
-    } catch {
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'invalid-trip-item');
       return;
     }
   };
