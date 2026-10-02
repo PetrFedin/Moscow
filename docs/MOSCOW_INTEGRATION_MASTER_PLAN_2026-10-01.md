@@ -771,6 +771,94 @@ Guardrails:
 
 This does not satisfy #74/#73 and does not create live provider validity.
 
+## Premium innovation wave — camera-based visual positioning and instant historical reveal
+
+This wave creates a signature time-machine interaction: the visitor points the camera at a verified landmark/facade, Moscow recognizes the place/context and opens the correct historical layer even where GPS/compass are noisy.
+
+### Visual Landmark Reference Set — ADOPT
+
+For field-proven places store approved reference imagery/descriptors:
+
+- site/object/facade;
+- viewpoint/heading;
+- source image/version;
+- capture date;
+- reference feature metadata;
+- field verification state;
+- rights;
+- descriptor/model version.
+
+Only verified public landmarks/facades enter the set.
+
+### On-device Visual Recognition — ADAPT
+
+Candidate libraries:
+
+- https://github.com/google-ai-edge/mediapipe
+- https://github.com/opencv/opencv
+
+Flow:
+
+camera frame -> local feature/model inference -> candidate landmark -> confidence/geometry check -> package lookup -> user confirmation or strict-threshold reveal
+
+Prefer on-device processing to avoid uploading continuous camera video.
+
+### Visual + Sensor Fusion — ADOPT
+
+Combine:
+
+- visual candidate;
+- coarse GPS;
+- heading;
+- orientation;
+- known destination package;
+- optional AprilTag calibration in authoring mode.
+
+Reject visually plausible but geographically impossible matches.
+
+### Instant Historical Reveal — ADOPT
+
+After confirmed place/context:
+
+current facade -> matched historical scene/period -> overlay/reconstruction -> evidence panel -> optional audio narrative
+
+Show historical period, reconstruction confidence and source evidence.
+
+### Privacy Boundary — REQUIRED
+
+Do not implement face recognition or identify passers-by.
+
+Default:
+
+- no continuous camera upload;
+- no biometric profile;
+- no background person tracking;
+- ephemeral frames unless user explicitly saves/captures.
+
+### Recognition Quality Gate — ADOPT
+
+Per site measure:
+
+- true-match rate;
+- false-positive rate;
+- unknown/failure rate;
+- viewpoint/lighting coverage;
+- device performance;
+- inference latency.
+
+If insufficient, fall back to map/manual selection.
+
+### Additional acceptance
+
+- recognized place resolves to field-verified canonical site ID;
+- impossible geographic matches are rejected;
+- false positives produce safe not-sure behavior;
+- historical reveal shows evidence/period/confidence;
+- camera flow works without face identification;
+- unsupported devices degrade gracefully.
+
+**Sequencing:** field-proven packages -> visual reference set -> on-device matching -> sensor fusion -> historical reveal -> broader rollout.
+
 
 ### Trip Preferences — IMPLEMENTING (#112)
 
