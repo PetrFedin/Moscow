@@ -111,3 +111,32 @@ test('review adds reviewer authority but still does not create a field PASS', ()
   assert.equal(validateAprilTagCalibrationEvidence(reviewed).valid, true);
   assert.equal('passed' in reviewed, false);
 });
+
+
+test('review is write-once and cannot silently rewrite an accepted decision', () => {
+  const evidence = buildAprilTagCalibrationEvidence({ marker, observation });
+  const accepted = reviewAprilTagCalibrationEvidence(evidence, {
+    status: 'accepted',
+    reviewedBy: 'field-reviewer',
+    reviewedAt: '2026-10-02T00:10:00Z'
+  });
+
+  assert.throws(
+    () => reviewAprilTagCalibrationEvidence(accepted, {
+      status: 'rejected',
+      reviewedBy: 'other-reviewer',
+      reviewedAt: '2026-10-02T00:20:00Z'
+    }),
+    /write-once/
+  );
+});
+
+test('invalid marker geometry is rejected before evidence can be created', () => {
+  assert.throws(
+    () => buildAprilTagCalibrationEvidence({
+      marker: { ...marker, physicalSizeMeters: 0 },
+      observation
+    }),
+    /physical size must be measured/
+  );
+});
