@@ -213,3 +213,94 @@ This link is a personal trip convenience only. Its presence does not prove that:
 - any inventory or capacity is available.
 
 Only a real provider receipt/evidence path may promote the commitment to `provider-confirmed`. Opening a stored link must not change verification state.
+
+
+## Tourist Today cockpit
+
+Issue: #105.
+
+Tourist Today turns the stored itinerary into an in-day operating view:
+
+`Now -> Next commitment -> Remaining plan -> Free windows -> Seen today -> What else`.
+
+Implemented contract and UI:
+
+- Moscow-time current-day detection;
+- current planned item;
+- next timed item;
+- next confirmed ticket/reservation;
+- minutes until the next fixed commitment;
+- completed / remaining day progress;
+- visits completed today;
+- current or next schedule-only free window;
+- time-conflict count;
+- one-tap opening of a stored ticket/reservation link;
+- source-backed unseen Moscow candidates;
+- RU / EN / ZH labels.
+
+Truth boundaries remain explicit:
+
+- a free window is schedule-only and always keeps `routingVerified=false`;
+- the UI does not say that the visitor can reach a place in time;
+- the UI does not say that a venue is open now;
+- the UI does not say that tickets are available now;
+- a user-entered commitment remains `user-declared`;
+- provider-confirmed display requires the existing provider receipt/evidence contract.
+
+The clock refreshes in the UI once per minute. No background GPS history is required.
+
+
+## Moscow Passport — semantic trip history
+
+Issue: #107.
+
+Moscow Passport turns the raw visit ledger into a useful personal history:
+
+`Plan item -> Visit -> Semantic category -> Day recap -> Trip passport`.
+
+Visit categories:
+
+- `saw` — heritage, museums, nature and viewpoints;
+- `ate` — restaurants/cafes/food;
+- `nightlife` — bars;
+- `culture` — theatre and events;
+- `activity` — activities;
+- `shopping`;
+- `stay`;
+- `transport`;
+- `other`.
+
+The semantic category is independent from visit evidence.
+
+Evidence remains one of:
+
+- `user-confirmed`;
+- `route-completed`;
+- `provider-receipt`;
+- `proximity`.
+
+A category such as "Где ел" never upgrades a visit to provider-verified.
+
+### Backward compatibility
+
+New visits persist an optional `kind`.
+
+Older v1 visits without `kind` are resolved in this order:
+
+1. linked Personal Trip item;
+2. linked DestinationPackage node;
+3. `other`.
+
+This allows existing local trip data to be upgraded without rewriting historical evidence.
+
+### UI
+
+The old flat visit list is replaced with Moscow Passport:
+
+- total visited places;
+- days with recorded visits;
+- semantic category totals;
+- per-day visit history;
+- evidence label per visit.
+
+No background GPS history is required.

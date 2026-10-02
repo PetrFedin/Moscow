@@ -26,6 +26,8 @@ import {
   reorderTripDayItems
 } from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import TouristTodayCard from './TouristTodayCard';
+import MoscowPassportCard from './MoscowPassportCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -98,6 +100,19 @@ function localDateOnly(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function moscowDateOnly(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  return year && month && day ? `${year}-${month}-${day}` : localDateOnly(date);
+}
+
 function addDays(dateOnly: string, days: number) {
   const date = new Date(`${dateOnly}T12:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -118,7 +133,7 @@ function moscowTimestamp(dayDate: string, time: string) {
 }
 
 function visitTimestamp(dayDate: string) {
-  return dayDate === localDateOnly()
+  return dayDate === moscowDateOnly()
     ? new Date().toISOString()
     : `${dayDate}T12:00:00+03:00`;
 }
@@ -196,7 +211,7 @@ export default function PersonalTripPlanner({
 
   useEffect(() => {
     if (!hydrated || !trip || visitedIds.length === 0) return;
-    const today = localDateOnly();
+    const today = moscowDateOnly();
     if (!trip.days.includes(today)) return;
 
     const synced = syncRouteCompletedVisits({
@@ -377,6 +392,7 @@ export default function PersonalTripPlanner({
       dayDate: item.dayDate,
       visitedAt: at,
       title: item.title,
+      kind: item.kind,
       evidence: 'user-confirmed',
       updatedAt: new Date().toISOString()
     }));
@@ -463,6 +479,13 @@ export default function PersonalTripPlanner({
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.visitedCount}</Text><Text style={styles.metricLabel}>{tr(language, 'посещено', 'visited', '已到访')}</Text></View>
         </View>
       )}
+
+      <TouristTodayCard
+        trip={trip}
+        language={language}
+        visitedIds={visitedIds}
+        onOpenPlace={onOpenPlace}
+      />
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
@@ -806,24 +829,7 @@ export default function PersonalTripPlanner({
         </>
       )}
 
-      {trip.visits.length > 0 && (
-        <>
-          <Text style={styles.label}>{tr(language, 'МОЯ ИСТОРИЯ МОСКВЫ', 'MY MOSCOW HISTORY', '我的莫斯科足迹')}</Text>
-          <View style={styles.history}>
-            {[...trip.visits].sort((a, b) => b.visitedAt.localeCompare(a.visitedAt)).slice(0, 8).map((visit) => (
-              <View key={visit.id} style={styles.historyRow}>
-                <Text style={styles.historyCheck}>✓</Text>
-                <View style={styles.historyCopy}>
-                  <Text style={styles.historyTitle}>{visit.title}</Text>
-                  <Text style={styles.historyMeta}>{visit.dayDate} · {visit.evidence === 'route-completed'
-                    ? tr(language, 'из прогулки', 'from walk', '来自路线')
-                    : tr(language, 'отмечено вами', 'marked by you', '由你标记')}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
+      <MoscowPassportCard trip={trip} language={language} />
     </View>
   );
 }
@@ -912,11 +918,5 @@ const styles = StyleSheet.create({
   freeWindows: { gap: 6 },
   freeWindow: { borderRadius: 13, borderWidth: 1, borderColor: '#313941', backgroundColor: '#151a1f', padding: 10 },
   freeWindowTime: { color: '#d5bd8d', fontSize: 11, fontWeight: '900' },
-  freeWindowMeta: { color: '#79818a', fontSize: 8.5, marginTop: 3 },
-  history: { gap: 6 },
-  historyRow: { flexDirection: 'row', gap: 9, alignItems: 'center', borderRadius: 14, backgroundColor: '#15191e', padding: 11 },
-  historyCheck: { color: '#9ec2a5', fontSize: 15, fontWeight: '900' },
-  historyCopy: { flex: 1, minWidth: 0 },
-  historyTitle: { color: '#ddd9d1', fontSize: 11, fontWeight: '800' },
-  historyMeta: { color: '#777e87', fontSize: 8.5, marginTop: 2 }
+  freeWindowMeta: { color: '#79818a', fontSize: 8.5, marginTop: 3 }
 });

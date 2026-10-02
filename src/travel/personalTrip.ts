@@ -1,5 +1,4 @@
 import type { DestinationPackage, ExperienceNode, ExperienceNodeKind } from './destinationPackage.ts';
-import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -42,14 +41,11 @@ export type PersonalTripVisit = {
   visitedAt: string;
   dayDate: string;
   title: string;
+  kind?: PersonalTripItemKind;
   itemId?: string;
   destinationNodeId?: string;
   evidence: 'user-confirmed' | 'route-completed' | 'provider-receipt' | 'proximity';
   evidenceRef?: string;
-};
-
-export type PersonalTripPreferences = {
-  stepFreeIntent?: StepFreeIntent;
 };
 
 export type PersonalTrip = {
@@ -62,7 +58,6 @@ export type PersonalTrip = {
   days: string[];
   items: PersonalTripItem[];
   visits: PersonalTripVisit[];
-  preferences?: PersonalTripPreferences;
   createdAt: string;
   updatedAt: string;
 };
@@ -142,8 +137,7 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...item,
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
-    visits: trip.visits.map((visit) => ({ ...visit })),
-    ...(trip.preferences ? { preferences: { ...trip.preferences } } : {})
+    visits: trip.visits.map((visit) => ({ ...visit }))
   };
 }
 
@@ -280,6 +274,7 @@ export function recordTripVisit(input: {
   title: string;
   evidence: PersonalTripVisit['evidence'];
   updatedAt: string;
+  kind?: PersonalTripItemKind;
   itemId?: string;
   destinationNodeId?: string;
   evidenceRef?: string;
@@ -307,6 +302,7 @@ export function recordTripVisit(input: {
     visitedAt: input.visitedAt,
     dayDate: input.dayDate,
     title: input.title.trim(),
+    ...(input.kind ? { kind: input.kind } : {}),
     ...(input.itemId ? { itemId: input.itemId } : {}),
     ...(input.destinationNodeId ? { destinationNodeId: input.destinationNodeId } : {}),
     evidence: input.evidence,
@@ -345,6 +341,7 @@ export function syncRouteCompletedVisits(input: {
       dayDate: input.dayDate,
       visitedAt: input.at,
       title: node.titleRu,
+      kind: node.kind,
       evidence: 'route-completed',
       updatedAt: input.at,
       ...(item ? { itemId: item.id } : {}),
@@ -409,10 +406,6 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   if (!Array.isArray(parsed.days) || parsed.days.join('|') !== expectedDays.join('|')) throw new Error('Personal Trip day range mismatch');
   if (!Array.isArray(parsed.items) || !Array.isArray(parsed.visits)) throw new Error('Invalid Personal Trip collections');
   if (!parsed.createdAt || !parsed.updatedAt) throw new Error('Invalid Personal Trip timestamps');
-  if (parsed.preferences?.stepFreeIntent
-    && !['none', 'preferred', 'required'].includes(parsed.preferences.stepFreeIntent)) {
-    throw new Error('Invalid Personal Trip step-free intent');
-  }
   parseIso(parsed.createdAt);
   parseIso(parsed.updatedAt);
 
@@ -427,26 +420,4 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
     parseIso(visit.visitedAt);
   }
   return clone(trip);
-}
-
-
-export function setTripStepFreeIntent(input: {
-  trip: PersonalTrip;
-  intent: StepFreeIntent;
-  updatedAt: string;
-}): PersonalTrip {
-  parseIso(input.updatedAt);
-  const next = clone(input.trip);
-  next.preferences = {
-    ...(next.preferences ?? {}),
-    stepFreeIntent: input.intent
-  };
-  return touch(next, input.updatedAt);
-}
-
-export function tripStepFreeIntent(trip: PersonalTrip): StepFreeIntent {
-  const intent = trip.preferences?.stepFreeIntent;
-  return intent === 'required' || intent === 'preferred' || intent === 'none'
-    ? intent
-    : 'none';
 }

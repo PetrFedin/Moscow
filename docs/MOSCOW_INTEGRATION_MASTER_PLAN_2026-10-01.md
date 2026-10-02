@@ -315,7 +315,7 @@ place -> epoch/period -> historical evidence -> reconstructed scene -> publicati
 
 UI can support a time slider/epoch switch only after the underlying temporal records exist.
 
-### Accessibility Route Profile — ADOPT / PHASE 1 IMPLEMENTING (#100)
+### Accessibility Route Profile — ADOPT
 
 Extend curated walks with accessibility constraints:
 
@@ -331,15 +331,6 @@ Extend curated walks with accessibility constraints:
 Valhalla or another router may provide route candidates, but Moscow retains verified accessibility metadata and curated route approval.
 
 If accessibility status is unknown or stale, show it as unknown rather than asserting accessibility.
-
-Phase 1 repository authority:
-
-- generic evidence-bound contract: `src/travel/accessibilityRouteProfile.ts`;
-- fail-closed tests: `tests/accessibilityRouteProfile.test.ts`;
-- Personal Trip intent persistence: `tests/tripAccessibilityPreference.test.ts` + `stepFreeIntent`;
-- runbook: `docs/ACCESSIBILITY_ROUTE_PROFILE.md`.
-
-Current Phase 1 adds **no real Moscow accessibility facts**. A user requirement such as `step-free required` is an intent, not evidence. When required route/entrance/segment facts are missing, stale or conflicting, the product returns `needs-accessibility-authority` rather than a fabricated accessible route.
 
 ### Audio/subtitle narrative package — ADOPT
 
@@ -682,11 +673,20 @@ Build the editable multi-day layer on top of Personal Trip OS:
 
 Do not convert a user-entered ticket, booking source or URL into provider-confirmed evidence.
 
-### Tourist Today cockpit — NEXT (#105)
+### Tourist Today cockpit — IMPLEMENTING (#105)
 
-After the scheduler is stable, expose the active-day operating view:
+Expose the active-day operating view:
 
 `Now -> Next commitment -> Remaining plan -> Free windows -> Seen today -> What else`.
+
+Current implementation authority:
+
+- pure clock/plan derivation: `src/travel/touristToday.ts`;
+- contract tests: `tests/touristToday.test.ts`;
+- user-facing cockpit: `src/features/trip/TouristTodayCard.tsx`;
+- browser journey coverage remains in `tests/personalTrip.e2e.spec.ts`.
+
+The cockpit derives the current Moscow trip day, current planned item, next item, next fixed ticket/reservation, completed/remaining progress, visits today, schedule-only free window and time-conflict count.
 
 This layer may use the user's clock and stored plan immediately. It must not claim:
 
@@ -694,4 +694,33 @@ This layer may use the user's clock and stored plan immediately. It must not cla
 - current opening status without trusted live hours;
 - current ticket availability without provider authority.
 
-The absence of those live authorities must degrade the claim, not block the personal trip product.
+User-entered tickets/reservations remain `user-declared`. The absence of live routing/opening/provider authorities must degrade the claim, not block the personal trip product.
+
+
+### Moscow Passport — IMPLEMENTING (#107)
+
+Complete the Personal Itinerary / Plan Reconciliation loop with a semantic personal history:
+
+`plan -> actual visit -> evidence -> semantic category -> day recap -> trip passport`.
+
+Repository authority:
+
+- semantic model: `src/travel/moscowPassport.ts`;
+- visit kind persistence: `src/travel/personalTrip.ts`;
+- UI: `src/features/trip/MoscowPassportCard.tsx`;
+- contract tests: `tests/moscowPassport.test.ts`;
+- browser journey: `tests/personalTrip.e2e.spec.ts`.
+
+Categories distinguish what the tourist saw, where they ate, nightlife, culture, activities, shopping, stay and transport.
+
+Guardrails:
+
+- semantic grouping does not change evidence class;
+- old v1 visits without a semantic kind resolve from their linked plan item or DestinationPackage node;
+- user-confirmed remains user-confirmed;
+- route-completed remains route-completed;
+- provider-receipt remains provider-receipt;
+- no continuous GPS history is required;
+- the passport itself is not physical-presence proof.
+
+This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
