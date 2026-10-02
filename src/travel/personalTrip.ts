@@ -53,8 +53,41 @@ export type PersonalTripVisit = {
   evidenceRef?: string;
 };
 
+export type TripPace = 'relaxed' | 'balanced' | 'intensive';
+export type TripPriorityMode = 'must-see' | 'balanced' | 'discover-more';
+
+export type TripLunchWindow = {
+  start: string;
+  end: string;
+};
+
 export type PersonalTripPreferences = {
   stepFreeIntent?: StepFreeIntent;
+  pace?: TripPace;
+  dayStart?: string;
+  dayEnd?: string;
+  maxContinuousWalkingMinutes?: number;
+  lunchWindow?: TripLunchWindow;
+  priorityMode?: TripPriorityMode;
+};
+
+export type ResolvedPersonalTripPreferences = {
+  stepFreeIntent: StepFreeIntent;
+  pace: TripPace;
+  dayStart: string;
+  dayEnd: string;
+  maxContinuousWalkingMinutes: number;
+  lunchWindow?: TripLunchWindow;
+  priorityMode: TripPriorityMode;
+};
+
+export const DEFAULT_PERSONAL_TRIP_PREFERENCES: ResolvedPersonalTripPreferences = {
+  stepFreeIntent: 'none',
+  pace: 'balanced',
+  dayStart: '09:00',
+  dayEnd: '23:00',
+  maxContinuousWalkingMinutes: 60,
+  priorityMode: 'balanced'
 };
 
 export type PersonalTrip = {
@@ -169,6 +202,87 @@ function touch(trip: PersonalTrip, updatedAt: string) {
   parseIso(updatedAt);
   trip.updatedAt = updatedAt;
   return trip;
+}
+
+function hhmmToMinutes(value: string, field: string) {
+  if (!/^\d{2}:\d{2}$/.test(value)) throw new Error(`Invalid ${field}: ${value}`);
+  const [hoursRaw, minutesRaw] = value.split(':');
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    throw new Error(`Invalid ${field}: ${value}`);
+  }
+  return hours * 60 + minutes;
+}
+
+function validatePersonalTripPreferences(preferences: PersonalTripPreferences) {
+  if (preferences.stepFreeIntent
+    && !['none', 'preferred', 'required'].includes(preferences.stepFreeIntent)) {
+    throw new Error('Invalid Personal Trip step-free intent');
+  }
+  if (preferences.pace && !['relaxed', 'balanced', 'intensive'].includes(preferences.pace)) {
+    throw new Error('Invalid Personal Trip pace');
+  }
+  if (preferences.priorityMode && !['must-see', 'balanced', 'discover-more'].includes(preferences.priorityMode)) {
+    throw new Error('Invalid Personal Trip priority mode');
+  }
+
+  const dayStart = preferences.dayStart ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.dayStart;
+  const dayEnd = preferences.dayEnd ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.dayEnd;
+  const startMinutes = hhmmToMinutes(dayStart, 'Personal Trip day start');
+  const endMinutes = hhmmToMinutes(dayEnd, 'Personal Trip day end');
+  if (endMinutes <= startMinutes) throw new Error('Personal Trip day end must be after day start');
+
+  if (preferences.maxContinuousWalkingMinutes !== undefined
+    && (!Number.isInteger(preferences.maxContinuousWalkingMinutes)
+      || preferences.maxContinuousWalkingMinutes < 10
+      || preferences.maxContinuousWalkingMinutes > 240)) {
+    throw new Error('Personal Trip max walking minutes must be an integer between 10 and 240');
+  }
+
+  if (preferences.lunchWindow) {
+    const lunchStart = hhmmToMinutes(preferences.lunchWindow.start, 'Personal Trip lunch start');
+    const lunchEnd = hhmmToMinutes(preferences.lunchWindow.end, 'Personal Trip lunch end');
+    if (lunchEnd <= lunchStart) throw new Error('Personal Trip lunch end must be after lunch start');
+    if (lunchStart < startMinutes || lunchEnd > endMinutes) {
+      throw new Error('Personal Trip lunch window must stay inside day bounds');
+    }
+  }
+}
+
+export function resolvePersonalTripPreferences(trip: PersonalTrip): ResolvedPersonalTripPreferences {
+  const stored = trip.preferences ?? {};
+  validatePersonalTripPreferences(stored);
+  return {
+    stepFreeIntent: stored.stepFreeIntent ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.stepFreeIntent,
+    pace: stored.pace ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.pace,
+    dayStart: stored.dayStart ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.dayStart,
+    dayEnd: stored.dayEnd ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.dayEnd,
+    maxContinuousWalkingMinutes: stored.maxContinuousWalkingMinutes ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.maxContinuousWalkingMinutes,
+    ...(stored.lunchWindow ? { lunchWindow: { ...stored.lunchWindow } } : {}),
+    priorityMode: stored.priorityMode ?? DEFAULT_PERSONAL_TRIP_PREFERENCES.priorityMode
+  };
+}
+
+export function setTripPreferences(input: {
+  trip: PersonalTrip;
+  preferences: Partial<PersonalTripPreferences>;
+  updatedAt: string;
+}): PersonalTrip {
+  parseIso(input.updatedAt);
+  const next = clone(input.trip);
+  const merged: PersonalTripPreferences = {
+    ...(next.preferences ?? {}),
+    ...input.preferences,
+    ...(input.preferences.lunchWindow
+      ? { lunchWindow: { ...input.preferences.lunchWindow } }
+      : input.preferences.lunchWindow === undefined
+        ? {}
+        : { lunchWindow: undefined })
+  };
+  validatePersonalTripPreferences(merged);
+  next.preferences = merged;
+  return touch(next, input.updatedAt);
 }
 
 export function createPersonalTrip(input: {
@@ -430,10 +544,7 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   if (!Array.isArray(parsed.days) || parsed.days.join('|') !== expectedDays.join('|')) throw new Error('Personal Trip day range mismatch');
   if (!Array.isArray(parsed.items) || !Array.isArray(parsed.visits)) throw new Error('Invalid Personal Trip collections');
   if (!parsed.createdAt || !parsed.updatedAt) throw new Error('Invalid Personal Trip timestamps');
-  if (parsed.preferences?.stepFreeIntent
-    && !['none', 'preferred', 'required'].includes(parsed.preferences.stepFreeIntent)) {
-    throw new Error('Invalid Personal Trip step-free intent');
-  }
+  if (parsed.preferences) validatePersonalTripPreferences(parsed.preferences);
   parseIso(parsed.createdAt);
   parseIso(parsed.updatedAt);
 
@@ -456,18 +567,13 @@ export function setTripStepFreeIntent(input: {
   intent: StepFreeIntent;
   updatedAt: string;
 }): PersonalTrip {
-  parseIso(input.updatedAt);
-  const next = clone(input.trip);
-  next.preferences = {
-    ...(next.preferences ?? {}),
-    stepFreeIntent: input.intent
-  };
-  return touch(next, input.updatedAt);
+  return setTripPreferences({
+    trip: input.trip,
+    preferences: { stepFreeIntent: input.intent },
+    updatedAt: input.updatedAt
+  });
 }
 
 export function tripStepFreeIntent(trip: PersonalTrip): StepFreeIntent {
-  const intent = trip.preferences?.stepFreeIntent;
-  return intent === 'required' || intent === 'preferred' || intent === 'none'
-    ? intent
-    : 'none';
+  return resolvePersonalTripPreferences(trip).stepFreeIntent;
 }
