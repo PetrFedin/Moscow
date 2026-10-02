@@ -7,6 +7,22 @@ async function ensureRussian(page: import('@playwright/test').Page) {
   }
 }
 
+function moscowNowParts() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  return {
+    date: value('year') + '-' + value('month') + '-' + value('day'),
+    hour: Number(value('hour'))
+  };
+}
+
 test('personal trip keeps user-declared ticket truth and visit history after reload', async ({ page }) => {
   await page.goto('/');
   await ensureRussian(page);
@@ -83,29 +99,34 @@ test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved
 });
 
 
-test('Tourist Today surfaces the next booking without upgrading manual verification', async ({ page }) => {
+test('Tourist Today surfaces the active booking without upgrading manual verification', async ({ page }) => {
+  const moscow = moscowNowParts();
+  const startHour = Math.max(0, moscow.hour - 1);
+  const endHour = Math.min(23, moscow.hour + 1);
+  const activeStart = String(startHour).padStart(2, '0') + ':00';
+  const activeEnd = String(endHour).padStart(2, '0') + ':59';
+
   await page.goto('/');
   await ensureRussian(page);
 
   await page.getByText('Поездка', { exact: true }).last().click();
-  await page.getByPlaceholder('2026-10-02').fill('2026-10-02');
+  await page.getByPlaceholder('2026-10-02').fill(moscow.date);
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
   await expect(page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true })).toBeVisible();
 
   await page.getByText('+ Добавить', { exact: true }).click();
-  await page.getByPlaceholder('Например: Большой театр').fill('Ужин · вечерняя бронь');
+  await page.getByPlaceholder('Например: Большой театр').fill('Ужин · активная бронь');
   await page.getByText('Ресторан', { exact: true }).click();
-  await page.getByPlaceholder('19:00').fill('22:00');
-  await page.getByPlaceholder('21:00').fill('23:00');
+  await page.getByPlaceholder('19:00').fill(activeStart);
+  await page.getByPlaceholder('21:00').fill(activeEnd);
   await page.getByText('Бронь', { exact: true }).click();
   await page.getByPlaceholder('Где куплено / забронировано').fill('Моя бронь');
   await page.getByText('Добавить в день', { exact: true }).click();
 
-  await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toBeVisible();
-  await expect(page.getByText('Ужин · вечерняя бронь', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Добавлено вами · статус провайдера не проверен', { exact: true })).toBeVisible();
+  await expect(page.getByText('СЕЙЧАС ПО ПЛАНУ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ужин · активная бронь', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/дорога и часы работы не проверены/).first()).toBeVisible();
 });
