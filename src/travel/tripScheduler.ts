@@ -16,6 +16,12 @@ export type TripFreeWindow = {
   routingVerified: false;
 };
 
+export type TripReservedWindow = {
+  startsAt: string;
+  endsAt: string;
+  reason: 'meal' | 'rest' | 'preference';
+};
+
 function parseIso(value: string) {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new Error(`Invalid ISO timestamp: ${value}`);
@@ -176,6 +182,7 @@ export function deriveTripFreeWindows(input: {
   dayStartsAt: string;
   dayEndsAt: string;
   minimumMinutes?: number;
+  reservedWindows?: TripReservedWindow[];
 }): TripFreeWindow[] {
   assertDay(input.trip, input.dayDate);
   const dayStart = parseIso(input.dayStartsAt);
@@ -187,9 +194,18 @@ export function deriveTripFreeWindows(input: {
     throw new Error('Minimum free-window minutes must be non-negative');
   }
 
-  const fixedIntervals = input.trip.items
+  const itemIntervals = input.trip.items
     .filter((item) => item.dayDate === input.dayDate && hasScheduledInterval(item))
-    .map((item) => interval(item))
+    .map((item) => interval(item));
+
+  const reservedIntervals = (input.reservedWindows ?? []).map((window) => {
+    const start = parseIso(window.startsAt);
+    const end = parseIso(window.endsAt);
+    if (end <= start) throw new Error('Reserved window end must be after start');
+    return { start, end };
+  });
+
+  const fixedIntervals = [...itemIntervals, ...reservedIntervals]
     .map(({ start, end }) => ({
       start: Math.max(start, dayStart),
       end: Math.min(end, dayEnd)
