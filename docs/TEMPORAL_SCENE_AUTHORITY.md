@@ -84,6 +84,16 @@ Two active scenes for the same place may overlap only when they are an explicit 
 
 Silent overlapping truth states fail closed.
 
+## Publication boundary
+
+Temporal records currently use only:
+
+- `draft`;
+- `production-candidate`;
+- `superseded`.
+
+They cannot self-declare `field-verified`. Physical field verification remains derived exclusively by the existing spatial survey/session/calibration/persistent-anchor release gate.
+
 ## Supersession
 
 A temporal record can declare `supersedes`, but superseded records should be marked `superseded` before a replacement becomes the only active authority.
