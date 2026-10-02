@@ -13,6 +13,7 @@ import {
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
+  resolvePersonalTripPreferences,
   summarizePersonalTrip,
   syncRouteCompletedVisits,
   type PersonalTrip,
@@ -29,6 +30,7 @@ import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
+import TripPreferencesCard from './TripPreferencesCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -231,6 +233,7 @@ export default function PersonalTripPlanner({
   }, [hydrated, trip, visitedIds]);
 
   const summary = useMemo(() => trip ? summarizePersonalTrip(trip) : null, [trip]);
+  const tripPreferences = useMemo(() => trip ? resolvePersonalTripPreferences(trip) : null, [trip]);
   const activeItems = useMemo(
     () => trip && trip.days.includes(selectedDay) ? personalTripDayItems(trip, selectedDay) : [],
     [selectedDay, trip]
@@ -262,11 +265,11 @@ export default function PersonalTripPlanner({
     return deriveTripFreeWindows({
       trip,
       dayDate: selectedDay,
-      dayStartsAt: moscowTimestamp(selectedDay, '09:00'),
-      dayEndsAt: moscowTimestamp(selectedDay, '23:00'),
+      dayStartsAt: moscowTimestamp(selectedDay, tripPreferences?.dayStart ?? '09:00'),
+      dayEndsAt: moscowTimestamp(selectedDay, tripPreferences?.dayEnd ?? '23:00'),
       minimumMinutes: 45
     });
-  }, [selectedDay, trip]);
+  }, [selectedDay, trip, tripPreferences?.dayStart, tripPreferences?.dayEnd]);
 
   const createTrip = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
@@ -489,6 +492,12 @@ export default function PersonalTripPlanner({
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.visitedCount}</Text><Text style={styles.metricLabel}>{tr(language, 'посещено', 'visited', '已到访')}</Text></View>
         </View>
       )}
+
+      <TripPreferencesCard
+        trip={trip}
+        language={language}
+        onUpdate={setTrip}
+      />
 
       <TouristTodayCard
         trip={trip}
