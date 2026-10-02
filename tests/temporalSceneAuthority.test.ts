@@ -187,7 +187,8 @@ test('existing Romanov runtime era mapping is now derived from temporal authorit
   assert.equal(getRomanovRuntimeEraAtTimeIndex(0), '1857');
   assert.equal(getRomanovRuntimeEraAtTimeIndex(1), '1859');
   assert.equal(getRomanovRuntimeEraAtTimeIndex(2), '1859');
-  assert.equal(getRomanovRuntimeEraAtTimeIndex(99), null);
+  assert.equal(getRomanovRuntimeEraAtTimeIndex(-5), '1857');
+  assert.equal(getRomanovRuntimeEraAtTimeIndex(99), '1859');
 });
 
 
