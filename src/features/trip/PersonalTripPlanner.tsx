@@ -28,6 +28,7 @@ import {
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import MoscowPassportCard from './MoscowPassportCard';
+import BookingWalletCard from './BookingWalletCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -495,6 +496,8 @@ export default function PersonalTripPlanner({
         visitedIds={visitedIds}
         onOpenPlace={onOpenPlace}
       />
+
+      <BookingWalletCard trip={trip} language={language} />
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
