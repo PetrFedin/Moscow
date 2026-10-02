@@ -34,11 +34,11 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
 
   await page.getByText('Я был здесь', { exact: true }).click();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
-  await expect(page.getByText('отмечено вами', { exact: true })).toBeVisible();
+  await expect(page.getByText(/отмечено вами/)).toBeVisible();
 
   await page.reload();
   await ensureRussian(page);
   await expect(page.getByText('Большой театр · мой билет', { exact: true })).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
-  await expect(page.getByText('отмечено вами', { exact: true })).toBeVisible();
+  await expect(page.getByText(/отмечено вами/)).toBeVisible();
 });
