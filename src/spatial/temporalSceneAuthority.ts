@@ -261,10 +261,11 @@ function overlap(left: TemporalExtent, right: TemporalExtent) {
   if (left.kind === 'reference-points') {
     const years = new Set(left.years);
     if (right.kind === 'reference-points') return right.years.some((year) => years.has(year));
+    const bounds = extentBounds(right);
     return left.years.some((year) => {
-      const point = Date.UTC(year, 6, 1);
-      const bounds = extentBounds(right);
-      return Boolean(bounds && point >= bounds.start && point <= bounds.end);
+      const yearStart = Date.UTC(year, 0, 1);
+      const yearEnd = Date.UTC(year, 11, 31);
+      return Boolean(bounds && yearStart <= bounds.end && bounds.start <= yearEnd);
     });
   }
   if (right.kind === 'reference-points') return overlap(right, left);
