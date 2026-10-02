@@ -220,7 +220,7 @@ This does not move local object GLB/AR assets out of the current glTF admission 
 
 This wave is aimed at the exact pilot problem: making the physical-to-digital scene more repeatable, testable and accessible before content scale.
 
-### AprilTag-assisted field calibration — ADOPT/CONDITIONAL TOOLING
+### AprilTag-assisted field calibration — ADOPT / PHASE 1 IMPLEMENTING (#96)
 
 Reference: https://github.com/AprilRobotics/apriltag
 
@@ -228,21 +228,35 @@ Use temporary printed AprilTags during authoring/field calibration, not necessar
 
 Calibration workflow:
 
-known physical marker pose -> device camera observation -> estimated camera/site transform -> compare expected AR anchor -> record offset/error -> adjust/review package
+known physical marker authority -> detector observation -> normalize into explicit common site frame -> compare expected/observed pose -> record translation/rotation error -> reviewer decision -> optional calibration refinement
+
+Phase 1 repository authority:
+
+- evidence contract: `src/spatial/aprilTagCalibrationEvidence.ts`;
+- integrity tests: `tests/aprilTagCalibrationEvidence.test.ts`;
+- runbook: `docs/APRILTAG_CALIBRATION_EVIDENCE.md`;
+- detector integration: adapter boundary only until a real supported native/authoring detector path is proven.
 
 Persist:
 
 - site/object;
-- marker/calibration set ID;
+- marker/calibration set ID/version;
+- tag family/ID and measured physical size;
+- survey packet reference;
 - device/build;
+- detector ID/version;
 - observed pose;
 - expected pose;
+- explicit common frame ID;
 - translation/rotation error;
 - capture timestamp;
-- pass/fail threshold;
-- evidence media/reference.
+- confidence class;
+- evidence references;
+- reviewer status/identity/time.
 
-This can provide repeatable anchor measurements instead of relying only on visual judgement.
+Guardrail: accepted AprilTag evidence is an auxiliary calibration record. It cannot set `RomanovFieldSession.passed`, mutate survey points automatically, verify a persistent anchor or unlock `MOSCOW-INT-00`.
+
+The current official AprilTag implementation is not treated as a ready-made React Native API. The mobile detector remains conditional until a real supported adapter/backend is selected and tested.
 
 Remove/ignore calibration markers from published visitor logic unless a deliberate operational decision says otherwise.
 
