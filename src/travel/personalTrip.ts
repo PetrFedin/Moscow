@@ -41,6 +41,7 @@ export type PersonalTripVisit = {
   visitedAt: string;
   dayDate: string;
   title: string;
+  kind?: PersonalTripItemKind;
   itemId?: string;
   destinationNodeId?: string;
   evidence: 'user-confirmed' | 'route-completed' | 'provider-receipt' | 'proximity';
@@ -273,6 +274,7 @@ export function recordTripVisit(input: {
   title: string;
   evidence: PersonalTripVisit['evidence'];
   updatedAt: string;
+  kind?: PersonalTripItemKind;
   itemId?: string;
   destinationNodeId?: string;
   evidenceRef?: string;
@@ -300,6 +302,7 @@ export function recordTripVisit(input: {
     visitedAt: input.visitedAt,
     dayDate: input.dayDate,
     title: input.title.trim(),
+    ...(input.kind ? { kind: input.kind } : {}),
     ...(input.itemId ? { itemId: input.itemId } : {}),
     ...(input.destinationNodeId ? { destinationNodeId: input.destinationNodeId } : {}),
     evidence: input.evidence,
@@ -338,6 +341,7 @@ export function syncRouteCompletedVisits(input: {
       dayDate: input.dayDate,
       visitedAt: input.at,
       title: node.titleRu,
+      kind: node.kind,
       evidence: 'route-completed',
       updatedAt: input.at,
       ...(item ? { itemId: item.id } : {}),
