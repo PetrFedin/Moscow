@@ -38,7 +38,8 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
 
   await page.reload();
   await ensureRussian(page);
-  await expect(page.getByText('Большой театр · мой билет', { exact: true })).toBeVisible();
+  await expect(page.getByText('Большой театр · мой билет', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
+  await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
 });
