@@ -220,7 +220,7 @@ This does not move local object GLB/AR assets out of the current glTF admission 
 
 This wave is aimed at the exact pilot problem: making the physical-to-digital scene more repeatable, testable and accessible before content scale.
 
-### AprilTag-assisted field calibration — ADOPT/CONDITIONAL TOOLING
+### AprilTag-assisted field calibration — ADOPT / PHASE 1 IMPLEMENTING (#96)
 
 Reference: https://github.com/AprilRobotics/apriltag
 
@@ -228,21 +228,35 @@ Use temporary printed AprilTags during authoring/field calibration, not necessar
 
 Calibration workflow:
 
-known physical marker pose -> device camera observation -> estimated camera/site transform -> compare expected AR anchor -> record offset/error -> adjust/review package
+known physical marker authority -> detector observation -> normalize into explicit common site frame -> compare expected/observed pose -> record translation/rotation error -> reviewer decision -> optional calibration refinement
+
+Phase 1 repository authority:
+
+- evidence contract: `src/spatial/aprilTagCalibrationEvidence.ts`;
+- integrity tests: `tests/aprilTagCalibrationEvidence.test.ts`;
+- runbook: `docs/APRILTAG_CALIBRATION_EVIDENCE.md`;
+- detector integration: adapter boundary only until a real supported native/authoring detector path is proven.
 
 Persist:
 
 - site/object;
-- marker/calibration set ID;
+- marker/calibration set ID/version;
+- tag family/ID and measured physical size;
+- survey packet reference;
 - device/build;
+- detector ID/version;
 - observed pose;
 - expected pose;
+- explicit common frame ID;
 - translation/rotation error;
 - capture timestamp;
-- pass/fail threshold;
-- evidence media/reference.
+- confidence class;
+- evidence references;
+- reviewer status/identity/time.
 
-This can provide repeatable anchor measurements instead of relying only on visual judgement.
+Guardrail: accepted AprilTag evidence is an auxiliary calibration record. It cannot set `RomanovFieldSession.passed`, mutate survey points automatically, verify a persistent anchor or unlock `MOSCOW-INT-00`.
+
+The current official AprilTag implementation is not treated as a ready-made React Native API. The mobile detector remains conditional until a real supported adapter/backend is selected and tested.
 
 Remove/ignore calibration markers from published visitor logic unless a deliberate operational decision says otherwise.
 
@@ -421,7 +435,175 @@ Keep the current Tippecanoe/PMTiles and Yandex MapKit plan unchanged. Mapillary 
 
 **Dependency note:** the Mapillary JS repository is MIT-licensed, but service/API/data usage has separate provider terms and credentials that must be reviewed before adoption.
 
+## Additional wave — personal day itinerary, reservations and multimodal routing
 
+This wave implements the product direction: a visitor should be able to build a real day or multi-day plan for Moscow, combine things they want to see with already purchased/booked activities, and later understand what they actually visited.
+
+### Personal Itinerary Authority — ADOPT
+
+Create native entities:
+
+- trip/visit;
+- day;
+- itinerary item;
+- place/event/restaurant/theatre/activity reference;
+- fixed vs flexible item;
+- planned start/end;
+- opening-hours constraint snapshot;
+- reservation/ticket reference;
+- priority;
+- travel segment;
+- status;
+- notes;
+- visited/completed evidence.
+
+Item types:
+
+- attraction/place;
+- historical scene/walk;
+- museum/exhibition;
+- theatre/show;
+- restaurant/bar/cafe;
+- booked activity;
+- personal/free-time block;
+- imported ticket/reservation.
+
+Moscow remains the itinerary authority.
+
+### Fixed vs Flexible Planning — ADOPT
+
+A purchased ticket or confirmed restaurant/theatre booking becomes a **fixed constraint**.
+
+A wishlist place is flexible.
+
+Planner therefore solves around:
+
+- fixed ticket time;
+- opening hours;
+- visit duration;
+- travel time;
+- user priority;
+- geography;
+- meal/rest windows;
+- day start/end;
+- accessibility preference;
+- already visited places;
+- weather/temporary conditions only when an authoritative provider is integrated.
+
+Do not silently move a confirmed reservation.
+
+### OpenTripPlanner multimodal routing — CONDITIONAL SIDECAR
+
+Reference:
+
+https://github.com/opentripplanner/OpenTripPlanner
+
+Use only when GTFS/transit/street data quality and deployment requirements justify it.
+
+Possible role:
+
+- public-transport route candidate;
+- walking+transit travel-time estimate;
+- transfer count;
+- accessibility-related routing attributes where data supports them.
+
+Architecture:
+
+Moscow itinerary -> routing request -> candidate journeys -> Moscow planner selects/combines -> itinerary travel segment
+
+OpenTripPlanner does not own the itinerary or destination catalogue.
+
+Yandex may remain the primary map/rendering/navigation handoff even if OTP provides analytical route candidates.
+
+### Time-window Itinerary Optimisation — ADAPT
+
+Reuse Google OR-Tools patterns already evaluated elsewhere in the portfolio for a bounded itinerary scenario solver.
+
+Inputs:
+
+- flexible places;
+- fixed reservations;
+- opening windows;
+- expected visit duration;
+- travel-time matrix;
+- priority/interest;
+- start/end location;
+- accessibility constraints.
+
+Output:
+
+- feasible ordered candidate plan;
+- skipped items with reason;
+- expected arrival/departure;
+- buffer;
+- total travel/visit time.
+
+Human/user acceptance writes the actual plan. Solver output never silently replaces it.
+
+### Ticket / Reservation Import — ADOPT
+
+Allow the user to add an already purchased booking manually or from supported structured inputs.
+
+Store:
+
+- provider;
+- venue/event;
+- booking/ticket reference;
+- date/time;
+- party size/seats;
+- address/location;
+- QR/barcode attachment where appropriate;
+- source document/email/file;
+- verification status;
+- notes.
+
+Do not claim provider verification unless a real provider API/receipt has been checked.
+
+Sensitive ticket QR/barcodes must not appear in public/social surfaces.
+
+### Plan Reconciliation / Visited History — ADOPT
+
+After the day:
+
+planned -> actually visited / skipped / rescheduled -> evidence/source -> personal history
+
+Possible evidence:
+
+- explicit user confirmation;
+- app check-in/QR;
+- verified booking attendance/provider receipt;
+- field/location event with consent and sufficient accuracy.
+
+Do not mark a place visited merely because the user passed nearby.
+
+History can then answer:
+
+- what I have already seen;
+- neighbourhoods/epochs visited;
+- places saved but not visited;
+- what fits my next free day.
+
+### Day Replan — ADOPT
+
+When a fixed item changes/cancels or the user skips something:
+
+current time/location + remaining fixed constraints + remaining flexible items -> proposed replacement plan
+
+This builds directly on the existing Journey Runtime / replan-required concepts.
+
+### Additional acceptance
+
+- fixed reservations are never moved without explicit user action;
+- itinerary solver records input snapshot/config;
+- every travel-time source/provider is identifiable;
+- imported ticket/provider verification state is explicit;
+- visit history distinguishes user-confirmed, provider-verified and inferred/location-assisted evidence;
+- replanning preserves future fixed commitments;
+- itinerary works without requiring continuous precise-location history.
+
+**Sequencing:** destination/place catalogue + field-proven content -> Personal Itinerary -> fixed ticket/reservation import -> route-time adapters -> optional OR-Tools planning -> Journey Runtime replan -> visited-history loop.
+
+**Dependency note:** OpenTripPlanner upstream is active, but license/data/GTFS deployment requirements must be reviewed before adoption; it remains a replaceable routing sidecar.
 
 ## Product wave — Personal Trip OS
 
