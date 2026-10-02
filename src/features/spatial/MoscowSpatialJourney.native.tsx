@@ -1048,8 +1048,12 @@ export default function MoscowSpatialJourney({
           onCandidate: handleCandidate,
           onAnchored: handleAnchored,
           onAnchorError: handleAnchorError,
-          onModelState: (modelState) => setSensorInput((current) => ({ ...current, modelState })),
-          onTrackingQuality: (arTracking, orientationAvailable) => setSensorInput((current) => ({
+          onModelState: (modelState: SensorQualityInput['modelState']) =>
+            setSensorInput((current) => ({ ...current, modelState })),
+          onTrackingQuality: (
+            arTracking: SensorQualityInput['arTracking'],
+            orientationAvailable: boolean
+          ) => setSensorInput((current) => ({
             ...current,
             arTracking,
             orientationAvailable
