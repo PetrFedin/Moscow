@@ -1043,3 +1043,25 @@ Repository authority:
 - active-day consumption: `src/travel/touristToday.ts`;
 - contract tests: `tests/tripPreferences.test.ts`;
 - browser coverage: `tests/personalTrip.e2e.spec.ts`.
+
+
+### Day Replan — ADOPT / PHASE 1 IMPLEMENTING (#116)
+
+When a fixed item changes/cancels or the user skips something:
+
+current time/location + remaining fixed constraints + remaining flexible items -> proposed replacement plan
+
+This builds directly on the existing Journey Runtime / replan-required concepts.
+
+Phase 1 repository authority:
+
+- schedule-only proposal/apply engine: `src/travel/personalTripReplan.ts`;
+- visitor UI: `src/features/trip/DayReplanCard.tsx`;
+- contract tests: `tests/personalTripReplan.test.ts`;
+- browser flow: `tests/personalTrip.e2e.spec.ts`.
+
+Phase 1 preserves confirmed fixed commitments exactly, consumes Personal Trip day/lunch preferences, and only moves remaining flexible items with known duration. Missing-duration and no-window items stay unscheduled rather than receiving invented values.
+
+Every proposal records `routingVerified=false`, `openingHoursVerified=false`, `accessibilityVerified=false`, and `weatherVerified=false`. Creating a proposal does not mutate the trip. Applying it requires an unchanged baseline and explicit user acceptance.
+
+This personal schedule layer does not weaken `DestinationJourneyRuntime`: live/provider invalidation still requires the existing `replan-required` state and routing proof.
