@@ -25,8 +25,8 @@ const marker: AprilTagMarkerAuthority = {
 };
 
 const observation: AprilTagDetectorObservation = {
-  detectorId: 'apriltag3-authoring-adapter',
-  detectorVersion: '3.4.5',
+  detectorId: 'test-apriltag-normalizer',
+  detectorVersion: 'test-v1',
   tagFamily: 'tagStandard41h12',
   tagId: 7,
   physicalSizeMeters: 0.2,
