@@ -26,6 +26,7 @@ import {
   reorderTripDayItems
 } from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import TouristTodayCard from './TouristTodayCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -98,6 +99,19 @@ function localDateOnly(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function moscowDateOnly(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  return year && month && day ? `${year}-${month}-${day}` : localDateOnly(date);
+}
+
 function addDays(dateOnly: string, days: number) {
   const date = new Date(`${dateOnly}T12:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -118,7 +132,7 @@ function moscowTimestamp(dayDate: string, time: string) {
 }
 
 function visitTimestamp(dayDate: string) {
-  return dayDate === localDateOnly()
+  return dayDate === moscowDateOnly()
     ? new Date().toISOString()
     : `${dayDate}T12:00:00+03:00`;
 }
@@ -196,7 +210,7 @@ export default function PersonalTripPlanner({
 
   useEffect(() => {
     if (!hydrated || !trip || visitedIds.length === 0) return;
-    const today = localDateOnly();
+    const today = moscowDateOnly();
     if (!trip.days.includes(today)) return;
 
     const synced = syncRouteCompletedVisits({
@@ -463,6 +477,13 @@ export default function PersonalTripPlanner({
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.visitedCount}</Text><Text style={styles.metricLabel}>{tr(language, 'посещено', 'visited', '已到访')}</Text></View>
         </View>
       )}
+
+      <TouristTodayCard
+        trip={trip}
+        language={language}
+        visitedIds={visitedIds}
+        onOpenPlace={onOpenPlace}
+      />
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
