@@ -198,3 +198,18 @@ The following still requires later authorities:
 - current opening hours;
 - live capacity or ticket inventory;
 - automatic replan after provider state change.
+
+
+### External booking link boundary
+
+A user may store an HTTPS link to a ticket, hotel, restaurant, theatre, transport or other reservation together with a human-readable source/provider name and order reference.
+
+This link is a personal trip convenience only. Its presence does not prove that:
+
+- the provider recognizes the booking;
+- the booking is still valid;
+- the venue is currently open;
+- the ticket remains usable;
+- any inventory or capacity is available.
+
+Only a real provider receipt/evidence path may promote the commitment to `provider-confirmed`. Opening a stored link must not change verification state.
