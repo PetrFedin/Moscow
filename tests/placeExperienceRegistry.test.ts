@@ -15,6 +15,8 @@ test('Romanov keeps the current documented spatial candidate pipeline', () => {
   assert.equal(capabilities.timeMachine, 'ready');
   assert.equal(capabilities.archiveLens, 'ready');
   assert.equal(capabilities.runtime, 'romanov-v1');
+  assert.equal(capabilities.temporalAuthorityId, 'romanov-temporal-v1');
+  assert.equal(capabilities.modelEraMap, undefined);
   assert.equal(canOpenArchiveLens('romanov-chambers'), true);
   assert.equal(canOpenModel3d('romanov-chambers'), true);
   assert.equal(canOpenSpatial('romanov-chambers'), true);
