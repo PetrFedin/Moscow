@@ -44,7 +44,7 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByPlaceholder('Номер заказа / заметка (необязательно)').fill('заказ сохранён у меня');
   await page.getByText('Добавить в день', { exact: true }).click();
 
-  await expect(page.getByText('Большой театр · мой билет', { exact: true })).toBeVisible();
+  await expect(page.getByText('Большой театр · мой билет', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
 
