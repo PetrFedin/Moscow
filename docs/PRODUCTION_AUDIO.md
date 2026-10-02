@@ -107,3 +107,17 @@ For every returned master capture:
 Only then update the corresponding catalog item from `recording-pending` to `production-ready`.
 
 No synthetic voice file should be committed merely to turn the gate green.
+
+
+## Timed captions / WebVTT
+
+Timed captions are governed separately by `docs/TIMED_NARRATIVE_PACKAGE.md`.
+
+The caption layer does not change the human-master gate above. A track becomes `captioned` only after:
+
+- the narration master is already `production-ready`;
+- timed cues bind to the exact narration track/version/master SHA-256/duration;
+- cue text matches the approved transcript;
+- measured synchronization evidence passes its gate.
+
+Until then the existing full transcript remains the accessibility fallback. TTS does not create authoritative caption timing.
