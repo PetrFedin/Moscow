@@ -130,3 +130,58 @@ test('Tourist Today surfaces the active booking without upgrading manual verific
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
 });
+
+
+test('Moscow Passport separates where the tourist ate from generic visit history', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await page.getByText('Поездка', { exact: true }).last().click();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-02');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Кафе · обед');
+  await page.getByText('Ресторан', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await page.getByText('Я был здесь', { exact: true }).click();
+
+  await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Moscow Passport', { exact: true })).toBeVisible();
+  await expect(page.getByText('Где ел', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Кафе · обед', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/отмечено вами/).first()).toBeVisible();
+});
+
+
+test('Moscow Passport groups restaurant and theatre visits semantically', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await page.getByText('Поездка', { exact: true }).last().click();
+  const date = moscowNowParts().date;
+  await page.getByPlaceholder('2026-10-02').fill(date);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Ресторан · тест дневника');
+  await page.getByText('Ресторан', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+  await page.getByText('Я был здесь', { exact: true }).last().click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Театр · тест дневника');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+  await page.getByText('Я был здесь', { exact: true }).last().click();
+
+  await expect(page.getByText('Moscow Passport', { exact: true })).toBeVisible();
+  await expect(page.getByText('Где ел', { exact: true })).toBeVisible();
+  await expect(page.getByText('Культура', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ресторан · тест дневника', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('Театр · тест дневника', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText(/отмечено вами/).last()).toBeVisible();
+});

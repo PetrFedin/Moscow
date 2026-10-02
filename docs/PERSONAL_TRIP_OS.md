@@ -248,3 +248,59 @@ Truth boundaries remain explicit:
 - provider-confirmed display requires the existing provider receipt/evidence contract.
 
 The clock refreshes in the UI once per minute. No background GPS history is required.
+
+
+## Moscow Passport — semantic trip history
+
+Issue: #107.
+
+Moscow Passport turns the raw visit ledger into a useful personal history:
+
+`Plan item -> Visit -> Semantic category -> Day recap -> Trip passport`.
+
+Visit categories:
+
+- `saw` — heritage, museums, nature and viewpoints;
+- `ate` — restaurants/cafes/food;
+- `nightlife` — bars;
+- `culture` — theatre and events;
+- `activity` — activities;
+- `shopping`;
+- `stay`;
+- `transport`;
+- `other`.
+
+The semantic category is independent from visit evidence.
+
+Evidence remains one of:
+
+- `user-confirmed`;
+- `route-completed`;
+- `provider-receipt`;
+- `proximity`.
+
+A category such as "Где ел" never upgrades a visit to provider-verified.
+
+### Backward compatibility
+
+New visits persist an optional `kind`.
+
+Older v1 visits without `kind` are resolved in this order:
+
+1. linked Personal Trip item;
+2. linked DestinationPackage node;
+3. `other`.
+
+This allows existing local trip data to be upgraded without rewriting historical evidence.
+
+### UI
+
+The old flat visit list is replaced with Moscow Passport:
+
+- total visited places;
+- days with recorded visits;
+- semantic category totals;
+- per-day visit history;
+- evidence label per visit.
+
+No background GPS history is required.
