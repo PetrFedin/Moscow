@@ -724,3 +724,40 @@ Guardrails:
 - the passport itself is not physical-presence proof.
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
+
+
+### Trip Booking Wallet — IMPLEMENTING (#110)
+
+Implements the current Ticket / Reservation Import direction inside Personal Trip OS.
+
+Data captured for a user-supplied commitment may include:
+
+- provider/source;
+- booking/ticket reference;
+- planned date/time;
+- party size;
+- seats/row/sector;
+- address/meeting point;
+- source reference;
+- HTTPS confirmation link;
+- verification state.
+
+Repository authority:
+
+- commitment contract/validation: `src/travel/personalTrip.ts`;
+- trip-wide wallet UI: `src/features/trip/BookingWalletCard.tsx`;
+- day integration: `src/features/trip/PersonalTripPlanner.tsx`;
+- contract tests: `tests/bookingWallet.test.ts`;
+- browser journey: `tests/personalTrip.e2e.spec.ts`.
+
+Guardrails:
+
+- manual import remains `user-declared`;
+- detail fields cannot upgrade a commitment to provider-confirmed;
+- provider-confirmed still requires receipt/evidence reference;
+- raw QR/barcode payloads are not persisted in this first slice;
+- QR/barcode data must never enter public/social surfaces;
+- complete confirmed time intervals remain fixed scheduling constraints;
+- fixed commitments are never silently moved by planner/solver logic.
+
+This does not satisfy #74/#73 and does not create live provider validity.
