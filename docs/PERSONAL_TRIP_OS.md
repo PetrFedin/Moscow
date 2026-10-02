@@ -356,3 +356,55 @@ A confirmed commitment with a complete start/end interval is treated by Trip Sch
 Flexible plan items may be reordered. Fixed commitments are never silently moved by the scheduler; moving them to another day requires an explicit user action.
 
 The application still does not claim route feasibility, venue opening status or ticket validity without the appropriate authorities.
+
+
+## Trip Preferences
+
+Issue: #112.
+
+Trip Preferences are user intent inputs for Personal Trip OS. They do not create external facts.
+
+The first executable profile contains:
+
+- pace: `relaxed | balanced | intensive`;
+- preferred day start/end;
+- step-free intent: `none | preferred | required`;
+- maximum continuous walking minutes;
+- optional lunch window;
+- priority mode: `must-see | balanced | discover-more`.
+
+### Product effect
+
+Preferences immediately affect bounded local planning:
+
+- day start/end define the day window used by Trip Scheduler;
+- Tourist Today uses the same configured day bounds;
+- a lunch window becomes a reserved preference window and is removed from schedule-only free time;
+- step-free intent is stored for Accessibility Route Profile evaluation;
+- pace, walking limit and priority are persisted now but are not converted into travel-time or venue facts.
+
+### Truth boundary
+
+- day bounds do not prove venue opening hours;
+- max walking time does not prove route travel time;
+- `step-free required` does not prove any route accessible;
+- lunch preference is not a restaurant reservation;
+- priority/pace do not silently move fixed tickets or reservations;
+- solver/replan may use these preferences later only with authoritative routing/opening/accessibility inputs and explicit user acceptance.
+
+Old Personal Trip v1 records resolve stable defaults:
+
+- pace `balanced`;
+- day `09:00–23:00`;
+- step-free `none`;
+- max continuous walking 60 minutes;
+- priority `balanced`.
+
+Repository authority:
+
+- preferences contract: `src/travel/personalTrip.ts`;
+- editor UI: `src/features/trip/TripPreferencesCard.tsx`;
+- schedule reservation: `src/travel/tripScheduler.ts`;
+- active-day use: `src/travel/touristToday.ts`;
+- contract tests: `tests/tripPreferences.test.ts`;
+- browser E2E: `tests/personalTrip.e2e.spec.ts`.

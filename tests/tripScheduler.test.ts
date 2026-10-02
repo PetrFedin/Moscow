@@ -218,3 +218,40 @@ test('reorder rejects partial day lists instead of silently dropping items', () 
     /each day item exactly once/
   );
 });
+
+
+test('reserved preference windows reduce free time without becoming route proof', () => {
+  const value = trip();
+
+  const windows = deriveTripFreeWindows({
+    trip: value,
+    dayDate: '2026-10-02',
+    dayStartsAt: '2026-10-02T10:00:00+03:00',
+    dayEndsAt: '2026-10-02T18:00:00+03:00',
+    reservedWindows: [{
+      startsAt: '2026-10-02T13:00:00+03:00',
+      endsAt: '2026-10-02T14:00:00+03:00',
+      reason: 'meal'
+    }]
+  });
+
+  assert.deepEqual(windows.map((window) => window.minutes), [180, 240]);
+  assert.ok(windows.every((window) => window.routingVerified === false));
+});
+
+test('invalid reserved preference window is rejected', () => {
+  assert.throws(
+    () => deriveTripFreeWindows({
+      trip: trip(),
+      dayDate: '2026-10-02',
+      dayStartsAt: '2026-10-02T10:00:00+03:00',
+      dayEndsAt: '2026-10-02T18:00:00+03:00',
+      reservedWindows: [{
+        startsAt: '2026-10-02T14:00:00+03:00',
+        endsAt: '2026-10-02T13:00:00+03:00',
+        reason: 'meal'
+      }]
+    }),
+    /Reserved window end must be after start/
+  );
+});

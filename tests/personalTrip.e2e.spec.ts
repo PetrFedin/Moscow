@@ -223,3 +223,37 @@ test('Booking Wallet persists theatre booking details without provider upgrade',
   await expect(page.getByText(/Касса театра · ORDER-2026/).first()).toBeVisible();
   await expect(page.getByText(/Места · Партер · ряд 5 · места 11–12/).first()).toBeVisible();
 });
+
+
+test('Trip Preferences change day bounds and reserve lunch window', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await page.getByText('Поездка', { exact: true }).last().click();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-02');
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
+  await page.getByText('Изменить', { exact: true }).click();
+
+  await page.getByText('Спокойно', { exact: true }).click();
+  await page.getByText('Обязательно', { exact: true }).click();
+  await page.getByText('Главное', { exact: true }).click();
+  await page.getByPlaceholder('09:00').fill('10:00');
+  await page.getByPlaceholder('23:00').fill('18:00');
+  await page.getByPlaceholder('60').fill('35');
+  await page.getByPlaceholder('13:00').fill('13:00');
+  await page.getByPlaceholder('14:00').fill('14:00');
+  await page.getByText('Сохранить настройки', { exact: true }).click();
+
+  await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
+  await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
+  await expect(page.getByText('10:00–13:00', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('14:00–18:00', { exact: true }).first()).toBeVisible();
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
+  await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
+});
