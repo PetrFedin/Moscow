@@ -185,3 +185,41 @@ test('Moscow Passport groups restaurant and theatre visits semantically', async 
   await expect(page.getByText('Театр · тест дневника', { exact: true }).last()).toBeVisible();
   await expect(page.getByText(/отмечено вами/).last()).toBeVisible();
 });
+
+
+test('Booking Wallet persists theatre booking details without provider upgrade', async ({ page }) => {
+  const date = moscowNowParts().date;
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await page.getByText('Поездка', { exact: true }).last().click();
+  await page.getByPlaceholder('2026-10-02').fill(date);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Театр · Wallet test');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByPlaceholder('Где куплено / забронировано').fill('Касса театра');
+  await page.getByPlaceholder('Номер заказа / заметка (необязательно)').fill('ORDER-2026');
+  await page.getByPlaceholder('Количество гостей / билетов').fill('2');
+  await page.getByPlaceholder('Сектор, ряд, места').fill('Партер · ряд 5 · места 11–12');
+  await page.getByPlaceholder('Адрес / место встречи').fill('Театральная площадь, 1');
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await expect(page.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+  await expect(page.getByText('Театр · Wallet test', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Касса театра · ORDER-2026/).first()).toBeVisible();
+  await expect(page.getByText(/Гостей · 2/).first()).toBeVisible();
+  await expect(page.getByText(/Места · Партер · ряд 5 · места 11–12/).first()).toBeVisible();
+  await expect(page.getByText(/Адрес: Театральная площадь, 1/).first()).toBeVisible();
+  await expect(page.getByText('Добавлено вами · провайдер не проверен', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Касса театра · ORDER-2026/).first()).toBeVisible();
+  await expect(page.getByText(/Места · Партер · ряд 5 · места 11–12/).first()).toBeVisible();
+});
