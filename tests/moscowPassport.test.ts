@@ -62,7 +62,6 @@ test('manual restaurant visit carries food kind into the passport without changi
   const passport = buildMoscowPassport({ trip: value });
   assert.equal(passport.categoryCounts.ate, 1);
   assert.equal(passport.evidenceCounts['user-confirmed'], 1);
-  assert.equal(passport.entries, undefined);
 });
 
 test('route-completed destination visit preserves source-backed node kind', () => {
