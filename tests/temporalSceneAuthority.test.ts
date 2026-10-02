@@ -189,3 +189,48 @@ test('existing Romanov runtime era mapping is now derived from temporal authorit
   assert.equal(getRomanovRuntimeEraAtTimeIndex(2), '1859');
   assert.equal(getRomanovRuntimeEraAtTimeIndex(99), null);
 });
+
+
+test('date validation supports historical years below 100 without JavaScript Date.UTC century coercion', () => {
+  const valid = validateTemporalSceneRecord({
+    ...base,
+    extent: { kind: 'exact-date', date: { year: 50, month: 2, day: 28 } }
+  });
+  assert.equal(valid.valid, true);
+
+  const invalidLeapDay = validateTemporalSceneRecord({
+    ...base,
+    extent: { kind: 'exact-date', date: { year: 50, month: 2, day: 29 } }
+  });
+  assert.equal(invalidLeapDay.valid, false);
+  assert.ok(invalidLeapDay.blockers.includes('temporal-exact-date-invalid'));
+});
+
+test('temporal scene source set must cover every source declared by its bound asset', () => {
+  const result = validateTemporalSceneRegistry([
+    { ...base, sourceIds: ['source-a'] }
+  ], {
+    ...authority,
+    assetSourceIds: new Map([
+      ['model-a', ['source-a', 'source-b']]
+    ])
+  });
+
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.blockers.includes(
+      'temporal-scene-source-does-not-cover-asset:scene-a:model-a:source-b'
+    )
+  );
+});
+
+test('temporal authority cannot self-declare spatial field verification', () => {
+  const forged = {
+    ...base,
+    publicationState: 'field-verified'
+  } as unknown as TemporalSceneRecord;
+
+  const result = validateTemporalSceneRecord(forged);
+  assert.equal(result.valid, false);
+  assert.ok(result.blockers.includes('temporal-publication-state-invalid'));
+});
