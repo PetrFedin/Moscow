@@ -1,5 +1,6 @@
 import { OLD_ENGLISH_COURT_SPATIAL_AUTHORITY } from './oldEnglishCourtSpatialAuthority.ts';
 import { ROMANOV_METRIC_AUTHORITY } from './romanovMetricAuthority.ts';
+import { getRomanovRuntimeEraAtTimeIndex } from './romanovTemporalScenes.ts';
 
 export type PlaceExperienceStatus = 'ready' | 'candidate' | 'needs-asset' | 'future';
 export type SpatialRuntimeKind = 'romanov-v1' | null;
@@ -12,6 +13,7 @@ export type PlaceExperienceCapabilities = {
   spatial: PlaceExperienceStatus;
   runtime: SpatialRuntimeKind;
   spatialAuthorityId?: string;
+  temporalAuthorityId?: 'romanov-temporal-v1';
   modelEraMap?: Record<number, '1857' | '1859'>;
 };
 
@@ -32,7 +34,7 @@ const registry: Record<string, PlaceExperienceCapabilities> = {
     spatial: 'candidate',
     runtime: 'romanov-v1',
     spatialAuthorityId: ROMANOV_METRIC_AUTHORITY.id,
-    modelEraMap: { 0: '1857', 1: '1859', 2: '1859' }
+    temporalAuthorityId: 'romanov-temporal-v1'
   },
   'old-english-court': {
     placeId: 'old-english-court',
@@ -90,6 +92,9 @@ export function canOpenSpatial(placeId: string) {
 
 export function modelEraFromTimeIndex(placeId: string, index: number): '1857' | '1859' | null {
   const capabilities = getPlaceExperienceCapabilities(placeId);
+  if (capabilities.temporalAuthorityId === 'romanov-temporal-v1') {
+    return getRomanovRuntimeEraAtTimeIndex(index);
+  }
   if (!capabilities.modelEraMap) return null;
   const rounded = Math.max(0, Math.round(index));
   return capabilities.modelEraMap[rounded] ?? capabilities.modelEraMap[Math.max(...Object.keys(capabilities.modelEraMap).map(Number))] ?? null;
