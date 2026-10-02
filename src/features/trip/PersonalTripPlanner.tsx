@@ -26,6 +26,7 @@ import {
   reorderTripDayItems
 } from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import TouristTodayCard from './TouristTodayCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -463,6 +464,13 @@ export default function PersonalTripPlanner({
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.visitedCount}</Text><Text style={styles.metricLabel}>{tr(language, 'посещено', 'visited', '已到访')}</Text></View>
         </View>
       )}
+
+      <TouristTodayCard
+        trip={trip}
+        language={language}
+        visitedIds={visitedIds}
+        onOpenPlace={onOpenPlace}
+      />
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
