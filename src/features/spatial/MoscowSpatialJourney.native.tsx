@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
+import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, PixelRatio, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
@@ -62,6 +63,10 @@ import PortalTransitionControl from '../../ui/PortalTransitionControl';
 import { haptic } from '../../ui/haptics';
 import { tr, type AppLanguage } from '../../i18n';
 import { recordFieldPilotFailure } from '../../observability/fieldPilotObservability';
+import {
+  evaluateSensorQuality,
+  type SensorQualityInput
+} from '../../spatial/sensorQualityGate';
 import RomanovEvidenceTransferPanel from './RomanovEvidenceTransferPanel.native';
 import RomanovFieldTest from './RomanovFieldTest.native';
 import RomanovPersistentAnchorPanel from './RomanovPersistentAnchorPanel.native';
@@ -170,6 +175,11 @@ type SceneProps = {
       onCandidate?: (hitType: ViroARHitTestResult['type']) => void;
       onAnchored?: (anchor: LocalAnchor) => void;
       onAnchorError?: (message: string) => void;
+      onModelState?: (state: SensorQualityInput['modelState']) => void;
+      onTrackingQuality?: (
+        state: SensorQualityInput['arTracking'],
+        orientationAvailable: boolean
+      ) => void;
       language?: AppLanguage;
     };
   };
@@ -188,6 +198,10 @@ function pickHit(results: ViroARHitTestResult[]) {
     if (match) return match;
   }
   return null;
+}
+
+function normalizeHeadingAccuracy(value: number): 0 | 1 | 2 | 3 | null {
+  return value === 0 || value === 1 || value === 2 || value === 3 ? value : null;
 }
 
 function PortalScene({ language = 'ru' }: { language?: AppLanguage }) {
@@ -223,6 +237,7 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const lastMeasurementRequest = useRef(0);
   const lastPersistentResolve = useRef<string | null>(null);
   const trackingState = useRef<number>(0);
+  const modelLoadFailed = useRef(false);
   const [resolvedPersistentModelTransform, setResolvedPersistentModelTransform] = useState<ReturnType<typeof anchorFrameModelToWorld> | null>(null);
   const calibration = sceneNavigator?.viroAppProps?.calibration ?? defaultRomanovCalibration;
   const era = sceneNavigator?.viroAppProps?.era ?? '1859';
@@ -242,6 +257,8 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
   const onCandidate = sceneNavigator?.viroAppProps?.onCandidate;
   const onAnchored = sceneNavigator?.viroAppProps?.onAnchored;
   const onAnchorError = sceneNavigator?.viroAppProps?.onAnchorError;
+  const onModelState = sceneNavigator?.viroAppProps?.onModelState;
+  const onTrackingQuality = sceneNavigator?.viroAppProps?.onTrackingQuality;
   const language = sceneNavigator?.viroAppProps?.language ?? 'ru';
 
   useEffect(() => {
@@ -406,7 +423,16 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
       <Viro3DObject
         source={getRomanovModelSource(era, trustMode)}
         type="GLB"
+        onLoadStart={() => {
+          modelLoadFailed.current = false;
+          onModelState?.('loading');
+        }}
+        onLoadEnd={() => {
+          if (!modelLoadFailed.current) onModelState?.('ready');
+        }}
         onError={() => {
+          modelLoadFailed.current = true;
+          onModelState?.('failed');
           recordFieldPilotFailure({
             kind: 'model-load-failed',
             packageId: 'romanov-spatial',
@@ -471,7 +497,16 @@ function SpatialScene({ sceneNavigator, arSceneNavigator }: SceneProps) {
     ? <ViroScene>{content}</ViroScene>
     : <ViroARScene
         ref={arRef}
-        onTrackingUpdated={(state) => { trackingState.current = state; }}
+        onTrackingUpdated={(state) => {
+          trackingState.current = state;
+          if (state === ViroTrackingStateConstants.TRACKING_NORMAL) {
+            onTrackingQuality?.('normal', true);
+          } else if (state === ViroTrackingStateConstants.TRACKING_UNAVAILABLE) {
+            onTrackingQuality?.('unavailable', false);
+          } else {
+            onTrackingQuality?.('limited', true);
+          }
+        }}
       >
         {content}
       </ViroARScene>;
@@ -545,6 +580,18 @@ export default function MoscowSpatialJourney({
   const xrNavigatorRef = useRef<unknown>(null);
   const anchorRuntime = getPersistentAnchorRuntimeConfig();
   const [measurementRequest, setMeasurementRequest] = useState<AlignmentMeasurementRequest | null>(null);
+  const [sensorRefreshing, setSensorRefreshing] = useState(false);
+  const [sensorInput, setSensorInput] = useState<SensorQualityInput>({
+    arAvailable: true,
+    arTracking: 'unknown',
+    modelState: 'loading',
+    packageState: 'ready',
+    orientationAvailable: false,
+    locationPermission: 'unknown',
+    locationAccuracyMeters: null,
+    headingAccuracyLevel: null
+  });
+  const sensorQuality = evaluateSensorQuality(sensorInput);
   const measurementResolver = useRef<{
     requestId: number;
     controlPointId: string;
@@ -626,13 +673,77 @@ export default function MoscowSpatialJourney({
   }, []);
 
   const requestAnchor = () => {
+    if (!sensorQuality.manualAlignmentAllowed) {
+      setStatusMessage(
+        `Sensor quality INSUFFICIENT: ${sensorQuality.reasons.join(' · ')}. Используйте 3D/story fallback до восстановления tracking/model.`
+      );
+      void haptic('field-warning');
+      return;
+    }
     setPortalVisible(false);
     setActivePersistentAnchor(null);
     AsyncStorage.removeItem(ACTIVE_ANCHOR_KEY).catch(() => undefined);
-    setStatusMessage('Ищем устойчивую поверхность в центре экрана…');
+    setStatusMessage(
+      sensorQuality.state === 'degraded'
+        ? `DEGRADED sensor mode: ручное выравнивание разрешено, precise placement не заявляется. ${sensorQuality.reasons.join(' · ')}`
+        : 'Sensor quality PRECISE. Ищем устойчивую поверхность в центре экрана…'
+    );
     setStage('searching');
     setLocalAnchor(null);
     setRequestId((current) => current + 1);
+  };
+
+  const refreshSensorQuality = async () => {
+    setSensorRefreshing(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        setSensorInput((current) => ({
+          ...current,
+          locationPermission: 'denied',
+          locationAccuracyMeters: null,
+          headingAccuracyLevel: null
+        }));
+        recordFieldPilotFailure({
+          kind: 'location-state',
+          packageId: 'romanov-spatial',
+          packageVersion: String(calibration.version),
+          sceneId: `romanov-${era}`,
+          objectId: 'romanov-chambers',
+          errorClass: 'sensor-gate-permission-denied'
+        });
+        return;
+      }
+
+      const [position, heading] = await Promise.all([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+        Location.getHeadingAsync()
+      ]);
+
+      setSensorInput((current) => ({
+        ...current,
+        locationPermission: 'granted',
+        locationAccuracyMeters: position.coords.accuracy,
+        headingAccuracyLevel: normalizeHeadingAccuracy(heading.accuracy)
+      }));
+    } catch {
+      setSensorInput((current) => ({
+        ...current,
+        locationPermission: current.locationPermission === 'denied' ? 'denied' : 'unknown',
+        locationAccuracyMeters: null,
+        headingAccuracyLevel: null
+      }));
+      recordFieldPilotFailure({
+        kind: 'compass-state',
+        packageId: 'romanov-spatial',
+        packageVersion: String(calibration.version),
+        sceneId: `romanov-${era}`,
+        objectId: 'romanov-chambers',
+        errorClass: 'sensor-quality-refresh-failed'
+      });
+    } finally {
+      setSensorRefreshing(false);
+    }
   };
 
   const handleCandidate = (hitType: ViroARHitTestResult['type']) => {
@@ -937,6 +1048,12 @@ export default function MoscowSpatialJourney({
           onCandidate: handleCandidate,
           onAnchored: handleAnchored,
           onAnchorError: handleAnchorError,
+          onModelState: (modelState) => setSensorInput((current) => ({ ...current, modelState })),
+          onTrackingQuality: (arTracking, orientationAvailable) => setSensorInput((current) => ({
+            ...current,
+            arTracking,
+            orientationAvailable
+          })),
           language
         }}
         pbrEnabled
@@ -975,6 +1092,21 @@ export default function MoscowSpatialJourney({
                   })}
                 </View>
                 <Text style={styles.statusBody}>{statusMessage}</Text>
+                <Text
+                  style={[
+                    styles.sensorState,
+                    sensorQuality.state === 'precise'
+                      ? styles.sensorPrecise
+                      : sensorQuality.state === 'degraded'
+                        ? styles.sensorDegraded
+                        : styles.sensorInsufficient
+                  ]}
+                >
+                  SENSOR QUALITY · {sensorQuality.state.toUpperCase()}
+                </Text>
+                {sensorQuality.reasons.length > 0 && (
+                  <Text style={styles.sensorReasons}>{sensorQuality.reasons.join(' · ')}</Text>
+                )}
                 {releaseBlockers.length > 0 && (
                   <Text style={styles.blockers}>Release blockers: {releaseBlockers.join(' · ')}</Text>
                 )}
@@ -1006,6 +1138,14 @@ export default function MoscowSpatialJourney({
                 <View style={styles.actionRow}>
                   <PhysicalPressable style={styles.toolButton} contentStyle={styles.center} onPress={() => setEvidenceOpen(true)}><Text style={styles.toolText}>Evidence</Text></PhysicalPressable>
                   <PhysicalPressable style={[styles.toolButton, activePersistentAnchor && styles.toolButtonActive]} contentStyle={styles.center} onPress={() => setAnchorOpen(true)}><Text style={styles.toolText}>Anchor</Text></PhysicalPressable>
+                  <PhysicalPressable
+                    style={[styles.toolButton, sensorRefreshing && styles.disabled]}
+                    contentStyle={styles.center}
+                    disabled={sensorRefreshing}
+                    onPress={() => { void refreshSensorQuality(); }}
+                  >
+                    <Text style={styles.toolText}>{sensorRefreshing ? 'Sensors…' : 'Sensors'}</Text>
+                  </PhysicalPressable>
                 </View>
                 <View style={styles.portalTransition}>
                   <PortalTransitionControl
@@ -1166,6 +1306,11 @@ const styles = StyleSheet.create({
   railText: { color: '#666c74', fontSize: 6.5, fontWeight: '900', marginTop: 4 },
   railTextActive: { color: '#d7c39d' },
   statusBody: { color: '#aeb2b8', fontSize: 10, lineHeight: 14, marginTop: 9 },
+  sensorState: { alignSelf: 'flex-start', marginTop: 7, borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.8 },
+  sensorPrecise: { color: '#9ed0aa', borderColor: '#4f7959', backgroundColor: 'rgba(51,91,61,0.24)' },
+  sensorDegraded: { color: '#e2c17e', borderColor: '#76633d', backgroundColor: 'rgba(103,78,35,0.22)' },
+  sensorInsufficient: { color: '#d69a91', borderColor: '#7b4f49', backgroundColor: 'rgba(104,48,43,0.22)' },
+  sensorReasons: { color: '#858d96', fontSize: 7.5, lineHeight: 11, marginTop: 4 },
   blockers: { color: '#b98a82', fontSize: 8, lineHeight: 12, marginTop: 5 },
   actionDock: { position: 'absolute', left: 12, right: 12, bottom: 18, borderRadius: 20, borderWidth: 1, borderColor: '#414750', backgroundColor: 'rgba(11,14,17,0.94)', padding: 11 },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 7 },
