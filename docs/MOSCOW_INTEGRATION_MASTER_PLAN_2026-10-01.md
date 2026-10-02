@@ -673,11 +673,20 @@ Build the editable multi-day layer on top of Personal Trip OS:
 
 Do not convert a user-entered ticket, booking source or URL into provider-confirmed evidence.
 
-### Tourist Today cockpit — NEXT (#105)
+### Tourist Today cockpit — IMPLEMENTING (#105)
 
-After the scheduler is stable, expose the active-day operating view:
+Expose the active-day operating view:
 
 `Now -> Next commitment -> Remaining plan -> Free windows -> Seen today -> What else`.
+
+Current implementation authority:
+
+- pure clock/plan derivation: `src/travel/touristToday.ts`;
+- contract tests: `tests/touristToday.test.ts`;
+- user-facing cockpit: `src/features/trip/TouristTodayCard.tsx`;
+- browser journey coverage remains in `tests/personalTrip.e2e.spec.ts`.
+
+The cockpit derives the current Moscow trip day, current planned item, next item, next fixed ticket/reservation, completed/remaining progress, visits today, schedule-only free window and time-conflict count.
 
 This layer may use the user's clock and stored plan immediately. It must not claim:
 
@@ -685,4 +694,4 @@ This layer may use the user's clock and stored plan immediately. It must not cla
 - current opening status without trusted live hours;
 - current ticket availability without provider authority.
 
-The absence of those live authorities must degrade the claim, not block the personal trip product.
+User-entered tickets/reservations remain `user-declared`. The absence of live routing/opening/provider authorities must degrade the claim, not block the personal trip product.
