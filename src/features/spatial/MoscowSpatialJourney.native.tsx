@@ -686,7 +686,7 @@ export default function MoscowSpatialJourney({
     setStatusMessage(
       sensorQuality.state === 'degraded'
         ? `DEGRADED sensor mode: ручное выравнивание разрешено, precise placement не заявляется. ${sensorQuality.reasons.join(' · ')}`
-        : 'Sensor quality PRECISE. Ищем устойчивую поверхность в центре экрана…'
+        : 'SENSOR READY: tracking/model и текущие sensor inputs достаточны для попытки anchor. Field verification всё равно обязателен.'
     );
     setStage('searching');
     setLocalAnchor(null);
@@ -1102,7 +1102,7 @@ export default function MoscowSpatialJourney({
                         : styles.sensorInsufficient
                   ]}
                 >
-                  SENSOR QUALITY · {sensorQuality.state.toUpperCase()}
+                  SENSOR QUALITY · {sensorQuality.state === 'precise' ? 'READY' : sensorQuality.state.toUpperCase()}
                 </Text>
                 {sensorQuality.reasons.length > 0 && (
                   <Text style={styles.sensorReasons}>{sensorQuality.reasons.join(' · ')}</Text>
@@ -1114,7 +1114,13 @@ export default function MoscowSpatialJourney({
 
               <View style={styles.actionDock}>
                 <View style={styles.actionRow}>
-                  <PhysicalPressable style={styles.secondary} contentStyle={styles.center} strong onPress={requestAnchor}>
+                  <PhysicalPressable
+                    style={[styles.secondary, !sensorQuality.manualAlignmentAllowed && styles.disabled]}
+                    contentStyle={styles.center}
+                    strong
+                    disabled={!sensorQuality.manualAlignmentAllowed}
+                    onPress={requestAnchor}
+                  >
                     <Text style={styles.secondaryText}>{stage === 'searching' ? 'Найти фасад' : 'Перепривязать'}</Text>
                   </PhysicalPressable>
                   <PhysicalPressable
