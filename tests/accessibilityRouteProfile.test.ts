@@ -118,6 +118,7 @@ test('missing accessibility fact fails closed for required step-free intent', ()
 test('expired verified fact is treated as stale at evaluation time', () => {
   const stale = {
     ...verifiedStepFree('segment-a'),
+    verifiedAt: '2026-09-01T08:00:00.000Z',
     validUntil: '2026-10-01T08:00:00.000Z'
   };
   const decision = evaluateStepFreeRoute({
