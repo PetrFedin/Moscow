@@ -391,6 +391,7 @@ export default function PersonalTripPlanner({
       dayDate: item.dayDate,
       visitedAt: at,
       title: item.title,
+      kind: item.kind,
       evidence: 'user-confirmed',
       updatedAt: new Date().toISOString()
     }));
