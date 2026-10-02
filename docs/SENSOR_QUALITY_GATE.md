@@ -16,7 +16,7 @@ It is a **runtime safety gate**, not field evidence and not a substitute for MOS
 
 All mandatory runtime inputs are ready and location/heading uncertainty is within the current pilot threshold.
 
-The runtime may present the placement as sensor-ready, while field verification remains a separate release authority.
+The internal state name is `precise`, but user-facing UI must display **SENSOR READY**, not "physically precise". The runtime may attempt an anchored workflow while field verification remains a separate release authority.
 
 ### degraded
 
@@ -30,7 +30,9 @@ A hard prerequisite is unavailable, for example:
 
 - AR runtime/tracking not ready;
 - model not loaded;
-- destination package missing/unverified.
+- current scene/model package missing/unverified.
+
+In Phase 0 this means the current embedded Romanov scene/model bundle required for the field workflow. It does **not** mean Destination Package v2 has been published or signed; that remains locked behind MOSCOW-INT-00.
 
 Anchor placement is blocked and the user should remain in a non-precise story/3D fallback.
 
