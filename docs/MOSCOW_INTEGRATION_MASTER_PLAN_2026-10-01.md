@@ -775,7 +775,7 @@ This does not satisfy #74/#73 and does not create live provider validity.
 
 This wave creates a signature time-machine interaction: the visitor points the camera at a verified landmark/facade, Moscow recognizes the place/context and opens the correct historical layer even where GPS/compass are noisy.
 
-### Visual Landmark Reference Set — ADOPT
+### Visual Landmark Reference Set — ADOPT / PHASE 1 IMPLEMENTING (#114)
 
 For field-proven places store approved reference imagery/descriptors:
 
@@ -789,6 +789,17 @@ For field-proven places store approved reference imagery/descriptors:
 - descriptor/model version.
 
 Only verified public landmarks/facades enter the set.
+
+Phase 1 repository authority:
+
+- evidence-bound set and descriptor metadata: `src/spatial/visualLandmarkReference.ts`;
+- external field-verification admission: a reference set cannot self-declare physical PASS;
+- strict candidate decision: `matched / needs-user-confirmation / not-sure / blocked-unverified-site`;
+- geographic and heading incompatibility rejection;
+- contract tests: `tests/visualLandmarkReference.test.ts`;
+- runbook: `docs/VISUAL_LANDMARK_REFERENCE_SET.md`.
+
+No real Romanov or Old English Court visual reference set is activated by Phase 1. The existing physical field gates remain authoritative.
 
 ### On-device Visual Recognition — ADAPT
 
@@ -835,7 +846,7 @@ Default:
 - no background person tracking;
 - ephemeral frames unless user explicitly saves/captures.
 
-### Recognition Quality Gate — ADOPT
+### Recognition Quality Gate — ADOPT / PHASE 1 IMPLEMENTING (#114)
 
 Per site measure:
 
@@ -847,6 +858,10 @@ Per site measure:
 - inference latency.
 
 If insufficient, fall back to map/manual selection.
+
+Phase 1 quality authority records measured sample count, true-match/false-positive/unknown rates, viewpoint and lighting coverage, tested device classes and p95 inference latency. Missing evidence fails closed. Pilot thresholds are repository-configurable and are not presented as external standards.
+
+Release requires both external field admission and quality evidence for the same canonical site.
 
 ### Additional acceptance
 
