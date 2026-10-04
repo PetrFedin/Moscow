@@ -355,6 +355,7 @@ export function evaluateVisualRecognitionRelease(input: {
   reasons.push(...quality.reasons);
 
   return {
+    siteId: input.set.siteId,
     releasable: admission.admitted
       && quality.status === 'pass'
       && !reasons.includes('quality-evidence-site-mismatch'),
