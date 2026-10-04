@@ -1065,3 +1065,103 @@ Phase 1 preserves confirmed fixed commitments exactly, consumes Personal Trip da
 Every proposal records `routingVerified=false`, `openingHoursVerified=false`, `accessibilityVerified=false`, and `weatherVerified=false`. Creating a proposal does not mutate the trip. Applying it requires an unchanged baseline and explicit user acceptance.
 
 This personal schedule layer does not weaken `DestinationJourneyRuntime`: live/provider invalidation still requires the existing `replan-required` state and routing proof.
+
+## Premium enterprise wave — hotel / concierge white-label guest journeys
+
+This wave turns Moscow into a B2B2C city-experience product for hotels, premium residences, conference organisers and concierge services while preserving one core itinerary engine.
+
+### Partner Organisation Authority — ADOPT
+
+Create a bounded partner profile:
+
+- hotel/residence/concierge/event organiser;
+- brand/display settings;
+- allowed staff;
+- service scope;
+- attribution/referral configuration;
+- approved place/event collections;
+- contact/escalation rules;
+- status.
+
+Partners do not own Moscow place/history/provider data.
+
+### Concierge Workspace — ADOPT
+
+Staff can create a guest plan from the same Personal Itinerary authority:
+
+guest request -> constraints -> proposed itinerary -> share -> guest accepts/edits -> live replan
+
+Inputs:
+
+- stay dates;
+- fixed tickets/reservations;
+- guest interests;
+- time windows;
+- mobility/accessibility needs explicitly provided;
+- hotel start/end point;
+- dining/event preferences.
+
+### Guest Handoff — ADOPT
+
+Generate a privacy-minimised guest link/QR:
+
+- itinerary;
+- selected reservations/tickets;
+- maps/routes;
+- concierge notes;
+- language;
+- expiry/revoke.
+
+The guest can continue in Moscow app/web without exposing the hotel's internal notes.
+
+### White-label Presentation — ADOPT
+
+Allow bounded presentation theming:
+
+- partner logo;
+- welcome text;
+- concierge contact;
+- selected curated collections.
+
+Core Moscow UI, historical-source truth and provider states remain consistent.
+
+Do not create a forked app per hotel.
+
+### Partner-curated Collections — ADOPT
+
+Examples:
+
+- 24 hours near the hotel;
+- architecture walk;
+- rainy-day plan;
+- family morning;
+- theatre evening;
+- business guest 3-hour route.
+
+Partner-curated ordering is explicitly labeled; Moscow canonical place metadata stays authoritative.
+
+### Attribution / Commercial Evidence — ADOPT
+
+Where agreements allow:
+
+- guest plan opened;
+- booking/ticket handoff;
+- provider conversion/receipt if verified;
+- partner attribution;
+- concierge intervention.
+
+Do not claim revenue/conversion without real provider evidence.
+
+### Additional acceptance
+
+- partner staff cannot see unrelated guest/account data;
+- guest link is revocable/expiring;
+- fixed reservations remain governed by itinerary/provider authority;
+- partner theme cannot rewrite historical/provider facts;
+- one canonical itinerary engine serves direct and white-label users;
+- attribution distinguishes click/handoff from verified purchase.
+
+**Sequencing:** Personal Itinerary + AI Concierge + provider boundaries -> partner org -> concierge workspace -> guest handoff -> white-label collections -> attribution.
+
+**Commercial framing:** sell Moscow as a digital concierge infrastructure layer for hospitality and premium visitor services, not only a direct-to-consumer guide.
+
