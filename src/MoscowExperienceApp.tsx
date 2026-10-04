@@ -653,11 +653,12 @@ export default function MoscowExperienceApp() {
                       <Text style={styles.periodBody}>{todaySelected ? tr(language, 'Современное состояние — точка сравнения с историческими слоями.', 'The current state is the comparison point for historical layers.', '当代状态是与历史层进行比较的参照点。') : activePeriod?.summary}</Text>
                       {!todaySelected && activePeriod && <Text style={styles.evidence}>{evidenceLabel[language][activePeriod.confidence]}</Text>}
 
-                      {selectedExperience.modelEraMap && (
+                      {selectedExperience.runtime === 'romanov-v1' && modelAvailable && (
                         <View style={styles.trustRow}>
                           <PhysicalPressable
                             style={[styles.trustButton, trustMode === 'documented' && styles.trustButtonActive]}
                             contentStyle={styles.center}
+                            accessibilityLabel={tr(language, 'Режим доверия · Только факты', 'Trust mode · Facts only', '可信模式 · 仅事实')}
                             onPress={() => setTrustMode('documented')}
                           >
                             <Text style={[styles.trustText, trustMode === 'documented' && styles.trustTextActive]}>{ui.onlyFacts}</Text>
@@ -665,6 +666,7 @@ export default function MoscowExperienceApp() {
                           <PhysicalPressable
                             style={[styles.trustButton, trustMode === 'public' && styles.trustButtonActive]}
                             contentStyle={styles.center}
+                            accessibilityLabel={tr(language, 'Режим доверия · Факты + реконструкция', 'Trust mode · Facts + reconstruction', '可信模式 · 事实 + 重建')}
                             onPress={() => setTrustMode('public')}
                           >
                             <Text style={[styles.trustText, trustMode === 'public' && styles.trustTextActive]}>{ui.research}</Text>
