@@ -1206,3 +1206,143 @@ Do not claim revenue/conversion without real provider evidence.
 
 **Commercial framing:** sell Moscow as a digital concierge infrastructure layer for hospitality and premium visitor services, not only a direct-to-consumer guide.
 
+## Moat wave — verified accessibility graph and inclusive journey engine
+
+The current project correctly treats step-free intent as a preference, not verified accessibility truth. This wave creates the missing factual authority.
+
+### Accessibility Fact Authority — ADOPT
+
+For each relevant place/entrance/route segment store objective facts where known:
+
+- entrance ID/type;
+- level;
+- step count;
+- threshold/kerb height;
+- ramp;
+- door width/type;
+- automatic door;
+- elevator/lift;
+- path surface;
+- slope/gradient where measured;
+- accessible toilet;
+- accessible parking/drop-off;
+- seating/rest point;
+- temporary obstruction;
+- source;
+- observed_at;
+- verifier;
+- confidence/status.
+
+Prefer objective measurements over a single yes/no accessible label.
+
+### External Data Projection — ADAPT
+
+OpenStreetMap may provide candidate facts such as:
+
+- entrance=*;
+- wheelchair=*;
+- level=*;
+- width=*;
+- automatic_door=*;
+- highway=elevator;
+- access=*.
+
+OSM is a useful external source, not Moscow's final verification authority.
+
+All imported facts retain source/version/fetch time and may be superseded by field evidence.
+
+### Field Accessibility Verification — ADOPT
+
+Extend Field Verification Mode with an accessibility checklist:
+
+- exact entrance;
+- steps/threshold;
+- ramp;
+- lift;
+- door;
+- route obstacle;
+- toilet;
+- surface;
+- photo/evidence;
+- timestamp.
+
+A field-verified state must expire/review after a configured period or material venue change.
+
+### Personal Accessibility Profile — ADOPT
+
+Allow the user to explicitly specify needs such as:
+
+- step-free required/preferred;
+- wheelchair width;
+- maximum acceptable kerb/step;
+- avoid steep slopes;
+- lift required;
+- limited walking;
+- stroller;
+- rest-stop preference.
+
+Do not infer disability from behaviour/history.
+
+### Inclusive Route Evaluation — ADOPT
+
+route candidate -> accessibility facts -> personal constraints -> pass / caution / unknown / reject
+
+Unknown required facts must remain unknown, not be treated as accessible.
+
+### Venue Accessibility Card — ADOPT
+
+Show:
+
+- verified entrance;
+- key measurements;
+- route from street/transport;
+- lift/toilet availability;
+- freshness;
+- source;
+- known unknowns.
+
+This is more useful than a generic wheelchair icon.
+
+### Accessibility Change / Incident — ADOPT
+
+Support temporary changes:
+
+- lift out of service;
+- construction;
+- entrance closed;
+- temporary ramp;
+- route obstruction.
+
+Changes can trigger Journey Runtime replan.
+
+### B2B/B2G Accessibility Product — ADOPT
+
+Create privacy-safe aggregate outputs for:
+
+- hotels/concierges;
+- event organisers;
+- city/cultural institutions;
+- accessibility audits.
+
+Examples:
+
+- verified accessible routes/venues;
+- stale/missing evidence;
+- priority verification queue.
+
+Do not publish individual user accessibility profiles.
+
+### Additional acceptance
+
+- step-free routing requires factual source evidence;
+- unknown fact never becomes yes;
+- field verification overrides conflicting stale external data;
+- user accessibility preferences are explicit and editable;
+- temporary lift/entrance outage can invalidate route;
+- no medical diagnosis is inferred;
+- every accessibility claim shows freshness/source.
+
+**Sequencing:** Field Verification + Itinerary + routing -> Accessibility Facts -> user profile -> inclusive route evaluation -> venue cards -> live change/replan -> B2B/B2G reporting.
+
+**Commercial framing:** opens hospitality, city-government, cultural and inclusive-tourism markets while creating a hard-to-replicate field-verified accessibility dataset.
+
