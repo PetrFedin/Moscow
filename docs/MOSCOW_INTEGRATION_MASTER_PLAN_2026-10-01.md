@@ -296,25 +296,49 @@ This is a runtime safety layer only. It cannot mark Romanov/Old English Court fi
 
 Do not pretend a precise placement when sensors say otherwise.
 
-### Temporal Scene Model — ADOPT
+### Temporal Scene Model — ADOPT / PHASE 1 IMPLEMENTING (#98)
 
-Add explicit valid-time relationships:
+Temporal authority now distinguishes:
 
-- scene/asset;
-- historical period;
-- valid_from / valid_to or approximate period;
-- confidence;
+- exact date;
+- exact year;
+- bounded range;
+- approximate range;
+- non-contiguous reference points;
+- undated state.
+
+Each temporal scene binds:
+
+- place + scene/version;
+- period label/extent;
+- confidence, including explicit `not-assessed`;
 - source evidence;
-- reconstruction status.
+- claim/evidence-element IDs;
+- model/media asset IDs;
+- reconstruction status;
+- interpretation mode;
+- publication state;
+- optional supersession/alternative relationships.
 
-A location can therefore expose multiple historically distinct states without treating them as simultaneous truth.
+Current implementation authority:
+
+- generic contract/validator: `src/spatial/temporalSceneAuthority.ts`;
+- Romanov bindings: `src/spatial/romanovTemporalScenes.ts`;
+- Time Machine runtime routing: `src/spatial/placeExperienceRegistry.ts`;
+- tests: `tests/temporalSceneAuthority.test.ts`;
+- runbook: `docs/TEMPORAL_SCENE_AUTHORITY.md`.
+
+The existing Romanov `1859 / 1883` research state is represented as two **reference points**, not a fabricated continuous `1859–1883` interval.
 
 Flow:
 
-place -> epoch/period -> historical evidence -> reconstructed scene -> publication version
+place -> temporal scene authority -> historical evidence/claims -> asset binding -> runtime era -> publication state
 
-UI can support a time slider/epoch switch only after the underlying temporal records exist.
+A location can therefore expose multiple historically distinct states without treating them as simultaneous truth. Overlapping active states fail closed unless they are explicitly identified as alternative interpretations.
 
+Time Machine UI is navigation only; it does not own historical truth.
+
+This layer does not add unsupported dates, promote field verification or unlock `MOSCOW-INT-00`.
 ### Accessibility Route Profile — ADOPT / PHASE 1 IMPLEMENTING (#100)
 
 Extend curated walks with accessibility constraints:
