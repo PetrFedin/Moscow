@@ -1,4 +1,4 @@
-import type { VisualLandmarkDecision } from './visualLandmarkReference.ts';
+import type { VisualSensorFusionDecision } from './visualSensorFusion.ts';
 import {
   temporalSceneAtTimeMachineIndex,
   validateTemporalSceneRecord,
@@ -7,27 +7,20 @@ import {
   type TemporalSceneValidation
 } from './temporalSceneAuthority.ts';
 
-export type VisualRecognitionReleaseDecision = {
-  siteId: string;
-  releasable: boolean;
-  reasons: string[];
-};
-
 export type InstantHistoricalRevealStatus =
   | 'ready'
   | 'needs-user-confirmation'
   | 'needs-period-selection'
   | 'fallback-manual-selection'
-  | 'blocked-unverified-site'
-  | 'blocked-recognition-quality'
+  | 'blocked-fusion-context'
   | 'blocked-temporal-authority'
   | 'blocked-site-mismatch'
   | 'blocked-scene-unavailable'
   | 'blocked-scene-selection-conflict';
 
 export type HistoricalRevealContextSource =
-  | 'strict-visual-match'
-  | 'user-confirmed-visual';
+  | 'sensor-fusion-automatic'
+  | 'sensor-fusion-user-assisted';
 
 export type HistoricalRevealSceneOption = {
   id: string;
@@ -43,10 +36,15 @@ export type HistoricalRevealSceneOption = {
 
 export type InstantHistoricalRevealPayload = {
   siteId: string;
+  packageId: string;
   contextSource: HistoricalRevealContextSource;
-  visual: {
-    referenceId?: string;
-    confidence?: number;
+  fusion: {
+    referenceSetId: string;
+    referenceId: string;
+    visualConfidence: number;
+    sensorState: VisualSensorFusionDecision['sensorState'];
+    locationCompatibility: VisualSensorFusionDecision['locationCompatibility'];
+    headingCompatibility: VisualSensorFusionDecision['headingCompatibility'];
   };
   scene: {
     id: string;
@@ -77,6 +75,18 @@ export type InstantHistoricalRevealDecision = {
   payload?: InstantHistoricalRevealPayload;
   sceneOptions?: HistoricalRevealSceneOption[];
   blockingReasons?: string[];
+};
+
+type ConfirmedFusionContext = {
+  siteId: string;
+  packageId: string;
+  contextSource: HistoricalRevealContextSource;
+  referenceSetId: string;
+  referenceId: string;
+  visualConfidence: number;
+  sensorState: VisualSensorFusionDecision['sensorState'];
+  locationCompatibility: VisualSensorFusionDecision['locationCompatibility'];
+  headingCompatibility: VisualSensorFusionDecision['headingCompatibility'];
 };
 
 function cloneExtent(extent: TemporalSceneRecord['extent']): TemporalSceneRecord['extent'] {
@@ -125,103 +135,86 @@ function eligibleScenes(scenes: TemporalSceneRecord[], siteId: string) {
   );
 }
 
-function resolveVisualContext(input: {
-  visualDecision: VisualLandmarkDecision;
-  recognitionRelease: VisualRecognitionReleaseDecision;
-  confirmedSiteId?: string;
-}): InstantHistoricalRevealDecision | {
-  siteId: string;
-  contextSource: HistoricalRevealContextSource;
-  referenceId?: string;
-  confidence?: number;
-} {
-  const decision = input.visualDecision;
-
-  if (decision.status === 'blocked-unverified-site') {
+function resolveFusionContext(
+  fusion: VisualSensorFusionDecision
+): InstantHistoricalRevealDecision | ConfirmedFusionContext {
+  if (fusion.status === 'blocked') {
     return {
-      status: 'blocked-unverified-site',
-      reason: 'visual-site-not-field-verified'
+      status: 'blocked-fusion-context',
+      reason: 'sensor-fusion-blocked',
+      blockingReasons: [fusion.reason]
     };
   }
 
-  if (decision.status === 'not-sure') {
+  if (fusion.status === 'not-sure') {
     return {
       status: 'fallback-manual-selection',
-      reason: 'visual-recognition-not-sure'
+      reason: 'sensor-fusion-not-sure'
     };
   }
 
-  if (!decision.siteId?.trim()) {
+  if (fusion.status === 'needs-user-confirmation') {
     return {
-      status: 'blocked-site-mismatch',
-      reason: 'visual-decision-site-missing'
+      status: 'needs-user-confirmation',
+      reason: 'sensor-fusion-requires-user-confirmation'
     };
   }
 
-  if (input.recognitionRelease.siteId !== decision.siteId) {
+  if (fusion.status !== 'confirmed') {
     return {
-      status: 'blocked-site-mismatch',
-      reason: 'visual-release-belongs-to-different-site'
+      status: 'blocked-fusion-context',
+      reason: 'sensor-fusion-status-invalid'
     };
   }
 
-  if (!input.recognitionRelease.releasable) {
-    const unverified = input.recognitionRelease.reasons.includes('site-not-field-verified');
+  if (
+    !fusion.siteId?.trim()
+    || !fusion.packageId?.trim()
+    || !fusion.referenceSetId?.trim()
+    || !fusion.referenceId?.trim()
+    || fusion.visualConfidence === undefined
+    || !Number.isFinite(fusion.visualConfidence)
+  ) {
     return {
-      status: unverified ? 'blocked-unverified-site' : 'blocked-recognition-quality',
-      reason: unverified ? 'visual-release-site-not-field-verified' : 'visual-recognition-release-blocked',
-      blockingReasons: [...input.recognitionRelease.reasons]
+      status: 'blocked-fusion-context',
+      reason: 'confirmed-fusion-context-incomplete'
     };
   }
 
-  if (decision.status === 'needs-user-confirmation') {
-    if (!input.confirmedSiteId) {
-      return {
-        status: 'needs-user-confirmation',
-        reason: 'visual-candidate-requires-user-confirmation'
-      };
-    }
-    if (input.confirmedSiteId !== decision.siteId) {
-      return {
-        status: 'blocked-site-mismatch',
-        reason: 'user-confirmed-different-site'
-      };
-    }
+  if (
+    fusion.confirmationMode !== 'automatic'
+    && fusion.confirmationMode !== 'user-assisted'
+  ) {
     return {
-      siteId: decision.siteId,
-      contextSource: 'user-confirmed-visual',
-      ...(decision.referenceId ? { referenceId: decision.referenceId } : {}),
-      ...(decision.confidence !== undefined ? { confidence: decision.confidence } : {})
-    };
-  }
-
-  if (decision.status !== 'matched') {
-    return {
-      status: 'fallback-manual-selection',
-      reason: 'visual-decision-not-revealable'
+      status: 'blocked-fusion-context',
+      reason: 'confirmed-fusion-mode-invalid'
     };
   }
 
   return {
-    siteId: decision.siteId,
-    contextSource: 'strict-visual-match',
-    ...(decision.referenceId ? { referenceId: decision.referenceId } : {}),
-    ...(decision.confidence !== undefined ? { confidence: decision.confidence } : {})
+    siteId: fusion.siteId,
+    packageId: fusion.packageId,
+    contextSource: fusion.confirmationMode === 'automatic'
+      ? 'sensor-fusion-automatic'
+      : 'sensor-fusion-user-assisted',
+    referenceSetId: fusion.referenceSetId,
+    referenceId: fusion.referenceId,
+    visualConfidence: fusion.visualConfidence,
+    sensorState: fusion.sensorState,
+    locationCompatibility: fusion.locationCompatibility,
+    headingCompatibility: fusion.headingCompatibility
   };
 }
 
 function isDecision(
-  value: ReturnType<typeof resolveVisualContext>
+  value: InstantHistoricalRevealDecision | ConfirmedFusionContext
 ): value is InstantHistoricalRevealDecision {
   return 'status' in value;
 }
 
 function buildPayload(input: {
   scene: TemporalSceneRecord;
-  siteId: string;
-  contextSource: HistoricalRevealContextSource;
-  referenceId?: string;
-  confidence?: number;
+  fusion: ConfirmedFusionContext;
 }): InstantHistoricalRevealPayload {
   const overlays = input.scene.assetBindings
     .filter((asset) => asset.kind === 'archive-image' || asset.kind === 'iiif')
@@ -237,11 +230,16 @@ function buildPayload(input: {
     .map(cloneBinding);
 
   return {
-    siteId: input.siteId,
-    contextSource: input.contextSource,
-    visual: {
-      ...(input.referenceId ? { referenceId: input.referenceId } : {}),
-      ...(input.confidence !== undefined ? { confidence: input.confidence } : {})
+    siteId: input.fusion.siteId,
+    packageId: input.fusion.packageId,
+    contextSource: input.fusion.contextSource,
+    fusion: {
+      referenceSetId: input.fusion.referenceSetId,
+      referenceId: input.fusion.referenceId,
+      visualConfidence: input.fusion.visualConfidence,
+      sensorState: input.fusion.sensorState,
+      locationCompatibility: input.fusion.locationCompatibility,
+      headingCompatibility: input.fusion.headingCompatibility
     },
     scene: {
       id: input.scene.id,
@@ -268,14 +266,15 @@ function buildPayload(input: {
 }
 
 export function buildInstantHistoricalReveal(input: {
-  visualDecision: VisualLandmarkDecision;
-  recognitionRelease: VisualRecognitionReleaseDecision;
+  fusionDecision: VisualSensorFusionDecision;
   temporalScenes: TemporalSceneRecord[];
   temporalRegistryValidation: TemporalSceneValidation;
-  confirmedSiteId?: string;
   selectedSceneId?: string;
   selectedTimeMachineIndex?: number;
 }): InstantHistoricalRevealDecision {
+  const fusion = resolveFusionContext(input.fusionDecision);
+  if (isDecision(fusion)) return fusion;
+
   if (!input.temporalRegistryValidation.valid) {
     return {
       status: 'blocked-temporal-authority',
@@ -284,18 +283,11 @@ export function buildInstantHistoricalReveal(input: {
     };
   }
 
-  const visual = resolveVisualContext({
-    visualDecision: input.visualDecision,
-    recognitionRelease: input.recognitionRelease,
-    confirmedSiteId: input.confirmedSiteId
-  });
-  if (isDecision(visual)) return visual;
-
-  const scenes = eligibleScenes(input.temporalScenes, visual.siteId);
+  const scenes = eligibleScenes(input.temporalScenes, fusion.siteId);
   if (scenes.length === 0) {
     return {
       status: 'blocked-scene-unavailable',
-      reason: 'no-production-temporal-scene-for-visual-site'
+      reason: 'no-production-temporal-scene-for-fused-site'
     };
   }
 
@@ -305,10 +297,10 @@ export function buildInstantHistoricalReveal(input: {
     if (!byId) {
       const foreign = input.temporalScenes.find((scene) => scene.id === input.selectedSceneId);
       return {
-        status: foreign && foreign.placeId !== visual.siteId
+        status: foreign && foreign.placeId !== fusion.siteId
           ? 'blocked-site-mismatch'
           : 'blocked-scene-unavailable',
-        reason: foreign && foreign.placeId !== visual.siteId
+        reason: foreign && foreign.placeId !== fusion.siteId
           ? 'selected-temporal-scene-belongs-to-different-site'
           : 'selected-temporal-scene-not-production-eligible'
       };
@@ -325,7 +317,7 @@ export function buildInstantHistoricalReveal(input: {
     }
     byIndex = temporalSceneAtTimeMachineIndex(
       scenes,
-      visual.siteId,
+      fusion.siteId,
       input.selectedTimeMachineIndex
     ) ?? undefined;
     if (!byIndex) {
@@ -358,10 +350,7 @@ export function buildInstantHistoricalReveal(input: {
       reason: 'single-production-temporal-scene',
       payload: buildPayload({
         scene: scenes[0]!,
-        siteId: visual.siteId,
-        contextSource: visual.contextSource,
-        ...(visual.referenceId ? { referenceId: visual.referenceId } : {}),
-        ...(visual.confidence !== undefined ? { confidence: visual.confidence } : {})
+        fusion
       })
     };
   }
@@ -371,10 +360,7 @@ export function buildInstantHistoricalReveal(input: {
     reason: byId ? 'explicit-temporal-scene-selected' : 'time-machine-scene-selected',
     payload: buildPayload({
       scene: selected,
-      siteId: visual.siteId,
-      contextSource: visual.contextSource,
-      ...(visual.referenceId ? { referenceId: visual.referenceId } : {}),
-      ...(visual.confidence !== undefined ? { confidence: visual.confidence } : {})
+      fusion
     })
   };
 }
