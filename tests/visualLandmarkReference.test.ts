@@ -287,6 +287,7 @@ test('release requires both field verification and quality evidence for the same
     fieldVerifiedSiteIds: ['site-a'],
     qualityEvidence: quality()
   });
+  assert.equal(passed.siteId, 'site-a');
   assert.equal(passed.releasable, true);
   assert.deepEqual(passed.reasons, []);
 });
