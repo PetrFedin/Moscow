@@ -1,24 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  buildInstantHistoricalReveal,
-  type VisualRecognitionReleaseDecision
-} from '../src/spatial/instantHistoricalReveal.ts';
+import { buildInstantHistoricalReveal } from '../src/spatial/instantHistoricalReveal.ts';
 import type { TemporalSceneRecord, TemporalSceneValidation } from '../src/spatial/temporalSceneAuthority.ts';
-import type { VisualLandmarkDecision } from '../src/spatial/visualLandmarkReference.ts';
+import type { VisualSensorFusionDecision } from '../src/spatial/visualSensorFusion.ts';
 
 const validRegistry: TemporalSceneValidation = { valid: true, blockers: [] };
-const released: VisualRecognitionReleaseDecision = { siteId: 'site-a', releasable: true, reasons: [] };
 
-function visual(overrides: Partial<VisualLandmarkDecision> = {}): VisualLandmarkDecision {
+function fusion(
+  overrides: Partial<VisualSensorFusionDecision> = {}
+): VisualSensorFusionDecision {
   return {
-    status: 'matched',
+    status: 'confirmed',
+    confirmationMode: 'automatic',
     siteId: 'site-a',
+    packageId: 'package-a',
+    referenceSetId: 'set-a',
     referenceId: 'ref-a',
-    confidence: 0.94,
-    marginToSecond: 0.21,
-    reason: 'strict-match',
+    visualConfidence: 0.96,
+    sensorState: 'precise',
+    locationCompatibility: 'compatible',
+    headingCompatibility: 'compatible',
+    reason: 'automatic-fusion',
     ...overrides
   };
 }
@@ -32,20 +35,20 @@ function scene(
     id,
     placeId: 'site-a',
     version: 1,
-    periodLabelRu: `Период ${index}`,
-    periodLabelEn: `Period ${index}`,
+    periodLabelRu: 'Период ' + index,
+    periodLabelEn: 'Period ' + index,
     extent: { kind: 'exact-year', year: 1800 + index },
     confidence: 'medium',
     reconstructionStatus: 'mixed',
     interpretationMode: 'composite-research',
-    sourceIds: [`source-${id}`],
-    claimIds: [`claim-${id}`],
-    evidenceElementIds: [`element-${id}`],
+    sourceIds: ['source-' + id],
+    claimIds: ['claim-' + id],
+    evidenceElementIds: ['element-' + id],
     assetBindings: [
-      { kind: 'archive-image', id: `archive-${id}`, trustMode: 'documented' },
-      { kind: 'iiif', id: `iiif-${id}`, trustMode: 'documented' },
-      { kind: 'model3d', id: `model-${id}`, trustMode: 'public-research' },
-      { kind: 'audio', id: `audio-${id}` }
+      { kind: 'archive-image', id: 'archive-' + id, trustMode: 'documented' },
+      { kind: 'iiif', id: 'iiif-' + id, trustMode: 'documented' },
+      { kind: 'model3d', id: 'model-' + id, trustMode: 'public-research' },
+      { kind: 'audio', id: 'audio-' + id }
     ],
     timeMachineIndexes: [index],
     publicationState: 'production-candidate',
@@ -53,11 +56,10 @@ function scene(
   };
 }
 
-test('strict released visual match + one production temporal scene yields evidence-bound reveal', () => {
+test('confirmed automatic fusion + one production temporal scene yields evidence-bound reveal', () => {
   const temporal = scene('scene-a', 0);
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: [temporal],
     temporalRegistryValidation: validRegistry
   });
@@ -65,7 +67,16 @@ test('strict released visual match + one production temporal scene yields eviden
   assert.equal(result.status, 'ready');
   assert.equal(result.reason, 'single-production-temporal-scene');
   assert.equal(result.payload?.siteId, 'site-a');
-  assert.equal(result.payload?.contextSource, 'strict-visual-match');
+  assert.equal(result.payload?.packageId, 'package-a');
+  assert.equal(result.payload?.contextSource, 'sensor-fusion-automatic');
+  assert.deepEqual(result.payload?.fusion, {
+    referenceSetId: 'set-a',
+    referenceId: 'ref-a',
+    visualConfidence: 0.96,
+    sensorState: 'precise',
+    locationCompatibility: 'compatible',
+    headingCompatibility: 'compatible'
+  });
   assert.deepEqual(result.payload?.scene, {
     id: 'scene-a',
     version: 1,
@@ -93,97 +104,107 @@ test('strict released visual match + one production temporal scene yields eviden
   ]);
 });
 
-test('visual decision cannot reveal when recognition release/quality gate is blocked', () => {
+test('user-assisted fusion remains explicit in reveal disclosure', () => {
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: {
-      siteId: 'site-a',
-      releasable: false,
-      reasons: ['false-positive-rate-above-threshold']
-    },
-    temporalScenes: [scene('scene-a', 0)],
-    temporalRegistryValidation: validRegistry
-  });
-
-  assert.equal(result.status, 'blocked-recognition-quality');
-  assert.equal(result.reason, 'visual-recognition-release-blocked');
-  assert.deepEqual(result.blockingReasons, ['false-positive-rate-above-threshold']);
-});
-
-test('unverified visual site is blocked even if a temporal scene exists', () => {
-  const result = buildInstantHistoricalReveal({
-    visualDecision: visual({
-      status: 'blocked-unverified-site',
-      reason: 'candidate-site-not-field-verified'
+    fusionDecision: fusion({
+      confirmationMode: 'user-assisted',
+      sensorState: 'degraded',
+      locationCompatibility: 'unknown',
+      reason: 'explicit-user-confirmation'
     }),
-    recognitionRelease: {
-      siteId: 'site-a',
-      releasable: false,
-      reasons: ['site-not-field-verified', 'missing-evidence']
-    },
     temporalScenes: [scene('scene-a', 0)],
     temporalRegistryValidation: validRegistry
   });
 
-  assert.equal(result.status, 'blocked-unverified-site');
-  assert.equal(result.payload, undefined);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.payload?.contextSource, 'sensor-fusion-user-assisted');
+  assert.equal(result.payload?.fusion.sensorState, 'degraded');
+  assert.equal(result.payload?.fusion.locationCompatibility, 'unknown');
 });
 
-test('not-sure recognition falls back to manual place selection instead of guessing', () => {
+test('unconfirmed sensor fusion cannot open historical reveal', () => {
+  const pending = buildInstantHistoricalReveal({
+    fusionDecision: fusion({
+      status: 'needs-user-confirmation',
+      confirmationMode: 'none',
+      reason: 'sensor-or-context-degraded'
+    }),
+    temporalScenes: [scene('scene-a', 0)],
+    temporalRegistryValidation: validRegistry
+  });
+
+  assert.deepEqual(pending, {
+    status: 'needs-user-confirmation',
+    reason: 'sensor-fusion-requires-user-confirmation'
+  });
+});
+
+test('not-sure fusion falls back to manual place selection instead of guessing', () => {
   const result = buildInstantHistoricalReveal({
-    visualDecision: {
+    fusionDecision: fusion({
       status: 'not-sure',
-      reason: 'no-eligible-candidate'
-    },
-    recognitionRelease: released,
+      confirmationMode: 'none',
+      reason: 'visual-not-sure'
+    }),
     temporalScenes: [scene('scene-a', 0)],
     temporalRegistryValidation: validRegistry
   });
 
   assert.deepEqual(result, {
     status: 'fallback-manual-selection',
-    reason: 'visual-recognition-not-sure'
+    reason: 'sensor-fusion-not-sure'
   });
 });
 
-test('review-band visual candidate requires explicit same-site confirmation', () => {
-  const candidate = visual({
-    status: 'needs-user-confirmation',
-    reason: 'ambiguous-or-review-band'
-  });
-
-  const pending = buildInstantHistoricalReveal({
-    visualDecision: candidate,
-    recognitionRelease: released,
-    temporalScenes: [scene('scene-a', 0)],
-    temporalRegistryValidation: validRegistry
-  });
-  assert.equal(pending.status, 'needs-user-confirmation');
-
-  const wrong = buildInstantHistoricalReveal({
-    visualDecision: candidate,
-    recognitionRelease: released,
-    confirmedSiteId: 'site-b',
-    temporalScenes: [scene('scene-a', 0)],
-    temporalRegistryValidation: validRegistry
-  });
-  assert.equal(wrong.status, 'blocked-site-mismatch');
-
-  const confirmed = buildInstantHistoricalReveal({
-    visualDecision: candidate,
-    recognitionRelease: released,
-    confirmedSiteId: 'site-a',
-    temporalScenes: [scene('scene-a', 0)],
-    temporalRegistryValidation: validRegistry
-  });
-  assert.equal(confirmed.status, 'ready');
-  assert.equal(confirmed.payload?.contextSource, 'user-confirmed-visual');
-});
-
-test('invalid temporal registry blocks reveal regardless of visual confidence', () => {
+test('hard fusion blocker cannot be bypassed by valid historical content', () => {
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual({ confidence: 0.999 }),
-    recognitionRelease: released,
+    fusionDecision: fusion({
+      status: 'blocked',
+      confirmationMode: 'none',
+      reason: 'location-incompatible'
+    }),
+    temporalScenes: [scene('scene-a', 0)],
+    temporalRegistryValidation: validRegistry
+  });
+
+  assert.deepEqual(result, {
+    status: 'blocked-fusion-context',
+    reason: 'sensor-fusion-blocked',
+    blockingReasons: ['location-incompatible']
+  });
+});
+
+test('confirmed fusion must carry complete canonical package and reference context', () => {
+  const forged = fusion({
+    packageId: undefined
+  }) as VisualSensorFusionDecision;
+
+  const result = buildInstantHistoricalReveal({
+    fusionDecision: forged,
+    temporalScenes: [scene('scene-a', 0)],
+    temporalRegistryValidation: validRegistry
+  });
+
+  assert.equal(result.status, 'blocked-fusion-context');
+  assert.equal(result.reason, 'confirmed-fusion-context-incomplete');
+});
+
+test('confirmed fusion cannot use confirmationMode none', () => {
+  const result = buildInstantHistoricalReveal({
+    fusionDecision: fusion({
+      confirmationMode: 'none'
+    }),
+    temporalScenes: [scene('scene-a', 0)],
+    temporalRegistryValidation: validRegistry
+  });
+
+  assert.equal(result.status, 'blocked-fusion-context');
+  assert.equal(result.reason, 'confirmed-fusion-mode-invalid');
+});
+
+test('invalid temporal registry blocks reveal after context is confirmed', () => {
+  const result = buildInstantHistoricalReveal({
+    fusionDecision: fusion(),
     temporalScenes: [scene('scene-a', 0)],
     temporalRegistryValidation: {
       valid: false,
@@ -198,8 +219,7 @@ test('invalid temporal registry blocks reveal regardless of visual confidence', 
 test('multiple production temporal scenes require explicit period selection', () => {
   const scenes = [scene('scene-a', 0), scene('scene-b', 1)];
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: scenes,
     temporalRegistryValidation: validRegistry
   });
@@ -211,8 +231,7 @@ test('multiple production temporal scenes require explicit period selection', ()
 test('explicit time-machine index resolves the temporal scene without inventing a period', () => {
   const scenes = [scene('scene-a', 0), scene('scene-b', 1)];
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: scenes,
     temporalRegistryValidation: validRegistry,
     selectedTimeMachineIndex: 1
@@ -227,8 +246,7 @@ test('explicit time-machine index resolves the temporal scene without inventing 
 test('scene ID and time-machine index cannot silently resolve to different periods', () => {
   const scenes = [scene('scene-a', 0), scene('scene-b', 1)];
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: scenes,
     temporalRegistryValidation: validRegistry,
     selectedSceneId: 'scene-a',
@@ -243,8 +261,7 @@ test('draft and superseded scenes are not revealable', () => {
   const superseded = scene('old-scene', 1, { publicationState: 'superseded' });
 
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: [draft, superseded],
     temporalRegistryValidation: validRegistry
   });
@@ -257,8 +274,7 @@ test('selected scene from another site is rejected rather than cross-wired', () 
   const local = scene('local-scene', 1);
 
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: [foreign, local],
     temporalRegistryValidation: validRegistry,
     selectedSceneId: 'foreign-scene'
@@ -277,8 +293,7 @@ test('audio is optional and missing audio does not fabricate a narration asset',
   });
 
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: [noAudio],
     temporalRegistryValidation: validRegistry
   });
@@ -291,8 +306,7 @@ test('audio is optional and missing audio does not fabricate a narration asset',
 test('reveal payload is a defensive copy of Temporal Authority evidence and assets', () => {
   const temporal = scene('scene-copy', 0);
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: released,
+    fusionDecision: fusion(),
     temporalScenes: [temporal],
     temporalRegistryValidation: validRegistry
   });
@@ -306,19 +320,15 @@ test('reveal payload is a defensive copy of Temporal Authority evidence and asse
   assert.equal(temporal.assetBindings[0]?.id, 'archive-scene-copy');
 });
 
-
-test('recognition release from another site cannot be reused for this reveal', () => {
+test('reveal payload remains privacy-bounded', () => {
   const result = buildInstantHistoricalReveal({
-    visualDecision: visual(),
-    recognitionRelease: {
-      siteId: 'site-b',
-      releasable: true,
-      reasons: []
-    },
+    fusionDecision: fusion(),
     temporalScenes: [scene('scene-a', 0)],
     temporalRegistryValidation: validRegistry
   });
 
-  assert.equal(result.status, 'blocked-site-mismatch');
-  assert.equal(result.reason, 'visual-release-belongs-to-different-site');
+  const encoded = JSON.stringify(result);
+  for (const forbidden of ['latitude', 'longitude', 'rawHeading', 'cameraFrame', 'faceRecognition']) {
+    assert.equal(encoded.includes(forbidden), false);
+  }
 });
