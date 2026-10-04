@@ -32,6 +32,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
+import CityConciergeCard from './CityConciergeCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -519,6 +520,8 @@ export default function PersonalTripPlanner({
         language={language}
         onUpdate={setTrip}
       />
+
+      <CityConciergeCard trip={trip} language={language} />
 
       <TouristTodayCard
         trip={trip}
