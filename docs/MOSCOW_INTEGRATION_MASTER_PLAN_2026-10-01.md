@@ -869,13 +869,31 @@ Combine:
 
 Reject visually plausible but geographically impossible matches.
 
-### Instant Historical Reveal — ADOPT
+### Instant Historical Reveal — ADOPT / PHASE 1 IMPLEMENTING (#126)
 
 After confirmed place/context:
 
 current facade -> matched historical scene/period -> overlay/reconstruction -> evidence panel -> optional audio narrative
 
 Show historical period, reconstruction confidence and source evidence.
+
+Phase 1 composes existing authorities rather than duplicating them:
+
+- Visual Landmark decision + separate recognition release gate;
+- Temporal Scene registry validation + production-candidate scene selection;
+- explicit same-site confirmation for review-band visual matches;
+- explicit period selection when more than one temporal state is eligible;
+- fail-closed site/scene mismatch detection;
+- authority-derived evidence/asset payload only;
+- manual-place fallback when recognition is not sure.
+
+Repository authority:
+
+- composition contract: `src/spatial/instantHistoricalReveal.ts`;
+- contract tests: `tests/instantHistoricalReveal.test.ts`;
+- runbook: `docs/INSTANT_HISTORICAL_REVEAL.md`.
+
+Phase 1 activates no real camera reveal for Romanov or Old English Court. Their physical field/reference/recognition release gates remain independent and unresolved.
 
 ### Privacy Boundary — REQUIRED
 
