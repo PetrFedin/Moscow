@@ -23,6 +23,12 @@ function moscowNowParts() {
   };
 }
 
+function moscowDateOffset(days: number) {
+  const date = new Date(moscowNowParts().date + 'T12:00:00.000Z');
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 test('personal trip keeps user-declared ticket truth and visit history after reload', async ({ page }) => {
   await page.goto('/');
   await ensureRussian(page);
@@ -32,7 +38,7 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
 
   const arrival = page.getByPlaceholder('2026-10-02');
-  await arrival.fill('2026-10-02');
+  await arrival.fill(moscowDateOffset(1));
   await page.getByText('3', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
@@ -66,7 +72,7 @@ test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved
   await ensureRussian(page);
 
   await page.getByText('Поездка', { exact: true }).last().click();
-  await page.getByPlaceholder('2026-10-02').fill('2026-10-02');
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
@@ -137,7 +143,7 @@ test('Moscow Passport separates where the tourist ate from generic visit history
   await ensureRussian(page);
 
   await page.getByText('Поездка', { exact: true }).last().click();
-  await page.getByPlaceholder('2026-10-02').fill('2026-10-02');
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
   await page.getByText('1', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
@@ -230,7 +236,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
   await ensureRussian(page);
 
   await page.getByText('Поездка', { exact: true }).last().click();
-  await page.getByPlaceholder('2026-10-02').fill('2026-10-02');
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
