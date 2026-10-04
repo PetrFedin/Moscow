@@ -658,6 +658,7 @@ export default function MoscowExperienceApp() {
                           <PhysicalPressable
                             style={[styles.trustButton, trustMode === 'documented' && styles.trustButtonActive]}
                             contentStyle={styles.center}
+                            accessibilityLabel={tr(language, 'Режим доверия · Только факты', 'Trust mode · Facts only', '可信模式 · 仅事实')}
                             onPress={() => setTrustMode('documented')}
                           >
                             <Text style={[styles.trustText, trustMode === 'documented' && styles.trustTextActive]}>{ui.onlyFacts}</Text>
@@ -665,6 +666,7 @@ export default function MoscowExperienceApp() {
                           <PhysicalPressable
                             style={[styles.trustButton, trustMode === 'public' && styles.trustButtonActive]}
                             contentStyle={styles.center}
+                            accessibilityLabel={tr(language, 'Режим доверия · Факты + реконструкция', 'Trust mode · Facts + reconstruction', '可信模式 · 事实 + 重建')}
                             onPress={() => setTrustMode('public')}
                           >
                             <Text style={[styles.trustText, trustMode === 'public' && styles.trustTextActive]}>{ui.research}</Text>
