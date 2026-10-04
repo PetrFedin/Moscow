@@ -296,25 +296,49 @@ This is a runtime safety layer only. It cannot mark Romanov/Old English Court fi
 
 Do not pretend a precise placement when sensors say otherwise.
 
-### Temporal Scene Model — ADOPT
+### Temporal Scene Model — ADOPT / PHASE 1 IMPLEMENTING (#98)
 
-Add explicit valid-time relationships:
+Temporal authority now distinguishes:
 
-- scene/asset;
-- historical period;
-- valid_from / valid_to or approximate period;
-- confidence;
+- exact date;
+- exact year;
+- bounded range;
+- approximate range;
+- non-contiguous reference points;
+- undated state.
+
+Each temporal scene binds:
+
+- place + scene/version;
+- period label/extent;
+- confidence, including explicit `not-assessed`;
 - source evidence;
-- reconstruction status.
+- claim/evidence-element IDs;
+- model/media asset IDs;
+- reconstruction status;
+- interpretation mode;
+- publication state;
+- optional supersession/alternative relationships.
 
-A location can therefore expose multiple historically distinct states without treating them as simultaneous truth.
+Current implementation authority:
+
+- generic contract/validator: `src/spatial/temporalSceneAuthority.ts`;
+- Romanov bindings: `src/spatial/romanovTemporalScenes.ts`;
+- Time Machine runtime routing: `src/spatial/placeExperienceRegistry.ts`;
+- tests: `tests/temporalSceneAuthority.test.ts`;
+- runbook: `docs/TEMPORAL_SCENE_AUTHORITY.md`.
+
+The existing Romanov `1859 / 1883` research state is represented as two **reference points**, not a fabricated continuous `1859–1883` interval.
 
 Flow:
 
-place -> epoch/period -> historical evidence -> reconstructed scene -> publication version
+place -> temporal scene authority -> historical evidence/claims -> asset binding -> runtime era -> publication state
 
-UI can support a time slider/epoch switch only after the underlying temporal records exist.
+A location can therefore expose multiple historically distinct states without treating them as simultaneous truth. Overlapping active states fail closed unless they are explicitly identified as alternative interpretations.
 
+Time Machine UI is navigation only; it does not own historical truth.
+
+This layer does not add unsupported dates, promote field verification or unlock `MOSCOW-INT-00`.
 ### Accessibility Route Profile — ADOPT / PHASE 1 IMPLEMENTING (#100)
 
 Extend curated walks with accessibility constraints:
@@ -844,7 +868,6 @@ Phase 1 repository authority:
 - runbook: `docs/ON_DEVICE_VISUAL_RECOGNITION.md`.
 
 A `strong-candidate` is deliberately **not** Sensor Fusion PASS and is not Instant Historical Reveal authority. No real Romanov/OEC camera recognition is activated until their field/reference/quality evidence exists.
-
 ### Visual + Sensor Fusion — ADOPT / PHASE 1 IMPLEMENTING (#123)
 
 Combine:
@@ -870,7 +893,6 @@ Phase 1 repository authority:
 - runbook: `docs/VISUAL_SENSOR_FUSION.md`.
 
 A fused `confirmed` site/context is still not Instant Historical Reveal authority; the Temporal Scene/evidence gate remains a separate next layer.
-
 ### Instant Historical Reveal — ADOPT
 
 After confirmed place/context:
@@ -1091,3 +1113,243 @@ Phase 1 preserves confirmed fixed commitments exactly, consumes Personal Trip da
 Every proposal records `routingVerified=false`, `openingHoursVerified=false`, `accessibilityVerified=false`, and `weatherVerified=false`. Creating a proposal does not mutate the trip. Applying it requires an unchanged baseline and explicit user acceptance.
 
 This personal schedule layer does not weaken `DestinationJourneyRuntime`: live/provider invalidation still requires the existing `replan-required` state and routing proof.
+
+## Premium enterprise wave — hotel / concierge white-label guest journeys
+
+This wave turns Moscow into a B2B2C city-experience product for hotels, premium residences, conference organisers and concierge services while preserving one core itinerary engine.
+
+### Partner Organisation Authority — ADOPT
+
+Create a bounded partner profile:
+
+- hotel/residence/concierge/event organiser;
+- brand/display settings;
+- allowed staff;
+- service scope;
+- attribution/referral configuration;
+- approved place/event collections;
+- contact/escalation rules;
+- status.
+
+Partners do not own Moscow place/history/provider data.
+
+### Concierge Workspace — ADOPT
+
+Staff can create a guest plan from the same Personal Itinerary authority:
+
+guest request -> constraints -> proposed itinerary -> share -> guest accepts/edits -> live replan
+
+Inputs:
+
+- stay dates;
+- fixed tickets/reservations;
+- guest interests;
+- time windows;
+- mobility/accessibility needs explicitly provided;
+- hotel start/end point;
+- dining/event preferences.
+
+### Guest Handoff — ADOPT
+
+Generate a privacy-minimised guest link/QR:
+
+- itinerary;
+- selected reservations/tickets;
+- maps/routes;
+- concierge notes;
+- language;
+- expiry/revoke.
+
+The guest can continue in Moscow app/web without exposing the hotel's internal notes.
+
+### White-label Presentation — ADOPT
+
+Allow bounded presentation theming:
+
+- partner logo;
+- welcome text;
+- concierge contact;
+- selected curated collections.
+
+Core Moscow UI, historical-source truth and provider states remain consistent.
+
+Do not create a forked app per hotel.
+
+### Partner-curated Collections — ADOPT
+
+Examples:
+
+- 24 hours near the hotel;
+- architecture walk;
+- rainy-day plan;
+- family morning;
+- theatre evening;
+- business guest 3-hour route.
+
+Partner-curated ordering is explicitly labeled; Moscow canonical place metadata stays authoritative.
+
+### Attribution / Commercial Evidence — ADOPT
+
+Where agreements allow:
+
+- guest plan opened;
+- booking/ticket handoff;
+- provider conversion/receipt if verified;
+- partner attribution;
+- concierge intervention.
+
+Do not claim revenue/conversion without real provider evidence.
+
+### Additional acceptance
+
+- partner staff cannot see unrelated guest/account data;
+- guest link is revocable/expiring;
+- fixed reservations remain governed by itinerary/provider authority;
+- partner theme cannot rewrite historical/provider facts;
+- one canonical itinerary engine serves direct and white-label users;
+- attribution distinguishes click/handoff from verified purchase.
+
+**Sequencing:** Personal Itinerary + AI Concierge + provider boundaries -> partner org -> concierge workspace -> guest handoff -> white-label collections -> attribution.
+
+**Commercial framing:** sell Moscow as a digital concierge infrastructure layer for hospitality and premium visitor services, not only a direct-to-consumer guide.
+
+## Moat wave — verified accessibility graph and inclusive journey engine
+
+The current project correctly treats step-free intent as a preference, not verified accessibility truth. This wave creates the missing factual authority.
+
+### Accessibility Fact Authority — ADOPT
+
+For each relevant place/entrance/route segment store objective facts where known:
+
+- entrance ID/type;
+- level;
+- step count;
+- threshold/kerb height;
+- ramp;
+- door width/type;
+- automatic door;
+- elevator/lift;
+- path surface;
+- slope/gradient where measured;
+- accessible toilet;
+- accessible parking/drop-off;
+- seating/rest point;
+- temporary obstruction;
+- source;
+- observed_at;
+- verifier;
+- confidence/status.
+
+Prefer objective measurements over a single yes/no accessible label.
+
+### External Data Projection — ADAPT
+
+OpenStreetMap may provide candidate facts such as:
+
+- entrance=*;
+- wheelchair=*;
+- level=*;
+- width=*;
+- automatic_door=*;
+- highway=elevator;
+- access=*.
+
+OSM is a useful external source, not Moscow's final verification authority.
+
+All imported facts retain source/version/fetch time and may be superseded by field evidence.
+
+### Field Accessibility Verification — ADOPT
+
+Extend Field Verification Mode with an accessibility checklist:
+
+- exact entrance;
+- steps/threshold;
+- ramp;
+- lift;
+- door;
+- route obstacle;
+- toilet;
+- surface;
+- photo/evidence;
+- timestamp.
+
+A field-verified state must expire/review after a configured period or material venue change.
+
+### Personal Accessibility Profile — ADOPT
+
+Allow the user to explicitly specify needs such as:
+
+- step-free required/preferred;
+- wheelchair width;
+- maximum acceptable kerb/step;
+- avoid steep slopes;
+- lift required;
+- limited walking;
+- stroller;
+- rest-stop preference.
+
+Do not infer disability from behaviour/history.
+
+### Inclusive Route Evaluation — ADOPT
+
+route candidate -> accessibility facts -> personal constraints -> pass / caution / unknown / reject
+
+Unknown required facts must remain unknown, not be treated as accessible.
+
+### Venue Accessibility Card — ADOPT
+
+Show:
+
+- verified entrance;
+- key measurements;
+- route from street/transport;
+- lift/toilet availability;
+- freshness;
+- source;
+- known unknowns.
+
+This is more useful than a generic wheelchair icon.
+
+### Accessibility Change / Incident — ADOPT
+
+Support temporary changes:
+
+- lift out of service;
+- construction;
+- entrance closed;
+- temporary ramp;
+- route obstruction.
+
+Changes can trigger Journey Runtime replan.
+
+### B2B/B2G Accessibility Product — ADOPT
+
+Create privacy-safe aggregate outputs for:
+
+- hotels/concierges;
+- event organisers;
+- city/cultural institutions;
+- accessibility audits.
+
+Examples:
+
+- verified accessible routes/venues;
+- stale/missing evidence;
+- priority verification queue.
+
+Do not publish individual user accessibility profiles.
+
+### Additional acceptance
+
+- step-free routing requires factual source evidence;
+- unknown fact never becomes yes;
+- field verification overrides conflicting stale external data;
+- user accessibility preferences are explicit and editable;
+- temporary lift/entrance outage can invalidate route;
+- no medical diagnosis is inferred;
+- every accessibility claim shows freshness/source.
+
+**Sequencing:** Field Verification + Itinerary + routing -> Accessibility Facts -> user profile -> inclusive route evaluation -> venue cards -> live change/replan -> B2B/B2G reporting.
+
+**Commercial framing:** opens hospitality, city-government, cultural and inclusive-tourism markets while creating a hard-to-replicate field-verified accessibility dataset.
+
