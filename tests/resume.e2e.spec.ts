@@ -36,7 +36,7 @@ test('experience resume survives browser reload without resetting place, time or
   await slider.focus();
   await slider.press('ArrowRight');
   await expect(slider).toHaveAttribute('aria-valuenow', '1');
-  await page.getByText('Только факты', { exact: true }).click();
+  await page.getByLabel('Режим доверия · Только факты').click();
 
   await page.reload();
   await ensureRussian(page);
