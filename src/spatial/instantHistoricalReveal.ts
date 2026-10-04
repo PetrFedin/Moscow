@@ -8,6 +8,7 @@ import {
 } from './temporalSceneAuthority.ts';
 
 export type VisualRecognitionReleaseDecision = {
+  siteId: string;
   releasable: boolean;
   reasons: string[];
 };
@@ -154,6 +155,13 @@ function resolveVisualContext(input: {
     return {
       status: 'blocked-site-mismatch',
       reason: 'visual-decision-site-missing'
+    };
+  }
+
+  if (input.recognitionRelease.siteId !== decision.siteId) {
+    return {
+      status: 'blocked-site-mismatch',
+      reason: 'visual-release-belongs-to-different-site'
     };
   }
 
