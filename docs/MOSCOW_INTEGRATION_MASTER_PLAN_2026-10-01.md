@@ -819,7 +819,7 @@ Phase 1 repository authority:
 
 No real Romanov or Old English Court visual reference set is activated by Phase 1. The existing physical field gates remain authoritative.
 
-### On-device Visual Recognition — ADAPT
+### On-device Visual Recognition — ADAPT / PHASE 1 IMPLEMENTING (#121)
 
 Candidate libraries:
 
@@ -831,6 +831,19 @@ Flow:
 camera frame -> local feature/model inference -> candidate landmark -> confidence/geometry check -> package lookup -> user confirmation or strict-threshold reveal
 
 Prefer on-device processing to avoid uploading continuous camera video.
+
+Phase 1 repository authority:
+
+- bounded local-inference observation: `src/spatial/onDeviceVisualRecognition.ts`;
+- exact engine/model/modelVersion/descriptorVersion binding to the approved reference;
+- only field-admitted + Recognition Quality PASS reference sets may participate;
+- canonical site/package lookup from the admitted reference set;
+- deterministic outcomes: `strong-candidate / needs-user-confirmation / not-sure / blocked`;
+- privacy contract requires `processing=on-device`, `framePersisted=false`, `frameUploaded=false`, `faceRecognitionUsed=false`;
+- contract tests: `tests/onDeviceVisualRecognition.test.ts`;
+- runbook: `docs/ON_DEVICE_VISUAL_RECOGNITION.md`.
+
+A `strong-candidate` is deliberately **not** Sensor Fusion PASS and is not Instant Historical Reveal authority. No real Romanov/OEC camera recognition is activated until their field/reference/quality evidence exists.
 
 ### Visual + Sensor Fusion — ADOPT
 
