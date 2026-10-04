@@ -894,7 +894,6 @@ Repository authority:
 - runbook: `docs/INSTANT_HISTORICAL_REVEAL.md`.
 
 Phase 1 activates no real camera reveal for Romanov or Old English Court. Their physical field/reference/recognition release gates remain independent and unresolved.
-
 ### Privacy Boundary — REQUIRED
 
 Do not implement face recognition or identify passers-by.
