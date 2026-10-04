@@ -653,7 +653,7 @@ export default function MoscowExperienceApp() {
                       <Text style={styles.periodBody}>{todaySelected ? tr(language, 'Современное состояние — точка сравнения с историческими слоями.', 'The current state is the comparison point for historical layers.', '当代状态是与历史层进行比较的参照点。') : activePeriod?.summary}</Text>
                       {!todaySelected && activePeriod && <Text style={styles.evidence}>{evidenceLabel[language][activePeriod.confidence]}</Text>}
 
-                      {selectedExperience.modelEraMap && (
+                      {selectedExperience.runtime === 'romanov-v1' && modelAvailable && (
                         <View style={styles.trustRow}>
                           <PhysicalPressable
                             style={[styles.trustButton, trustMode === 'documented' && styles.trustButtonActive]}
