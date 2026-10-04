@@ -845,7 +845,7 @@ Phase 1 repository authority:
 
 A `strong-candidate` is deliberately **not** Sensor Fusion PASS and is not Instant Historical Reveal authority. No real Romanov/OEC camera recognition is activated until their field/reference/quality evidence exists.
 
-### Visual + Sensor Fusion — ADOPT
+### Visual + Sensor Fusion — ADOPT / PHASE 1 IMPLEMENTING (#123)
 
 Combine:
 
@@ -857,6 +857,19 @@ Combine:
 - optional AprilTag calibration in authoring mode.
 
 Reject visually plausible but geographically impossible matches.
+
+Phase 1 repository authority:
+
+- fusion contract: `src/spatial/visualSensorFusion.ts`;
+- input is the admitted On-device Visual Recognition decision plus the existing Sensor Quality Gate;
+- candidate-specific location/heading context is bounded to `compatible / incompatible / unknown`; raw coordinates/headings never enter the authority;
+- automatic confirmation requires strong visual candidate + `precise` sensor state + compatible location + compatible heading + exact `verified-active` package match;
+- degraded/unknown but non-incompatible context requires explicit user confirmation;
+- user confirmation cannot override incompatible location/heading, insufficient sensors, visual blockers or package mismatch;
+- contract tests: `tests/visualSensorFusion.test.ts`;
+- runbook: `docs/VISUAL_SENSOR_FUSION.md`.
+
+A fused `confirmed` site/context is still not Instant Historical Reveal authority; the Temporal Scene/evidence gate remains a separate next layer.
 
 ### Instant Historical Reveal — ADOPT
 
