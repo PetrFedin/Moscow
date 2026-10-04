@@ -319,3 +319,43 @@ test('Day Replan requires explicit apply and preserves fixed booking', async ({ 
   await expect(page.getByText(/12:00–13:00/).first()).toBeVisible();
   await expect(page.getByText('СОХРАНЯЕМ ТОЧНО', { exact: true })).toHaveCount(0);
 });
+
+
+test('read-only City Concierge grounds trip answers and refuses unsupported live facts', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+
+  await page.getByText('Поездка', { exact: true }).last().click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await expect(page.getByText('CITY CONCIERGE · READ-ONLY', { exact: true })).toBeVisible();
+  await expect(page.getByText('Сводка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Отвечает только по уже известным данным/)).toBeVisible();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Театр · concierge ticket');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByPlaceholder('19:00').fill('19:00');
+  await page.getByPlaceholder('21:00').fill('21:00');
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await page.getByLabel('Concierge · Ближайшая бронь').click();
+  await expect(page.getByText('Театр · concierge ticket', { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText('Добавлено вами · не проверено провайдером', { exact: true }).first()
+  ).toBeVisible();
+
+  const input = page.getByLabel('Вопрос консьержу');
+  await input.fill('Что сегодня открыто и сколько стоит билет?');
+  await page.getByLabel('Задать вопрос консьержу').click();
+
+  await expect(page.getByText('Вопрос', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/нет подтверждённого live-источника/i)).toBeVisible();
+  await expect(page.getByText(/не буду угадывать часы работы, цены, наличие, погоду или доступность/i)).toBeVisible();
+
+  // Read-only Concierge never removes or rewrites the ticket.
+  await expect(page.getByText('Театр · concierge ticket', { exact: true }).first()).toBeVisible();
+});
