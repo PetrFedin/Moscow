@@ -28,6 +28,8 @@ That release gate already requires:
 
 A high model confidence alone is never enough.
 
+Recognition release results are site-bound. Instant Reveal rejects a green release result when its canonical `siteId` differs from the visual candidate site.
+
 ### Temporal
 
 The reveal consumes:
