@@ -932,7 +932,7 @@ Release requires both external field admission and quality evidence for the same
 
 This wave turns the existing itinerary, routing, booking/ticket and historical-content stack into one natural-language premium interface.
 
-### City Concierge Agent — ADOPT
+### City Concierge Agent — ADOPT / PHASE 1 IMPLEMENTING (#128)
 
 Typed-agent pattern candidate:
 
@@ -964,7 +964,7 @@ Side effects:
 
 require explicit user approval unless they are harmless reversible local edits the user directly requested.
 
-### Source-grounded Answers — REQUIRED
+### Source-grounded Answers — REQUIRED / PHASE 1 IMPLEMENTING (#128)
 
 Every factual answer about:
 
@@ -1036,6 +1036,20 @@ Do not infer religion, politics, health or other sensitive traits from visited p
 - service degrades to ordinary search/itinerary UI without AI.
 
 **Sequencing:** Personal Itinerary + source authority + provider boundaries -> read-only concierge -> plan proposals -> replan -> approved booking/action tools.
+
+Phase 1 repository authority:
+
+- typed read-only intent router + grounded answer contract: `src/travel/cityConcierge.ts`;
+- visitor UI: `src/features/trip/CityConciergeCard.tsx`;
+- contract tests: `tests/cityConcierge.test.ts`;
+- browser flow: `tests/personalTrip.e2e.spec.ts`;
+- runbook: `docs/CITY_CONCIERGE_READ_ONLY.md`.
+
+Phase 1 supports only trip overview, today's known plan, next confirmed commitment, calendar free time, visited history and visible preferences. Every fact carries authority + verification state.
+
+Externally changing facts (opening hours, closure, live availability, price, weather, current accessibility) remain unsupported unless a configured authority supplies them. User-declared commitments remain user-declared; provider-confirmed commitments require receipt evidence. Free windows remain schedule-only and do not assert routing/opening/accessibility/weather feasibility.
+
+This phase performs no itinerary mutation, replan, booking/provider action or hidden conversation-memory persistence.
 
 **Commercial framing:** Moscow becomes a personal city operating system, not a directory or static guide.
 
