@@ -9,7 +9,7 @@ import type { TemporalSceneRecord, TemporalSceneValidation } from '../src/spatia
 import type { VisualLandmarkDecision } from '../src/spatial/visualLandmarkReference.ts';
 
 const validRegistry: TemporalSceneValidation = { valid: true, blockers: [] };
-const released: VisualRecognitionReleaseDecision = { releasable: true, reasons: [] };
+const released: VisualRecognitionReleaseDecision = { siteId: 'site-a', releasable: true, reasons: [] };
 
 function visual(overrides: Partial<VisualLandmarkDecision> = {}): VisualLandmarkDecision {
   return {
@@ -97,6 +97,7 @@ test('visual decision cannot reveal when recognition release/quality gate is blo
   const result = buildInstantHistoricalReveal({
     visualDecision: visual(),
     recognitionRelease: {
+      siteId: 'site-a',
       releasable: false,
       reasons: ['false-positive-rate-above-threshold']
     },
@@ -116,6 +117,7 @@ test('unverified visual site is blocked even if a temporal scene exists', () => 
       reason: 'candidate-site-not-field-verified'
     }),
     recognitionRelease: {
+      siteId: 'site-a',
       releasable: false,
       reasons: ['site-not-field-verified', 'missing-evidence']
     },
@@ -302,4 +304,21 @@ test('reveal payload is a defensive copy of Temporal Authority evidence and asse
 
   assert.deepEqual(temporal.sourceIds, ['source-scene-copy']);
   assert.equal(temporal.assetBindings[0]?.id, 'archive-scene-copy');
+});
+
+
+test('recognition release from another site cannot be reused for this reveal', () => {
+  const result = buildInstantHistoricalReveal({
+    visualDecision: visual(),
+    recognitionRelease: {
+      siteId: 'site-b',
+      releasable: true,
+      reasons: []
+    },
+    temporalScenes: [scene('scene-a', 0)],
+    temporalRegistryValidation: validRegistry
+  });
+
+  assert.equal(result.status, 'blocked-site-mismatch');
+  assert.equal(result.reason, 'visual-release-belongs-to-different-site');
 });
