@@ -365,7 +365,7 @@ Phase 1 repository authority:
 
 Current Phase 1 adds no real Moscow accessibility facts. `step-free required` is a user intent, not evidence. Missing, stale or conflicting required facts return `needs-accessibility-authority` rather than a fabricated accessible route.
 
-### Audio/subtitle narrative package — ADOPT
+### Audio/subtitle narrative package — ADOPT / PHASE 1 IMPLEMENTING (#118)
 
 For eligible stories/scenes, package:
 
@@ -381,6 +381,24 @@ Use standard WebVTT-compatible caption assets where practical.
 
 This provides an accessible low-visual-attention path and supports offline narration without requiring AR.
 
+Phase 1 does not duplicate the existing recorded-human-first audio system. It adds the missing timed-caption authority:
+
+- exact narration track/version/master SHA-256/duration binding;
+- ordered non-overlapping cue validation;
+- full approved-transcript parity;
+- deterministic WebVTT rendering;
+- rights/source/version metadata;
+- measured synchronization evidence;
+- fail-closed `captioned` vs `transcript-only` release decision.
+
+Repository authority:
+
+- timed captions and sync gate: `src/features/audio/timedNarrativePackage.ts`;
+- contract tests: `tests/timedNarrativePackage.test.ts`;
+- runbook: `docs/TIMED_NARRATIVE_PACKAGE.md`;
+- existing master/TTS authority remains `src/features/audio/varvarkaAudioCatalog.ts` + `docs/PRODUCTION_AUDIO.md`.
+
+No current Varvarka track is promoted by Phase 1. All real narration masters remain recording-pending, so timed captions remain fail-closed until real human masters, human-reviewed cue timing, and measured sync evidence exist.
 ### Additional acceptance
 
 - calibration error can be reproduced with a known marker/setup;
