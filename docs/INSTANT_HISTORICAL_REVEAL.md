@@ -6,72 +6,84 @@ Canonical source: `docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md` → Premiu
 
 ## Purpose
 
-Compose two existing authorities instead of inventing a third truth system:
+Compose the already-separated truth authorities instead of allowing camera confidence to open historical content directly:
 
-`Visual Landmark Authority -> Temporal Scene Authority -> evidence-bound reveal`.
+`On-device Visual Recognition -> Visual + Sensor Fusion -> Temporal Scene Authority -> evidence-bound reveal`.
 
-The reveal layer does not perform recognition itself and does not own historical truth.
+Instant Reveal does not perform recognition, sensor fusion or historical research. It consumes their bounded decisions.
 
-## Required upstream authorities
+## Required upstream context
 
-### Visual
+### Visual + Sensor Fusion
 
-The reveal consumes an already-derived `VisualLandmarkDecision`.
+Reveal accepts only `VisualSensorFusionDecision`.
 
-A visual candidate can proceed only when the separate recognition release gate is `releasable=true`.
+A historical reveal may proceed only when:
 
-That release gate already requires:
+- `status=confirmed`;
+- canonical site ID exists;
+- exact verified-active package ID exists;
+- reference-set/reference IDs exist;
+- visual confidence is present;
+- confirmation mode is `automatic` or `user-assisted`.
 
-- external field-verified site admission;
-- measured recognition quality evidence;
-- site/evidence consistency.
+The upstream Fusion authority already prevents confirmation when:
 
-A high model confidence alone is never enough.
+- visual recognition is blocked/not sure;
+- package is missing, unverified or mismatched;
+- location is incompatible;
+- heading is incompatible;
+- Sensor Quality is insufficient.
 
-Recognition release results are site-bound. Instant Reveal rejects a green release result when its canonical `siteId` differs from the visual candidate site.
+Reveal cannot bypass those decisions.
 
-### Temporal
+### Temporal Scene Authority
 
-The reveal consumes:
+Reveal also consumes:
 
 - Temporal Scene records;
 - the Temporal Scene registry validation result.
 
 If the registry is invalid, reveal fails closed.
 
-Only `production-candidate` temporal scenes are eligible. `draft` and `superseded` scenes are excluded.
+Only `production-candidate` temporal scenes for the exact fused site are eligible. `draft` and `superseded` scenes are excluded.
 
 ## Decision states
 
-- `ready` — visual context and one explicit temporal scene are safe to reveal;
-- `needs-user-confirmation` — review-band visual candidate needs explicit same-site confirmation;
+- `ready` — fused place/package context is confirmed and one explicit production temporal scene is safe to present;
+- `needs-user-confirmation` — Sensor Fusion still requires explicit user confirmation;
 - `needs-period-selection` — more than one production temporal state exists and no period was selected;
-- `fallback-manual-selection` — visual recognition is not sure;
-- `blocked-unverified-site` — physical/site admission is absent;
-- `blocked-recognition-quality` — recognition release gate is not green;
+- `fallback-manual-selection` — upstream fusion is not sure;
+- `blocked-fusion-context` — upstream hard blocker or malformed confirmed context;
 - `blocked-temporal-authority` — temporal registry is invalid;
-- `blocked-site-mismatch` — visual and temporal context point to different places;
+- `blocked-site-mismatch` — requested temporal scene belongs to another place;
 - `blocked-scene-unavailable` — requested period is not production-eligible;
 - `blocked-scene-selection-conflict` — explicit scene ID and Time Machine index resolve to different states.
 
-## Ambiguous recognition
+## Automatic vs user-assisted context
 
-`needs-user-confirmation` may become revealable only when:
+A successful reveal preserves how place context was established:
 
-1. recognition release is already green;
-2. user confirms the exact same site ID returned by the candidate.
+- `sensor-fusion-automatic`;
+- `sensor-fusion-user-assisted`.
 
-User confirmation cannot override:
+A user-assisted fusion result is not silently relabelled automatic.
 
-- unverified field state;
-- failed recognition quality;
-- temporal validation failure.
+The payload also preserves bounded disclosure:
+
+- sensor state;
+- location compatibility class;
+- heading compatibility class;
+- visual confidence;
+- reference-set/reference IDs.
+
+No raw coordinates, raw heading or frame data enters the reveal contract.
 
 ## Period selection
 
-The composition layer does not guess a preferred epoch.
+The composition layer never guesses a preferred historical epoch.
 
-If exactly one production temporal scene exists, it may reveal directly.
+If exactly one production temporal scene exists for the fused site, it may reveal directly.
 
 If multiple production scenes exist, caller must provide either:
 
@@ -82,14 +94,14 @@ If both are supplied, they must resolve to the same scene.
 
 ## Reveal payload
 
-A successful payload contains only authority-derived data:
+A successful payload contains only authority-derived data.
 
-### Visual context
+### Canonical context
 
-- canonical site ID;
-- strict-match vs user-confirmed context;
-- optional reference ID;
-- optional recognition confidence.
+- site ID;
+- active package ID;
+- automatic vs user-assisted fusion provenance;
+- bounded recognition/sensor disclosure.
 
 ### Temporal disclosure
 
@@ -115,7 +127,7 @@ Grouped bindings copied from Temporal Authority:
 - optional audio;
 - other bound assets.
 
-No missing asset is fabricated. Audio is optional.
+Missing assets are not fabricated. Audio remains optional.
 
 ## Privacy boundary
 
@@ -124,6 +136,8 @@ This layer stores no:
 - camera frame;
 - face/person identity;
 - biometric data;
+- latitude/longitude;
+- raw heading;
 - precise route history;
 - background tracking data.
 
@@ -133,30 +147,26 @@ It operates only on bounded decisions and authority metadata produced elsewhere.
 
 The composition contract exists before a real camera experience is activated.
 
-That is intentional.
+No Romanov or Old English Court camera reveal is promoted by this phase because those sites still lack the complete real chain:
 
-No Romanov or Old English Court visual reveal is promoted by this phase because the repository still does not contain a genuinely released, field-proven visual reference dataset for those sites.
+`physical field PASS -> released visual reference set -> measured recognition quality -> real local inference -> confirmed sensor fusion`.
 
-Current fallback remains the existing map/manual place selection and Time Machine experience.
+Current user fallback remains map/manual place selection plus the existing Time Machine experience.
 
 ## Repository authority
 
 - composition contract: `src/spatial/instantHistoricalReveal.ts`;
 - contract tests: `tests/instantHistoricalReveal.test.ts`;
-- visual upstream: `src/spatial/visualLandmarkReference.ts`;
+- fusion upstream: `src/spatial/visualSensorFusion.ts`;
 - temporal upstream: `src/spatial/temporalSceneAuthority.ts`;
 - runbook: this file.
 
 ## Next implementation step
 
-After a real site reaches:
+Only after a real site reaches the complete upstream chain, connect native camera inference to the already-defined authority sequence.
 
-`field proof -> visual reference-set release -> recognition quality PASS`
+The first live UI should be:
 
-connect the native camera matcher to this authority.
+`camera candidate -> fusion confirmation/fallback -> period selection when required -> reveal -> evidence panel -> optional audio`.
 
-The first live UI should expose:
-
-`facade recognised -> site confirmation when required -> period selection when required -> reveal -> evidence panel -> optional audio`.
-
-If recognition is uncertain, immediately route to manual place selection rather than forcing a match.
+If any upstream layer is uncertain or blocked, route back to manual place selection rather than forcing a match.
