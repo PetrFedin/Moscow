@@ -889,23 +889,27 @@ current facade -> matched historical scene/period -> overlay/reconstruction -> e
 
 Show historical period, reconstruction confidence and source evidence.
 
-Phase 1 composes existing authorities rather than duplicating them:
+Phase 1 now composes the complete preceding authority chain rather than allowing a direct camera-confidence shortcut:
 
-- Visual Landmark decision + separate recognition release gate;
-- Temporal Scene registry validation + production-candidate scene selection;
-- explicit same-site confirmation for review-band visual matches;
-- explicit period selection when more than one temporal state is eligible;
-- fail-closed site/scene mismatch detection;
+- `VisualSensorFusionDecision=confirmed` is mandatory;
+- fused canonical site + exact verified-active package context are preserved;
+- automatic vs user-assisted fusion provenance stays visible;
+- Temporal Scene registry validation + production-candidate scene selection remain mandatory;
+- explicit period selection is required when more than one temporal state is eligible;
+- fail-closed site/scene mismatch and malformed confirmed-context detection;
 - authority-derived evidence/asset payload only;
-- manual-place fallback when recognition is not sure.
+- manual-place fallback when fusion is not sure.
 
 Repository authority:
 
 - composition contract: `src/spatial/instantHistoricalReveal.ts`;
 - contract tests: `tests/instantHistoricalReveal.test.ts`;
+- fusion upstream: `src/spatial/visualSensorFusion.ts`;
+- temporal upstream: `src/spatial/temporalSceneAuthority.ts`;
 - runbook: `docs/INSTANT_HISTORICAL_REVEAL.md`.
 
-Phase 1 activates no real camera reveal for Romanov or Old English Court. Their physical field/reference/recognition release gates remain independent and unresolved.
+Phase 1 activates no real camera reveal for Romanov or Old English Court. Their physical field/reference/recognition/fusion chain remains independently unresolved.
+
 ### Privacy Boundary — REQUIRED
 
 Do not implement face recognition or identify passers-by.
