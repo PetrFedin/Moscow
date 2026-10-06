@@ -4,6 +4,8 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DEFAULT_LANGUAGE, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
+import GovernmentOwnerRoute from './GovernmentOwnerRoute';
+import type { GovernmentOwnerRouteDestination } from './governmentOwnerRoute.ts';
 import PilotContractBuilder from './PilotContractBuilder';
 import StakeholderValueScreen from './StakeholderValueScreen';
 import PartnerInvestorOperatingScreen from './PartnerInvestorOperatingScreen';
@@ -11,12 +13,12 @@ import type { PilotContractSectionId } from './pilotContractAuthority';
 import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 import { getInvestorMvpCopy } from './investorMvpCopy';
 
-type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'ecosystem' | 'operations' | 'contract';
+type Section = 'route' | 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'ecosystem' | 'operations' | 'contract';
 
 
 
 export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
-  const [section, setSection] = useState<Section>('control');
+  const [section, setSection] = useState<Section>('route');
   const [language, setLanguage] = useState<AppLanguage>(DEFAULT_LANGUAGE);
   const [contractSection, setContractSection] = useState<PilotContractSectionId>('scope');
   const [focusedBlocker, setFocusedBlocker] = useState<PilotDecisionBlocker | null>(null);
@@ -62,7 +64,7 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabs}
       >
-        {(['control','product','deliverables','ecosystem','operations','money','acceptance','contract'] as Section[]).map((item) => (
+        {(['route','control','product','deliverables','ecosystem','operations','money','acceptance','contract'] as Section[]).map((item) => (
           <PhysicalPressable
             key={item}
             style={[styles.tab, section === item && styles.tabActive]}
@@ -70,13 +72,24 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
             onPress={() => setSection(item)}
           >
             <Text style={[styles.tabText, section === item && styles.tabTextActive]}>
-              {copy.tabs[item]}
+              {item === 'route'
+                ? (language === 'ru' ? 'Маршрут ЛПР' : language === 'en' ? 'Owner Route' : '决策路线')
+                : copy.tabs[item]}
             </Text>
           </PhysicalPressable>
         ))}
       </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {section === 'route' && (
+          <GovernmentOwnerRoute
+            language={language}
+            onOpenDestination={(destination: GovernmentOwnerRouteDestination) => {
+              setSection(destination);
+            }}
+          />
+        )}
+
         {section === 'control' && (
           <InvestorControlScreen
             language={language}
