@@ -1576,3 +1576,152 @@ Partners can verify:
 
 **Moat:** a field-verified, versioned destination dataset plus a contributor network is much harder to clone than a scraped city guide.
 
+
+
+## Institutional adoption wave — Urban Destination Data Network
+
+This wave turns Moscow's verified destination packages, itinerary engine and contributor trust layer into destination infrastructure for hotels, cultural institutions, restaurants, mobility providers, tour operators and city programmes.
+
+### Moscow Destination Interchange Specification — ADOPT
+
+Define a versioned profile for:
+
+- place/venue identity;
+- entrance/geo geometry;
+- operating-state source/freshness;
+- accessibility facts;
+- event/session;
+- booking/provider reference;
+- media rights;
+- field-verification state;
+- historical/cultural evidence references;
+- temporary closure/change;
+- supersession/withdrawal.
+
+Unknown remains an explicit valid state.
+
+### Reference District Dataset — ADOPT
+
+Publish a synthetic/public reference district demonstrating:
+
+`place -> verified entrance -> opening state -> accessibility -> event -> booking -> itinerary insertion -> visit evidence -> stale/reverify cycle`
+
+### Venue / Institution Self-service Publishing — ADOPT
+
+Approved organisations may maintain scoped data:
+
+- venue facts;
+- operating hours;
+- accessibility updates;
+- event/programme feed;
+- booking endpoint/reference;
+- entrances;
+- temporary closures;
+- media.
+
+Self-published fields remain distinguished from field-verified and third-party verified facts.
+
+### Approved Destination Partner Network — ADOPT
+
+Participant classes:
+
+- museums/theatres;
+- restaurants/bars;
+- hotels;
+- mobility providers;
+- attractions;
+- tour operators;
+- event operators;
+- accessibility organisations;
+- destination-content integrators.
+
+Qualification is integration/process specific, not a quality endorsement.
+
+### Hospitality / Concierge Embedded Distribution — ADOPT
+
+Offer Moscow through:
+
+- hotel concierge portal;
+- white-label itinerary widget;
+- API/SDK;
+- QR/deep-link itinerary handoff;
+- corporate/event guest portal.
+
+All channels use the same canonical itinerary/booking truth.
+
+### Visit Evidence / Personal Travel Ledger — ADOPT
+
+With user consent, preserve:
+
+- planned;
+- booked;
+- ticketed;
+- visited;
+- skipped;
+- rescheduled;
+- rated/saved privately.
+
+This creates continuity across visits without exposing personal travel history to venues by default.
+
+### Destination Demand Intelligence — CONDITIONAL
+
+With privacy-safe aggregation, derive:
+
+- search/demand gaps;
+- itinerary inclusion;
+- booking conversion;
+- day/time pressure;
+- district demand;
+- accessibility demand;
+- unserved route/availability patterns.
+
+Do not expose identifiable individual movement history.
+
+### City / District Institutional Publishing — CONDITIONAL
+
+Approved public/civic programmes may publish:
+
+- verified programme/event feeds;
+- route closures;
+- district campaigns;
+- public-space changes;
+- temporary access information.
+
+Government status must be source-attributed; Moscow must not imply official endorsement where none exists.
+
+### Enterprise Bundles — ADOPT
+
+Potential packages:
+
+- Destination API;
+- Hospitality Concierge;
+- Verified Venue Data;
+- Accessibility Layer;
+- Event/Booking Integration;
+- Demand Intelligence;
+- District/City Partner Console.
+
+### Legitimate Switching Cost — ADOPT
+
+Compounding assets:
+
+- verified entrance/accessibility history;
+- venue change history;
+- contributor network;
+- provider connectors;
+- user-consented travel ledger;
+- itinerary execution data;
+- institutional feeds.
+
+### Additional acceptance
+
+- venue self-service cannot mark itself field-verified;
+- stale operational data visibly degrades;
+- user visit history is private by default;
+- fixed booking constraints remain authoritative in replanning;
+- institutional sources and platform verification remain distinct;
+- all embedded channels use the same canonical engine.
+
+**Sequencing:** Destination Package Standard -> reference dataset -> venue publishing -> partner network -> embedded hospitality distribution -> demand intelligence -> institutional feeds.
+
+**Moat:** Moscow becomes a continuously maintained destination graph and itinerary execution rail, not a static tourist guide.
