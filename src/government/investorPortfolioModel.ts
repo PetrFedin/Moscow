@@ -1,9 +1,9 @@
 import type { AppLanguage } from '../i18n';
-import { revenueEngines, type RevenueEngineId } from './stakeholderValueModel';
+import { revenueEngines, type RevenueEngineId } from './stakeholderValueModel.ts';
 import {
   buildInvestorOperatingSnapshot,
   type CommercialOperatingEvidence
-} from './partnerInvestorOperatingModel';
+} from './partnerInvestorOperatingModel.ts';
 
 export type PortfolioMode = 'actual' | 'demo';
 
