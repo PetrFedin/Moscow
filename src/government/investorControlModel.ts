@@ -52,6 +52,7 @@ export type InvestorControlSnapshot = {
     proofReady: boolean;
     governanceReady: boolean;
     economicsReady: boolean;
+    blockers: import('./pilotInvestmentDecision').PilotDecisionBlocker[];
     nextDecision: string;
   };
 };
@@ -204,6 +205,7 @@ export function getInvestorControlSnapshot(
       proofReady: decision.proofReady,
       governanceReady: decision.governanceReady,
       economicsReady: decision.economicsReady,
+      blockers: decision.blockers,
       nextDecision: investorMvpOffer.firstDecision
     }
   };
