@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
+import CityOpportunityEngineDemo from './CityOpportunityEngineDemo';
 import {
   actualDemandCells,
   demandControlCopy,
@@ -177,6 +178,12 @@ export default function DemandMarketplaceControlTower({ language }: { language: 
         </>
       )}
 
+      {mode === 'demo' && (
+        <View style={styles.opportunityEngine}>
+          <CityOpportunityEngineDemo language={language} />
+        </View>
+      )}
+
       <View style={styles.ruleBox}>
         <Text style={styles.ruleTitle}>
           {language === 'ru'
@@ -252,6 +259,7 @@ const styles = StyleSheet.create({
   actionCard: { padding: 14, borderRadius: 16, backgroundColor: '#15120f', borderWidth: 1, borderColor: '#665532' },
   actionValue: { color: '#d3b36f', fontSize: 12, lineHeight: 17, fontWeight: '900', marginTop: 6 },
   prohibited: { color: '#b98e95', fontSize: 8, lineHeight: 13, marginTop: 8 },
+  opportunityEngine: { marginTop: 18 },
   ruleBox: { marginTop: 16, padding: 16, borderRadius: 18, backgroundColor: '#171416', borderWidth: 1, borderColor: '#4b373a' },
   ruleTitle: { color: '#efdcdf', fontSize: 15, fontWeight: '900' },
   ruleBody: { color: '#aa979a', fontSize: 10, lineHeight: 15, marginTop: 6 }
