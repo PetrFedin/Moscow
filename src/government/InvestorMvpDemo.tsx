@@ -145,6 +145,7 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
             language={language}
             activeStepIndex={routeStepIndex}
             onStepChange={setRouteStepIndex}
+            meetingMode={meetingMode}
             onOpenDestination={(destination: GovernmentOwnerRouteDestination) => {
               setLastEvidenceSection(destination);
               setSection(destination);
