@@ -6,11 +6,12 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
 import PilotContractBuilder from './PilotContractBuilder';
 import StakeholderValueScreen from './StakeholderValueScreen';
+import PartnerInvestorOperatingScreen from './PartnerInvestorOperatingScreen';
 import type { PilotContractSectionId } from './pilotContractAuthority';
 import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 import { getInvestorMvpCopy } from './investorMvpCopy';
 
-type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'ecosystem' | 'contract';
+type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'ecosystem' | 'operations' | 'contract';
 
 
 
@@ -61,7 +62,7 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabs}
       >
-        {(['control','product','deliverables','ecosystem','money','acceptance','contract'] as Section[]).map((item) => (
+        {(['control','product','deliverables','ecosystem','operations','money','acceptance','contract'] as Section[]).map((item) => (
           <PhysicalPressable
             key={item}
             style={[styles.tab, section === item && styles.tabActive]}
@@ -88,6 +89,8 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         )}
 
         {section === 'ecosystem' && <StakeholderValueScreen language={language} />}
+
+        {section === 'operations' && <PartnerInvestorOperatingScreen language={language} />}
 
         {section === 'contract' && (
           <PilotContractBuilder
