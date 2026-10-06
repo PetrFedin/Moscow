@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import CityOpportunityEngineDemo from './CityOpportunityEngineDemo';
+import DistrictEconomicTwinDemo from './DistrictEconomicTwinDemo';
 import {
   actualDemandCells,
   demandControlCopy,
@@ -179,9 +180,14 @@ export default function DemandMarketplaceControlTower({ language }: { language: 
       )}
 
       {mode === 'demo' && (
-        <View style={styles.opportunityEngine}>
-          <CityOpportunityEngineDemo language={language} />
-        </View>
+        <>
+          <View style={styles.opportunityEngine}>
+            <CityOpportunityEngineDemo language={language} />
+          </View>
+          <View style={styles.opportunityEngine}>
+            <DistrictEconomicTwinDemo language={language} />
+          </View>
+        </>
       )}
 
       <View style={styles.ruleBox}>
