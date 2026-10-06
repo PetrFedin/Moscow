@@ -1,7 +1,7 @@
 import type {
   MarketplaceRankingOutput,
   MarketplaceSponsoredResult
-} from './demandRankingAuthority';
+} from './demandRankingAuthority.ts';
 
 export type MarketplaceOpportunity = {
   opportunityId: string;
