@@ -11,7 +11,7 @@ test('City Capital Programme Control Tower shows portfolio-wide capital and bene
   await expect(page.getByText('PROGRAMME ENVELOPE', { exact: true })).toBeVisible();
   await expect(page.getByText('COMMITTED', { exact: true })).toBeVisible();
   await expect(page.getByText('ACTUAL SPEND', { exact: true })).toBeVisible();
-  await expect(page.getByText('BENEFITS REALIZATION', { exact: true })).toBeVisible();
+  await expect(page.getByText('BENEFITS REALIZATION', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('FORECAST ACCURACY', { exact: true })).toBeVisible();
   await expect(page.getByText('UNDERPERFORMING INTERVENTIONS', { exact: true })).toBeVisible();
   await expect(page.getByText('REALLOCATION OPPORTUNITIES', { exact: true })).toBeVisible();
