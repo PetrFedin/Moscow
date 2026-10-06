@@ -8,7 +8,7 @@ test('investor MVP explains product, deliverables, payment and acceptance', asyn
   await expect(page.getByText('MOSCOW · INVESTOR MVP', { exact: true })).toBeVisible();
   await expect(page.getByText('Москва · туристический цифровой слой', { exact: true })).toBeVisible();
   await page.getByText('Продукт', { exact: true }).click();
-  await expect(page.getByText(/Москва покупает не “ещё одно приложение”/)).toBeVisible();
+  await expect(page.getByText('ЧТО МЫ ПРОДАЁМ', { exact: true })).toBeVisible();
 
   await page.getByText('Город получает', { exact: true }).click();
   await expect(page.getByText('Публичный туристический клиент', { exact: true })).toBeVisible();
