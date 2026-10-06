@@ -10,6 +10,7 @@ export type InvestorMvpCopy = {
     deliverables: string;
     money: string;
     acceptance: string;
+    ecosystem: string;
     contract: string;
   };
   closeLabel: string;
@@ -62,6 +63,7 @@ const ru: InvestorMvpCopy = {
     deliverables: 'Город получает',
     money: 'За что платит',
     acceptance: 'Приёмка',
+    ecosystem: 'Ценность и экономика',
     contract: 'Контракт'
   },
   closeLabel: 'Закрыть Investor MVP',
