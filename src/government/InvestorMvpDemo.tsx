@@ -5,6 +5,8 @@ import { DEFAULT_LANGUAGE, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
 import PilotContractBuilder from './PilotContractBuilder';
+import type { PilotContractSectionId } from './pilotContractAuthority';
+import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 import { getInvestorMvpCopy } from './investorMvpCopy';
 
 type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'contract';
@@ -14,6 +16,8 @@ type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' |
 export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<Section>('control');
   const [language, setLanguage] = useState<AppLanguage>(DEFAULT_LANGUAGE);
+  const [contractSection, setContractSection] = useState<PilotContractSectionId>('scope');
+  const [focusedBlocker, setFocusedBlocker] = useState<PilotDecisionBlocker | null>(null);
   const copy = useMemo(() => getInvestorMvpCopy(language), [language]);
 
   return (
@@ -71,9 +75,24 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
       </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {section === 'control' && <InvestorControlScreen language={language} />}
+        {section === 'control' && (
+          <InvestorControlScreen
+            language={language}
+            onOpenContract={(targetSection, blocker) => {
+              setContractSection(targetSection);
+              setFocusedBlocker(blocker);
+              setSection('contract');
+            }}
+          />
+        )}
 
-        {section === 'contract' && <PilotContractBuilder language={language} />}
+        {section === 'contract' && (
+          <PilotContractBuilder
+            language={language}
+            initialSection={contractSection}
+            focusedBlocker={focusedBlocker}
+          />
+        )}
 
         {section === 'product' && (
           <>
