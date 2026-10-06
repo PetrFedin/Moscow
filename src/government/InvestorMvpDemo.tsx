@@ -122,7 +122,7 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabs}
       >
-        {(['route','control','product','deliverables','ecosystem','operations','money','acceptance','contract'] as Section[]).map((item) => (
+        {(['route','control','product','deliverables','ecosystem','operations','money','acceptance','contract'] as Exclude<Section, 'brief'>[]).map((item) => (
           <PhysicalPressable
             key={item}
             style={[styles.tab, section === item && styles.tabActive]}
