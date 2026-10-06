@@ -36,3 +36,20 @@ test('Government Owner Route keeps RU default and supports EN/ZH switching', asy
   await page.getByRole('button', { name: '中文' }).click();
   await expect(page.getByText(/10–12 分钟/)).toBeVisible();
 });
+
+
+test('Government Owner Route ends with a concrete first procurement decision', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+
+  await expect(page.getByText('FIRST PROCUREMENT DECISION', { exact: true })).toBeVisible();
+  await expect(page.getByText('Первый контракт: доказательный пилот Варварка — Зарядье', { exact: true })).toBeVisible();
+  await expect(page.getByText('ЧТО НУЖНО РЕШИТЬ СЕЙЧАС', { exact: true })).toBeVisible();
+  await expect(page.getByText('ЧТО ПОКУПАЕТСЯ', { exact: true })).toBeVisible();
+  await expect(page.getByText('ЧТО НУЖНО ОТ МОСКВЫ', { exact: true })).toBeVisible();
+  await expect(page.getByText('ЧТО ПОЛУЧАЕТ МОСКВА', { exact: true })).toBeVisible();
+  await expect(page.getByText('КАК ПРИНИМАЕТСЯ', { exact: true })).toBeVisible();
+  await expect(page.getByText(/PRE-PILOT · BLOCKED/)).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть Contract Builder' }).click();
+  await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
+});
