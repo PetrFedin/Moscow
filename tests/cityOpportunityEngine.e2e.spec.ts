@@ -25,9 +25,9 @@ test('City Opportunity shortlist visibly separates rank from paid budget', async
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
   await page.getByText('DEMO', { exact: true }).click();
 
-  await expect(page.getByText('Moscow Table Group · DEMO', { exact: true })).toBeVisible();
-  await expect(page.getByText('Premium Dining Partner · DEMO', { exact: true })).toBeVisible();
-  await expect(page.getByText('City Cafe Network · DEMO', { exact: true })).toBeVisible();
+  await expect(page.getByText('Moscow Table Group · DEMO', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Premium Dining Partner · DEMO', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('City Cafe Network · DEMO', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/paidBudget=1000000/)).toBeVisible();
   await expect(page.getByText(/rank #1/)).toBeVisible();
 });
