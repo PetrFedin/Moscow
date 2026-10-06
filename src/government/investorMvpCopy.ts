@@ -11,6 +11,7 @@ export type InvestorMvpCopy = {
     money: string;
     acceptance: string;
     ecosystem: string;
+    operations: string;
     contract: string;
   };
   closeLabel: string;
@@ -64,6 +65,7 @@ const ru: InvestorMvpCopy = {
     money: 'За что платит',
     acceptance: 'Приёмка',
     ecosystem: 'Ценность и экономика',
+    operations: 'Операции',
     contract: 'Контракт'
   },
   closeLabel: 'Закрыть Investor MVP',
@@ -152,7 +154,7 @@ const en: InvestorMvpCopy = {
   title: 'Moscow · digital visitor journey layer',
   subtitle: 'One product connects trip planning, tickets and reservations, city content, verified history, actual visits and operator analytics.',
   thesis: 'Moscow is not buying “another app”. It is buying a governed visitor-journey layer: traveler experience + verified heritage + integrations + city operations + evidence.',
-  tabs: { control: 'Control', product: 'Product', deliverables: 'City receives', money: 'What is paid for', acceptance: 'Acceptance', ecosystem: 'Value & economics', contract: 'Contract' },
+  tabs: { control: 'Control', product: 'Product', deliverables: 'City receives', money: 'What is paid for', acceptance: 'Acceptance', ecosystem: 'Value & economics', operations: 'Operations', contract: 'Contract' },
   closeLabel: 'Close Investor MVP',
   product: {
     sellKicker: 'WHAT WE SELL',
@@ -239,7 +241,7 @@ const zh: InvestorMvpCopy = {
   title: '莫斯科 · 数字游客旅程层',
   subtitle: '一个产品连接行程规划、门票与预订、城市内容、经核验的历史信息、实际到访记录和运营分析。',
   thesis: '莫斯科购买的不是“又一个应用”，而是一套可治理的游客旅程层：游客体验 + 经核验的文化遗产 + 集成 + 城市运营 + 证据。',
-  tabs: { control: '总览', product: '产品', deliverables: '城市获得', money: '付费内容', acceptance: '验收', ecosystem: '价值与经济', contract: '合同' },
+  tabs: { control: '总览', product: '产品', deliverables: '城市获得', money: '付费内容', acceptance: '验收', ecosystem: '价值与经济', operations: '运营', contract: '合同' },
   closeLabel: '关闭 Investor MVP',
   product: {
     sellKicker: '我们提供什么',
