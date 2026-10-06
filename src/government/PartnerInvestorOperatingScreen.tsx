@@ -5,13 +5,14 @@ import { tr, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import PartnerConsoleDemo from './PartnerConsoleDemo';
 import InvestorPortfolioView from './InvestorPortfolioView';
+import DemandMarketplaceControlTower from '../marketplace/DemandMarketplaceControlTower';
 import {
   buildInvestorOperatingSnapshot,
   currentCommercialOperatingEvidence,
   partnerOperatingStages
 } from './partnerInvestorOperatingModel';
 
-type Mode = 'partner' | 'investor';
+type Mode = 'partner' | 'control' | 'investor';
 
 function formatRub(language: AppLanguage, value: number | null) {
   if (value === null) return tr(language, 'НЕ ИЗМЕРЕНО', 'NOT MEASURED', '尚未测量');
@@ -72,6 +73,16 @@ export default function PartnerInvestorOperatingScreen({ language }: { language:
           </Text>
         </PhysicalPressable>
         <PhysicalPressable
+          style={[styles.modeButton, mode === 'control' && styles.modeButtonActive]}
+          contentStyle={styles.center}
+          onPress={() => setMode('control')}
+          accessibilityLabel={tr(language, 'Контроль спроса', 'Demand control', '需求控制')}
+        >
+          <Text style={[styles.modeText, mode === 'control' && styles.modeTextActive]}>
+            {tr(language, 'Спрос', 'Demand', '需求')}
+          </Text>
+        </PhysicalPressable>
+        <PhysicalPressable
           style={[styles.modeButton, mode === 'investor' && styles.modeButtonActive]}
           contentStyle={styles.center}
           onPress={() => setMode('investor')}
@@ -83,7 +94,9 @@ export default function PartnerInvestorOperatingScreen({ language }: { language:
         </PhysicalPressable>
       </View>
 
-      {mode === 'partner' ? (
+      {mode === 'control' ? (
+        <DemandMarketplaceControlTower language={language} />
+      ) : mode === 'partner' ? (
         <View>
           <PartnerConsoleDemo language={language} />
           <View style={styles.stageList}>
