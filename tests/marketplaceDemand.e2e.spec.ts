@@ -10,11 +10,11 @@ test('Marketplace Demand Engine keeps organic and sponsorship separate', async (
   await expect(page.getByText('СПОНСОРСКИЙ СЛОЙ', { exact: true })).toBeVisible();
   await expect(page.getByText(/sponsorship ≠ organic boost/i)).toBeVisible();
 
-  await expect(page.getByText('Zaryadye Dining · DEMO', { exact: true })).toBeVisible();
-  await expect(page.getByText('Moscow River Dinner · DEMO SPONSORED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Zaryadye Dining · DEMO', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Moscow River Dinner · DEMO SPONSORED', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Old Availability Restaurant/)).toHaveCount(0);
-  await expect(page.getByText('demo-stale-d', { exact: true })).toBeVisible();
-  await expect(page.getByText('availability-stale', { exact: true })).toBeVisible();
+  await expect(page.getByText('demo-stale-d', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('availability-stale', { exact: true }).first()).toBeVisible();
 });
 
 test('Marketplace Demand Engine is multilingual', async ({ page }) => {
