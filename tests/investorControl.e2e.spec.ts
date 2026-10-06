@@ -19,3 +19,21 @@ test('executive control screen exposes procurement truth without fabricated econ
   await expect(page.getByText(/TARGETS НЕ ПРИДУМЫВАЕМ/)).toBeVisible();
   await expect(page.getByText('ОДНО РЕШЕНИЕ ПОСЛЕ ДЕМО', { exact: true })).toBeVisible();
 });
+
+
+test('executive blocker opens the linked contract obligation', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+
+  await expect(page.getByText('BLOCKERS → ДОГОВОРНЫЕ ОБЯЗАТЕЛЬСТВА', { exact: true })).toBeVisible();
+
+  const blocker = page.getByRole('button', { name: /Romanov: нет реального field proof/ });
+  await expect(blocker).toBeVisible();
+  await blocker.click();
+
+  await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKER → CONTRACT', { exact: true })).toBeVisible();
+  await expect(page.getByText('ROMANOV-FIELD-EVIDENCE', { exact: true })).toBeVisible();
+  await expect(page.getByText('ACC-PHYSICAL-01', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Milestone · принят pilot evidence pack/)).toBeVisible();
+});
