@@ -16,7 +16,9 @@ test('selected marketplace opportunity preserves organic rank and policy context
     ranking: demoMarketplaceRanking
   });
 
-  assert.equal(opportunity.organicRank, 2);
+  const ranked = demoMarketplaceRanking.organic.find((item) => item.candidate.id === 'demo-sponsored-b');
+  assert.ok(ranked);
+  assert.equal(opportunity.organicRank, ranked!.organicRank);
   assert.equal(opportunity.sponsored, true);
   assert.equal(opportunity.policyId, 'moscow-marketplace-neutral-v1');
   assert.equal(opportunity.sponsorContractRef, 'DEMO-SPONSOR-CONTRACT-001');
