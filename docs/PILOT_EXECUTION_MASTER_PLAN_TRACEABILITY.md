@@ -58,3 +58,16 @@ May be used to prepare likely entrances/facade/accessibility questions. Capture 
 
 ### Package signing
 Explicitly deferred to Destination Package v2 after Phase 0. A pre-pilot GO cannot depend on a fake signed-package implementation.
+
+
+## Additional Phase 0 execution controls
+
+### Synthetic pre-pilot dry run
+**INTERNAL VALIDATION ONLY**
+
+Used to verify the manifest/configuration/preflight software path. Synthetic GO is always labeled `DRY_RUN_ONLY_NOT_PILOT_GO` and has zero pilot authority.
+
+### Evidence hash inventory
+**PHASE 0 INTEGRITY TOOL**
+
+SHA-256 inventory may be generated over real archived evidence to detect later file changes. It proves file integrity only and does not replace reviewer authority, provider authenticity, field truth or Phase 1 package signing.
