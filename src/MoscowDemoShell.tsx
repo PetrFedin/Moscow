@@ -97,7 +97,7 @@ export default function MoscowDemoShell() {
           <Text style={styles.demoStar}>✦</Text>
           <View>
             <Text style={styles.demoKicker}>WOW</Text>
-            <Text style={styles.demoText}>DEMO</Text>
+            <Text style={styles.demoText}>3D</Text>
           </View>
           </PhysicalPressable>
         </>
