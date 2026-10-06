@@ -32,6 +32,8 @@ Before every pilot-readiness wave review:
 - `npm run pilot:preflight -- <config.json>`
 - `npm run pilot:readiness-dossier -- --text`
 - `npm run pilot:economics-validate -- <capture.json>`
+- `npm run pilot:dry-run`
+- `npm run pilot:evidence-inventory -- <pilot-run-id>`
 
 ## Pre-Pilot Configuration Bundle
 
@@ -42,6 +44,13 @@ Canonical workflow:
 Runbook: `docs/PRE_PILOT_CONFIGURATION_BUNDLE.md`.
 
 External handoff request: `docs/PRE_PILOT_EXTERNAL_INPUT_REQUEST.md`.
+
+## Internal execution validation
+
+- Synthetic pipeline rehearsal: `docs/PRE_PILOT_DRY_RUN.md`
+- Real evidence file integrity: `docs/EVIDENCE_HASH_INVENTORY.md`
+
+Neither artifact upgrades field/provider/user readiness.
 
 ## Authority
 
