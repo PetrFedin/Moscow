@@ -1,21 +1,91 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
+import { tr, type AppLanguage } from '../i18n';
 import { getInvestorControlSnapshot } from './investorControlModel';
+import { getInvestorMvpCopy } from './investorMvpCopy';
 
-function formatRub(value: number) {
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    maximumFractionDigits: 0
-  }).format(value);
+function formatRub(value: number, language: AppLanguage) {
+  return new Intl.NumberFormat(
+    language === 'zh' ? 'zh-CN' : language === 'en' ? 'en-US' : 'ru-RU',
+    {
+      style: 'currency',
+      currency: 'RUB',
+      maximumFractionDigits: 0
+    }
+  ).format(value);
 }
 
-export default function InvestorControlScreen() {
+function executionStatus(language: AppLanguage, status: string) {
+  if (status === 'VERIFIED PILOT PACK READY') {
+    return tr(language, 'ПАКЕТ VERIFIED PILOT ГОТОВ', 'VERIFIED PILOT PACK READY', '已验证试点包已就绪');
+  }
+  if (status === 'TECHNICAL PILOT PACK READY · EXECUTION NOT PROVEN') {
+    return tr(
+      language,
+      'ТЕХНИЧЕСКИЙ ПАКЕТ ГОТОВ · ИСПОЛНЕНИЕ ЕЩЁ НЕ ДОКАЗАНО',
+      'TECHNICAL PILOT PACK READY · EXECUTION NOT PROVEN',
+      '技术试点包已就绪 · 实际执行尚未验证'
+    );
+  }
+  if (status === 'INTRO PACK READY · TECHNICAL APPROVAL BLOCKED') {
+    return tr(
+      language,
+      'INTRO PACK ГОТОВ · ТЕХНИЧЕСКОЕ СОГЛАСОВАНИЕ ЗАБЛОКИРОВАНО',
+      'INTRO PACK READY · TECHNICAL APPROVAL BLOCKED',
+      '介绍材料已就绪 · 技术批准尚未完成'
+    );
+  }
+  return tr(
+    language,
+    'ДО ПИЛОТА · ФОРМАЛЬНЫЙ ПАКЕТ НЕПОЛНЫЙ',
+    'PRE-PILOT · FORMAL PACK INCOMPLETE',
+    '试点前阶段 · 正式材料尚不完整'
+  );
+}
+
+function missingCostLines(language: AppLanguage, labels: string[]) {
+  const translated: Record<string, [string, string, string]> = {
+    '₽ / следующий verified object': ['₽ / следующий verified object', 'RUB / next verified object', '卢布 / 下一个 verified object'],
+    'Lead time / object': ['Lead time / object', 'Lead time / object', '单对象周期'],
+    'Developer hours / object': ['Developer hours / object', 'Developer hours / object', '单对象开发工时'],
+    'Institution hours / object': ['Institution hours / object', 'Institution hours / object', '单对象机构工时'],
+    'Shared setup / district': ['Shared setup / district', 'Shared setup / district', '区域共享初始化'],
+    'Integration / district': ['Integration / district', 'Integration / district', '区域集成成本'],
+    'Annual operations': ['Annual operations', 'Annual operations', '年度运营成本']
+  };
+
+  return labels.map((label) => {
+    const item = translated[label];
+    return item ? tr(language, item[0], item[1], item[2]) : label;
+  });
+}
+
+export default function InvestorControlScreen({ language }: { language: AppLanguage }) {
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const snapshot = useMemo(() => getInvestorControlSnapshot(), []);
+  const copy = useMemo(() => getInvestorMvpCopy(language), [language]);
   const measuredKpis = snapshot.cityKpis.filter((item) => item.value !== null).length;
+  const localizedExecutionStatus = executionStatus(language, snapshot.pilot.executionStatus);
+
+  const kpiLines = snapshot.cityKpis.map((item) => {
+    const title = item.id === 'journey-completion'
+      ? tr(language, 'Завершение маршрута', 'Journey completion', '旅程完成率')
+      : item.id === 'cultural-reach'
+        ? tr(language, 'Охват культурных точек', 'Cultural reach', '文化点位触达')
+        : item.id === 'heritage-engagement'
+          ? tr(language, 'Вовлечённость в heritage', 'Heritage engagement', '文化遗产互动')
+          : item.id === 'provider-handoff'
+            ? tr(language, 'Переход к провайдеру', 'Provider handoff', '服务商跳转')
+            : item.id === 'continuation'
+              ? tr(language, 'Продолжение маршрута', 'Route continuation', '路线延续')
+              : tr(language, 'Цикл производства объекта', 'Production cycle / object', '单对象生产周期');
+
+    return item.value
+      ? `${title}: ${item.value}`
+      : `${title}: ${tr(language, 'измеряется в пилоте', 'measured in pilot', '在试点中测量')}`;
+  });
 
   return (
     <View>
@@ -23,7 +93,14 @@ export default function InvestorControlScreen() {
         <View style={styles.executiveHeroTop}>
           <View style={styles.heroCopy}>
             <Text style={styles.kicker}>EXECUTIVE PROCUREMENT VIEW</Text>
-            <Text style={styles.heroTitle}>Что Москва покупает и что должно быть доказано до масштаба</Text>
+            <Text style={styles.heroTitle}>
+              {tr(
+                language,
+                'Что Москва покупает и что должно быть доказано до масштаба',
+                'What Moscow buys and what must be proven before scale',
+                '莫斯科购买什么，以及规模化前必须证明什么'
+              )}
+            </Text>
           </View>
           <View style={[
             styles.stageBadge,
@@ -33,105 +110,119 @@ export default function InvestorControlScreen() {
               styles.stageBadgeText,
               snapshot.scaleDecision.decisionPackReady && styles.stageBadgeTextReady
             ]}>
-              {snapshot.scaleDecision.status}
+              {snapshot.scaleDecision.decisionPackReady
+                ? tr(language, 'ГОТОВО К РЕШЕНИЮ ЛПР', 'READY FOR HUMAN DECISION', '可提交决策人')
+                : tr(language, 'ЗАБЛОКИРОВАНО', 'BLOCKED', '尚未具备决策条件')}
             </Text>
           </View>
         </View>
 
         <Text style={styles.heroBody}>
-          Один экран связывает scope пилота, поставляемые активы, критерии приёмки, фактическую себестоимость, KPI города и решение о следующем этапе.
+          {tr(
+            language,
+            'Один экран связывает scope пилота, поставляемые активы, критерии приёмки, фактическую себестоимость, KPI города и решение о следующем этапе.',
+            'One screen connects pilot scope, deliverables, acceptance criteria, measured cost basis, city KPIs and the next-stage decision.',
+            '一个界面连接试点范围、交付资产、验收标准、实际成本基础、城市 KPI 与下一阶段决策。'
+          )}
         </Text>
 
         <View style={styles.executionStrip}>
-          <Text style={styles.executionLabel}>ТЕКУЩАЯ СТАДИЯ</Text>
-          <Text style={styles.executionValue}>{snapshot.pilot.executionStatus}</Text>
+          <Text style={styles.executionLabel}>
+            {tr(language, 'ТЕКУЩАЯ СТАДИЯ', 'CURRENT STAGE', '当前阶段')}
+          </Text>
+          <Text style={styles.executionValue}>{localizedExecutionStatus}</Text>
         </View>
       </View>
 
       <View style={[styles.grid, compact && styles.gridCompact]}>
         <DashboardCard
           compact={compact}
-          kicker="01 · ПИЛОТ"
-          title={snapshot.pilot.territory}
+          kicker={tr(language, '01 · ПИЛОТ', '01 · PILOT', '01 · 试点')}
+          title={tr(language, 'Варварка — Зарядье', 'Varvarka — Zaryadye', '瓦尔瓦尔卡 — 扎里亚季耶')}
           value="5 / 2"
-          valueLabel="точек / hero objects"
-          status={snapshot.pilot.executionStatus}
+          valueLabel={tr(language, 'точек / hero objects', 'points / hero objects', '点位 / 核心对象')}
+          status={localizedExecutionStatus}
           lines={[
-            `${snapshot.pilot.participantRange} supervised sessions`,
-            'Traveler path: план → день → маршрут → experience → посещение',
-            'Scope ограничен и пригоден для формальной приёмки'
+            `${snapshot.pilot.participantRange} ${tr(language, 'supervised sessions', 'supervised sessions', '次受监督体验')}`,
+            tr(language, 'Путь: план → день → маршрут → experience → посещение', 'Journey: plan → day → route → experience → visit', '路径：计划 → 当天 → 路线 → 体验 → 到访'),
+            tr(language, 'Scope ограничен и пригоден для формальной приёмки', 'Scope is bounded and suitable for formal acceptance', '范围有限，可进行正式验收')
           ]}
         />
 
         <DashboardCard
           compact={compact}
-          kicker="02 · DELIVERABLES"
-          title="Что остаётся у города"
+          kicker={tr(language, '02 · DELIVERABLES', '02 · DELIVERABLES', '02 · 交付成果')}
+          title={tr(language, 'Что остаётся у города', 'What remains with the city', '城市最终获得什么')}
           value={String(snapshot.deliverables.scoped)}
-          valueLabel="результатов в MVP scope"
-          status={snapshot.deliverables.accepted > 0 ? 'ACCEPTED' : 'ПРИЁМКА ПОСЛЕ ПИЛОТА'}
-          lines={snapshot.deliverables.titles}
+          valueLabel={tr(language, 'результатов в MVP scope', 'deliverables in MVP scope', '项 MVP 交付成果')}
+          status={snapshot.deliverables.accepted > 0
+            ? tr(language, 'ПРИНЯТО', 'ACCEPTED', '已验收')
+            : tr(language, 'ПРИЁМКА ПОСЛЕ ПИЛОТА', 'ACCEPTANCE AFTER PILOT', '试点后验收')}
+          lines={copy.deliverables.items.map((item) => item.title)}
         />
 
         <DashboardCard
           compact={compact}
-          kicker="03 · ACCEPTANCE"
-          title="Доказательства и governance"
+          kicker={tr(language, '03 · ACCEPTANCE', '03 · ACCEPTANCE', '03 · 验收')}
+          title={tr(language, 'Доказательства и governance', 'Evidence and governance', '证据与治理')}
           value={`${snapshot.acceptance.proofPassed}/${snapshot.acceptance.proofTotal}`}
-          valueLabel="external proof gates"
-          status={`${snapshot.acceptance.formalArtifactsReady}/${snapshot.acceptance.formalArtifactsTotal} formal artifacts ready`}
+          valueLabel={tr(language, 'external proof gates', 'external proof gates', '外部证明关卡')}
+          status={`${snapshot.acceptance.formalArtifactsReady}/${snapshot.acceptance.formalArtifactsTotal} ${tr(language, 'formal artifacts ready', 'formal artifacts ready', '正式材料已就绪')}`}
           lines={[
-            `Physical / visitor / provider proof: ${snapshot.acceptance.proofPassed}/${snapshot.acceptance.proofTotal}`,
-            `Governance gates: ${snapshot.acceptance.governancePassed}/${snapshot.acceptance.governanceTotal}`,
-            'Формальная готовность документов не заменяет реальный pilot evidence'
+            `${tr(language, 'Physical / visitor / provider proof', 'Physical / visitor / provider proof', '现场 / 游客 / 服务商证明')}: ${snapshot.acceptance.proofPassed}/${snapshot.acceptance.proofTotal}`,
+            `${tr(language, 'Governance gates', 'Governance gates', '治理关卡')}: ${snapshot.acceptance.governancePassed}/${snapshot.acceptance.governanceTotal}`,
+            tr(language, 'Готовность документов не заменяет реальный pilot evidence', 'Document readiness does not replace real pilot evidence', '文件准备完成并不能替代真实试点证据')
           ]}
         />
 
         <DashboardCard
           compact={compact}
-          kicker="04 · COST BASIS"
-          title="Сколько будет стоить следующий район"
+          kicker={tr(language, '04 · COST BASIS', '04 · COST BASIS', '04 · 成本基础')}
+          title={tr(language, 'Сколько будет стоить следующий район', 'What the next district will cost', '下一个区域将花费多少')}
           value={
             snapshot.costBasis.nextDistrictCostRub
-              ? `${formatRub(snapshot.costBasis.nextDistrictCostRub.min)}–${formatRub(snapshot.costBasis.nextDistrictCostRub.max)}`
-              : 'НЕ ИЗМЕРЕНО'
+              ? `${formatRub(snapshot.costBasis.nextDistrictCostRub.min, language)}–${formatRub(snapshot.costBasis.nextDistrictCostRub.max, language)}`
+              : tr(language, 'НЕ ИЗМЕРЕНО', 'NOT MEASURED', '尚未测量')
           }
           valueLabel={
             snapshot.costBasis.nextDistrictCostRub
-              ? 'арифметика сценария 10–30 объектов'
+              ? tr(language, 'арифметика сценария 10–30 объектов', '10–30 object scenario arithmetic', '10–30 个对象情景计算')
               : `${snapshot.costBasis.measured}/${snapshot.costBasis.total} cost inputs`
           }
-          status={snapshot.costBasis.formula}
+          status="shared setup + integration + 10–30 × measured verified-object cost"
           lines={
             snapshot.costBasis.missingLabels.length > 0
-              ? snapshot.costBasis.missingLabels
-              : ['Все обязательные cost inputs имеют basis и evidence reference']
+              ? missingCostLines(language, snapshot.costBasis.missingLabels)
+              : [tr(language, 'Все cost inputs имеют basis и evidence reference', 'All cost inputs have basis and evidence reference', '所有成本输入均有依据与证据引用')]
           }
         />
 
         <DashboardCard
           compact={compact}
-          kicker="05 · CITY KPI"
-          title="Что измеряет город"
+          kicker={tr(language, '05 · CITY KPI', '05 · CITY KPI', '05 · 城市 KPI')}
+          title={tr(language, 'Что измеряет город', 'What the city measures', '城市测量什么')}
           value={`${measuredKpis}/${snapshot.cityKpis.length}`}
-          valueLabel="KPI с фактическим значением"
-          status="TARGETS НЕ ПРИДУМЫВАЕМ · ЗНАЧЕНИЯ ТОЛЬКО ПО ПИЛОТУ"
-          lines={snapshot.cityKpis.map((item) =>
-            item.value ? `${item.title}: ${item.value}` : `${item.title}: измеряется в пилоте`
+          valueLabel={tr(language, 'KPI с фактическим значением', 'KPIs with measured values', '已有实测值的 KPI')}
+          status={tr(
+            language,
+            'TARGETS НЕ ПРИДУМЫВАЕМ · ЗНАЧЕНИЯ ТОЛЬКО ПО ПИЛОТУ',
+            'NO INVENTED TARGETS · VALUES ONLY FROM PILOT',
+            '不虚构目标值 · 数值仅来自试点'
           )}
+          lines={kpiLines}
         />
 
         <DashboardCard
           compact={compact}
-          kicker="06 · SCALE DECISION"
-          title="Можно ли покупать следующий этап"
-          value={snapshot.scaleDecision.status}
-          valueLabel={`${snapshot.scaleDecision.blockerCount} blockers`}
-          status={
-            snapshot.scaleDecision.decisionPackReady
-              ? 'ПАКЕТ ГОТОВ К РЕШЕНИЮ ЛПР'
-              : 'МАСШТАБ НЕ ДОЛЖЕН ПОКУПАТЬСЯ ДО ЗАКРЫТИЯ GATES'
-          }
+          kicker={tr(language, '06 · SCALE DECISION', '06 · SCALE DECISION', '06 · 规模化决策')}
+          title={tr(language, 'Можно ли покупать следующий этап', 'Can the next stage be purchased', '是否可以采购下一阶段')}
+          value={snapshot.scaleDecision.decisionPackReady
+            ? tr(language, 'ГОТОВО К РЕШЕНИЮ', 'READY FOR DECISION', '可进入决策')
+            : tr(language, 'ЗАБЛОКИРОВАНО', 'BLOCKED', '尚未具备条件')}
+          valueLabel={`${snapshot.scaleDecision.blockerCount} ${tr(language, 'блокеров', 'blockers', '个阻塞项')}`}
+          status={snapshot.scaleDecision.decisionPackReady
+            ? tr(language, 'ПАКЕТ ГОТОВ К РЕШЕНИЮ ЛПР', 'PACK READY FOR HUMAN DECISION', '材料可提交决策人')
+            : tr(language, 'МАСШТАБ НЕ ПОКУПАЕТСЯ ДО ЗАКРЫТИЯ GATES', 'DO NOT BUY SCALE BEFORE GATES CLOSE', '关卡未关闭前不采购规模化')}
           lines={[
             `Proof: ${snapshot.scaleDecision.proofReady ? 'READY' : 'BLOCKED'}`,
             `Governance: ${snapshot.scaleDecision.governanceReady ? 'READY' : 'BLOCKED'}`,
@@ -141,8 +232,10 @@ export default function InvestorControlScreen() {
       </View>
 
       <View style={styles.nextDecision}>
-        <Text style={styles.nextDecisionKicker}>ОДНО РЕШЕНИЕ ПОСЛЕ ДЕМО</Text>
-        <Text style={styles.nextDecisionText}>{snapshot.scaleDecision.nextDecision}</Text>
+        <Text style={styles.nextDecisionKicker}>
+          {tr(language, 'ОДНО РЕШЕНИЕ ПОСЛЕ ДЕМО', 'ONE DECISION AFTER THE DEMO', '演示后的一个决策')}
+        </Text>
+        <Text style={styles.nextDecisionText}>{copy.acceptance.nextDecision}</Text>
       </View>
     </View>
   );
@@ -171,11 +264,9 @@ function DashboardCard({
       <Text style={styles.cardTitle}>{title}</Text>
       <Text style={styles.cardValue}>{value}</Text>
       <Text style={styles.cardValueLabel}>{valueLabel}</Text>
-
       <View style={styles.cardStatus}>
         <Text style={styles.cardStatusText}>{status}</Text>
       </View>
-
       <View style={styles.lines}>
         {lines.map((line, index) => (
           <View key={`${title}-${index}`} style={styles.line}>
