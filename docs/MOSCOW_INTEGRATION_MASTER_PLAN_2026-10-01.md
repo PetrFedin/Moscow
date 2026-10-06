@@ -1353,3 +1353,121 @@ Do not publish individual user accessibility profiles.
 
 **Commercial framing:** opens hospitality, city-government, cultural and inclusive-tourism markets while creating a hard-to-replicate field-verified accessibility dataset.
 
+## Platform economics wave — Destination Intelligence and Concierge API
+
+This wave packages Moscow's verified place, itinerary, accessibility, historical and provider capabilities as infrastructure for hotels, events, mobility partners, cultural institutions and city-facing products.
+
+### Destination API — ADOPT
+
+Expose approved resources:
+
+- canonical places;
+- verified entrances;
+- opening-hours/provider state where available;
+- historical scenes/periods;
+- accessibility facts/freshness;
+- curated routes;
+- event/activity metadata;
+- rights-safe media;
+- Destination Package version.
+
+### Itinerary / Concierge API — ADOPT
+
+Partner submits:
+
+- start/end;
+- date/time windows;
+- interests;
+- fixed tickets/reservations;
+- accessibility preferences;
+- duration/walking constraints;
+- language.
+
+Return:
+
+- itinerary proposal;
+- reason codes;
+- route/time estimates;
+- stale/unknown facts;
+- alternatives.
+
+Proposal does not become user's itinerary until accepted.
+
+### Journey Replan API — ADOPT
+
+Inputs:
+
+- current time/location supplied by user/partner;
+- remaining fixed commitments;
+- provider change/cancellation;
+- skipped item.
+
+Return a structured replan preserving future fixed constraints.
+
+### Accessibility Verification API — ADOPT
+
+Authorised institutions/partners may:
+
+- fetch verified facts;
+- submit candidate corrections;
+- submit facility status;
+- request re-verification;
+- subscribe to change events.
+
+Candidate corrections enter field/review workflow.
+
+### Destination SDK — ADOPT
+
+Embeddable modules:
+
+- place card;
+- verified accessibility card;
+- mini itinerary;
+- route/day planner;
+- historical scene card;
+- concierge replan action;
+- guest handoff QR.
+
+Partner UI must show source/freshness for current operational facts.
+
+### Partner Sandbox — ADOPT
+
+Synthetic city data and demo journeys for integration testing.
+
+No live user itineraries or ticket QR data.
+
+### Destination Certification / Data Freshness SLA — ADOPT
+
+For premium partners define measurable service contracts:
+
+- dataset version;
+- freshness targets by data type;
+- provider outage status;
+- accessibility re-verification age;
+- API uptime/support target.
+
+This is product/service certification, not city/government accreditation.
+
+### Usage Metering — ADAPT
+
+Potential metered units:
+
+- itinerary computations;
+- concierge active guest;
+- replan calls;
+- accessibility data package;
+- destination content feed.
+
+### Additional acceptance
+
+- current operational facts always identify source/freshness;
+- partner cannot create a verified fact directly;
+- fixed bookings cannot be silently moved;
+- API output preserves unknown vs verified state;
+- guest/private itinerary data remains partner/user-scoped;
+- direct Moscow app and partner SDK use one canonical engine.
+
+**Sequencing:** verified destination data + itinerary + accessibility + hotel workspace -> APIs -> SDK -> sandbox -> freshness/SLA -> metering.
+
+**Commercial framing:** Moscow becomes destination operating infrastructure for hospitality, mobility, events and city partners, not only a consumer app.
+
