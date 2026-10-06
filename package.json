@@ -27,6 +27,7 @@
     "pilot:visitor-wave": "node --experimental-strip-types scripts/generate_visitor_wave_manifest.mjs",
     "pilot:preflight": "node --experimental-strip-types scripts/evaluate_pre_pilot_gate.mjs",
     "pilot:config-template": "node --experimental-strip-types scripts/generate_pre_pilot_configuration.mjs",
+    "pilot:external-input-template": "node --experimental-strip-types scripts/generate_external_input_request.mjs",
     "pilot:preflight-bundle": "node --experimental-strip-types scripts/evaluate_pre_pilot_bundle.mjs",
     "pilot:init-evidence": "node scripts/init_pilot_evidence_archive.mjs",
     "report:glb": "node scripts/report_glb_asset.mjs",
