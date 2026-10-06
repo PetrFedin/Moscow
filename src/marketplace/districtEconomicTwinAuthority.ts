@@ -1,4 +1,5 @@
 import type { MarketplaceIntentKind } from './demandRankingAuthority.ts';
+import { DEMAND_CONTROL_POLICY_V1 } from './demandControlAuthority.ts';
 import type { DemandSignalEvidenceMode, DistrictDemandCell } from './demandControlAuthority.ts';
 
 export type TwinAssumptionProvenance = 'measured' | 'demo-assumption';
