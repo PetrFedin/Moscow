@@ -10,6 +10,7 @@ import CityInvestmentCommitteeWorkspaceDemo from './CityInvestmentCommitteeWorks
 import CityCapitalProgrammeControlTowerDemo from './CityCapitalProgrammeControlTowerDemo';
 import CityStrategyRebalancingBoardDemo from './CityStrategyRebalancingBoardDemo';
 import CityStrategyLearningLoopDemo from './CityStrategyLearningLoopDemo';
+import CityModelRiskGovernanceBoardDemo from './CityModelRiskGovernanceBoardDemo';
 import {
   actualDemandCells,
   demandControlCopy,
@@ -206,6 +207,9 @@ export default function DemandMarketplaceControlTower({ language }: { language: 
           </View>
           <View style={styles.opportunityEngine}>
             <CityStrategyLearningLoopDemo language={language} />
+          </View>
+          <View style={styles.opportunityEngine}>
+            <CityModelRiskGovernanceBoardDemo language={language} />
           </View>
         </>
       )}
