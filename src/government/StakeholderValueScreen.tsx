@@ -6,6 +6,7 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import {
   revenueEngines,
   stakeholderValues,
+  valueFlywheel,
   type RevenueEngineId,
   type StakeholderId
 } from './stakeholderValueModel';
@@ -125,6 +126,51 @@ export default function StakeholderValueScreen({ language }: { language: AppLang
             </View>
           );
         })}
+      </View>
+
+      <View style={styles.flywheelBox}>
+        <Text style={styles.kicker}>
+          {language === 'ru' ? 'VALUE FLYWHEEL' : language === 'en' ? 'VALUE FLYWHEEL' : '价值飞轮'}
+        </Text>
+        <Text style={styles.flywheelTitle}>
+          {language === 'ru'
+            ? 'Почему платформа становится сильнее по мере масштабирования'
+            : language === 'en'
+              ? 'Why the platform can become stronger as it scales'
+              : '为什么平台在规模化过程中可以变得更强'}
+        </Text>
+        <View style={styles.flywheelSteps}>
+          {valueFlywheel.map((item, index) => (
+            <View key={item} style={styles.flywheelRow}>
+              <View style={styles.flywheelNumber}>
+                <Text style={styles.flywheelNumberText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.flywheelText}>
+                {language === 'ru'
+                  ? item
+                  : language === 'en'
+                    ? [
+                        'More verified city content → a more useful traveler journey.',
+                        'More useful journeys → more privacy-safe aggregate demand evidence.',
+                        'More demand evidence → higher value for Partner Console and city intelligence.',
+                        'More authoritative partners → more real inventory and fewer dead ends.',
+                        'More provider coverage → higher product utility and repeat use.',
+                        'Standardised Studio / adapters / destination packages → lower marginal effort for the next district.',
+                        'No step requires selling personal data or replacing editorial truth with paid ranking.'
+                      ][index]
+                    : [
+                        '更多经核验城市内容 → 更有用的游客旅程。',
+                        '更多有效旅程 → 更多隐私安全的聚合需求证据。',
+                        '更多需求证据 → Partner Console 与城市智能价值更高。',
+                        '更多权威合作伙伴 → 更多真实库存、更少无效终点。',
+                        '更高服务商覆盖 → 更高产品效用与重复使用。',
+                        '标准化 Studio / adapters / destination packages → 降低下一个区域的边际投入。',
+                        '任何一步都不需要出售个人数据或用付费排名替代编辑事实。'
+                      ][index]}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.investorBox}>
@@ -363,6 +409,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginTop: 4
+  },
+  flywheelBox: {
+    marginTop: 14,
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: '#101316',
+    borderWidth: 1,
+    borderColor: '#2f3438'
+  },
+  flywheelTitle: {
+    color: '#f1ece3',
+    fontSize: 19,
+    lineHeight: 25,
+    fontWeight: '900',
+    marginTop: 7
+  },
+  flywheelSteps: { gap: 9, marginTop: 14 },
+  flywheelRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  flywheelNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#d3b36f',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  flywheelNumberText: {
+    color: '#17130c',
+    fontSize: 9,
+    fontWeight: '900'
+  },
+  flywheelText: {
+    flex: 1,
+    color: '#b7bdc1',
+    fontSize: 11,
+    lineHeight: 17
   },
   investorBox: {
     marginTop: 14,
