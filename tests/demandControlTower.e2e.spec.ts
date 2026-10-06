@@ -11,7 +11,7 @@ test('Demand Control Tower fails closed in ACTUAL and shows DEMO opportunity sep
 
   await page.getByText('DEMO', { exact: true }).click();
   await expect(page.getByText('OPPORTUNITY', { exact: true })).toBeVisible();
-  await expect(page.getByText(/partner-acquisition/)).toBeVisible();
+  await expect(page.getByText(/partner-acquisition/).first()).toBeVisible();
   await expect(page.getByText(/does-not-authorize-investment-or-construction/).first()).toBeVisible();
 });
 
@@ -22,7 +22,7 @@ test('Demand Control Tower exposes supply coverage and partner quality', async (
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
   await page.getByText('DEMO', { exact: true }).click();
 
-  await expect(page.getByText('Покрытие предложения', { exact: true })).toBeVisible();
+  await expect(page.getByText('Покрытие предложения', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Качество партнёров', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('demo-partner-zaryadye-dining', { exact: true })).toBeVisible();
   await expect(page.getByText(/Opportunity ≠ инвестиционное решение/)).toBeVisible();
