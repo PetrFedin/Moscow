@@ -5,6 +5,7 @@ import { DEFAULT_LANGUAGE, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
 import GovernmentOwnerRoute from './GovernmentOwnerRoute';
+import PilotBrief from './PilotBrief.tsx';
 import type { GovernmentOwnerRouteDestination } from './governmentOwnerRoute.ts';
 import PilotContractBuilder from './PilotContractBuilder';
 import StakeholderValueScreen from './StakeholderValueScreen';
@@ -13,13 +14,16 @@ import type { PilotContractSectionId } from './pilotContractAuthority';
 import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 import { getInvestorMvpCopy } from './investorMvpCopy';
 
-type Section = 'route' | 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'ecosystem' | 'operations' | 'contract';
+type Section = 'route' | 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'ecosystem' | 'operations' | 'contract' | 'brief';
 
 
 
 export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<Section>('route');
   const [language, setLanguage] = useState<AppLanguage>(DEFAULT_LANGUAGE);
+  const [meetingMode, setMeetingMode] = useState(false);
+  const [routeStepIndex, setRouteStepIndex] = useState(0);
+  const [lastEvidenceSection, setLastEvidenceSection] = useState<Section>('control');
   const [contractSection, setContractSection] = useState<PilotContractSectionId>('scope');
   const [focusedBlocker, setFocusedBlocker] = useState<PilotDecisionBlocker | null>(null);
   const copy = useMemo(() => getInvestorMvpCopy(language), [language]);
@@ -43,6 +47,41 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         </PhysicalPressable>
       </View>
 
+      <View style={styles.meetingBar}>
+        <PhysicalPressable
+          accessibilityRole="button"
+          accessibilityLabel={meetingMode
+            ? (language === 'ru' ? 'Завершить режим встречи' : language === 'en' ? 'Exit meeting mode' : '退出会议模式')
+            : (language === 'ru' ? 'Начать встречу' : language === 'en' ? 'Start meeting' : '开始会议')}
+          style={[styles.meetingToggle, meetingMode && styles.meetingToggleActive]}
+          contentStyle={styles.center}
+          onPress={() => {
+            setMeetingMode((value) => !value);
+            setSection('route');
+          }}
+        >
+          <Text style={[styles.meetingToggleText, meetingMode && styles.meetingToggleTextActive]}>
+            {meetingMode
+              ? (language === 'ru' ? 'MEETING MODE · ON' : language === 'en' ? 'MEETING MODE · ON' : '会议模式 · 开启')
+              : (language === 'ru' ? 'Начать встречу' : language === 'en' ? 'Start meeting' : '开始会议')}
+          </Text>
+        </PhysicalPressable>
+
+        {meetingMode && section !== 'route' && (
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={language === 'ru' ? 'Вернуться в презентацию' : language === 'en' ? 'Resume presentation' : '返回演示'}
+            style={styles.resumeButton}
+            contentStyle={styles.center}
+            onPress={() => setSection('route')}
+          >
+            <Text style={styles.resumeButtonText}>
+              ← {language === 'ru' ? 'Вернуться к шагу' : language === 'en' ? 'Resume step' : '返回步骤'} {routeStepIndex + 1}
+            </Text>
+          </PhysicalPressable>
+        )}
+      </View>
+
       <View style={styles.languageRow}>
         {(['ru', 'en', 'zh'] as AppLanguage[]).map((item) => (
           <PhysicalPressable
@@ -59,6 +98,25 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         ))}
       </View>
 
+      {meetingMode ? (
+        <View style={styles.presenterTabs}>
+          <PresenterTab
+            active={section === 'route'}
+            label={language === 'ru' ? 'Route' : language === 'en' ? 'Route' : '路线'}
+            onPress={() => setSection('route')}
+          />
+          <PresenterTab
+            active={section !== 'route' && section !== 'brief'}
+            label={language === 'ru' ? 'Evidence' : language === 'en' ? 'Evidence' : '证据'}
+            onPress={() => setSection(lastEvidenceSection)}
+          />
+          <PresenterTab
+            active={section === 'brief'}
+            label={language === 'ru' ? 'Decision' : language === 'en' ? 'Decision' : '决策'}
+            onPress={() => setSection('brief')}
+          />
+        </View>
+      ) : (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -79,13 +137,28 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
           </PhysicalPressable>
         ))}
       </ScrollView>
+      )}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {section === 'route' && (
           <GovernmentOwnerRoute
             language={language}
+            activeStepIndex={routeStepIndex}
+            onStepChange={setRouteStepIndex}
             onOpenDestination={(destination: GovernmentOwnerRouteDestination) => {
+              setLastEvidenceSection(destination);
               setSection(destination);
+            }}
+          />
+        )}
+
+        {section === 'brief' && (
+          <PilotBrief
+            language={language}
+            onOpenContract={() => {
+              setLastEvidenceSection('contract');
+              setLastEvidenceSection('contract');
+              setSection('contract');
             }}
           />
         )}
@@ -231,6 +304,20 @@ function BulletList({ items, muted = false }: { items: readonly string[]; muted?
   );
 }
 
+function PresenterTab({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+  return (
+    <PhysicalPressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[styles.presenterTab, active && styles.presenterTabActive]}
+      contentStyle={styles.center}
+      onPress={onPress}
+    >
+      <Text style={[styles.presenterTabText, active && styles.presenterTabTextActive]}>{label}</Text>
+    </PhysicalPressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0b0d0f' },
   header: {
@@ -256,11 +343,23 @@ const styles = StyleSheet.create({
   },
   closeText: { color: '#f6f1e7', fontSize: 26, lineHeight: 28 },
   center: { alignItems: 'center', justifyContent: 'center' },
+  meetingBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
+  meetingToggle: { minHeight: 36, borderRadius: 12, backgroundColor: '#15181b', borderWidth: 1, borderColor: '#3b4148' },
+  meetingToggleActive: { backgroundColor: '#d3b36f', borderColor: '#e5c987' },
+  meetingToggleText: { color: '#c4c9cd', fontSize: 9, fontWeight: '900', paddingHorizontal: 12 },
+  meetingToggleTextActive: { color: '#17130c' },
+  resumeButton: { minHeight: 36, borderRadius: 12, backgroundColor: '#171411', borderWidth: 1, borderColor: '#665532' },
+  resumeButtonText: { color: '#e5d3aa', fontSize: 9, fontWeight: '900', paddingHorizontal: 12 },
   languageRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 10 },
   languageButton: { minWidth: 42, height: 34, borderRadius: 12, backgroundColor: '#121518', borderWidth: 1, borderColor: '#2a2f34' },
   languageButtonActive: { backgroundColor: '#d3b36f', borderColor: '#e5c987' },
   languageText: { color: '#9fa5aa', fontSize: 10, fontWeight: '900' },
   languageTextActive: { color: '#17130c' },
+  presenterTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+  presenterTab: { flex: 1, minHeight: 42, borderRadius: 14, backgroundColor: '#15181b', borderWidth: 1, borderColor: '#292e33' },
+  presenterTabActive: { backgroundColor: '#d3b36f', borderColor: '#e5c987' },
+  presenterTabText: { color: '#aeb3b8', fontSize: 10, fontWeight: '900' },
+  presenterTabTextActive: { color: '#15120d' },
   tabs: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   tab: {
     minHeight: 40,
