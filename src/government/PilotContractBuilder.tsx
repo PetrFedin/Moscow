@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
-import { getPilotContractCopy, getPilotObligationCopy, type PilotContractSectionId } from './pilotContractCopy';
+import { getPilotContractCopy, getPilotObligationCopy } from './pilotContractCopy';
+import type { PilotContractSectionId } from './pilotContractAuthority';
 import { getPilotDeliveryObligation } from './pilotContractAuthority';
 import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 
