@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
@@ -16,6 +16,7 @@ type PilotBriefCopy = {
   blockers: string;
   nextDecision: string;
   openContract: string;
+  exportLabel: string;
   note: string;
 };
 
@@ -31,6 +32,7 @@ const copy: Record<AppLanguage, PilotBriefCopy> = {
     blockers: 'BLOCKERS',
     nextDecision: 'NEXT DECISION',
     openContract: 'Открыть Contract Builder',
+    exportLabel: 'Печать / сохранить PDF',
     note: 'Brief фиксирует структуру пилота и текущие доказательные пробелы. Это не утверждённая закупка и не цена.'
   },
   en: {
@@ -44,6 +46,7 @@ const copy: Record<AppLanguage, PilotBriefCopy> = {
     blockers: 'BLOCKERS',
     nextDecision: 'NEXT DECISION',
     openContract: 'Open Contract Builder',
+    exportLabel: 'Print / save PDF',
     note: 'The brief fixes pilot structure and current evidence gaps. It is not an approved procurement or price.'
   },
   zh: {
@@ -57,6 +60,7 @@ const copy: Record<AppLanguage, PilotBriefCopy> = {
     blockers: '阻塞项',
     nextDecision: '下一决策',
     openContract: '打开 Contract Builder',
+    exportLabel: '打印 / 保存 PDF',
     note: 'Brief 固定试点结构和当前证据缺口，不代表已批准采购或价格。'
   }
 };
@@ -114,15 +118,33 @@ export default function PilotBrief({
       <BriefRow label={t.blockers} text={text.blockers || '—'} warning />
       <BriefRow label={t.nextDecision} text={text.nextDecision} strong />
 
-      <PhysicalPressable
-        accessibilityRole="button"
-        accessibilityLabel={t.openContract}
-        style={styles.cta}
-        contentStyle={styles.ctaContent}
-        onPress={onOpenContract}
-      >
-        <Text style={styles.ctaText}>{t.openContract} →</Text>
-      </PhysicalPressable>
+      <View style={styles.actionRow}>
+        <PhysicalPressable
+          accessibilityRole="button"
+          accessibilityLabel={t.openContract}
+          style={styles.cta}
+          contentStyle={styles.ctaContent}
+          onPress={onOpenContract}
+        >
+          <Text style={styles.ctaText}>{t.openContract} →</Text>
+        </PhysicalPressable>
+
+        {Platform.OS === 'web' && (
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={t.exportLabel}
+            style={styles.exportButton}
+            contentStyle={styles.ctaContent}
+            onPress={() => {
+              if (typeof window !== 'undefined' && typeof window.print === 'function') {
+                window.print();
+              }
+            }}
+          >
+            <Text style={styles.exportText}>{t.exportLabel}</Text>
+          </PhysicalPressable>
+        )}
+      </View>
 
       <Text style={styles.note}>{t.note}</Text>
     </View>
@@ -164,8 +186,11 @@ const styles = StyleSheet.create({
   label: { color: '#c8a96a', fontSize: 7, fontWeight: '900', letterSpacing: 1.1 },
   text: { color: '#d4dadd', fontSize: 11, lineHeight: 17, marginTop: 5 },
   textStrong: { color: '#f0e4cb', fontSize: 13, lineHeight: 19, fontWeight: '900' },
-  cta: { marginTop: 12, minHeight: 46, borderRadius: 14, backgroundColor: '#d3b36f' },
+  actionRow: { marginTop: 12, gap: 8 },
+  cta: { minHeight: 46, borderRadius: 14, backgroundColor: '#d3b36f' },
+  exportButton: { minHeight: 42, borderRadius: 14, backgroundColor: '#15181b', borderWidth: 1, borderColor: '#3a4046' },
   ctaContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   ctaText: { color: '#17130c', fontSize: 11, fontWeight: '900' },
+  exportText: { color: '#c7cdd1', fontSize: 10, fontWeight: '900' },
   note: { color: '#7e858b', fontSize: 8, lineHeight: 13, marginTop: 9 }
 });
