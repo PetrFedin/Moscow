@@ -1,9 +1,9 @@
-import type { MarketplaceIntentKind } from './demandRankingAuthority';
+import type { MarketplaceIntentKind } from './demandRankingAuthority.ts';
 import {
   DEMAND_CONTROL_POLICY_V1,
   type DemandSignalEvidenceMode,
   type DistrictDemandCell
-} from './demandControlAuthority';
+} from './demandControlAuthority.ts';
 
 export type OpportunityCaseStatus =
   | 'detected'
