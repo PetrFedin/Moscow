@@ -1471,3 +1471,108 @@ Potential metered units:
 
 **Commercial framing:** Moscow becomes destination operating infrastructure for hospitality, mobility, events and city partners, not only a consumer app.
 
+## Defensibility wave — Verified Destination Package Standard and contributor trust network
+
+This wave turns Moscow's field-proven content, accessibility and itinerary data into a proprietary destination-data standard that partners can consume and verify.
+
+### Destination Package Standard — ADOPT
+
+Define a versioned package profile containing, where applicable:
+
+- place/site identity;
+- geo/entrance geometry;
+- current operational source/freshness;
+- verified accessibility facts;
+- historical scenes/evidence;
+- media rights;
+- route/approach notes;
+- field-verification state;
+- provider/bookable references;
+- safety/unknown fields;
+- package version/hash.
+
+A package can be partially complete; unknown remains unknown.
+
+### Verification Levels — ADOPT
+
+Possible dimensions:
+
+- metadata verified;
+- field visited;
+- entrance verified;
+- accessibility measured;
+- historical evidence reviewed;
+- booking/provider verified;
+- media rights verified.
+
+Do not collapse these into one "official" badge.
+
+### Field Verifier Credential — ADOPT
+
+Issue scoped credentials for trained/approved contributors:
+
+- Field Verifier;
+- Accessibility Verifier;
+- Historical Content Reviewer;
+- Partner Data Contributor.
+
+Credential scope includes:
+
+- allowed verification type;
+- training/process version;
+- issuer;
+- issued/review date;
+- status.
+
+It is not a government licence.
+
+### Contributor Trust Graph — ADOPT
+
+Graph:
+
+contributor/partner -> package -> submitted fact -> reviewed/accepted/rejected -> re-verification history
+
+Useful dimensions:
+
+- identity/organisation verified;
+- accepted contribution count;
+- correction rate;
+- freshness;
+- verification scope.
+
+No public social ranking.
+
+### Partner Venue Credential — CONDITIONAL
+
+A venue may receive a narrow status such as:
+
+- Moscow Data Integration Active;
+- Accessibility Data Verified at date T;
+- Booking Provider Verified;
+- Destination Package Maintained.
+
+This does not mean city/government endorsement.
+
+### Package Verification API — ADOPT
+
+Partners can verify:
+
+- package version;
+- verification dimensions;
+- freshness;
+- source classes;
+- revoked/superseded state.
+
+### Additional acceptance
+
+- every verified dimension has evidence/source;
+- expired/stale verification becomes visibly stale;
+- contributor mistakes do not silently alter historical versions;
+- venue credential wording cannot imply government certification;
+- package remains useful with partial/unknown dimensions;
+- contributor trust never exposes private user itinerary data.
+
+**Sequencing:** Field Verification + Accessibility + Destination API -> package standard -> verifier credentials -> contributor graph -> venue/partner verification.
+
+**Moat:** a field-verified, versioned destination dataset plus a contributor network is much harder to clone than a scraped city guide.
+
