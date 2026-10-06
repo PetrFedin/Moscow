@@ -101,7 +101,7 @@ export type CalibrationProposal = {
   createdAt: string;
   claims: {
     activatedAutomatically: false;
-    productionReady: false;
+    productionReady: boolean;
     causalityEstablished: false;
   };
 };
