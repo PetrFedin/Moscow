@@ -31,7 +31,7 @@ test('unknown learning segment is conservatively discounted', () => {
     districtContext: 'other',
     segments: demoLearningSegments
   });
-  assert.equal(confidence, 0.64);
+  assert.ok(Math.abs(confidence - 0.64) < 1e-12);
 });
 
 test('draft calibration cannot become production policy', () => {
