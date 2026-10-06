@@ -2,7 +2,11 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { tr, type AppLanguage } from '../i18n';
+import PhysicalPressable from '../ui/PhysicalPressable';
 import { getInvestorControlSnapshot } from './investorControlModel';
+import { getPilotDeliveryObligation, type PilotContractSectionId } from './pilotContractAuthority';
+import { getPilotBlockerLabel, getPilotObligationCopy } from './pilotContractCopy';
+import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 import { getInvestorMvpCopy } from './investorMvpCopy';
 
 function formatRub(value: number, language: AppLanguage) {
@@ -61,7 +65,13 @@ function missingCostLines(language: AppLanguage, labels: string[]) {
   });
 }
 
-export default function InvestorControlScreen({ language }: { language: AppLanguage }) {
+export default function InvestorControlScreen({
+  language,
+  onOpenContract
+}: {
+  language: AppLanguage;
+  onOpenContract?: (section: PilotContractSectionId, blocker: PilotDecisionBlocker) => void;
+}) {
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const snapshot = useMemo(() => getInvestorControlSnapshot(), []);
@@ -230,6 +240,56 @@ export default function InvestorControlScreen({ language }: { language: AppLangu
           ]}
         />
       </View>
+
+      {snapshot.scaleDecision.blockers.length > 0 && (
+        <View style={styles.blockerSection}>
+          <Text style={styles.blockerSectionKicker}>
+            {tr(language, 'BLOCKERS → ДОГОВОРНЫЕ ОБЯЗАТЕЛЬСТВА', 'BLOCKERS → CONTRACT OBLIGATIONS', '阻塞项 → 合同义务')}
+          </Text>
+          <Text style={styles.blockerSectionTitle}>
+            {tr(
+              language,
+              'Каждый риск должен иметь владельца, доказательство, пункт приёмки и milestone оплаты',
+              'Every risk must have an owner, evidence, acceptance clause and payment milestone',
+              '每个风险都必须绑定责任人、证据、验收条款和付款里程碑'
+            )}
+          </Text>
+
+          <View style={styles.blockerList}>
+            {snapshot.scaleDecision.blockers.map((blocker) => {
+              const obligation = getPilotDeliveryObligation(blocker);
+              if (!obligation) return null;
+              const localized = getPilotObligationCopy(language, obligation);
+              return (
+                <PhysicalPressable
+                  key={blocker}
+                  style={styles.blockerCard}
+                  contentStyle={styles.blockerCardContent}
+                  onPress={() => onOpenContract?.(obligation.contractSection, blocker)}
+                  accessibilityLabel={`${localized.blocker} · ${localized.responsible}`}
+                >
+                  <View style={styles.blockerCardTop}>
+                    <Text style={styles.blockerCardTitle}>{getPilotBlockerLabel(language, blocker)}</Text>
+                    <Text style={styles.blockerArrow}>→</Text>
+                  </View>
+                  <Text style={styles.blockerMeta}>
+                    {tr(language, 'Ответственный', 'Responsible', '责任方')}: {localized.responsible}
+                  </Text>
+                  <Text style={styles.blockerMeta}>
+                    {tr(language, 'Evidence', 'Evidence', '证据')}: {localized.evidence}
+                  </Text>
+                  <Text style={styles.blockerMeta}>
+                    {tr(language, 'Приёмка', 'Acceptance', '验收')}: {localized.acceptanceClause}
+                  </Text>
+                  <Text style={styles.blockerMeta}>
+                    {tr(language, 'Milestone', 'Milestone', '里程碑')}: {localized.paymentMilestone}
+                  </Text>
+                </PhysicalPressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       <View style={styles.nextDecision}>
         <Text style={styles.nextDecisionKicker}>
@@ -426,6 +486,60 @@ const styles = StyleSheet.create({
     color: '#aeb4b9',
     fontSize: 11,
     lineHeight: 16
+  },
+  blockerSection: {
+    marginTop: 12,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: '#111417',
+    borderWidth: 1,
+    borderColor: '#34302a'
+  },
+  blockerSectionKicker: {
+    color: '#c8a96a',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2
+  },
+  blockerSectionTitle: {
+    color: '#eee8de',
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: '900',
+    marginTop: 7
+  },
+  blockerList: { gap: 8, marginTop: 14 },
+  blockerCard: {
+    borderRadius: 16,
+    backgroundColor: '#17191b',
+    borderWidth: 1,
+    borderColor: '#2e3337'
+  },
+  blockerCardContent: {
+    padding: 13
+  },
+  blockerCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10
+  },
+  blockerCardTitle: {
+    flex: 1,
+    color: '#e8ddd0',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '900'
+  },
+  blockerArrow: {
+    color: '#d3b36f',
+    fontSize: 17,
+    fontWeight: '900'
+  },
+  blockerMeta: {
+    color: '#9fa6ac',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 4
   },
   nextDecision: {
     marginTop: 12,
