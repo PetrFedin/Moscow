@@ -112,3 +112,20 @@ test('Meeting Mode Decision opens the one-page Pilot Brief and can continue to C
   await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Вернуться в презентацию' })).toBeVisible();
 });
+
+
+test('Meeting Mode exposes hidden presenter cues and objection handling without changing the audience route', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+  await page.getByRole('button', { name: 'Начать встречу' }).click();
+
+  await expect(page.getByText('SPEAKER CUE', { exact: true })).not.toBeVisible();
+  await page.getByRole('button', { name: 'Показать заметки ведущего' }).click();
+
+  await expect(page.getByText('SPEAKER CUE', { exact: true })).toBeVisible();
+  await expect(page.getByText('НЕУДОБНЫЙ ВОПРОС', { exact: true })).toBeVisible();
+  await expect(page.getByText('КОРОТКИЙ ОТВЕТ', { exact: true })).toBeVisible();
+  await expect(page.getByText('НЕ ОБЕЩАТЬ', { exact: true })).toBeVisible();
+  await expect(page.getByText('CLOSE CUE', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Evidence jump: Executive Control' })).toBeVisible();
+});
