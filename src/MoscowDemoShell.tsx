@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MoscowExperienceApp from './MoscowExperienceApp';
 import GovernmentPartnershipDemo from './government/GovernmentPartnershipDemo';
+import InvestorMvpDemo from './government/InvestorMvpDemo';
 import {
   parseGovernmentMeetingEntryUrl,
   type GovernmentMeetingEntryMode
@@ -25,6 +26,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 export default function MoscowDemoShell() {
   const [stage, setStage] = useState<DemoStage>(null);
   const [governmentOpen, setGovernmentOpen] = useState(false);
+  const [investorOpen, setInvestorOpen] = useState(false);
   const [governmentEntryMode, setGovernmentEntryMode] =
     useState<GovernmentMeetingEntryMode>('overview');
   const [demoEra, setDemoEra] = useState<DemoEra>('1857');
@@ -71,19 +73,16 @@ export default function MoscowDemoShell() {
         <>
           <PhysicalPressable
             accessibilityRole="button"
-            accessibilityLabel="Открыть сценарий городского пилота и сотрудничества"
+            accessibilityLabel="Открыть investor MVP для Москвы"
             style={styles.cityButton}
             contentStyle={styles.demoButtonContent}
             strong
-            onPress={() => {
-              setGovernmentEntryMode('overview');
-              setGovernmentOpen(true);
-            }}
+            onPress={() => setInvestorOpen(true)}
           >
             <Text style={styles.cityMark}>M</Text>
             <View>
-              <Text style={styles.cityKicker}>CITY</Text>
-              <Text style={styles.cityText}>PILOT</Text>
+              <Text style={styles.cityKicker}>MOSCOW</Text>
+              <Text style={styles.cityText}>INVESTOR MVP</Text>
             </View>
           </PhysicalPressable>
 
@@ -103,6 +102,10 @@ export default function MoscowDemoShell() {
           </PhysicalPressable>
         </>
       )}
+
+      <Modal visible={investorOpen} animationType="slide" onRequestClose={() => setInvestorOpen(false)}>
+        <InvestorMvpDemo onClose={() => setInvestorOpen(false)} />
+      </Modal>
 
       <Modal visible={governmentOpen} animationType="slide" onRequestClose={() => setGovernmentOpen(false)}>
         <GovernmentPartnershipDemo
