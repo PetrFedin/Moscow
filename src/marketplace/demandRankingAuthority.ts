@@ -94,7 +94,8 @@ export type MarketplaceEligibilityReason =
   | 'availability-not-authoritative'
   | 'availability-stale'
   | 'availability-unavailable'
-  | 'availability-unknown';
+  | 'availability-unknown'
+  | 'organic-score-below-threshold';
 
 export type MarketplaceOrganicResult = {
   candidate: MarketplaceCandidate;
@@ -356,7 +357,7 @@ export function rankMarketplaceCandidates({
 
     const organicScore = weightedScore(policy, dimensions);
     if (organicScore < policy.minimumOrganicScore) {
-      excluded.push({ candidateId: candidate.id, reason: 'required-tag-missing' });
+      excluded.push({ candidateId: candidate.id, reason: 'organic-score-below-threshold' });
       continue;
     }
 
