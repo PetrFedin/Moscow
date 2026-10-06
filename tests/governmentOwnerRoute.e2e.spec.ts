@@ -71,3 +71,44 @@ for (const viewport of [
     await expect(page.getByText('FIRST PROCUREMENT DECISION', { exact: true })).toBeVisible();
   });
 }
+
+
+test('Meeting Mode keeps the presenter on the same executive step after evidence drill-down', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+
+  await page.getByRole('button', { name: 'Начать встречу' }).click();
+  await expect(page.getByRole('button', { name: 'Route' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Evidence' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Decision' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'ШАГ 7' }).click();
+  await expect(page.getByText('7 / 12', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Открыть доказательный слой' }).click();
+  await expect(page.getByRole('button', { name: 'Вернуться в презентацию' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Вернуться в презентацию' }).click();
+  await expect(page.getByText('7 / 12', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Что будет, если добавить supply/)).toBeVisible();
+});
+
+test('Meeting Mode Decision opens the one-page Pilot Brief and can continue to Contract Builder', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+  await page.getByRole('button', { name: 'Начать встречу' }).click();
+
+  await page.getByRole('button', { name: 'Decision' }).click();
+  await expect(page.getByText('ONE-PAGE PILOT BRIEF', { exact: true })).toBeVisible();
+  await expect(page.getByText('Варварка — Зарядье · первый закупаемый шаг', { exact: true })).toBeVisible();
+  await expect(page.getByText('ПРОБЛЕМА', { exact: true })).toBeVisible();
+  await expect(page.getByText('ВКЛАД МОСКВЫ', { exact: true })).toBeVisible();
+  await expect(page.getByText('DELIVERABLES', { exact: true })).toBeVisible();
+  await expect(page.getByText('ACCEPTANCE', { exact: true })).toBeVisible();
+  await expect(page.getByText('BLOCKERS', { exact: true })).toBeVisible();
+  await expect(page.getByText('NEXT DECISION', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Открыть Contract Builder' }).click();
+  await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Вернуться в презентацию' })).toBeVisible();
+});
