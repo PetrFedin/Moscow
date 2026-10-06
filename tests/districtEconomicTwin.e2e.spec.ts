@@ -9,9 +9,9 @@ test('District Economic Twin exposes scenario lab and assumptions', async ({ pag
 
   await expect(page.getByText('DISTRICT ECONOMIC DIGITAL TWIN · DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('DEMO ASSUMPTION', { exact: true })).toBeVisible();
-  await expect(page.getByText('+3 restaurants', { exact: true })).toBeVisible();
-  await expect(page.getByText('+2 museum hours', { exact: true })).toBeVisible();
-  await expect(page.getByText('Evening route', { exact: true })).toBeVisible();
-  await expect(page.getByText('New ticket provider', { exact: true })).toBeVisible();
+  await expect(page.getByText('+3 restaurants', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('+2 museum hours', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Evening route', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('New ticket provider', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/не является доказанным исходом/i)).toBeVisible();
 });
