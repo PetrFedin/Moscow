@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { tr, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
+import PartnerConsoleDemo from './PartnerConsoleDemo';
+import InvestorPortfolioView from './InvestorPortfolioView';
 import {
   buildInvestorOperatingSnapshot,
   currentCommercialOperatingEvidence,
@@ -82,7 +84,9 @@ export default function PartnerInvestorOperatingScreen({ language }: { language:
       </View>
 
       {mode === 'partner' ? (
-        <View style={styles.stageList}>
+        <View>
+          <PartnerConsoleDemo language={language} />
+          <View style={styles.stageList}>
           {partnerOperatingStages.map((stage, index) => (
             <View key={stage.id} style={styles.stageCard}>
               <View style={styles.stageNumber}>
@@ -119,7 +123,7 @@ export default function PartnerInvestorOperatingScreen({ language }: { language:
             </View>
           ))}
 
-          <View style={styles.currentState}>
+            <View style={styles.currentState}>
             <Text style={styles.currentStateKicker}>
               {tr(language, 'ТЕКУЩЕЕ СОСТОЯНИЕ', 'CURRENT STATE', '当前状态')}
             </Text>
@@ -139,10 +143,12 @@ export default function PartnerInvestorOperatingScreen({ language }: { language:
                 '当前 operating evidence 中没有已签署的合作伙伴合同、服务商确认归因或收入台账，因此 MVP 不会把这些展示为已经存在的业务。'
               )}
             </Text>
+            </View>
           </View>
         </View>
       ) : (
         <>
+          <InvestorPortfolioView language={language} />
           <View style={[styles.metricGrid, compact && styles.metricGridCompact]}>
             <MetricCard
               label={tr(language, 'Подписанные коммерческие контракты', 'Signed commercial contracts', '已签商业合同')}
