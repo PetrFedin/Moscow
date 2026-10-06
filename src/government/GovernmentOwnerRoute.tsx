@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
+import PilotProcurementDecisionCard from './PilotProcurementDecisionCard.tsx';
 import {
   getGovernmentOwnerRouteCopy,
   governmentOwnerRouteDurationSeconds,
@@ -144,6 +145,11 @@ export default function GovernmentOwnerRoute({
         <Text style={styles.finalKicker}>{copy.finalDecisionTitle}</Text>
         <Text style={styles.finalText}>{copy.finalDecisionBody}</Text>
       </View>
+
+      <PilotProcurementDecisionCard
+        language={language}
+        onOpenContract={() => onOpenDestination('contract')}
+      />
     </View>
   );
 }
