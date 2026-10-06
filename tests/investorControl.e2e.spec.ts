@@ -16,7 +16,7 @@ test('executive control screen exposes procurement truth without fabricated econ
   await expect(page.getByText('06 · SCALE DECISION', { exact: true })).toBeVisible();
 
   await expect(page.getByText('НЕ ИЗМЕРЕНО', { exact: true })).toBeVisible();
-  await expect(page.getByText('BLOCKED', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('ЗАБЛОКИРОВАНО', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/TARGETS НЕ ПРИДУМЫВАЕМ/)).toBeVisible();
   await expect(page.getByText('ОДНО РЕШЕНИЕ ПОСЛЕ ДЕМО', { exact: true })).toBeVisible();
 });
