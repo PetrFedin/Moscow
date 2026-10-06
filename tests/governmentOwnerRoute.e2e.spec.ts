@@ -130,3 +130,19 @@ test('Meeting Mode exposes hidden presenter cues and objection handling without 
   await expect(page.getByText('CLOSE CUE', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Evidence jump: Executive Control' })).toBeVisible();
 });
+
+
+test('Meeting Mode shows the compressed five-part executive spine and feature freeze', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+
+  await expect(page.getByText('FEATURE_FROZEN', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Начать встречу' }).click();
+
+  await expect(page.getByText('1 · ТЕЗИС', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 · PROOF', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 · OBJECTION', { exact: true })).toBeVisible();
+  await expect(page.getByText('4 · ANSWER', { exact: true })).toBeVisible();
+  await expect(page.getByText('5 · NEXT', { exact: true })).toBeVisible();
+  await expect(page.getByText(/МОСКВА ПОЛУЧАЕТ/)).not.toBeVisible();
+});
