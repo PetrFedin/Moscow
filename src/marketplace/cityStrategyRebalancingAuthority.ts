@@ -87,6 +87,12 @@ export type ReallocationDecisionPack = {
   programmeId: string;
   mode: DemandSignalEvidenceMode;
   priorities: StrategicPriority[];
+  programmePerformance: {
+    benefitsSupported: number;
+    benefitsMixed: number;
+    benefitsMissed: number;
+    forecastHitRate: number | null;
+  };
   underperformanceReviews: UnderperformanceReview[];
   decommitmentProposals: DecommitmentProposal[];
   fundingSources: ReallocationFundingSource[];
@@ -380,6 +386,12 @@ export function buildReallocationDecisionPack({
     programmeId: snapshot.programmeId,
     mode: snapshot.mode,
     priorities,
+    programmePerformance: {
+      benefitsSupported: snapshot.benefitsRealization.supported,
+      benefitsMixed: snapshot.benefitsRealization.mixed,
+      benefitsMissed: snapshot.benefitsRealization.missed,
+      forecastHitRate: snapshot.forecastAccuracy.directionalHitRate
+    },
     underperformanceReviews: reviews,
     decommitmentProposals: proposals,
     fundingSources,
