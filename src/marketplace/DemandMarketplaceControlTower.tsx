@@ -7,6 +7,7 @@ import CityOpportunityEngineDemo from './CityOpportunityEngineDemo';
 import DistrictEconomicTwinDemo from './DistrictEconomicTwinDemo';
 import DistrictPortfolioOptimizerDemo from './DistrictPortfolioOptimizerDemo';
 import CityInvestmentCommitteeWorkspaceDemo from './CityInvestmentCommitteeWorkspaceDemo';
+import CityCapitalProgrammeControlTowerDemo from './CityCapitalProgrammeControlTowerDemo';
 import {
   actualDemandCells,
   demandControlCopy,
@@ -194,6 +195,9 @@ export default function DemandMarketplaceControlTower({ language }: { language: 
           </View>
           <View style={styles.opportunityEngine}>
             <CityInvestmentCommitteeWorkspaceDemo language={language} />
+          </View>
+          <View style={styles.opportunityEngine}>
+            <CityCapitalProgrammeControlTowerDemo language={language} />
           </View>
         </>
       )}
