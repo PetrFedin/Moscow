@@ -12,6 +12,12 @@ Every value requires:
 
 Authority: `src/government/measuredEconomicsCapture.ts`.
 
+Validation command:
+
+`npm run pilot:economics-validate -- <capture.json>`
+
+The command exits non-zero until the capture is complete.
+
 ## Seven mandatory inputs
 
 1. Next verified object variable cost — RUB
