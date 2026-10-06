@@ -90,7 +90,7 @@ test('Meeting Mode keeps the presenter on the same executive step after evidence
 
   await page.getByRole('button', { name: 'Вернуться в презентацию' }).click();
   await expect(page.getByText('7 / 12', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Что будет, если добавить supply/)).toBeVisible();
+  await expect(page.getByText(/Digital Twin нужен не для/)).toBeVisible();
 });
 
 test('Meeting Mode Decision opens the one-page Pilot Brief and can continue to Contract Builder', async ({ page }) => {
