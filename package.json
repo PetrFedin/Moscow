@@ -30,6 +30,8 @@
     "pilot:external-input-template": "node --experimental-strip-types scripts/generate_external_input_request.mjs",
     "pilot:preflight-bundle": "node --experimental-strip-types scripts/evaluate_pre_pilot_bundle.mjs",
     "pilot:init-evidence": "node scripts/init_pilot_evidence_archive.mjs",
+    "pilot:evidence-inventory": "node --experimental-strip-types scripts/build_evidence_hash_inventory.mjs",
+    "pilot:dry-run": "node --experimental-strip-types scripts/dry_run_pre_pilot_pipeline.mjs",
     "report:glb": "node scripts/report_glb_asset.mjs",
     "validate:oec-model-submission": "node --experimental-strip-types scripts/validate_old_english_court_submission.mjs",
     "validate:romanov-p0-evidence": "node --experimental-strip-types scripts/validate_romanov_p0_evidence.mjs",
