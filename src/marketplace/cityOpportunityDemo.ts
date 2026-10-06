@@ -1,10 +1,10 @@
 import type { AppLanguage } from '../i18n';
-import { buildDemandControlCells, type DemandObservation } from './demandControlAuthority';
+import { buildDemandControlCells, type DemandObservation } from './demandControlAuthority.ts';
 import {
   buildCityOpportunityCase,
   type PartnerProspect
-} from './cityOpportunityAuthority';
-import { demoDemandCells } from './demandControlDemo';
+} from './cityOpportunityAuthority.ts';
+import { demoDemandCells } from './demandControlDemo.ts';
 
 const baseline = demoDemandCells.find(
   (cell) =>
