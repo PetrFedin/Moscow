@@ -27,9 +27,19 @@ Before every pilot-readiness wave review:
 - `npm run pilot:field-plan -- <config.json> [out.json]`
 - `npm run pilot:visitor-wave -- <studyId> <contentVersion> <20..50> [out.json]`
 - `npm run pilot:init-evidence -- <pilot-run-id>`
+- `npm run pilot:config-template -- [out.json]`
+- `npm run pilot:preflight-bundle -- <bundle.json>`
 - `npm run pilot:preflight -- <config.json>`
 - `npm run pilot:readiness-dossier -- --text`
 - `npm run pilot:economics-validate -- <capture.json>`
+
+## Pre-Pilot Configuration Bundle
+
+Canonical workflow:
+
+`owners-template → field-plan → visitor-wave → config-template → fill real refs → preflight-bundle`
+
+Runbook: `docs/PRE_PILOT_CONFIGURATION_BUNDLE.md`.
 
 ## Authority
 
