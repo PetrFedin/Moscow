@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { tr, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
+import MarketplaceDemandDemo from '../marketplace/MarketplaceDemandDemo';
 import {
   buildInvestorOperatingSnapshot
 } from './partnerInvestorOperatingModel';
@@ -13,6 +14,7 @@ import {
 } from './partnerConsoleSandbox';
 
 type PartnerTab =
+  | 'marketplace'
   | 'profile'
   | 'inventory'
   | 'offers'
@@ -24,6 +26,7 @@ type PartnerTab =
   | 'settlement';
 
 const tabs: PartnerTab[] = [
+  'marketplace',
   'profile',
   'inventory',
   'offers',
@@ -36,7 +39,7 @@ const tabs: PartnerTab[] = [
 ];
 
 export default function PartnerConsoleDemo({ language }: { language: AppLanguage }) {
-  const [tab, setTab] = useState<PartnerTab>('profile');
+  const [tab, setTab] = useState<PartnerTab>('marketplace');
   const snapshot = useMemo(
     () => buildInvestorOperatingSnapshot(demoCommercialOperatingEvidence),
     []
@@ -44,6 +47,7 @@ export default function PartnerConsoleDemo({ language }: { language: AppLanguage
   const profile = partnerConsoleSandboxProfile;
 
   const labels: Record<PartnerTab, string> = {
+    marketplace: tr(language, 'Demand Engine', 'Demand Engine', '需求引擎'),
     profile: tr(language, 'Профиль', 'Profile', '资料'),
     inventory: tr(language, 'Инвентарь', 'Inventory', '库存'),
     offers: tr(language, 'Офферы', 'Offers', '优惠'),
@@ -97,6 +101,8 @@ export default function PartnerConsoleDemo({ language }: { language: AppLanguage
       </View>
 
       <View style={styles.panel}>
+        {tab === 'marketplace' && <MarketplaceDemandDemo language={language} />}
+
         {tab === 'profile' && (
           <InfoRows
             rows={[
