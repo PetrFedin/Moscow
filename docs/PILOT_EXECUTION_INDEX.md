@@ -41,6 +41,8 @@ Canonical workflow:
 
 Runbook: `docs/PRE_PILOT_CONFIGURATION_BUNDLE.md`.
 
+External handoff request: `docs/PRE_PILOT_EXTERNAL_INPUT_REQUEST.md`.
+
 ## Authority
 
 Machine-readable execution authority:
