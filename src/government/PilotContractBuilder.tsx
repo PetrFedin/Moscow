@@ -1,13 +1,35 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
-import { getPilotContractCopy, type PilotContractSectionId } from './pilotContractCopy';
+import { getPilotContractCopy, getPilotObligationCopy, type PilotContractSectionId } from './pilotContractCopy';
+import { getPilotDeliveryObligation } from './pilotContractAuthority';
+import type { PilotDecisionBlocker } from './pilotInvestmentDecision';
 
-export default function PilotContractBuilder({ language }: { language: AppLanguage }) {
+export default function PilotContractBuilder({
+  language,
+  initialSection = 'scope',
+  focusedBlocker = null
+}: {
+  language: AppLanguage;
+  initialSection?: PilotContractSectionId;
+  focusedBlocker?: PilotDecisionBlocker | null;
+}) {
   const copy = getPilotContractCopy(language);
-  const [section, setSection] = useState<PilotContractSectionId>('scope');
+  const [section, setSection] = useState<PilotContractSectionId>(initialSection);
+  const obligation = useMemo(
+    () => focusedBlocker ? getPilotDeliveryObligation(focusedBlocker) : null,
+    [focusedBlocker]
+  );
+  const obligationCopy = useMemo(
+    () => obligation ? getPilotObligationCopy(language, obligation) : null,
+    [language, obligation]
+  );
+
+  useEffect(() => {
+    setSection(initialSection);
+  }, [initialSection]);
   const active = copy.sections.find((item) => item.id === section) ?? copy.sections[0];
 
   return (
@@ -40,6 +62,33 @@ export default function PilotContractBuilder({ language }: { language: AppLangua
           </PhysicalPressable>
         ))}
       </View>
+
+      {obligation && obligationCopy && (
+        <View style={styles.focusCard}>
+          <Text style={styles.focusKicker}>{copy.focused.kicker}</Text>
+          <Text style={styles.focusLabel}>{copy.focused.blockerLabel}</Text>
+          <Text style={styles.focusValue}>{obligationCopy.blocker}</Text>
+
+          <View style={styles.focusGrid}>
+            <View style={styles.focusCell}>
+              <Text style={styles.focusLabel}>{copy.focused.responsibleLabel}</Text>
+              <Text style={styles.focusCellValue}>{obligationCopy.responsible}</Text>
+            </View>
+            <View style={styles.focusCell}>
+              <Text style={styles.focusLabel}>{copy.focused.evidenceLabel}</Text>
+              <Text style={styles.focusCellValue}>{obligationCopy.evidence}</Text>
+            </View>
+            <View style={styles.focusCell}>
+              <Text style={styles.focusLabel}>{copy.focused.acceptanceLabel}</Text>
+              <Text style={styles.focusCellValue}>{obligationCopy.acceptanceClause}</Text>
+            </View>
+            <View style={styles.focusCell}>
+              <Text style={styles.focusLabel}>{copy.focused.paymentLabel}</Text>
+              <Text style={styles.focusCellValue}>{obligationCopy.paymentMilestone}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {active && (
         <View style={styles.sectionCard}>
@@ -188,6 +237,57 @@ const styles = StyleSheet.create({
     color: '#cbd0d4',
     fontSize: 12,
     lineHeight: 18
+  },
+  focusCard: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderRadius: 20,
+    padding: 17,
+    backgroundColor: '#16130f',
+    borderWidth: 1,
+    borderColor: '#765f35'
+  },
+  focusKicker: {
+    color: '#d3b36f',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.35
+  },
+  focusLabel: {
+    color: '#897c67',
+    fontSize: 8,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 1.05,
+    marginTop: 10
+  },
+  focusValue: {
+    color: '#f2e7d1',
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: '900',
+    marginTop: 4
+  },
+  focusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10
+  },
+  focusCell: {
+    minWidth: 180,
+    flexGrow: 1,
+    flexBasis: '46%',
+    backgroundColor: '#101316',
+    borderRadius: 14,
+    padding: 11
+  },
+  focusCellValue: {
+    color: '#d6dade',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+    marginTop: 4
   },
   boundary: {
     marginTop: 12,
