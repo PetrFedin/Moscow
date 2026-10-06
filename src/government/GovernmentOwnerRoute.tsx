@@ -5,6 +5,7 @@ import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import PilotProcurementDecisionCard from './PilotProcurementDecisionCard.tsx';
 import { getGovernmentOwnerRehearsalNotes } from './governmentOwnerRehearsal.ts';
+import { getExecutiveCompressedSteps } from './executiveDemoCompression.ts';
 import {
   getGovernmentOwnerRouteCopy,
   governmentOwnerRouteDurationSeconds,
@@ -33,6 +34,7 @@ export default function GovernmentOwnerRoute({
 }) {
   const copy = useMemo(() => getGovernmentOwnerRouteCopy(language), [language]);
   const rehearsalNotes = useMemo(() => getGovernmentOwnerRehearsalNotes(language), [language]);
+  const compressedSteps = useMemo(() => getExecutiveCompressedSteps(language), [language]);
   const [showPresenterNotes, setShowPresenterNotes] = useState(false);
   const { width } = useWindowDimensions();
   const compact = width < 720;
@@ -40,6 +42,7 @@ export default function GovernmentOwnerRoute({
   const index = Math.max(0, Math.min(copy.steps.length - 1, activeStepIndex));
   const step = copy.steps[index]!;
   const rehearsal = rehearsalNotes.find((item) => item.stepId === step.id) ?? null;
+  const compressed = compressedSteps.find((item) => item.stepId === step.id) ?? null;
   const totalSeconds = governmentOwnerRouteDurationSeconds();
   const elapsedSeconds = copy.steps
     .slice(0, index)
@@ -84,28 +87,49 @@ export default function GovernmentOwnerRoute({
           </View>
         </View>
 
-        <Block label={copy.executiveQuestionLabel} text={step.executiveQuestion} strong />
-        <Block label={copy.answerLabel} text={step.answer} />
+        {meetingMode && compressed ? (
+          <View style={styles.compressedStack}>
+            <CompressedBlock label="1 · ТЕЗИС" text={compressed.thesis} strong />
+            <CompressedBlock label="2 · PROOF" text={compressed.proof} />
+            <CompressedBlock label="3 · OBJECTION" text={compressed.objection} />
+            <CompressedBlock label="4 · ANSWER" text={compressed.answer} />
+            <CompressedBlock label="5 · NEXT" text={compressed.next} strong />
+            <PhysicalPressable
+              accessibilityRole="button"
+              accessibilityLabel={copy.openEvidenceLabel}
+              style={styles.proofButton}
+              contentStyle={styles.proofButtonContent}
+              onPress={() => onOpenDestination(compressed.proofDestination)}
+            >
+              <Text style={styles.proofButtonText}>{copy.openEvidenceLabel} →</Text>
+            </PhysicalPressable>
+          </View>
+        ) : (
+          <>
+            <Block label={copy.executiveQuestionLabel} text={step.executiveQuestion} strong />
+            <Block label={copy.answerLabel} text={step.answer} />
 
-        <View style={[styles.valueGrid, compact && styles.valueGridCompact]}>
-          <ValueCard label={copy.cityValueLabel} text={step.cityValue} />
-          <ValueCard label={copy.travelerValueLabel} text={step.travelerValue} />
-          <ValueCard label={copy.partnerValueLabel} text={step.partnerValue} />
-        </View>
+            <View style={[styles.valueGrid, compact && styles.valueGridCompact]}>
+              <ValueCard label={copy.cityValueLabel} text={step.cityValue} />
+              <ValueCard label={copy.travelerValueLabel} text={step.travelerValue} />
+              <ValueCard label={copy.partnerValueLabel} text={step.partnerValue} />
+            </View>
 
-        <View style={styles.proofBox}>
-          <Text style={styles.proofLabel}>{copy.proofLabel}</Text>
-          <Text style={styles.proofText}>{step.proof}</Text>
-          <PhysicalPressable
-            accessibilityRole="button"
-            accessibilityLabel={copy.openEvidenceLabel}
-            style={styles.proofButton}
-            contentStyle={styles.proofButtonContent}
-            onPress={() => onOpenDestination(step.destination)}
-          >
-            <Text style={styles.proofButtonText}>{copy.openEvidenceLabel} →</Text>
-          </PhysicalPressable>
-        </View>
+            <View style={styles.proofBox}>
+              <Text style={styles.proofLabel}>{copy.proofLabel}</Text>
+              <Text style={styles.proofText}>{step.proof}</Text>
+              <PhysicalPressable
+                accessibilityRole="button"
+                accessibilityLabel={copy.openEvidenceLabel}
+                style={styles.proofButton}
+                contentStyle={styles.proofButtonContent}
+                onPress={() => onOpenDestination(step.destination)}
+              >
+                <Text style={styles.proofButtonText}>{copy.openEvidenceLabel} →</Text>
+              </PhysicalPressable>
+            </View>
+          </>
+        )}
 
         {meetingMode && rehearsal && (
           <View style={styles.presenterSection}>
@@ -216,6 +240,15 @@ function Block({ label, text, strong = false }: { label: string; text: string; s
   );
 }
 
+function CompressedBlock({ label, text, strong = false }: { label: string; text: string; strong?: boolean }) {
+  return (
+    <View style={[styles.compressedBlock, strong && styles.compressedBlockStrong]}>
+      <Text style={styles.compressedLabel}>{label}</Text>
+      <Text style={[styles.compressedText, strong && styles.compressedTextStrong]}>{text}</Text>
+    </View>
+  );
+}
+
 function PresenterNote({ label, text, warning = false }: { label: string; text: string; warning?: boolean }) {
   return (
     <View style={[styles.presenterNote, warning && styles.presenterNoteWarning]}>
@@ -282,6 +315,12 @@ const styles = StyleSheet.create({
   proofButton: { marginTop: 10, minHeight: 40, borderRadius: 12, backgroundColor: '#d3b36f' },
   proofButtonContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   proofButtonText: { color: '#17130c', fontSize: 10, fontWeight: '900' },
+  compressedStack: { marginTop: 12, gap: 8 },
+  compressedBlock: { padding: 12, borderRadius: 13, backgroundColor: '#171b1e', borderWidth: 1, borderColor: '#2a2f34' },
+  compressedBlockStrong: { backgroundColor: '#171411', borderColor: '#665532' },
+  compressedLabel: { color: '#c8a96a', fontSize: 7, fontWeight: '900', letterSpacing: 1.0 },
+  compressedText: { color: '#d4d9dd', fontSize: 12, lineHeight: 18, marginTop: 5 },
+  compressedTextStrong: { color: '#f1e6d1', fontSize: 14, lineHeight: 20, fontWeight: '900' },
   presenterSection: { marginTop: 10 },
   presenterToggle: { minHeight: 38, borderRadius: 12, backgroundColor: '#15181b', borderWidth: 1, borderColor: '#3c4248' },
   presenterToggleContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
