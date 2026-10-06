@@ -13,6 +13,24 @@
 5. `docs/MEASURED_ECONOMICS_CAPTURE.md` — семь measured inputs.
 6. `docs/GOVERNMENT_MEETING_ASK.md` — решение, которое требуется от Москвы.
 
+## Mandatory source review
+
+Before every pilot-readiness wave review:
+
+- `docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md`
+- `docs/GITHUB_TECH_RADAR_AND_CITY_PRODUCT.md`
+- `docs/PILOT_EXECUTION_MASTER_PLAN_TRACEABILITY.md`
+
+## Commands
+
+- `npm run pilot:owners-template -- [out.json]`
+- `npm run pilot:field-plan -- <config.json> [out.json]`
+- `npm run pilot:visitor-wave -- <studyId> <contentVersion> <20..50> [out.json]`
+- `npm run pilot:init-evidence -- <pilot-run-id>`
+- `npm run pilot:preflight -- <config.json>`
+- `npm run pilot:readiness-dossier -- --text`
+- `npm run pilot:economics-validate -- <capture.json>`
+
 ## Authority
 
 Machine-readable execution authority:
