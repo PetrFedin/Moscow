@@ -6,6 +6,7 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
 import GovernmentOwnerRoute from './GovernmentOwnerRoute';
 import PilotBrief from './PilotBrief.tsx';
+import { INVESTOR_MVP_FREEZE } from './investorMvpFreeze.ts';
 import type { GovernmentOwnerRouteDestination } from './governmentOwnerRoute.ts';
 import PilotContractBuilder from './PilotContractBuilder';
 import StakeholderValueScreen from './StakeholderValueScreen';
@@ -45,6 +46,17 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         >
           <Text style={styles.closeText}>×</Text>
         </PhysicalPressable>
+      </View>
+
+      <View style={styles.freezeBar}>
+        <Text style={styles.freezeBadge}>{INVESTOR_MVP_FREEZE.state}</Text>
+        <Text style={styles.freezeText}>
+          {language === 'ru'
+            ? 'Новые функции заморожены · следующий этап: pilot readiness и реальные evidence'
+            : language === 'en'
+              ? 'New features frozen · next phase: pilot readiness and real evidence'
+              : '新功能已冻结 · 下一阶段：pilot readiness 与真实 evidence'}
+        </Text>
       </View>
 
       <View style={styles.meetingBar}>
@@ -344,6 +356,9 @@ const styles = StyleSheet.create({
   },
   closeText: { color: '#f6f1e7', fontSize: 26, lineHeight: 28 },
   center: { alignItems: 'center', justifyContent: 'center' },
+  freezeBar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
+  freezeBadge: { color: '#17130c', backgroundColor: '#d3b36f', borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5, fontSize: 8, fontWeight: '900' },
+  freezeText: { color: '#8e959a', fontSize: 9, lineHeight: 14, flex: 1 },
   meetingBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
   meetingToggle: { minHeight: 36, borderRadius: 12, backgroundColor: '#15181b', borderWidth: 1, borderColor: '#3b4148' },
   meetingToggleActive: { backgroundColor: '#d3b36f', borderColor: '#e5c987' },
