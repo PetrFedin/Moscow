@@ -1,34 +1,33 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { DEFAULT_LANGUAGE, nextLanguage, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
+import PilotContractBuilder from './PilotContractBuilder';
+import { getInvestorMvpCopy } from './investorMvpCopy';
 import { investorMvpOffer } from './investorMvpOffer';
 
-type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance';
+type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'contract';
 
-const labels: Record<Section, string> = {
-  control: 'Контроль',
-  product: 'Продукт',
-  deliverables: 'Город получает',
-  money: 'За что платит',
-  acceptance: 'Приёмка'
-};
+
 
 export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<Section>('control');
+  const [language, setLanguage] = useState<AppLanguage>(DEFAULT_LANGUAGE);
+  const copy = useMemo(() => getInvestorMvpCopy(language), [language]);
 
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.brand}>MOSCOW · INVESTOR MVP</Text>
-          <Text style={styles.title}>{investorMvpOffer.title}</Text>
-          <Text style={styles.subtitle}>{investorMvpOffer.subtitle}</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.subtitle}</Text>
         </View>
         <PhysicalPressable
           accessibilityRole="button"
-          accessibilityLabel="Закрыть investor MVP"
+          accessibilityLabel={copy.closeLabel}
           style={styles.close}
           contentStyle={styles.center}
           onPress={onClose}
@@ -37,12 +36,28 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         </PhysicalPressable>
       </View>
 
+      <View style={styles.languageRow}>
+        {(['ru', 'en', 'zh'] as AppLanguage[]).map((item) => (
+          <PhysicalPressable
+            key={item}
+            style={[styles.languageButton, language === item && styles.languageButtonActive]}
+            contentStyle={styles.center}
+            onPress={() => setLanguage(item)}
+            accessibilityLabel={item === 'ru' ? 'Русский' : item === 'en' ? 'English' : '中文'}
+          >
+            <Text style={[styles.languageText, language === item && styles.languageTextActive]}>
+              {item === 'ru' ? 'RU' : item === 'en' ? 'EN' : '中文'}
+            </Text>
+          </PhysicalPressable>
+        ))}
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabs}
       >
-        {(Object.keys(labels) as Section[]).map((item) => (
+        {(['control','product','deliverables','money','acceptance','contract'] as Section[]).map((item) => (
           <PhysicalPressable
             key={item}
             style={[styles.tab, section === item && styles.tabActive]}
@@ -50,7 +65,7 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
             onPress={() => setSection(item)}
           >
             <Text style={[styles.tabText, section === item && styles.tabTextActive]}>
-              {labels[item]}
+              {copy.tabs[item]}
             </Text>
           </PhysicalPressable>
         ))}
@@ -59,15 +74,17 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {section === 'control' && <InvestorControlScreen />}
 
+        {section === 'contract' && <PilotContractBuilder language={language} />}
+
         {section === 'product' && (
           <>
             <View style={styles.hero}>
               <Text style={styles.kicker}>ЧТО МЫ ПРОДАЁМ</Text>
-              <Text style={styles.heroTitle}>{investorMvpOffer.thesis}</Text>
+              <Text style={styles.heroTitle}>{copy.thesis}</Text>
             </View>
 
             <View style={styles.path}>
-              {investorMvpOffer.travelerPath.map((item, index) => (
+              {copy.product.travelerPath.map((item, index) => (
                 <View key={item} style={styles.pathRow}>
                   <View style={styles.number}><Text style={styles.numberText}>{index + 1}</Text></View>
                   <Text style={styles.pathText}>{item}</Text>
@@ -76,29 +93,29 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
             </View>
 
             <BlockTitle
-              kicker="PILOT SCOPE"
-              title="Варварка — Зарядье"
-              body="Небольшой, проверяемый контур, на котором можно измерить ценность, стоимость и повторяемость."
+              kicker={copy.product.pilotKicker}
+              title={copy.product.pilotTitle}
+              body={copy.product.pilotBody}
             />
-            <BulletList items={investorMvpOffer.pilotScope} />
+            <BulletList items={copy.product.pilotScope} />
 
             <BlockTitle
-              kicker="НЕ В MVP"
-              title="Что сознательно не покупаем сейчас"
-              body="Всё, что не помогает доказать туристический путь, production economics или городскую эксплуатацию, остаётся за пределами первого контракта."
+              kicker={copy.product.excludedKicker}
+              title={copy.product.excludedTitle}
+              body={copy.product.excludedBody}
             />
-            <BulletList items={investorMvpOffer.notInMvp} muted />
+            <BulletList items={copy.product.notInMvp} muted />
           </>
         )}
 
         {section === 'deliverables' && (
           <>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>ПОСТАВЛЯЕМЫЙ РЕЗУЛЬТАТ</Text>
-              <Text style={styles.heroTitle}>Город получает не презентацию, а работающий набор активов.</Text>
+              <Text style={styles.kicker}>{copy.deliverables.kicker}</Text>
+              <Text style={styles.heroTitle}>{copy.deliverables.title}</Text>
             </View>
 
-            {investorMvpOffer.cityDeliverables.map((item, index) => (
+            {copy.deliverables.items.map((item, index) => (
               <View key={item.title} style={styles.card}>
                 <Text style={styles.cardIndex}>{String(index + 1).padStart(2, '0')}</Text>
                 <Text style={styles.cardTitle}>{item.title}</Text>
@@ -111,41 +128,41 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         {section === 'money' && (
           <>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>КОММЕРЧЕСКАЯ ЛОГИКА</Text>
-              <Text style={styles.heroTitle}>Платёж привязан к поставляемому слою и его приёмке.</Text>
+              <Text style={styles.kicker}>{copy.money.kicker}</Text>
+              <Text style={styles.heroTitle}>{copy.money.title}</Text>
             </View>
 
-            {investorMvpOffer.paymentLayers.map((item) => (
+            {copy.money.layers.map((item) => (
               <View key={item.id} style={styles.paymentCard}>
                 <Text style={styles.paymentTitle}>{item.title}</Text>
-                <Text style={styles.paymentLabel}>ЗА ЧТО ПЛАТИТ ГОРОД</Text>
+                <Text style={styles.paymentLabel}>{copy.money.paysLabel}</Text>
                 <Text style={styles.paymentBody}>{item.paysFor}</Text>
-                <Text style={styles.paymentLabel}>КАК ПРИНИМАЕТСЯ</Text>
+                <Text style={styles.paymentLabel}>{copy.money.acceptanceLabel}</Text>
                 <Text style={styles.paymentAccept}>{item.acceptedBy}</Text>
               </View>
             ))}
 
             <BlockTitle
-              kicker="ФОРМУЛА МАСШТАБА"
-              title="Цена следующего этапа строится из измеренных компонент"
-              body="Никаких выдуманных TAM/ROI вместо себестоимости и фактического production evidence."
+              kicker={copy.money.scaleKicker}
+              title={copy.money.scaleTitle}
+              body={copy.money.scaleBody}
             />
-            <BulletList items={investorMvpOffer.scaleFormula} />
+            <BulletList items={copy.money.scaleFormula} />
           </>
         )}
 
         {section === 'acceptance' && (
           <>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>КРИТЕРИИ ПРИЁМКИ</Text>
-              <Text style={styles.heroTitle}>Пилот должен закрыть неопределённости, а не создать ещё одну демонстрацию.</Text>
+              <Text style={styles.kicker}>{copy.acceptance.kicker}</Text>
+              <Text style={styles.heroTitle}>{copy.acceptance.title}</Text>
             </View>
 
-            <BulletList items={investorMvpOffer.acceptance} />
+            <BulletList items={copy.acceptance.items} />
 
             <View style={styles.decision}>
-              <Text style={styles.decisionKicker}>СЛЕДУЮЩЕЕ РЕШЕНИЕ</Text>
-              <Text style={styles.decisionText}>{investorMvpOffer.firstDecision}</Text>
+              <Text style={styles.decisionKicker}>{copy.acceptance.nextDecisionKicker}</Text>
+              <Text style={styles.decisionText}>{copy.acceptance.nextDecision}</Text>
             </View>
           </>
         )}
@@ -202,6 +219,11 @@ const styles = StyleSheet.create({
   },
   closeText: { color: '#f6f1e7', fontSize: 26, lineHeight: 28 },
   center: { alignItems: 'center', justifyContent: 'center' },
+  languageRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 10 },
+  languageButton: { minWidth: 42, height: 34, borderRadius: 12, backgroundColor: '#121518', borderWidth: 1, borderColor: '#2a2f34' },
+  languageButtonActive: { backgroundColor: '#d3b36f', borderColor: '#e5c987' },
+  languageText: { color: '#9fa5aa', fontSize: 10, fontWeight: '900' },
+  languageTextActive: { color: '#17130c' },
   tabs: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   tab: {
     minHeight: 40,
