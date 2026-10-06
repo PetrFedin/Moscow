@@ -23,7 +23,7 @@ test('investor operating layer keeps unproven metrics unmeasured', async ({ page
 
   await expect(page.getByText('MRR', { exact: true })).toBeVisible();
   await expect(page.getByText('ARR', { exact: true })).toBeVisible();
-  await expect(page.getByText('Partner retention', { exact: true })).toBeVisible();
+  await expect(page.getByText('Partner retention', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('НЕ ИЗМЕРЕНО', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/только из фактических договоров и ledger/i)).toBeVisible();
 });
