@@ -11,5 +11,5 @@ test('District Portfolio Optimizer compares interventions under budget', async (
   await expect(page.getByText(/300/).first()).toBeVisible();
   await expect(page.getByText('CAPITAL ALLOCATION SHORTLIST', { exact: true })).toBeVisible();
   await expect(page.getByText('EXPECTED PORTFOLIO IMPACT', { exact: true })).toBeVisible();
-  await expect(page.getByText(/RECOMMENDATION ONLY/)).toBeVisible();
+  await expect(page.getByText(/RECOMMENDATION ONLY/).first()).toBeVisible();
 });
