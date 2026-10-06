@@ -11,6 +11,7 @@ import CityCapitalProgrammeControlTowerDemo from './CityCapitalProgrammeControlT
 import CityStrategyRebalancingBoardDemo from './CityStrategyRebalancingBoardDemo';
 import CityStrategyLearningLoopDemo from './CityStrategyLearningLoopDemo';
 import CityModelRiskGovernanceBoardDemo from './CityModelRiskGovernanceBoardDemo';
+import UrbanDecisionAuditLedgerDemo from './UrbanDecisionAuditLedgerDemo';
 import {
   actualDemandCells,
   demandControlCopy,
@@ -210,6 +211,9 @@ export default function DemandMarketplaceControlTower({ language }: { language: 
           </View>
           <View style={styles.opportunityEngine}>
             <CityModelRiskGovernanceBoardDemo language={language} />
+          </View>
+          <View style={styles.opportunityEngine}>
+            <UrbanDecisionAuditLedgerDemo language={language} />
           </View>
         </>
       )}
