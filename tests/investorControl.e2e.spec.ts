@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test('executive control screen exposes procurement truth without fabricated economics', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+  await page.getByText('Контроль', { exact: true }).click();
 
   await expect(page.getByText('EXECUTIVE PROCUREMENT VIEW', { exact: true })).toBeVisible();
   await expect(page.getByText('Что Москва покупает и что должно быть доказано до масштаба', { exact: true })).toBeVisible();
@@ -24,6 +25,7 @@ test('executive control screen exposes procurement truth without fabricated econ
 test('executive blocker opens the linked contract obligation', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+  await page.getByText('Контроль', { exact: true }).click();
 
   await expect(page.getByText('BLOCKERS → ДОГОВОРНЫЕ ОБЯЗАТЕЛЬСТВА', { exact: true })).toBeVisible();
 
