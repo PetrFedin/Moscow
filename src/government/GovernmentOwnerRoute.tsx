@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import PilotProcurementDecisionCard from './PilotProcurementDecisionCard.tsx';
+import { getGovernmentOwnerRehearsalNotes } from './governmentOwnerRehearsal.ts';
 import {
   getGovernmentOwnerRouteCopy,
   governmentOwnerRouteDurationSeconds,
@@ -21,19 +22,24 @@ export default function GovernmentOwnerRoute({
   language,
   onOpenDestination,
   activeStepIndex,
-  onStepChange
+  onStepChange,
+  meetingMode = false
 }: {
   language: AppLanguage;
   onOpenDestination: (destination: GovernmentOwnerRouteDestination) => void;
   activeStepIndex: number;
   onStepChange: (index: number) => void;
+  meetingMode?: boolean;
 }) {
   const copy = useMemo(() => getGovernmentOwnerRouteCopy(language), [language]);
+  const rehearsalNotes = useMemo(() => getGovernmentOwnerRehearsalNotes(language), [language]);
+  const [showPresenterNotes, setShowPresenterNotes] = useState(false);
   const { width } = useWindowDimensions();
   const compact = width < 720;
   const phone = width < 480;
   const index = Math.max(0, Math.min(copy.steps.length - 1, activeStepIndex));
   const step = copy.steps[index]!;
+  const rehearsal = rehearsalNotes.find((item) => item.stepId === step.id) ?? null;
   const totalSeconds = governmentOwnerRouteDurationSeconds();
   const elapsedSeconds = copy.steps
     .slice(0, index)
@@ -100,6 +106,46 @@ export default function GovernmentOwnerRoute({
             <Text style={styles.proofButtonText}>{copy.openEvidenceLabel} →</Text>
           </PhysicalPressable>
         </View>
+
+        {meetingMode && rehearsal && (
+          <View style={styles.presenterSection}>
+            <PhysicalPressable
+              accessibilityRole="button"
+              accessibilityLabel={showPresenterNotes ? 'Скрыть заметки ведущего' : 'Показать заметки ведущего'}
+              style={styles.presenterToggle}
+              contentStyle={styles.presenterToggleContent}
+              onPress={() => setShowPresenterNotes((value) => !value)}
+            >
+              <Text style={styles.presenterToggleText}>
+                {showPresenterNotes ? 'Скрыть заметки ведущего' : 'Показать заметки ведущего'}
+              </Text>
+            </PhysicalPressable>
+
+            {showPresenterNotes && (
+              <View style={styles.presenterNotes}>
+                <PresenterNote label="SPEAKER CUE" text={rehearsal.speakerCue} />
+                <PresenterNote label="НЕУДОБНЫЙ ВОПРОС" text={rehearsal.executiveObjection} />
+                <PresenterNote label="КОРОТКИЙ ОТВЕТ" text={rehearsal.objectionResponse} />
+                <PresenterNote label="НЕ ОБЕЩАТЬ" text={rehearsal.doNotPromise} warning />
+                <PresenterNote label="CLOSE CUE" text={rehearsal.closeCue} />
+                <View style={styles.shortcutRow}>
+                  {rehearsal.shortcuts.map((shortcut) => (
+                    <PhysicalPressable
+                      key={shortcut.label}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Evidence jump: ${shortcut.label}`}
+                      style={styles.shortcutButton}
+                      contentStyle={styles.shortcutContent}
+                      onPress={() => onOpenDestination(shortcut.destination)}
+                    >
+                      <Text style={styles.shortcutText}>{shortcut.label} →</Text>
+                    </PhysicalPressable>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={[styles.navigation, compact && styles.navigationCompact]}>
@@ -170,6 +216,15 @@ function Block({ label, text, strong = false }: { label: string; text: string; s
   );
 }
 
+function PresenterNote({ label, text, warning = false }: { label: string; text: string; warning?: boolean }) {
+  return (
+    <View style={[styles.presenterNote, warning && styles.presenterNoteWarning]}>
+      <Text style={styles.presenterNoteLabel}>{label}</Text>
+      <Text style={styles.presenterNoteText}>{text}</Text>
+    </View>
+  );
+}
+
 function ValueCard({ label, text }: { label: string; text: string }) {
   return (
     <View style={styles.valueCard}>
@@ -227,6 +282,19 @@ const styles = StyleSheet.create({
   proofButton: { marginTop: 10, minHeight: 40, borderRadius: 12, backgroundColor: '#d3b36f' },
   proofButtonContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   proofButtonText: { color: '#17130c', fontSize: 10, fontWeight: '900' },
+  presenterSection: { marginTop: 10 },
+  presenterToggle: { minHeight: 38, borderRadius: 12, backgroundColor: '#15181b', borderWidth: 1, borderColor: '#3c4248' },
+  presenterToggleContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  presenterToggleText: { color: '#c5cacf', fontSize: 9, fontWeight: '900' },
+  presenterNotes: { marginTop: 8, gap: 7, padding: 10, borderRadius: 14, backgroundColor: '#0d1012', borderWidth: 1, borderColor: '#343940' },
+  presenterNote: { padding: 10, borderRadius: 11, backgroundColor: '#14181b' },
+  presenterNoteWarning: { backgroundColor: '#1b1315', borderWidth: 1, borderColor: '#4b373a' },
+  presenterNoteLabel: { color: '#c8a96a', fontSize: 7, fontWeight: '900', letterSpacing: 1.0 },
+  presenterNoteText: { color: '#c6ccd1', fontSize: 10, lineHeight: 15, marginTop: 4 },
+  shortcutRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  shortcutButton: { minHeight: 34, borderRadius: 10, backgroundColor: '#1b211d', borderWidth: 1, borderColor: '#405044' },
+  shortcutContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  shortcutText: { color: '#bcd0bf', fontSize: 8, fontWeight: '900' },
 
   navigation: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   navigationCompact: { flexDirection: 'column', alignItems: 'stretch' },
