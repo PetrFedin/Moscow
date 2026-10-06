@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
@@ -19,16 +19,20 @@ function formatDuration(seconds: number, language: AppLanguage) {
 
 export default function GovernmentOwnerRoute({
   language,
-  onOpenDestination
+  onOpenDestination,
+  activeStepIndex,
+  onStepChange
 }: {
   language: AppLanguage;
   onOpenDestination: (destination: GovernmentOwnerRouteDestination) => void;
+  activeStepIndex: number;
+  onStepChange: (index: number) => void;
 }) {
   const copy = useMemo(() => getGovernmentOwnerRouteCopy(language), [language]);
   const { width } = useWindowDimensions();
   const compact = width < 720;
   const phone = width < 480;
-  const [index, setIndex] = useState(0);
+  const index = Math.max(0, Math.min(copy.steps.length - 1, activeStepIndex));
   const step = copy.steps[index]!;
   const totalSeconds = governmentOwnerRouteDurationSeconds();
   const elapsedSeconds = copy.steps
@@ -104,7 +108,7 @@ export default function GovernmentOwnerRoute({
           accessibilityLabel={copy.previousLabel}
           style={[styles.navButton, index === 0 && styles.navButtonDisabled]}
           contentStyle={styles.navButtonContent}
-          onPress={() => setIndex((value) => Math.max(0, value - 1))}
+          onPress={() => onStepChange(Math.max(0, index - 1))}
           disabled={index === 0}
         >
           <Text style={styles.navButtonText}>← {copy.previousLabel}</Text>
@@ -118,7 +122,7 @@ export default function GovernmentOwnerRoute({
               accessibilityLabel={`${copy.progressLabel} ${dotIndex + 1}`}
               style={[styles.dot, dotIndex === index && styles.dotActive]}
               contentStyle={styles.dotContent}
-              onPress={() => setIndex(dotIndex)}
+              onPress={() => onStepChange(dotIndex)}
             >
               <Text style={styles.dotText}>{dotIndex + 1}</Text>
             </PhysicalPressable>
@@ -135,7 +139,7 @@ export default function GovernmentOwnerRoute({
               onOpenDestination('acceptance');
               return;
             }
-            setIndex((value) => Math.min(copy.steps.length - 1, value + 1));
+            onStepChange(Math.min(copy.steps.length - 1, index + 1));
           }}
         >
           <Text style={styles.navPrimaryText}>
