@@ -5,7 +5,7 @@ import {
   buildPartnerQualitySnapshots,
   type DemandObservation,
   type PartnerQualityObservation
-} from './demandControlAuthority';
+} from './demandControlAuthority.ts';
 
 function makeObservation({
   id,
