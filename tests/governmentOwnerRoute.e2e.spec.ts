@@ -107,6 +107,7 @@ test('Meeting Mode Decision opens the one-page Pilot Brief and can continue to C
   await expect(page.getByText('ACCEPTANCE', { exact: true })).toBeVisible();
   await expect(page.getByText('BLOCKERS', { exact: true })).toBeVisible();
   await expect(page.getByText('NEXT DECISION', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Печать / сохранить PDF' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Открыть Contract Builder' }).click();
   await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
