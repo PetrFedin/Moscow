@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import PhysicalPressable from '../ui/PhysicalPressable';
+import InvestorControlScreen from './InvestorControlScreen';
 import { investorMvpOffer } from './investorMvpOffer';
 
-type Section = 'product' | 'deliverables' | 'money' | 'acceptance';
+type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance';
 
 const labels: Record<Section, string> = {
+  control: 'Контроль',
   product: 'Продукт',
   deliverables: 'Город получает',
   money: 'За что платит',
@@ -14,7 +16,7 @@ const labels: Record<Section, string> = {
 };
 
 export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
-  const [section, setSection] = useState<Section>('product');
+  const [section, setSection] = useState<Section>('control');
 
   return (
     <SafeAreaView style={styles.root}>
@@ -55,6 +57,8 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
       </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {section === 'control' && <InvestorControlScreen />}
+
         {section === 'product' && (
           <>
             <View style={styles.hero}>
