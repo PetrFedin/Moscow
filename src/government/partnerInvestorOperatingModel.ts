@@ -1,4 +1,4 @@
-import { currentPilotInvestmentEvidence } from './pilotInvestmentDecision';
+import { currentPilotInvestmentEvidence } from './pilotInvestmentDecision.ts';
 
 export type PartnerKind =
   | 'heritage'
