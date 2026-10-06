@@ -4,7 +4,7 @@ import {
   rankMarketplaceCandidates,
   type MarketplaceCandidate,
   type MarketplaceIntent
-} from './demandRankingAuthority';
+} from './demandRankingAuthority.ts';
 
 export const demoMarketplaceIntent: MarketplaceIntent = {
   id: 'demo-intent-evening-food',
