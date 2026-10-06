@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { DEFAULT_LANGUAGE, nextLanguage, type AppLanguage } from '../i18n';
+import { DEFAULT_LANGUAGE, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
 import PilotContractBuilder from './PilotContractBuilder';
 import { getInvestorMvpCopy } from './investorMvpCopy';
-import { investorMvpOffer } from './investorMvpOffer';
 
 type Section = 'control' | 'product' | 'deliverables' | 'money' | 'acceptance' | 'contract';
 
@@ -72,14 +71,14 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
       </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {section === 'control' && <InvestorControlScreen />}
+        {section === 'control' && <InvestorControlScreen language={language} />}
 
         {section === 'contract' && <PilotContractBuilder language={language} />}
 
         {section === 'product' && (
           <>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>ЧТО МЫ ПРОДАЁМ</Text>
+              <Text style={styles.kicker}>{copy.product.sellKicker}</Text>
               <Text style={styles.heroTitle}>{copy.thesis}</Text>
             </View>
 
