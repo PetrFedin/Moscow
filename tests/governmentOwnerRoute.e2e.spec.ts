@@ -53,3 +53,21 @@ test('Government Owner Route ends with a concrete first procurement decision', a
   await page.getByRole('button', { name: 'Открыть Contract Builder' }).click();
   await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
 });
+
+
+for (const viewport of [
+  { name: 'phone', width: 390, height: 844 },
+  { name: 'tablet', width: 834, height: 1112 },
+  { name: 'desktop', width: 1440, height: 1000 }
+]) {
+  test(`Government Owner Route remains usable on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+
+    await expect(page.getByText('CEO / GOVERNMENT OWNER ROUTE', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Следующий шаг' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Открыть доказательный слой' })).toBeVisible();
+    await expect(page.getByText('FIRST PROCUREMENT DECISION', { exact: true })).toBeVisible();
+  });
+}
