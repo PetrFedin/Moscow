@@ -6,6 +6,7 @@ import PhysicalPressable from '../ui/PhysicalPressable';
 import CityOpportunityEngineDemo from './CityOpportunityEngineDemo';
 import DistrictEconomicTwinDemo from './DistrictEconomicTwinDemo';
 import DistrictPortfolioOptimizerDemo from './DistrictPortfolioOptimizerDemo';
+import CityInvestmentCommitteeWorkspaceDemo from './CityInvestmentCommitteeWorkspaceDemo';
 import {
   actualDemandCells,
   demandControlCopy,
@@ -190,6 +191,9 @@ export default function DemandMarketplaceControlTower({ language }: { language: 
           </View>
           <View style={styles.opportunityEngine}>
             <DistrictPortfolioOptimizerDemo language={language} />
+          </View>
+          <View style={styles.opportunityEngine}>
+            <CityInvestmentCommitteeWorkspaceDemo language={language} />
           </View>
         </>
       )}
