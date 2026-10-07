@@ -6,6 +6,7 @@ import { tr } from '../../i18n';
 import { loadPersonalTrip } from '../../persistence/personalTripStorage';
 import type { PersonalTrip } from '../../travel/personalTrip';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 import TouristTodayCard from './TouristTodayCard';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function TripTodaySurface({ language, onOpenTrip }: Props) {
+  const { palette } = useMoscowTheme();
   const [trip,setTrip]=useState<PersonalTrip|null>(null);
   const [loaded,setLoaded]=useState(false);
 
@@ -28,10 +30,10 @@ export default function TripTodaySurface({ language, onOpenTrip }: Props) {
 
   if(!trip){
     return (
-      <View style={styles.empty}>
+      <View style={[styles.empty,{backgroundColor:palette.surface,borderColor:palette.border}]}>
         <Text style={styles.kicker}>{tr(language,'СЕГОДНЯ','TODAY','今天')}</Text>
-        <Text style={styles.title}>{tr(language,'Сначала создайте поездку','Create your trip first','先创建你的行程')}</Text>
-        <Text style={styles.body}>
+        <Text style={[styles.title,{color:palette.text}]}>{tr(language,'Сначала создайте поездку','Create your trip first','先创建你的行程')}</Text>
+        <Text style={[styles.body,{color:palette.textMuted}]}>
           {tr(
             language,
             'Today собирает ваш реальный день: билеты, брони, свободные окна, события и изменения.',
@@ -39,8 +41,8 @@ export default function TripTodaySurface({ language, onOpenTrip }: Props) {
             'Today 会整合你的真实一天：门票、预订、空闲时段、活动和变化。'
           )}
         </Text>
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={onOpenTrip}>
-          <Text style={styles.primaryText}>{tr(language,'Создать поездку','Create trip','创建行程')} →</Text>
+        <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={onOpenTrip}>
+          <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language,'Создать план','Build a plan','创建计划')} →</Text>
         </PhysicalPressable>
       </View>
     );
@@ -55,8 +57,8 @@ export default function TripTodaySurface({ language, onOpenTrip }: Props) {
         onOpenPlace={()=>undefined}
         showLegacyUnseen={false}
       />
-      <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onOpenTrip}>
-        <Text style={styles.secondaryText}>{tr(language,'Открыть полный план поездки','Open full trip plan','打开完整行程')} →</Text>
+      <PhysicalPressable style={[styles.secondary,{borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={onOpenTrip}>
+        <Text style={[styles.secondaryText,{color:palette.accentStrong}]}>{tr(language,'Открыть полный план','Open full plan','打开完整计划')} →</Text>
       </PhysicalPressable>
     </View>
   );
