@@ -21,6 +21,7 @@ import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
 import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
 import PersonalTripPlanner from './features/trip/PersonalTripPlanner';
+import CityTripOverview from './features/trip/CityTripOverview';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -51,7 +52,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 const copy = {
   ru: {
-    discover: 'Открыть', map: 'Карта', walk: 'Прогулка', trip: 'Поездка', savedTab: 'Моя Москва',
+    discover: 'Москва', map: 'Карта', walk: 'Сегодня', trip: 'Поездка', savedTab: 'Моя Москва',
     cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
     hero: 'Москва раскрывается прямо вокруг вас',
     heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
@@ -66,7 +67,7 @@ const copy = {
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
   },
   en: {
-    discover: 'Discover', map: 'Map', walk: 'Walk', trip: 'My Trip', savedTab: 'My Moscow',
+    discover: 'Moscow', map: 'Map', walk: 'Today', trip: 'My Trip', savedTab: 'My Moscow',
     cityTime: 'THE CITY AS A TIME MACHINE',
     hero: 'Moscow reveals itself around you',
     heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
@@ -82,7 +83,7 @@ const copy = {
   }
 ,
   zh: {
-    discover: '发现', map: '地图', walk: '路线', trip: '行程', savedTab: '我的莫斯科',
+    discover: '莫斯科', map: '地图', walk: '今天', trip: '行程', savedTab: '我的莫斯科',
     cityTime: '把城市变成时光机',
     hero: '莫斯科就在你身边逐层展开',
     heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
@@ -551,38 +552,43 @@ export default function MoscowExperienceApp() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {tab === 'discover' && (
             <>
-              <View style={styles.hero}>
-                <Text style={styles.kicker}>{ui.cityTime}</Text>
-                <Text style={styles.heroTitle}>{ui.hero}</Text>
-                <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
-                  <Text style={styles.primaryText}>
-                    {routeFinished
-                      ? tr(language, 'Пройти Варварку ещё раз', 'Walk Varvarka again', '再次体验瓦尔瓦尔卡')
-                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
-                        ? (language === 'ru'
-                          ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
-                          : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
-                        : ui.start}
-                  </Text>
-                </PhysicalPressable>
-              </View>
+              <CityTripOverview
+                language={language}
+                onOpenTrip={() => setTab('trip')}
+                onOpenNearby={() => setTab('discover')}
+                onOpenMap={() => setTab('map')}
+              />
 
               <DestinationDayPrototypeCard
                 language={language}
                 onStartHistory={openWalkFromHero}
               />
 
-              <PhysicalPressable
-                style={styles.secondary}
-                contentStyle={styles.center}
-                onPress={() => setTab('trip')}
-                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
-              >
-                <Text style={styles.secondaryText}>
-                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
+              <View style={styles.heritageShowcase}>
+                <Text style={styles.kicker}>
+                  {tr(language, 'ПРЕМИАЛЬНЫЙ HERITAGE-СЛОЙ', 'PREMIUM HERITAGE LAYER', '高级文化遗产体验')}
                 </Text>
-              </PhysicalPressable>
+                <Text style={styles.heritageTitle}>
+                  {tr(language, 'История, 3D и Time Machine — там, где это действительно усиливает место', 'History, 3D and Time Machine where they genuinely improve the place', '历史、3D 与时光机只在真正提升地点体验时出现')}
+                </Text>
+                <Text style={styles.heritageBody}>
+                  {tr(
+                    language,
+                    'Старый маршрут Варварки остаётся showcase одной механики продукта, но больше не определяет весь Moscow MVP.',
+                    'The former Varvarka route remains a showcase for one product mechanic, but no longer defines the Moscow MVP.',
+                    '原瓦尔瓦尔卡路线保留为一种产品机制的展示，不再定义整个 Moscow MVP。'
+                  )}
+                </Text>
+                <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={openWalkFromHero}>
+                  <Text style={styles.secondaryText}>
+                    {routeFinished
+                      ? tr(language, 'Открыть heritage showcase снова', 'Open heritage showcase again', '再次打开文化遗产体验')
+                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
+                        ? tr(language, `Продолжить showcase · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`, `Resume showcase · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`, `继续体验 · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
+                        : tr(language, 'Открыть исторический showcase', 'Open heritage showcase', '打开历史体验')}
+                  </Text>
+                </PhysicalPressable>
+              </View>
 
               <NearbyNow
                 language={language}
