@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -14,6 +15,8 @@ import {
   governmentInvestorRoute
 } from './governmentInvestorRoute';
 
+const MEETING_PROGRESS_KEY = 'moscow:government-meeting-progress:v2';
+
 export default function GovernmentInvestorGuidedRoute({
   onExit,
   onClose
@@ -22,7 +25,37 @@ export default function GovernmentInvestorGuidedRoute({
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [presenterMode, setPresenterMode] = useState(true);
+  const [restored, setRestored] = useState(false);
   const state = useMemo(() => getGovernmentInvestorRouteState(), []);
+
+  useEffect(() => {
+    AsyncStorage.getItem(MEETING_PROGRESS_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { index?: number; presenterMode?: boolean };
+        if (
+          typeof parsed.index === 'number' &&
+          parsed.index >= 0 &&
+          parsed.index < governmentInvestorRoute.steps.length
+        ) {
+          setIndex(parsed.index);
+        }
+        if (typeof parsed.presenterMode === 'boolean') {
+          setPresenterMode(parsed.presenterMode);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setRestored(true));
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    AsyncStorage.setItem(
+      MEETING_PROGRESS_KEY,
+      JSON.stringify({ index, presenterMode, routeVersion: governmentInvestorRoute.version })
+    ).catch(() => undefined);
+  }, [index, presenterMode, restored]);
   const step = governmentInvestorRoute.steps[index]!;
   const last = index === governmentInvestorRoute.steps.length - 1;
   const progress = ((index + 1) / governmentInvestorRoute.steps.length) * 100;
@@ -45,6 +78,26 @@ export default function GovernmentInvestorGuidedRoute({
           onPress={onClose}
         >
           <Text style={styles.closeText}>×</Text>
+        </PhysicalPressable>
+      </View>
+
+      <View style={styles.modeBar}>
+        <View style={styles.modeCopy}>
+          <Text style={styles.modeLabel}>PRESENTER MODE</Text>
+          <Text style={styles.modeState}>
+            {presenterMode ? 'Route · Evidence · Decision' : 'Full meeting detail'}
+          </Text>
+        </View>
+        <PhysicalPressable
+          accessibilityRole="button"
+          accessibilityLabel="Переключить режим презентации"
+          style={[styles.modeToggle, presenterMode && styles.modeToggleActive]}
+          contentStyle={styles.center}
+          onPress={() => setPresenterMode((value) => !value)}
+        >
+          <Text style={[styles.modeToggleText, presenterMode && styles.modeToggleTextActive]}>
+            {presenterMode ? 'ON' : 'OFF'}
+          </Text>
         </PhysicalPressable>
       </View>
 
@@ -93,9 +146,9 @@ export default function GovernmentInvestorGuidedRoute({
           </View>
         )}
 
-        {step.id === 'funding' && <GovernmentFundingPathPanel />}
+        {!presenterMode && step.id === 'funding' && <GovernmentFundingPathPanel />}
 
-        {step.id === 'city-ask' && (
+        {!presenterMode && step.id === 'city-ask' && (
           <View style={styles.stakeholderWrap}>
             <Text style={styles.cardKicker}>КАРТА СТОРОН · НЕ ОДИН «ГОРОД»</Text>
             {governmentInvestorRoute.stakeholderMap.map((stakeholder) => (
@@ -139,6 +192,16 @@ export default function GovernmentInvestorGuidedRoute({
 
         {last && (
           <>
+            <View style={styles.briefCard}>
+              <Text style={styles.cardKicker}>FINAL ONE-PAGE PILOT BRIEF</Text>
+              <BriefRow label="Problem" text={governmentInvestorRoute.pilotBrief.problem} />
+              <BriefRow label="Scope" text={governmentInvestorRoute.pilotBrief.scope} />
+              <BriefRow label="City contribution" text={governmentInvestorRoute.pilotBrief.cityContribution} />
+              <BriefRow label="Deliverables" text={governmentInvestorRoute.pilotBrief.deliverables} />
+              <BriefRow label="Acceptance" text={governmentInvestorRoute.pilotBrief.acceptance} />
+              <BriefRow label="Blockers" text={governmentInvestorRoute.pilotBrief.blockers} />
+              <BriefRow label="Next decision" text={governmentInvestorRoute.pilotBrief.nextDecision} />
+            </View>
             <View style={styles.finalHero}>
               <Text style={styles.finalKicker}>ОДИН СЛЕДУЮЩИЙ ШАГ</Text>
               <Text style={styles.finalTitle}>Согласовать подготовку пилота</Text>
@@ -190,12 +253,28 @@ export default function GovernmentInvestorGuidedRoute({
           style={styles.primaryButton}
           contentStyle={styles.center}
           strong
-          onPress={() => last ? onExit() : setIndex(index + 1)}
+          onPress={() => {
+            if (!last) {
+              setIndex(index + 1);
+              return;
+            }
+            AsyncStorage.removeItem(MEETING_PROGRESS_KEY).catch(() => undefined);
+            onExit();
+          }}
         >
           <Text style={styles.primaryText}>{last ? 'Завершить' : 'Дальше →'}</Text>
         </PhysicalPressable>
       </View>
     </SafeAreaView>
+  );
+}
+
+function BriefRow({ label, text }: { label: string; text: string }) {
+  return (
+    <View style={styles.briefRow}>
+      <Text style={styles.briefLabel}>{label}</Text>
+      <Text style={styles.briefText}>{text}</Text>
+    </View>
   );
 }
 
@@ -258,6 +337,50 @@ const styles = StyleSheet.create({
   },
   center: { alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#f5efe6', fontSize: 25, lineHeight: 27 },
+  modeBar: {
+    minHeight: 54,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    backgroundColor: '#0d1014',
+    borderBottomWidth: 1,
+    borderBottomColor: '#23272d',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  modeCopy: { flex: 1 },
+  modeLabel: {
+    color: '#8d7958',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.1
+  },
+  modeState: {
+    marginTop: 3,
+    color: '#aeb4bc',
+    fontSize: 10,
+    lineHeight: 14
+  },
+  modeToggle: {
+    width: 48,
+    minHeight: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#3a4047',
+    backgroundColor: '#171b20'
+  },
+  modeToggleActive: {
+    backgroundColor: '#d7bb84',
+    borderColor: '#f0d39b'
+  },
+  modeToggleText: {
+    color: '#9ca2aa',
+    fontSize: 9,
+    fontWeight: '900'
+  },
+  modeToggleTextActive: {
+    color: '#17130d'
+  },
   progressTrack: {
     height: 3,
     backgroundColor: '#211d17'
@@ -472,6 +595,33 @@ const styles = StyleSheet.create({
     color: '#aa8a7c',
     fontSize: 10,
     lineHeight: 15
+  },
+  briefCard: {
+    marginTop: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#3a3327',
+    backgroundColor: '#111418',
+    padding: 16
+  },
+  briefRow: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#2a2f35'
+  },
+  briefLabel: {
+    color: '#b79b68',
+    fontSize: 8,
+    lineHeight: 12,
+    letterSpacing: 1,
+    fontWeight: '900',
+    textTransform: 'uppercase'
+  },
+  briefText: {
+    marginTop: 4,
+    color: '#d4d8de',
+    fontSize: 11,
+    lineHeight: 17
   },
   finalHero: {
     marginTop: 22,
