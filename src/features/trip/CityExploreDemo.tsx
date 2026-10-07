@@ -14,6 +14,7 @@ import {
   type RankedDiscoveryItem
 } from '../../travel/cityDiscoveryEngine';
 import { buildTravelEstimates, demoCityTravelTimeAdapter } from '../../travel/cityTravelTimeAdapter';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   language: AppLanguage;
@@ -69,6 +70,7 @@ function cautionLabel(language:AppLanguage,caution:string){
 }
 
 export default function CityExploreDemo({language,onAddToTrip}:Props){
+  const { palette } = useMoscowTheme();
   const [windowMinutes,setWindowMinutes]=useState<WindowFilter>(120);
   const [kind,setKind]=useState<CityDiscoveryKind | 'all'>('all');
   const [quick,setQuick]=useState<'fit'|'now'|'30'|'60'|'120'>('fit');
@@ -129,21 +131,21 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
   const excluded=Math.max(0,filtered.length-ranked.organic.length-ranked.sponsored.length);
 
   const renderCard=(item:RankedDiscoveryItem,index:number,sponsored=false)=>(
-    <View key={item.id} style={[styles.card,sponsored&&styles.sponsored]}>
+    <View key={item.id} style={[styles.card,{backgroundColor:palette.surfaceRaised,borderColor:palette.border},sponsored&&styles.sponsored,sponsored&&{backgroundColor:palette.surface,borderColor:palette.accent}]}>
       {sponsored&&<Text style={styles.sponsoredLabel}>{tr(language,'РЕКЛАМА / ПАРТНЁР','SPONSORED','赞助')}</Text>}
       <View style={styles.cardTop}>
         {!sponsored&&<Text style={styles.rank}>{index+1}</Text>}
         <View style={styles.flex}>
-          <Text style={styles.cardMeta}>{item.district} · {item.kind} · {item.durationMinutes} min</Text>
-          <Text style={styles.cardTitle}>{language==='en'?item.titleEn:language==='zh'?item.titleZh:item.titleRu}</Text>
+          <Text style={[styles.cardMeta,{color:palette.textSoft}]}>{item.district} · {item.kind} · {item.durationMinutes} min</Text>
+          <Text style={[styles.cardTitle,{color:palette.text}]}>{language==='en'?item.titleEn:language==='zh'?item.titleZh:item.titleRu}</Text>
         </View>
-        {!sponsored&&<Text style={styles.score}>{item.organicScore.toFixed(2)}</Text>}
+        {!sponsored&&<Text style={[styles.score,{color:palette.positive}]}>{item.organicScore.toFixed(2)}</Text>}
       </View>
 
       <View style={styles.decisionRow}>
-        <Text style={styles.decisionPrimary}>{openingLabel(language,item)}</Text>
+        <Text style={[styles.decisionPrimary,{color:palette.positive}]}>{openingLabel(language,item)}</Text>
         {item.decision.travelMinutes!==undefined&&(
-          <Text style={styles.decisionSecondary}>
+          <Text style={[styles.decisionSecondary,{color:palette.textMuted}]}>
             {tr(language,`дорога ~${item.decision.travelMinutes} мин`,`travel ~${item.decision.travelMinutes} min`,`交通约${item.decision.travelMinutes}分钟`)}
           </Text>
         )}
@@ -174,21 +176,21 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
       )}
 
       <PhysicalPressable
-        style={styles.addToTrip}
+        style={[styles.addToTrip,{borderColor:palette.borderStrong}]}
         contentStyle={styles.center}
         accessibilityLabel={tr(language,`Добавить ${item.titleRu} в поездку`,`Add ${item.titleEn} to trip`,`将${item.titleZh}加入行程`)}
         onPress={()=>onAddToTrip(item.id)}
       >
-        <Text style={styles.addToTripText}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
+        <Text style={[styles.addToTripText,{color:palette.accentStrong}]}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
       </PhysicalPressable>
     </View>
   );
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <Text style={styles.kicker}>{tr(language,'EXPLORE MOSCOW · DEMO','EXPLORE MOSCOW · DEMO','探索莫斯科 · DEMO')}</Text>
-      <Text style={styles.title}>{tr(language,'Что делать прямо сейчас?','What should I do now?','现在做什么？')}</Text>
-      <Text style={styles.body}>
+      <Text style={[styles.title,{color:palette.text}]}>{tr(language,'Что делать прямо сейчас?','What should I do now?','现在做什么？')}</Text>
+      <Text style={[styles.body,{color:palette.textMuted}]}>
         {tr(
           language,
           'Решение учитывает свободное время, часы работы, бюджет, состав группы, доступность, погоду и цену дороги по времени.',
@@ -199,17 +201,17 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
 
       <Text style={styles.label}>{tr(language,'ПОДБОРКИ','COLLECTIONS','精选')}</Text>
       <View style={styles.chips}>
-        <PhysicalPressable style={[styles.chip,!collectionId&&styles.chipActive]} contentStyle={styles.center} onPress={()=>setCollectionId(null)}>
-          <Text style={[styles.chipText,!collectionId&&styles.chipTextActive]}>{tr(language,'Для меня','For me','为我推荐')}</Text>
+        <PhysicalPressable style={[styles.chip,{borderColor:palette.border},!collectionId&&styles.chipActive,!collectionId&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setCollectionId(null)}>
+          <Text style={[styles.chipText,!collectionId&&styles.chipTextActive,{color:palette.textMuted}]}>{tr(language,'Для меня','For me','为我推荐')}</Text>
         </PhysicalPressable>
         {collections.map(collection=>(
           <PhysicalPressable
             key={collection.id}
-            style={[styles.chip,collectionId===collection.id&&styles.chipActive]}
+            style={[styles.chip,{borderColor:palette.border},collectionId===collection.id&&styles.chipActive,collectionId===collection.id&&{backgroundColor:palette.accent,borderColor:palette.accent}]}
             contentStyle={styles.center}
             onPress={()=>setCollectionId(collection.id)}
           >
-            <Text style={[styles.chipText,collectionId===collection.id&&styles.chipTextActive]}>
+            <Text style={[styles.chipText,collectionId===collection.id&&styles.chipTextActive,{color:palette.textMuted},>
               {collectionTitle(language,collection)} · {collection.items.length}
             </Text>
           </PhysicalPressable>
@@ -275,8 +277,8 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
           ['60',tr(language,'Через 60 мин','In 60 min','60分钟内')],
           ['120',tr(language,'Через 2 часа','In 2 hours','2小时内')]
         ].map(([id,label])=>(
-          <PhysicalPressable key={id} style={[styles.chip,quick===id&&styles.chipActive]} contentStyle={styles.center} onPress={()=>setQuick(id as typeof quick)}>
-            <Text style={[styles.chipText,quick===id&&styles.chipTextActive]}>{label}</Text>
+          <PhysicalPressable key={id} style={[styles.chip,{borderColor:palette.border},quick===id&&styles.chipActive,quick===id&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setQuick(id as typeof quick)}>
+            <Text style={[styles.chipText,quick===id&&styles.chipTextActive,{color:palette.textMuted}]}>{label}</Text>
           </PhysicalPressable>
         ))}
       </View>
@@ -284,8 +286,8 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
       <Text style={styles.label}>{tr(language,'СВОБОДНОЕ ВРЕМЯ','FREE WINDOW','空闲时间')}</Text>
       <View style={styles.chips}>
         {([45,90,120,180] as WindowFilter[]).map(value=>(
-          <PhysicalPressable key={value} style={[styles.chip,windowMinutes===value&&styles.chipActive]} contentStyle={styles.center} onPress={()=>setWindowMinutes(value)}>
-            <Text style={[styles.chipText,windowMinutes===value&&styles.chipTextActive]}>{value} min</Text>
+          <PhysicalPressable key={value} style={[styles.chip,{borderColor:palette.border},windowMinutes===value&&styles.chipActive,windowMinutes===value&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setWindowMinutes(value)}>
+            <Text style={[styles.chipText,windowMinutes===value&&styles.chipTextActive,{color:palette.textMuted}]}>{value} min</Text>
           </PhysicalPressable>
         ))}
       </View>
@@ -301,14 +303,14 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
           ['concert',tr(language,'События','Events','活动')],
           ['bar',tr(language,'Вечер','Night','夜生活')]
         ].map(([id,label])=>(
-          <PhysicalPressable key={id} style={[styles.chip,kind===id&&styles.chipActive]} contentStyle={styles.center} onPress={()=>setKind(id as CityDiscoveryKind|'all')}>
-            <Text style={[styles.chipText,kind===id&&styles.chipTextActive]}>{label}</Text>
+          <PhysicalPressable key={id} style={[styles.chip,{borderColor:palette.border},kind===id&&styles.chipActive,kind===id&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setKind(id as CityDiscoveryKind|'all')}>
+            <Text style={[styles.chipText,kind===id&&styles.chipTextActive,{color:palette.textMuted}]}>{label}</Text>
           </PhysicalPressable>
         ))}
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{tr(language,'Лучшее по смыслу','Best organic matches','最佳自然推荐')}</Text>
+        <Text style={[styles.sectionTitle,{color:palette.text}]}>{tr(language,'Лучшее по смыслу','Best organic matches','最佳自然推荐')}</Text>
         <Text style={styles.count}>{ranked.organic.length}</Text>
       </View>
       {excluded>0&&(
@@ -333,7 +335,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
         </>
       )}
 
-      <Text style={styles.guardrail}>
+      <Text style={[styles.guardrail,{color:palette.textSoft}]}>
         {tr(
           language,
           'DEMO-параметры часов, дороги и доступности показывают механику Decision Engine, а не live-факты. Organic ranking и paid placement разделены.',
