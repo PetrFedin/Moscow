@@ -1858,3 +1858,67 @@ They **must not** gate:
 12. Hotel / concierge and partner distribution on the same city graph.
 
 **Product framing:** Moscow is a complete personal city operating system. Heritage is one differentiated content layer inside it, not the perimeter of the product.
+
+
+## Day Composer v2 — IMPLEMENTING
+
+Day Composer becomes the primary projection of one trip day. It does **not** create a parallel itinerary store.
+
+Authority chain:
+
+`PersonalTrip -> TripScheduler -> PersonalTripReplan -> Day Composer projection`
+
+### Projection states
+
+For each day expose, from existing truth only:
+
+- fixed / flexible;
+- ticketed / reserved / none;
+- provider-confirmed / user-declared / none;
+- planned / completed / skipped / cancelled;
+- free windows;
+- fixed-time conflicts;
+- alternative-eligible slots.
+
+### Timeline rule
+
+One ordered timeline combines:
+
+`scheduled items + free windows + conflicts`
+
+The timeline is a projection. It must not mutate the trip by itself.
+
+### Quick Add
+
+Primary add intents:
+
+- Place;
+- Restaurant;
+- Ticket;
+- Reservation;
+- Event.
+
+These intents reuse the existing PersonalTrip mutation path. User-entered tickets and reservations remain `user-declared` until real provider receipt evidence exists.
+
+### Alternative slots
+
+A free window can become an alternative slot, but schedule-only evidence may assert only the time window.
+
+Until authoritative sources exist, alternative slots must keep:
+
+- routingVerified=false;
+- openingHoursVerified=false;
+- availabilityVerified=false;
+- accessibilityVerified=false.
+
+### Acceptance
+
+- no duplicate trip/day store;
+- fixed commitments derive from confirmed ticket/reservation intervals;
+- conflict state derives from TripScheduler;
+- free windows derive from TripScheduler and trip preferences;
+- Day Composer cannot upgrade provider truth;
+- moving/replanning remains governed by existing scheduler/replan authorities;
+- browser E2E proves Day Composer is visible in the normal My Trip flow.
+
+**Sequencing:** Day Composer projection -> timeline UI -> Quick Add -> alternative slots -> contract tests -> browser E2E -> citywide routing authority.
