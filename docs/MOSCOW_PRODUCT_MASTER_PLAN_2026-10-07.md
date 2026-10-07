@@ -261,3 +261,11 @@ Their field gates continue to govern any claims about their own AR/spatial accur
 - modelled economics != contracted economics;
 - aggregate city intelligence must not expose personal trip history;
 - no single pilot location may become the product architecture.
+
+
+## Execution documents
+
+- End-to-end product blueprint: `docs/MOSCOW_END_TO_END_PRODUCT_BLUEPRINT_2026-10-07.md`
+- Execution roadmap: `docs/MOSCOW_EXECUTION_ROADMAP_2026-10-07.md`
+
+These two files define the complete traveler / partner / city product and implementation order. They supersede ad-hoc feature expansion.
