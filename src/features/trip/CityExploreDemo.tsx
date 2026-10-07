@@ -13,13 +13,14 @@ import {
 
 type Props = {
   language: AppLanguage;
+  onAddToTrip: (itemId: string) => void;
 };
 
 type WindowFilter = 45 | 90 | 120 | 180;
 
 const preferredKinds:CityDiscoveryKind[]=['museum','exhibition','theatre','restaurant','concert','park','bar','shopping','family'];
 
-export default function CityExploreDemo({language}:Props){
+export default function CityExploreDemo({language,onAddToTrip}:Props){
   const [windowMinutes,setWindowMinutes]=useState<WindowFilter>(90);
   const [kind,setKind]=useState<CityDiscoveryKind | 'all'>('all');
   const [quick,setQuick]=useState<'fit'|'now'|'30'|'60'|'120'>('fit');
@@ -138,6 +139,14 @@ export default function CityExploreDemo({language}:Props){
               <Text style={styles.tag}>{tr(language,`через ${item.startsInMinutes} мин`,`in ${item.startsInMinutes} min`,`${item.startsInMinutes}分钟后`)}</Text>
             )}
           </View>
+          <PhysicalPressable
+            style={styles.addToTrip}
+            contentStyle={styles.center}
+            accessibilityLabel={tr(language,'Добавить в поездку','Add to trip','加入行程')}
+            onPress={()=>onAddToTrip(item.id)}
+          >
+            <Text style={styles.addToTripText}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
+          </PhysicalPressable>
         </View>
       ))}
 
@@ -151,6 +160,14 @@ export default function CityExploreDemo({language}:Props){
               <Text style={styles.sponsoredLabel}>{tr(language,'РЕКЛАМА / ПАРТНЁР','SPONSORED','赞助')}</Text>
               <Text style={styles.cardTitle}>{language==='en'?item.titleEn:language==='zh'?item.titleZh:item.titleRu}</Text>
               <Text style={styles.cardMeta}>{item.district} · {item.durationMinutes} min</Text>
+              <PhysicalPressable
+                style={styles.addToTrip}
+                contentStyle={styles.center}
+                accessibilityLabel={tr(language,'Добавить партнёрское предложение в поездку','Add sponsored offer to trip','将赞助推荐加入行程')}
+                onPress={()=>onAddToTrip(item.id)}
+              >
+                <Text style={styles.addToTripText}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
+              </PhysicalPressable>
             </View>
           ))}
         </>
@@ -194,5 +211,7 @@ const styles=StyleSheet.create({
   tag:{color:'#a88e61',fontSize:7,fontWeight:'900'},
   sponsored:{borderColor:'#594b31',backgroundColor:'#17140f'},
   sponsoredLabel:{color:'#c7a563',fontSize:7,fontWeight:'900',letterSpacing:1},
+  addToTrip:{minHeight:36,borderRadius:11,borderWidth:1,borderColor:'#4d432f',marginTop:9},
+  addToTripText:{color:'#d7bb84',fontSize:8.5,fontWeight:'900'},
   guardrail:{color:'#666d74',fontSize:8,lineHeight:12,marginTop:10}
 });
