@@ -5,7 +5,7 @@ test('City Strategy and Capital Rebalancing Board shows next-cycle governance', 
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByText('Операции', { exact: true }).click();
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
-  await page.getByText('DEMO', { exact: true }).click();
+  await page.getByRole('button', { name: 'DEMO', exact: true }).click();
 
   await expect(page.getByText('CITY STRATEGY & CAPITAL REBALANCING BOARD · DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('STRATEGIC PRIORITIES', { exact: true })).toBeVisible();
@@ -21,7 +21,7 @@ test('Strategy Board visibly separates available and blocked capital', async ({ 
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByText('Операции', { exact: true }).click();
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
-  await page.getByText('DEMO', { exact: true }).click();
+  await page.getByRole('button', { name: 'DEMO', exact: true }).click();
 
   await expect(page.getByText('AVAILABLE', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('BLOCKED', { exact: true }).first()).toBeVisible();
