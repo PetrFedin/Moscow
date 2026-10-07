@@ -1725,3 +1725,136 @@ Compounding assets:
 **Sequencing:** Destination Package Standard -> reference dataset -> venue publishing -> partner network -> embedded hospitality distribution -> demand intelligence -> institutional feeds.
 
 **Moat:** Moscow becomes a continuously maintained destination graph and itinerary execution rail, not a static tourist guide.
+
+
+## Product reset — Moscow City OS / citywide journey authority
+
+**Decision:** the project is not scoped around Varvarka, Romanov Chambers or Old English Court. Those assets remain a bounded heritage / spatial-verification lane only.
+
+The primary product is a citywide operating system for a visitor who can plan and execute any Moscow day or multi-day trip across:
+
+- restaurants, cafes, bars and nightlife;
+- theatres, cinemas, concerts and performances;
+- museums, galleries and exhibitions;
+- historical places, landmarks and architecture;
+- parks, viewpoints and walks;
+- shopping and markets;
+- family / kids activities;
+- sport and wellness;
+- events and temporary programmes;
+- hotels / stay context;
+- transport and transfer constraints.
+
+### Citywide Discovery Graph — ADOPT / IMPLEMENTING
+
+A canonical Moscow experience node must not require heritage/spatial proof to exist.
+
+Common node authority now supports broad city kinds and optional planning metadata:
+
+- district;
+- address;
+- venue / parent venue;
+- indoor / outdoor / mixed;
+- price band;
+- audience;
+- tags;
+- booking handoff when available.
+
+Heritage-specific fields remain optional and apply only where relevant.
+
+### Citywide planning entry — ADOPT / IMPLEMENTING
+
+The primary Discover CTA becomes:
+
+`Discover Moscow -> choose interests -> build day / trip -> preserve tickets and reservations -> execute -> record visits -> replan`
+
+The historic walk is retained as a secondary experience, not the product home.
+
+### Planning intent categories
+
+The city planner supports at least:
+
+- Culture: museum / gallery / exhibition / theatre / cinema / concert;
+- History: heritage / historical site / landmark;
+- Food: restaurant / cafe / bar / market;
+- Night: bar / nightlife / concert / event;
+- Events: event / concert / exhibition / theatre;
+- Parks: park / nature / activity / viewpoint;
+- Shopping: shopping / market;
+- Family;
+- Wellness / sport;
+- Views / scenic places.
+
+These are intent filters, not claims of live availability.
+
+### Multi-day city journey
+
+The existing Personal Trip authority remains the main execution ledger:
+
+`planned -> ticketed/reserved -> confirmed -> completed/skipped/cancelled -> visit ledger`
+
+A user may:
+
+- start from a blank day;
+- add a place manually;
+- import an already purchased ticket/reservation;
+- add source-backed places;
+- fix hard commitments;
+- leave flexible windows;
+- move items between days;
+- record where they actually went;
+- ask for alternatives when plans change.
+
+### Live truth boundary
+
+City scale must not fabricate:
+
+- opening hours;
+- sold-out / available state;
+- table availability;
+- ticket inventory;
+- event cancellation;
+- price;
+- travel time;
+- accessibility.
+
+Those fields must remain source/version/freshness-bound and degrade to unknown when evidence is absent.
+
+### Heritage lane boundary
+
+Romanov / Old English Court / spatial Phase 0 remain useful for:
+
+- historical evidence;
+- 3D / AR;
+- field calibration;
+- spatial verification;
+- heritage publication standard.
+
+They **must not** gate:
+
+- restaurant planning;
+- theatre / museum planning;
+- exhibitions;
+- city events;
+- trip calendar;
+- booking imports;
+- manual tickets/reservations;
+- visit history;
+- general city discovery.
+
+### Near-term citywide sequence
+
+1. Citywide Experience taxonomy + filters.
+2. Discover home centred on city planning, not Varvarka.
+3. District / category / time / price / audience filters.
+4. Real provider/source ingestion for places, events, restaurants and tickets.
+5. Day Composer: fixed vs flexible.
+6. Route/travel-time authority across the city.
+7. Opening-hours / live-status authority.
+8. Reservation / ticket handoff and verified receipt where supported.
+9. Personal Visit Ledger and "what have I already seen?" logic.
+10. What-next engine using free time, current district, interests and unseen places.
+11. Multi-day optimizer.
+12. Hotel / concierge and partner distribution on the same city graph.
+
+**Product framing:** Moscow is a complete personal city operating system. Heritage is one differentiated content layer inside it, not the perimeter of the product.
