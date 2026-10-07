@@ -5,6 +5,7 @@ import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import type { PersonalTrip } from '../../travel/personalTrip';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   trip: PersonalTrip;
@@ -18,6 +19,7 @@ function timeLabel(value?: string) {
 }
 
 export default function BookingWalletCard({ trip, language }: Props) {
+  const { palette } = useMoscowTheme();
   const items = useMemo(
     () => trip.items
       .filter((item) => item.commitment && item.commitment.status !== 'cancelled')
@@ -32,23 +34,23 @@ export default function BookingWalletCard({ trip, language }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>{tr(language, 'ПОЕЗДКА', 'TRIP', '行程')}</Text>
-          <Text style={styles.title}>{tr(language, 'Мои билеты и брони', 'My tickets & bookings', '我的门票和预订')}</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ПЛАН', 'PLAN', '计划')}</Text>
+          <Text style={[styles.title,{color:palette.text}]}>{tr(language, 'Мои билеты и брони', 'My tickets & bookings', '我的门票和预订')}</Text>
+          <Text style={[styles.subtitle,{color:palette.textMuted}]}>
             {tr(
               language,
-              'Все фиксированные подтверждения поездки в одном месте.',
-              'Your fixed trip confirmations in one place.',
-              '集中查看行程中的固定门票与预订。'
+              'Все билеты и брони текущего плана в одном месте.',
+              'All tickets and bookings for the current plan in one place.',
+              '集中查看当前计划中的门票与预订。'
             )}
           </Text>
         </View>
-        <View style={styles.count}>
-          <Text style={styles.countValue}>{items.length}</Text>
-          <Text style={styles.countLabel}>{tr(language, 'записей', 'items', '项')}</Text>
+        <View style={[styles.count,{backgroundColor:palette.surfaceSoft}]}>
+          <Text style={[styles.countValue,{color:palette.accentStrong}]}>{items.length}</Text>
+          <Text style={[styles.countLabel,{color:palette.textSoft}]}>{tr(language, 'записей', 'items', '项')}</Text>
         </View>
       </View>
 
@@ -56,16 +58,16 @@ export default function BookingWalletCard({ trip, language }: Props) {
         {items.slice(0, 8).map((item) => {
           const commitment = item.commitment!;
           return (
-            <View key={item.id} style={styles.item}>
+            <View key={item.id} style={[styles.item,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
               <View style={styles.itemTop}>
                 <View style={styles.itemCopy}>
-                  <Text style={styles.itemDate}>
+                  <Text style={[styles.itemDate,{color:palette.textSoft}]}>
                     {item.dayDate}{item.plannedStartAt ? ' · ' + timeLabel(item.plannedStartAt) : ''}
                   </Text>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={[styles.itemTitle,{color:palette.text}]}>{item.title}</Text>
                 </View>
-                <View style={styles.kindBadge}>
-                  <Text style={styles.kindText}>
+                <View style={[styles.kindBadge,{borderColor:palette.borderStrong}]}>
+                  <Text style={[styles.kindText,{color:palette.accentStrong}]}>
                     {commitment.kind === 'ticket'
                       ? tr(language, 'БИЛЕТ', 'TICKET', '门票')
                       : tr(language, 'БРОНЬ', 'BOOKING', '预订')}
@@ -74,7 +76,7 @@ export default function BookingWalletCard({ trip, language }: Props) {
               </View>
 
               {commitment.provider || commitment.reference ? (
-                <Text style={styles.meta}>
+                <Text style={[styles.meta,{color:palette.textMuted}]}>
                   {commitment.provider ?? ''}
                   {commitment.reference ? (commitment.provider ? ' · ' : '') + commitment.reference : ''}
                 </Text>
@@ -82,15 +84,15 @@ export default function BookingWalletCard({ trip, language }: Props) {
 
               <View style={styles.detailWrap}>
                 {commitment.partySize ? (
-                  <View style={styles.detailPill}>
-                    <Text style={styles.detailText}>
+                  <View style={[styles.detailPill,{backgroundColor:palette.surfaceSoft}]}>
+                    <Text style={[styles.detailText,{color:palette.textMuted}]}>
                       {tr(language, 'Гостей', 'Guests', '人数')} · {commitment.partySize}
                     </Text>
                   </View>
                 ) : null}
                 {commitment.seats ? (
-                  <View style={styles.detailPill}>
-                    <Text style={styles.detailText}>
+                  <View style={[styles.detailPill,{backgroundColor:palette.surfaceSoft}]}>
+                    <Text style={[styles.detailText,{color:palette.textMuted}]}>
                       {tr(language, 'Места', 'Seats', '座位')} · {commitment.seats}
                     </Text>
                   </View>
@@ -98,12 +100,12 @@ export default function BookingWalletCard({ trip, language }: Props) {
               </View>
 
               {commitment.address ? (
-                <Text style={styles.address}>
+                <Text style={[styles.address,{color:palette.textMuted}]}>
                   {tr(language, 'Адрес', 'Address', '地址')}: {commitment.address}
                 </Text>
               ) : null}
 
-              <Text style={styles.truth}>
+              <Text style={[styles.truth,{color:palette.accentStrong}]}>
                 {commitment.verification === 'provider-confirmed'
                   ? tr(language, 'Подтверждено провайдером', 'Provider confirmed', '供应商已确认')
                   : tr(language, 'Добавлено вами · провайдер не проверен', 'Added by you · provider not verified', '由你添加 · 供应商未核验')}
@@ -111,11 +113,11 @@ export default function BookingWalletCard({ trip, language }: Props) {
 
               {commitment.externalUrl ? (
                 <PhysicalPressable
-                  style={styles.openButton}
+                  style={[styles.openButton,{borderColor:palette.borderStrong}]}
                   contentStyle={styles.center}
                   onPress={() => { void Linking.openURL(commitment.externalUrl!); }}
                 >
-                  <Text style={styles.openText}>
+                  <Text style={[styles.openText,{color:palette.accentStrong}]}>
                     {tr(language, 'Открыть подтверждение', 'Open confirmation', '打开确认信息')}
                   </Text>
                 </PhysicalPressable>
@@ -125,7 +127,7 @@ export default function BookingWalletCard({ trip, language }: Props) {
         })}
       </View>
 
-      <Text style={styles.privacy}>
+      <Text style={[styles.privacy,{color:palette.textSoft}]}>
         {tr(
           language,
           'QR/штрихкоды не публикуются и не выводятся в социальных поверхностях.',
