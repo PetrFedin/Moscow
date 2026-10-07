@@ -1,5 +1,15 @@
 import type { CityDiscoveryItem } from './cityDiscoveryEngine.ts';
 
+const daily=(opens:string,closes:string)=>({
+  timezone:'Europe/Moscow' as const,
+  weekly:[0,1,2,3,4,5,6].map((weekday)=>({
+    weekday:weekday as 0|1|2|3|4|5|6,
+    intervals:[{opens,closes}]
+  })),
+  truth:'demo' as const,
+  freshnessAt:'2026-10-07T09:00:00+03:00'
+});
+
 export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
   {
     id:'demo-museum-evening',
@@ -13,11 +23,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:90,
     latitude:55.744,
     longitude:37.591,
-    tags:['culture','evening','museum'],
+    tags:['culture','evening','museum','rainy-day'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.7
+    qualityScore:4.7,
+    openingHours:daily('10:00','21:00'),
+    priceClass:'mid',
+    family:{familyFriendly:'yes',minAge:6},
+    accessibility:{stepFree:'verified'},
+    weather:{suitability:'indoor'}
   },
   {
     id:'demo-theatre-tonight',
@@ -31,11 +46,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:150,
     latitude:55.765,
     longitude:37.61,
-    tags:['culture','theatre','evening'],
+    tags:['culture','theatre','evening','rainy-day'],
     truth:'demo',
     availability:'limited',
     availabilityTruth:'demo',
-    qualityScore:4.8
+    qualityScore:4.8,
+    openingHours:daily('11:00','23:00'),
+    priceClass:'premium',
+    family:{familyFriendly:'partial',minAge:12},
+    accessibility:{stepFree:'partial'},
+    weather:{suitability:'indoor'}
   },
   {
     id:'demo-basmanny-exhibition',
@@ -49,11 +69,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:75,
     latitude:55.763,
     longitude:37.66,
-    tags:['art','new-district','indoor'],
+    tags:['art','new-district','indoor','rainy-day'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.6
+    qualityScore:4.6,
+    openingHours:daily('12:00','21:00'),
+    priceClass:'budget',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'unknown'},
+    weather:{suitability:'indoor'}
   },
   {
     id:'demo-zamoskvorechye-dinner',
@@ -65,11 +90,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:90,
     latitude:55.736,
     longitude:37.625,
-    tags:['food','evening','dinner'],
+    tags:['food','evening','dinner','after-theatre'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.5
+    qualityScore:4.5,
+    openingHours:daily('12:00','00:00'),
+    priceClass:'mid',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'verified'},
+    weather:{suitability:'indoor'}
   },
   {
     id:'demo-presnya-event',
@@ -83,11 +113,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:150,
     latitude:55.755,
     longitude:37.558,
-    tags:['music','event','night'],
+    tags:['music','event','night','rainy-day'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.4
+    qualityScore:4.4,
+    openingHours:daily('18:00','23:30'),
+    priceClass:'mid',
+    family:{familyFriendly:'partial',minAge:12},
+    accessibility:{stepFree:'verified'},
+    weather:{suitability:'indoor'}
   },
   {
     id:'demo-vdnh-family',
@@ -96,14 +131,19 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     titleRu:'Семейный дневной кластер',
     titleEn:'Family daytime cluster',
     titleZh:'家庭白日体验集群',
-    durationMinutes:240,
+    durationMinutes:180,
     latitude:55.829,
     longitude:37.633,
-    tags:['family','half-day','park'],
+    tags:['family','half-day','park','weekend'],
     truth:'demo',
     availability:'unknown',
     availabilityTruth:'unknown',
-    qualityScore:4.6
+    qualityScore:4.6,
+    openingHours:daily('10:00','20:00'),
+    priceClass:'budget',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'partial'},
+    weather:{suitability:'mixed'}
   },
   {
     id:'demo-gorky-park',
@@ -115,11 +155,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:90,
     latitude:55.729,
     longitude:37.601,
-    tags:['outdoor','walk','park'],
+    tags:['outdoor','walk','park','free','family','weekend'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.5
+    qualityScore:4.5,
+    openingHours:daily('06:00','23:59'),
+    priceClass:'free',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'verified'},
+    weather:{suitability:'outdoor'}
   },
   {
     id:'demo-nightlife-khitrovka',
@@ -133,11 +178,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:120,
     latitude:55.755,
     longitude:37.646,
-    tags:['nightlife','late','bar'],
+    tags:['nightlife','late','bar','continue-evening','after-theatre'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.3
+    qualityScore:4.3,
+    openingHours:daily('17:00','23:59'),
+    priceClass:'mid',
+    family:{familyFriendly:'no',minAge:18,adultOnlyAfter:'18:00'},
+    accessibility:{stepFree:'unknown'},
+    weather:{suitability:'indoor'}
   },
   {
     id:'demo-market-shopping',
@@ -149,11 +199,37 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:75,
     latitude:55.711,
     longitude:37.622,
-    tags:['market','food','shopping'],
+    tags:['market','food','shopping','family','rainy-day','weekend'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
-    qualityScore:4.4
+    qualityScore:4.4,
+    openingHours:daily('08:00','21:00'),
+    priceClass:'budget',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'verified'},
+    weather:{suitability:'indoor'}
+  },
+  {
+    id:'demo-free-architecture',
+    kind:'architecture',
+    district:'Мещанский',
+    titleRu:'Архитектурная прогулка по новому району',
+    titleEn:'Architecture walk in a new district',
+    titleZh:'新城区建筑漫步',
+    durationMinutes:60,
+    latitude:55.776,
+    longitude:37.632,
+    tags:['architecture','free','new-district','walk'],
+    truth:'demo',
+    availability:'available',
+    availabilityTruth:'demo',
+    qualityScore:4.2,
+    openingHours:daily('07:00','22:00'),
+    priceClass:'free',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'partial'},
+    weather:{suitability:'outdoor'}
   },
   {
     id:'demo-sponsored-evening',
@@ -165,11 +241,16 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     durationMinutes:90,
     latitude:55.749,
     longitude:37.589,
-    tags:['food','offer'],
+    tags:['food','offer','evening'],
     truth:'demo',
     availability:'available',
     availabilityTruth:'demo',
     qualityScore:4.7,
+    openingHours:daily('12:00','23:30'),
+    priceClass:'premium',
+    family:{familyFriendly:'yes'},
+    accessibility:{stepFree:'verified'},
+    weather:{suitability:'indoor'},
     sponsored:true
   }
 ];
