@@ -142,7 +142,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
           <PhysicalPressable
             style={styles.addToTrip}
             contentStyle={styles.center}
-            accessibilityLabel={tr(language,'Добавить в поездку','Add to trip','加入行程')}
+            accessibilityLabel={tr(language,`Добавить ${item.titleRu} в поездку`,`Add ${item.titleEn} to trip`,`将${item.titleZh}加入行程`)}
             onPress={()=>onAddToTrip(item.id)}
           >
             <Text style={styles.addToTripText}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
@@ -163,7 +163,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
               <PhysicalPressable
                 style={styles.addToTrip}
                 contentStyle={styles.center}
-                accessibilityLabel={tr(language,'Добавить партнёрское предложение в поездку','Add sponsored offer to trip','将赞助推荐加入行程')}
+                accessibilityLabel={tr(language,`Добавить ${item.titleRu} в поездку`,`Add ${item.titleEn} to trip`,`将${item.titleZh}加入行程`)}
                 onPress={()=>onAddToTrip(item.id)}
               >
                 <Text style={styles.addToTripText}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
