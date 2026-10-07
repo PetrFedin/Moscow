@@ -5,7 +5,7 @@ test('City Model Risk Board shows inventory drift challenger promotion and rollb
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByText('Операции', { exact: true }).click();
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
-  await page.getByText('DEMO', { exact: true }).click();
+  await page.getByRole('button', { name: 'DEMO', exact: true }).click();
 
   await expect(page.getByText('CITY MODEL RISK & GOVERNANCE BOARD · DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('MODEL INVENTORY', { exact: true })).toBeVisible();
