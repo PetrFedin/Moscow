@@ -13,6 +13,7 @@ type Props = {
   language: AppLanguage;
   visitedIds: string[];
   onOpenPlace: (placeId: string) => void;
+  showLegacyUnseen?: boolean;
 };
 
 function timeLabel(value?: string) {
@@ -51,7 +52,7 @@ function countdownLabel(language: AppLanguage, minutes: number) {
   );
 }
 
-export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace }: Props) {
+export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, showLegacyUnseen = true }: Props) {
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
   useEffect(() => {
@@ -218,7 +219,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
         </View>
       ) : null}
 
-      {unseen.length > 0 && freeWindow ? (
+      {showLegacyUnseen && unseen.length > 0 && freeWindow ? (
         <View style={styles.unseen}>
           <Text style={styles.eyebrow}>{tr(language, 'ЕЩЁ НЕ ВИДЕЛИ', 'STILL UNSEEN', '尚未到访')}</Text>
           <Text style={styles.unseenHint}>
