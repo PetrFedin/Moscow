@@ -9,6 +9,12 @@ import {
   detectTripScheduleConflicts,
   type TripScheduleConflict
 } from './tripScheduler.ts';
+import {
+  decideCitywideRouteFeasibility,
+  type CitywideRouteFeasibility,
+  type CitywideTravelMode,
+  type projectCitywideRoutingFeed
+} from './citywideRoutingAuthority.ts';
 
 export const DAY_COMPOSER_SCHEMA_VERSION = 1 as const;
 
@@ -53,10 +59,29 @@ export type DayComposerConflictEntry = {
   reason: 'fixed-commitment-overlap';
 };
 
+export type DayComposerTravelEntry = {
+  type: 'travel';
+  id: string;
+  fromItemId: string;
+  toItemId: string;
+  fromDestinationNodeId?: string;
+  toDestinationNodeId?: string;
+  startsAt: string;
+  mustArriveBy: string;
+  status: CitywideRouteFeasibility;
+  availableMinutes: number;
+  requiredTravelMinutes?: number;
+  bufferMinutes?: number;
+  mode?: CitywideTravelMode;
+  routeObservationId?: string;
+  routingVerified: boolean;
+};
+
 export type DayComposerTimelineEntry =
   | DayComposerItemEntry
   | DayComposerFreeEntry
-  | DayComposerConflictEntry;
+  | DayComposerConflictEntry
+  | DayComposerTravelEntry;
 
 export type DayComposerAlternativeSlot = {
   id: string;
@@ -80,6 +105,7 @@ export type DayComposerProjection = {
   items: DayComposerItemEntry[];
   freeWindows: DayComposerFreeEntry[];
   conflicts: DayComposerConflictEntry[];
+  travel: DayComposerTravelEntry[];
   timeline: DayComposerTimelineEntry[];
   alternativeSlots: DayComposerAlternativeSlot[];
   counts: {
@@ -89,9 +115,10 @@ export type DayComposerProjection = {
     reserved: number;
     free: number;
     conflict: number;
+    travel: number;
   };
   externalTruth: {
-    routingVerified: false;
+    routingVerified: boolean;
     openingHoursVerified: false;
     availabilityVerified: false;
     accessibilityVerified: false;
@@ -160,7 +187,13 @@ function timelineSort(a: DayComposerTimelineEntry, b: DayComposerTimelineEntry) 
     return parseIso(entry.startsAt);
   };
   const rank = (entry: DayComposerTimelineEntry) =>
-    entry.type === 'conflict' ? 0 : entry.type === 'item' ? 1 : 2;
+    entry.type === 'conflict'
+      ? 0
+      : entry.type === 'item'
+        ? 1
+        : entry.type === 'travel'
+          ? 2
+          : 3;
   return start(a) - start(b) || rank(a) - rank(b) || a.id.localeCompare(b.id);
 }
 
@@ -168,6 +201,9 @@ export function buildDayComposerProjection(input: {
   trip: PersonalTrip;
   dayDate: string;
   minimumFreeMinutes?: number;
+  routingProjection?: ReturnType<typeof projectCitywideRoutingFeed>;
+  preferredTravelModes?: CitywideTravelMode[];
+  safeTravelBufferMinutes?: number;
 }): DayComposerProjection {
   if (!input.trip.days.includes(input.dayDate)) {
     throw new Error(`Date is outside trip range: ${input.dayDate}`);
@@ -226,6 +262,64 @@ export function buildDayComposerProjection(input: {
     accessibilityVerified: false
   }));
 
+  const scheduledForTravel = items
+    .filter((item) => item.state === 'planned' || item.state === 'completed')
+    .filter((item) => Boolean(item.startsAt) && Boolean(item.endsAt))
+    .sort((a, b) => parseIso(a.startsAt!) - parseIso(b.startsAt!) || a.itemId.localeCompare(b.itemId));
+
+  const travel: DayComposerTravelEntry[] = [];
+  for (let index = 0; index < scheduledForTravel.length - 1; index += 1) {
+    const from = scheduledForTravel[index]!;
+    const to = scheduledForTravel[index + 1]!;
+    const startsAt = from.endsAt!;
+    const mustArriveBy = to.startsAt!;
+    if (parseIso(mustArriveBy) <= parseIso(startsAt)) continue;
+
+    const base = {
+      type: 'travel' as const,
+      id: `travel:${from.itemId}:${to.itemId}`,
+      fromItemId: from.itemId,
+      toItemId: to.itemId,
+      ...(from.destinationNodeId ? { fromDestinationNodeId: from.destinationNodeId } : {}),
+      ...(to.destinationNodeId ? { toDestinationNodeId: to.destinationNodeId } : {}),
+      startsAt,
+      mustArriveBy
+    };
+
+    if (!input.routingProjection || !from.destinationNodeId || !to.destinationNodeId) {
+      travel.push({
+        ...base,
+        status: 'unknown',
+        availableMinutes: Math.floor((parseIso(mustArriveBy) - parseIso(startsAt)) / 60_000),
+        routingVerified: false
+      });
+      continue;
+    }
+
+    const decision = decideCitywideRouteFeasibility({
+      projection: input.routingProjection,
+      fromId: from.destinationNodeId,
+      toId: to.destinationNodeId,
+      departureAt: startsAt,
+      mustArriveBy,
+      preferredModes: input.preferredTravelModes,
+      safeBufferMinutes: input.safeTravelBufferMinutes
+    });
+
+    travel.push({
+      ...base,
+      status: decision.status,
+      availableMinutes: decision.availableMinutes,
+      ...(decision.requiredTravelMinutes !== undefined
+        ? { requiredTravelMinutes: decision.requiredTravelMinutes }
+        : {}),
+      ...(decision.bufferMinutes !== undefined ? { bufferMinutes: decision.bufferMinutes } : {}),
+      ...(decision.mode ? { mode: decision.mode } : {}),
+      ...(decision.routeObservationId ? { routeObservationId: decision.routeObservationId } : {}),
+      routingVerified: decision.status !== 'unknown'
+    });
+  }
+
   return {
     schemaVersion: DAY_COMPOSER_SCHEMA_VERSION,
     tripId: input.trip.id,
@@ -236,7 +330,8 @@ export function buildDayComposerProjection(input: {
     items,
     freeWindows,
     conflicts,
-    timeline: [...items, ...freeWindows, ...conflicts].sort(timelineSort),
+    travel,
+    timeline: [...items, ...freeWindows, ...conflicts, ...travel].sort(timelineSort),
     alternativeSlots,
     counts: {
       fixed: items.filter((item) => item.flexibility === 'fixed').length,
@@ -244,10 +339,11 @@ export function buildDayComposerProjection(input: {
       ticketed: items.filter((item) => item.commitment === 'ticketed').length,
       reserved: items.filter((item) => item.commitment === 'reserved').length,
       free: freeWindows.length,
-      conflict: conflicts.length
+      conflict: conflicts.length,
+      travel: travel.length
     },
     externalTruth: {
-      routingVerified: false,
+      routingVerified: travel.length > 0 && travel.every((entry) => entry.routingVerified),
       openingHoursVerified: false,
       availabilityVerified: false,
       accessibilityVerified: false
