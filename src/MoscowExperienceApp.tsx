@@ -24,6 +24,9 @@ import PersonalTripPlanner from './features/trip/PersonalTripPlanner';
 import CityTripOverview from './features/trip/CityTripOverview';
 import CityPulseDemo from './features/trip/CityPulseDemo';
 import CityExploreDemo from './features/trip/CityExploreDemo';
+import TripTodaySurface from './features/trip/TripTodaySurface';
+import TripWalletSurface from './features/trip/TripWalletSurface';
+import TripMoscowHistorySurface from './features/trip/TripMoscowHistorySurface';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -55,7 +58,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 const copy = {
   ru: {
-    discover: 'Москва', map: 'Карта', walk: 'Сегодня', trip: 'Поездка', savedTab: 'Моя Москва',
+    todayTab: 'Сегодня', discover: 'Москва', map: 'Карта', walk: 'История', trip: 'Поездка', walletTab: 'Wallet', savedTab: 'Моя Москва',
     cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
     hero: 'Москва раскрывается прямо вокруг вас',
     heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
@@ -70,7 +73,7 @@ const copy = {
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
   },
   en: {
-    discover: 'Moscow', map: 'Map', walk: 'Today', trip: 'My Trip', savedTab: 'My Moscow',
+    todayTab: 'Today', discover: 'Moscow', map: 'Map', walk: 'Heritage', trip: 'My Trip', walletTab: 'Wallet', savedTab: 'My Moscow',
     cityTime: 'THE CITY AS A TIME MACHINE',
     hero: 'Moscow reveals itself around you',
     heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
@@ -86,7 +89,7 @@ const copy = {
   }
 ,
   zh: {
-    discover: '莫斯科', map: '地图', walk: '今天', trip: '行程', savedTab: '我的莫斯科',
+    todayTab: '今天', discover: '莫斯科', map: '地图', walk: '历史', trip: '行程', walletTab: 'Wallet', savedTab: '我的莫斯科',
     cityTime: '把城市变成时光机',
     hero: '莫斯科就在你身边逐层展开',
     heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
@@ -141,10 +144,12 @@ export default function MoscowExperienceApp() {
 
   const ui = copy[language];
   const tabLabels: Record<Tab, string> = {
+    today: ui.todayTab,
     discover: ui.discover,
     map: ui.map,
     walk: ui.walk,
     trip: ui.trip,
+    wallet: ui.walletTab,
     saved: ui.savedTab
   };
   const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
@@ -553,6 +558,20 @@ export default function MoscowExperienceApp() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {tab === 'today' && (
+            <TripTodaySurface
+              language={language}
+              onOpenTrip={() => setTab('trip')}
+            />
+          )}
+
+          {tab === 'wallet' && (
+            <TripWalletSurface
+              language={language}
+              onOpenTrip={() => setTab('trip')}
+            />
+          )}
+
           {tab === 'discover' && (
             <>
               <CityTripOverview
@@ -871,6 +890,7 @@ export default function MoscowExperienceApp() {
           {tab === 'saved' && (
             <>
               <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
+              <TripMoscowHistorySurface language={language} />
               <View style={styles.myMoscowStats}>
                 <Text style={styles.kicker}>{tr(language, 'МОЯ ИСТОРИЯ МОСКВЫ', 'MY MOSCOW HISTORY', '我的莫斯科足迹')}</Text>
                 <View style={styles.statsRow}>
@@ -897,7 +917,7 @@ export default function MoscowExperienceApp() {
       )}
 
       <View style={styles.nav}>
-        {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
+        {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
           <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
             <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
           </PhysicalPressable>
