@@ -5,6 +5,7 @@ import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
+import { buildDayComposerProjection } from '../../travel/dayComposer';
 import {
   addDestinationNodeToTrip,
   addManualTripItem,
@@ -13,7 +14,6 @@ import {
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
-  resolvePersonalTripPreferences,
   summarizePersonalTrip,
   syncRouteCompletedVisits,
   type PersonalTrip,
@@ -21,8 +21,6 @@ import {
   type PersonalTripItemKind
 } from '../../travel/personalTrip';
 import {
-  deriveTripFreeWindows,
-  detectTripScheduleConflicts,
   moveTripItem,
   reorderTripDayItems
 } from '../../travel/tripScheduler';
@@ -32,6 +30,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
+import DayComposerCard from './DayComposerCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -240,7 +239,6 @@ export default function PersonalTripPlanner({
   }, [hydrated, trip, visitedIds]);
 
   const summary = useMemo(() => trip ? summarizePersonalTrip(trip) : null, [trip]);
-  const tripPreferences = useMemo(() => trip ? resolvePersonalTripPreferences(trip) : null, [trip]);
   const activeItems = useMemo(
     () => trip && trip.days.includes(selectedDay) ? personalTripDayItems(trip, selectedDay) : [],
     [selectedDay, trip]
@@ -263,34 +261,39 @@ export default function PersonalTripPlanner({
     () => new Map((trip?.visits ?? []).flatMap((visit) => visit.itemId ? [[visit.itemId, visit] as const] : [])),
     [trip]
   );
-  const dayConflicts = useMemo(
-    () => trip ? detectTripScheduleConflicts(trip).filter((conflict) => conflict.dayDate === selectedDay) : [],
+  const dayComposer = useMemo(
+    () => trip && trip.days.includes(selectedDay)
+      ? buildDayComposerProjection({ trip, dayDate: selectedDay, minimumFreeMinutes: 30 })
+      : null,
     [selectedDay, trip]
   );
-  const freeWindows = useMemo(() => {
-    if (!trip || !trip.days.includes(selectedDay)) return [];
-    return deriveTripFreeWindows({
-      trip,
-      dayDate: selectedDay,
-      dayStartsAt: moscowTimestamp(selectedDay, tripPreferences?.dayStart ?? '09:00'),
-      dayEndsAt: moscowTimestamp(selectedDay, tripPreferences?.dayEnd ?? '23:00'),
-      minimumMinutes: 45,
-      reservedWindows: tripPreferences?.lunchWindow
-        ? [{
-            startsAt: moscowTimestamp(selectedDay, tripPreferences.lunchWindow.start),
-            endsAt: moscowTimestamp(selectedDay, tripPreferences.lunchWindow.end),
-            reason: 'meal'
-          }]
-        : []
-    });
-  }, [
-    selectedDay,
-    trip,
-    tripPreferences?.dayStart,
-    tripPreferences?.dayEnd,
-    tripPreferences?.lunchWindow?.start,
-    tripPreferences?.lunchWindow?.end
-  ]);
+
+  const openAddPreset = (preset: 'place' | 'restaurant' | 'ticket' | 'reservation' | 'event') => {
+    setFormError('');
+    setCommitmentChoice('none');
+
+    if (preset === 'restaurant') {
+      setManualKind('food');
+      setCommitmentChoice('reservation');
+      setManualTitle('');
+    } else if (preset === 'ticket') {
+      setManualKind('event');
+      setCommitmentChoice('ticket');
+      setManualTitle('');
+    } else if (preset === 'reservation') {
+      setManualKind('food');
+      setCommitmentChoice('reservation');
+      setManualTitle('');
+    } else if (preset === 'event') {
+      setManualKind('event');
+      setManualTitle('');
+    } else {
+      setManualKind('activity');
+      setManualTitle('');
+    }
+
+    setManualOpen(true);
+  };
 
   const createTrip = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
@@ -553,9 +556,17 @@ export default function PersonalTripPlanner({
         ))}
       </View>
 
+      {dayComposer && (
+        <DayComposerCard
+          projection={dayComposer}
+          language={language}
+          onAddPreset={openAddPreset}
+        />
+      )}
+
       <View style={styles.sectionTop}>
         <View>
-          <Text style={styles.kicker}>{tr(language, 'ПЛАН ДНЯ', 'DAY PLAN', '当天计划')}</Text>
+          <Text style={styles.kicker}>{tr(language, 'ДЕТАЛИ ДНЯ', 'DAY DETAILS', '当天详情')}</Text>
           <Text style={styles.sectionTitle}>{shortDay(language, selectedDay)}</Text>
         </View>
         <PhysicalPressable style={styles.smallPrimary} contentStyle={styles.center} onPress={() => setManualOpen((value) => !value)}>
@@ -703,23 +714,6 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
-      {dayConflicts.length > 0 && (
-        <View style={styles.conflictBox}>
-          <Text style={styles.conflictTitle}>
-            {tr(language, 'КОНФЛИКТ ВРЕМЕНИ', 'TIME CONFLICT', '时间冲突')}
-          </Text>
-          {dayConflicts.map((conflict) => {
-            const left = trip.items.find((item) => item.id === conflict.itemIds[0]);
-            const right = trip.items.find((item) => item.id === conflict.itemIds[1]);
-            return (
-              <Text key={conflict.itemIds.join(':')} style={styles.conflictText}>
-                {left?.title ?? conflict.itemIds[0]} ↔ {right?.title ?? conflict.itemIds[1]} · {moscowTimeLabel(language, conflict.overlapStartAt)}–{moscowTimeLabel(language, conflict.overlapEndAt)}
-              </Text>
-            );
-          })}
-        </View>
-      )}
-
       {activeItems.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>{tr(language, 'День пока свободен', 'This day is still open', '这一天尚未安排')}</Text>
@@ -847,22 +841,6 @@ export default function PersonalTripPlanner({
           </View>
         );
       })}
-
-      {freeWindows.length > 0 && (
-        <>
-          <Text style={styles.label}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'FREE WINDOWS', '空闲时段')}</Text>
-          <View style={styles.freeWindows}>
-            {freeWindows.map((window) => (
-              <View key={`${window.startsAt}:${window.endsAt}`} style={styles.freeWindow}>
-                <Text style={styles.freeWindowTime}>{moscowTimeLabel(language, window.startsAt)}–{moscowTimeLabel(language, window.endsAt)}</Text>
-                <Text style={styles.freeWindowMeta}>
-                  {window.minutes} {tr(language, 'мин · без учёта дороги и часов работы', 'min · travel/opening hours not verified', '分钟 · 未核验交通与营业时间')}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
 
       {savedNodes.length > 0 && (
         <>
