@@ -45,6 +45,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   language: AppLanguage;
@@ -193,6 +194,7 @@ export default function PersonalTripPlanner({
   visitedIds,
   onOpenPlace
 }: Props) {
+  const { palette } = useMoscowTheme();
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
@@ -500,9 +502,9 @@ export default function PersonalTripPlanner({
 
   if (!trip) {
     return (
-      <View style={styles.root}>
-        <Text style={styles.kicker}>{tr(language, 'МОЯ ПОЕЗДКА', 'MY TRIP', '我的行程')}</Text>
-        <Text style={styles.title}>
+      <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
+        <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'МОЙ ПЛАН', 'MY PLAN', '我的计划')}</Text>
+        <Text style={[styles.title,{color:palette.text}]}>
           {tr(
             language,
             'Соберите Москву по дням',
@@ -510,7 +512,7 @@ export default function PersonalTripPlanner({
             '按天规划莫斯科行程'
           )}
         </Text>
-        <Text style={styles.body}>
+        <Text style={[styles.body,{color:palette.textMuted}]}>
           {tr(
             language,
             'Добавляйте места, рестораны, театры, события и уже купленные билеты. После визита они останутся в вашей истории Москвы.',
@@ -519,17 +521,17 @@ export default function PersonalTripPlanner({
           )}
         </Text>
 
-        <Text style={styles.label}>{tr(language, 'ДАТА ПРИЕЗДА', 'ARRIVAL DATE', '抵达日期')}</Text>
+        <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДАТА ПРИЕЗДА', 'ARRIVAL DATE', '抵达日期')}</Text>
         <TextInput
           value={startDateInput}
           onChangeText={setStartDateInput}
           placeholder="2026-10-02"
-          placeholderTextColor="#666d75"
-          style={styles.input}
+          placeholderTextColor={palette.textSoft}
+          style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
           autoCapitalize="none"
         />
 
-        <Text style={styles.label}>{tr(language, 'СКОЛЬКО ДНЕЙ', 'HOW MANY DAYS', '行程天数')}</Text>
+        <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'СКОЛЬКО ДНЕЙ', 'HOW MANY DAYS', '行程天数')}</Text>
         <View style={styles.chips}>
           {durationOptions.map((days) => (
             <PhysicalPressable
@@ -543,32 +545,32 @@ export default function PersonalTripPlanner({
           ))}
         </View>
 
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={createTrip}>
-          <Text style={styles.primaryText}>{tr(language, 'Создать поездку', 'Create trip', '创建行程')}</Text>
+        <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={createTrip}>
+          <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Создать план', 'Create plan', '创建计划')}</Text>
         </PhysicalPressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>{tr(language, 'МОЯ ПОЕЗДКА', 'MY TRIP', '我的行程')}</Text>
-          <Text style={styles.title}>{trip.title}</Text>
-          <Text style={styles.body}>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'МОЙ ПЛАН', 'MY PLAN', '我的计划')}</Text>
+          <Text style={[styles.title,{color:palette.text}]}>{trip.title}</Text>
+          <Text style={[styles.body,{color:palette.textMuted}]}>
             {trip.startDate} → {trip.endDate}
           </Text>
         </View>
         <PhysicalPressable
-          style={styles.reset}
+          style={[styles.reset,{borderColor:palette.borderStrong}]}
           contentStyle={styles.center}
           onPress={() => {
             setTrip(null);
             clearPersonalTrip().catch(() => undefined);
           }}
         >
-          <Text style={styles.resetText}>{tr(language, 'Новая', 'New', '新行程')}</Text>
+          <Text style={[styles.resetText,{color:palette.accentStrong}]}>{tr(language, 'Новый план', 'New plan', '新计划')}</Text>
         </PhysicalPressable>
       </View>
 
@@ -604,7 +606,7 @@ export default function PersonalTripPlanner({
 
       {pendingDiscoveryAdd && pendingDiscoveryItem && (
         <View style={styles.discoveryAddCard}>
-          <Text style={styles.kicker}>{tr(language, 'ДОБАВИТЬ ИЗ EXPLORE', 'ADD FROM EXPLORE', '从探索添加')}</Text>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ДОБАВИТЬ ИЗ EXPLORE', 'ADD FROM EXPLORE', '从探索添加')}</Text>
           <Text style={styles.discoveryAddTitle}>{discoveryItemTitle(pendingDiscoveryItem, language)}</Text>
           <Text style={styles.discoveryAddMeta}>{pendingDiscoveryItem.district} · {pendingDiscoveryItem.durationMinutes} min · {pendingDiscoveryItem.truth.toUpperCase()}</Text>
 
@@ -612,14 +614,14 @@ export default function PersonalTripPlanner({
             <Text style={styles.discoveryAddWarning}>
               {tr(
                 language,
-                'Не найдено допустимого времени внутри дат поездки. Выберите другой день/событие или измените поездку.',
-                'No valid placement exists inside this trip. Choose another day/event or change the trip.',
-                '本次行程内没有可用时段。请选择其他日期/活动或调整行程。'
+                'Не найдено допустимого времени внутри дат плана. Выберите другой день/событие или измените план.',
+                'No valid placement exists inside this plan. Choose another day/event or change the plan.',
+                '当前计划内没有可用时段。请选择其他日期/活动或调整计划。'
               )}
             </Text>
           ) : (
             <>
-              <Text style={styles.label}>{tr(language, 'ДЕНЬ И ВРЕМЯ', 'DAY & TIME', '日期与时间')}</Text>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДЕНЬ И ВРЕМЯ', 'DAY & TIME', '日期与时间')}</Text>
               <View style={styles.discoveryPlacementList}>
                 {pendingPlacements.map((placement) => (
                   <PhysicalPressable
@@ -658,7 +660,7 @@ export default function PersonalTripPlanner({
                 ))}
               </View>
 
-              <Text style={styles.label}>{tr(language, 'У МЕНЯ УЖЕ ЕСТЬ', 'I ALREADY HAVE', '我已经有')}</Text>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'У МЕНЯ УЖЕ ЕСТЬ', 'I ALREADY HAVE', '我已经有')}</Text>
               <View style={styles.chips}>
                 {([
                   ['plan-only', tr(language, 'Только план', 'Plan only', '仅计划')],
@@ -694,7 +696,7 @@ export default function PersonalTripPlanner({
                   disabled={!pendingPlacement || pendingPlacement.conflict}
                   onPress={() => { void confirmPendingDiscoveryAdd(); }}
                 >
-                  <Text style={styles.primaryText}>{tr(language, 'Добавить в поездку', 'Add to trip', '加入行程')}</Text>
+                  <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Добавить в план', 'Add to plan', '加入计划')}</Text>
                 </PhysicalPressable>
                 <PhysicalPressable style={styles.secondaryInline} contentStyle={styles.center} onPress={() => { void cancelPendingDiscoveryAdd(); }}>
                   <Text style={styles.secondaryInlineText}>{tr(language, 'Отмена', 'Cancel', '取消')}</Text>
@@ -705,7 +707,7 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
-      <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДНИ ПЛАНА', 'PLAN DAYS', '计划日期')}</Text>
       <View style={styles.dayChips}>
         {trip.days.map((day, index) => (
           <PhysicalPressable
@@ -724,7 +726,7 @@ export default function PersonalTripPlanner({
 
       <View style={styles.sectionTop}>
         <View>
-          <Text style={styles.kicker}>{tr(language, 'ПЛАН ДНЯ', 'DAY PLAN', '当天计划')}</Text>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ПЛАН ДНЯ', 'DAY PLAN', '当天计划')}</Text>
           <Text style={styles.sectionTitle}>{shortDay(language, selectedDay)}</Text>
         </View>
         <PhysicalPressable style={styles.smallPrimary} contentStyle={styles.center} onPress={() => setManualOpen((value) => !value)}>
@@ -740,10 +742,10 @@ export default function PersonalTripPlanner({
             onChangeText={setManualTitle}
             placeholder={tr(language, 'Например: Большой театр', 'For example: Bolshoi Theatre', '例如：莫斯科大剧院')}
             placeholderTextColor="#626972"
-            style={styles.input}
+            style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
           />
 
-          <Text style={styles.label}>{tr(language, 'ТИП', 'TYPE', '类型')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ТИП', 'TYPE', '类型')}</Text>
           <View style={styles.wrapChips}>
             {manualKinds.map((kind) => (
               <PhysicalPressable
@@ -761,28 +763,28 @@ export default function PersonalTripPlanner({
 
           <View style={styles.inlineFields}>
             <View style={styles.field}>
-              <Text style={styles.label}>{tr(language, 'ВРЕМЯ', 'TIME', '时间')}</Text>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ВРЕМЯ', 'TIME', '时间')}</Text>
               <TextInput
                 value={manualTime}
                 onChangeText={setManualTime}
                 placeholder="19:00"
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
               />
             </View>
             <View style={styles.field}>
-              <Text style={styles.label}>{tr(language, 'ДО', 'UNTIL', '结束')}</Text>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДО', 'UNTIL', '结束')}</Text>
               <TextInput
                 value={manualEndTime}
                 onChangeText={setManualEndTime}
                 placeholder="21:00"
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
               />
             </View>
           </View>
 
-          <Text style={styles.label}>{tr(language, 'УЖЕ ЕСТЬ', 'ALREADY HAVE', '已有')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'УЖЕ ЕСТЬ', 'ALREADY HAVE', '已有')}</Text>
           <View style={styles.chips}>
             {(['none', 'ticket', 'reservation'] as CommitmentChoice[]).map((choice) => (
               <PhysicalPressable
@@ -817,7 +819,7 @@ export default function PersonalTripPlanner({
                 onChangeText={setManualProvider}
                 placeholder={tr(language, 'Где куплено / забронировано', 'Where it was booked / bought', '购买 / 预订平台')}
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
               />
               <TextInput
                 value={manualReference}
@@ -866,8 +868,8 @@ export default function PersonalTripPlanner({
                 : tr(language, 'Проверьте время и данные пункта', 'Check the time and item details', '请检查时间和项目详情')}
             </Text>
           ) : null}
-          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={addManual}>
-            <Text style={styles.primaryText}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
+          <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={addManual}>
+            <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
           </PhysicalPressable>
         </View>
       )}
@@ -1019,7 +1021,7 @@ export default function PersonalTripPlanner({
 
       {freeWindows.length > 0 && (
         <>
-          <Text style={styles.label}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'FREE WINDOWS', '空闲时段')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'FREE WINDOWS', '空闲时段')}</Text>
           <View style={styles.freeWindows}>
             {freeWindows.map((window) => (
               <View key={`${window.startsAt}:${window.endsAt}`} style={styles.freeWindow}>
@@ -1035,7 +1037,7 @@ export default function PersonalTripPlanner({
 
       {savedNodes.length > 0 && (
         <>
-          <Text style={styles.label}>{tr(language, 'ИЗ СОХРАНЁННОГО', 'FROM SAVED', '从收藏中添加')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ИЗ СОХРАНЁННОГО', 'FROM SAVED', '从收藏中添加')}</Text>
           <View style={styles.quickList}>
             {savedNodes.slice(0, 5).map((node) => {
               const added = trip.items.some((item) => item.destinationNodeId === node.id && item.dayDate === selectedDay);
@@ -1064,7 +1066,7 @@ export default function PersonalTripPlanner({
         <>
           <View style={styles.sectionTop}>
             <View>
-              <Text style={styles.kicker}>{tr(language, 'ЧТО ЕЩЁ УВИДЕТЬ', 'WHAT ELSE TO SEE', '还可以去哪里')}</Text>
+              <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ЧТО ЕЩЁ УВИДЕТЬ', 'WHAT ELSE TO SEE', '还可以去哪里')}</Text>
               <Text style={styles.sectionTitle}>{tr(language, 'Ещё не в плане и не посещено', 'Not planned or visited yet', '尚未计划或到访')}</Text>
             </View>
           </View>
