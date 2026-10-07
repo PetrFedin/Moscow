@@ -106,6 +106,11 @@ test('Meeting Mode Dossier compresses the decision into four executive layers', 
   await expect(page.getByText('2 · COMMERCIAL', { exact: true })).toBeVisible();
   await expect(page.getByText('3 · PROOF', { exact: true })).toBeVisible();
   await expect(page.getByText('4 · CONFIDENTIALITY', { exact: true })).toBeVisible();
+  await expect(page.getByText('READINESS', { exact: true })).toBeVisible();
+  await expect(page.getByText('WHY NOW', { exact: true })).toBeVisible();
+  await expect(page.getByText('ASK', { exact: true })).toBeVisible();
+  await expect(page.getByText('RISK', { exact: true })).toBeVisible();
+  await expect(page.getByText('NEXT ACTION', { exact: true })).toBeVisible();
 
   const dossier = page.getByTestId('project-dossier');
   const box = await dossier.boundingBox();
@@ -121,6 +126,34 @@ test('Meeting Mode Dossier compresses the decision into four executive layers', 
   await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Вернуться в презентацию' })).toBeVisible();
 });
+
+for (const viewport of [
+  { name: 'iphone', width: 390, height: 844, maxDossierHeight: 650 },
+  { name: 'ipad', width: 834, height: 1112, maxDossierHeight: 650 }
+]) {
+  test(`Executive Dossier QA v2 stays compact on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
+    await page.getByRole('button', { name: 'Начать встречу' }).click();
+    await page.getByRole('button', { name: 'Dossier' }).click();
+
+    const dossier = page.getByTestId('project-dossier');
+    const box = await dossier.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeLessThan(viewport.maxDossierHeight);
+
+    const widthState = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth
+    }));
+    expect(widthState.scrollWidth).toBe(widthState.viewportWidth);
+
+    await expect(page.getByTestId('executive-spine')).toBeVisible();
+    await expect(page.getByText('READINESS', { exact: true })).toBeVisible();
+    await expect(page.getByText('NEXT ACTION', { exact: true })).toBeVisible();
+  });
+}
 
 
 test('Meeting Mode exposes hidden presenter cues and objection handling without changing the audience route', async ({ page }) => {

@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import { getInvestorControlSnapshot } from './investorControlModel.ts';
 import { investorMvpOffer } from './investorMvpOffer.ts';
 import { currentPilotReadinessDossier } from './pilotReadinessDossier.ts';
-import { visitorPilotExecution, yclientsProviderActivation } from './pilotExecutionPack.ts';
 
 type LayerId = 'decision' | 'commercial' | 'proof' | 'confidentiality';
 
@@ -97,6 +96,8 @@ export default function ProjectDossier({
   onOpenContract: () => void;
 }) {
   const snapshot = useMemo(() => getInvestorControlSnapshot(), []);
+  const { width } = useWindowDimensions();
+  const compact = width < 600;
   const t = labels[language];
   const c = localized(language);
   const [openLayer, setOpenLayer] = useState<LayerId | null>(null);
@@ -106,76 +107,132 @@ export default function ProjectDossier({
   const proofTone = snapshot.scaleDecision.decisionPackReady ? styles.statusReady : styles.statusOpen;
 
   return (
-    <View style={styles.root} testID="project-dossier">
+    <View style={[styles.root, compact && styles.rootCompact]} testID="project-dossier">
       <View style={styles.topline}>
         <View style={styles.heading}>
           <Text style={styles.kicker}>{t.kicker}</Text>
-          <Text style={styles.title}>{t.title}</Text>
-          <Text style={styles.subtitle}>{t.subtitle}</Text>
+          <Text style={[styles.title, compact && styles.titleCompact]}>{t.title}</Text>
+          <Text style={[styles.subtitle, compact && styles.subtitleCompact]}>{t.subtitle}</Text>
         </View>
-        <View style={[styles.statusPill, proofTone]}>
+        <View style={[styles.statusPill, compact && styles.statusPillCompact, proofTone]}>
           <Text style={styles.statusText}>
             {readiness.total} {t.blockers} · {proofStatus}
           </Text>
         </View>
       </View>
 
-      <View style={styles.grid}>
-        <Layer
-          id="decision"
-          label={t.decision}
-          headline={c.decisionHeadline}
-          body={c.decisionBody}
-          detail={c.decisionDetail}
-          open={openLayer === 'decision'}
-          onToggle={() => setOpenLayer(openLayer === 'decision' ? null : 'decision')}
-          show={t.details}
-          hide={t.hide}
-        />
-        <Layer
-          id="commercial"
-          label={t.commercial}
-          headline={c.commercialHeadline}
-          body={c.commercialBody}
-          detail={c.commercialDetail}
-          open={openLayer === 'commercial'}
-          onToggle={() => setOpenLayer(openLayer === 'commercial' ? null : 'commercial')}
-          show={t.details}
-          hide={t.hide}
-        />
-        <Layer
-          id="proof"
-          label={t.proof}
-          headline={c.proofHeadline}
-          body={c.proofBody}
-          detail={
-            `Field ${readiness.blockedField} · External ${readiness.blockedExternal} · Legal ${readiness.blockedLegal} · Preparatory ${readiness.preparableNow} · Phase 0 ${readiness.phase0Status}`
-          }
-          open={openLayer === 'proof'}
-          onToggle={() => setOpenLayer(openLayer === 'proof' ? null : 'proof')}
-          show={t.details}
-          hide={t.hide}
-          warning={!snapshot.scaleDecision.decisionPackReady}
-        />
-        <Layer
-          id="confidentiality"
-          label={t.confidentiality}
-          headline={c.confidentialityHeadline}
-          body={c.confidentialityBody}
-          detail={c.confidentialityDetail}
-          open={openLayer === 'confidentiality'}
-          onToggle={() => setOpenLayer(openLayer === 'confidentiality' ? null : 'confidentiality')}
-          show={t.details}
-          hide={t.hide}
-        />
-      </View>
+      {compact ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.mobileLayerRail}
+        >
+          <Layer
+            id="decision"
+            label={t.decision}
+            headline={c.decisionHeadline}
+            body={c.decisionBody}
+            detail={c.decisionDetail}
+            open={openLayer === 'decision'}
+            onToggle={() => setOpenLayer(openLayer === 'decision' ? null : 'decision')}
+            show={t.details}
+            hide={t.hide}
+            compact
+          />
+          <Layer
+            id="commercial"
+            label={t.commercial}
+            headline={c.commercialHeadline}
+            body={c.commercialBody}
+            detail={c.commercialDetail}
+            open={openLayer === 'commercial'}
+            onToggle={() => setOpenLayer(openLayer === 'commercial' ? null : 'commercial')}
+            show={t.details}
+            hide={t.hide}
+            compact
+          />
+          <Layer
+            id="proof"
+            label={t.proof}
+            headline={c.proofHeadline}
+            body={c.proofBody}
+            detail={`Field ${readiness.blockedField} · External ${readiness.blockedExternal} · Legal ${readiness.blockedLegal} · Preparatory ${readiness.preparableNow} · Phase 0 ${readiness.phase0Status}`}
+            open={openLayer === 'proof'}
+            onToggle={() => setOpenLayer(openLayer === 'proof' ? null : 'proof')}
+            show={t.details}
+            hide={t.hide}
+            warning={!snapshot.scaleDecision.decisionPackReady}
+            compact
+          />
+          <Layer
+            id="confidentiality"
+            label={t.confidentiality}
+            headline={c.confidentialityHeadline}
+            body={c.confidentialityBody}
+            detail={c.confidentialityDetail}
+            open={openLayer === 'confidentiality'}
+            onToggle={() => setOpenLayer(openLayer === 'confidentiality' ? null : 'confidentiality')}
+            show={t.details}
+            hide={t.hide}
+            compact
+          />
+        </ScrollView>
+      ) : (
+        <View style={styles.grid}>
+          <Layer
+            id="decision"
+            label={t.decision}
+            headline={c.decisionHeadline}
+            body={c.decisionBody}
+            detail={c.decisionDetail}
+            open={openLayer === 'decision'}
+            onToggle={() => setOpenLayer(openLayer === 'decision' ? null : 'decision')}
+            show={t.details}
+            hide={t.hide}
+          />
+          <Layer
+            id="commercial"
+            label={t.commercial}
+            headline={c.commercialHeadline}
+            body={c.commercialBody}
+            detail={c.commercialDetail}
+            open={openLayer === 'commercial'}
+            onToggle={() => setOpenLayer(openLayer === 'commercial' ? null : 'commercial')}
+            show={t.details}
+            hide={t.hide}
+          />
+          <Layer
+            id="proof"
+            label={t.proof}
+            headline={c.proofHeadline}
+            body={c.proofBody}
+            detail={`Field ${readiness.blockedField} · External ${readiness.blockedExternal} · Legal ${readiness.blockedLegal} · Preparatory ${readiness.preparableNow} · Phase 0 ${readiness.phase0Status}`}
+            open={openLayer === 'proof'}
+            onToggle={() => setOpenLayer(openLayer === 'proof' ? null : 'proof')}
+            show={t.details}
+            hide={t.hide}
+            warning={!snapshot.scaleDecision.decisionPackReady}
+          />
+          <Layer
+            id="confidentiality"
+            label={t.confidentiality}
+            headline={c.confidentialityHeadline}
+            body={c.confidentialityBody}
+            detail={c.confidentialityDetail}
+            open={openLayer === 'confidentiality'}
+            onToggle={() => setOpenLayer(openLayer === 'confidentiality' ? null : 'confidentiality')}
+            show={t.details}
+            hide={t.hide}
+          />
+        </View>
+      )}
 
-      <View style={styles.factBar}>
-        <Fact value={String(visitorPilotExecution.minimumParticipants) + '–' + String(visitorPilotExecution.maximumParticipants)} label="visitor sessions" />
-        <Fact value={String(snapshot.scaleDecision.blockerCount)} label={t.blockers} />
-        <Fact value={String(yclientsProviderActivation.requiredRuntimeSecrets.length)} label="provider secrets" />
-        <Fact value={snapshot.scaleDecision.decisionPackReady ? 'READY' : 'BLOCKED'} label="decision pack" />
-      </View>
+      <ExecutiveSpine
+        language={language}
+        decisionReady={snapshot.scaleDecision.decisionPackReady}
+        blockerCount={snapshot.scaleDecision.blockerCount}
+        compact={compact}
+      />
 
       <View style={styles.actionRow}>
         <PhysicalPressable
@@ -208,13 +265,13 @@ export default function ProjectDossier({
 }
 
 function Layer({
-  id, label, headline, body, detail, open, onToggle, show, hide, warning = false
+  id, label, headline, body, detail, open, onToggle, show, hide, warning = false, compact = false
 }: {
   id:LayerId; label:string; headline:string; body:string; detail:string; open:boolean;
-  onToggle:()=>void; show:string; hide:string; warning?:boolean;
+  onToggle:()=>void; show:string; hide:string; warning?:boolean; compact?:boolean;
 }) {
   return (
-    <View style={[styles.layer, warning && styles.layerWarning]} testID={`dossier-${id}`}>
+    <View style={[styles.layer, compact && styles.layerCompact, warning && styles.layerWarning]} testID={`dossier-${id}`}>
       <Text style={styles.layerLabel}>{label}</Text>
       <Text style={styles.layerHeadline}>{headline}</Text>
       <Text style={styles.layerBody}>{body}</Text>
@@ -232,28 +289,83 @@ function Layer({
   );
 }
 
-function Fact({ value, label }: { value:string; label:string }) {
-  return (
-    <View style={styles.fact}>
-      <Text style={styles.factValue}>{value}</Text>
-      <Text style={styles.factLabel}>{label}</Text>
+function ExecutiveSpine({
+  language,
+  decisionReady,
+  blockerCount,
+  compact
+}: {
+  language: AppLanguage;
+  decisionReady: boolean;
+  blockerCount: number;
+  compact: boolean;
+}) {
+  const items = language === 'ru'
+    ? [
+        ['READINESS', decisionReady ? 'READY' : 'BLOCKED'],
+        ['WHY NOW', 'MVP собран · ценность теперь зависит от реального proof'],
+        ['ASK', 'Owner + площадка + scope/acceptance session'],
+        ['RISK', `${blockerCount} открытых gates · field/provider/governance/economics`],
+        ['NEXT ACTION', 'Назначить owners → открыть bounded pilot evidence path']
+      ]
+    : language === 'en'
+      ? [
+          ['READINESS', decisionReady ? 'READY' : 'BLOCKED'],
+          ['WHY NOW', 'MVP exists · value now depends on real proof'],
+          ['ASK', 'Owner + site + scope/acceptance session'],
+          ['RISK', `${blockerCount} open gates · field/provider/governance/economics`],
+          ['NEXT ACTION', 'Name owners → open bounded pilot evidence path']
+        ]
+      : [
+          ['READINESS', decisionReady ? 'READY' : 'BLOCKED'],
+          ['WHY NOW', 'MVP 已完成 · 下一步价值取决于真实 proof'],
+          ['ASK', 'Owner + 场地 + scope/acceptance session'],
+          ['RISK', `${blockerCount} 个开放 gates · field/provider/governance/economics`],
+          ['NEXT ACTION', '确认 owners → 打开有限试点 evidence path']
+        ];
+
+  const content = items.map(([label, value]) => (
+    <View key={label} style={[styles.spineItem, compact && styles.spineItemCompact]}>
+      <Text style={styles.spineLabel}>{label}</Text>
+      <Text style={styles.spineValue}>{value}</Text>
     </View>
-  );
+  ));
+
+  if (compact) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.spineRail}
+        testID="executive-spine"
+      >
+        {content}
+      </ScrollView>
+    );
+  }
+
+  return <View style={styles.spine} testID="executive-spine">{content}</View>;
 }
 
 const styles = StyleSheet.create({
   root:{ borderRadius:22, padding:16, backgroundColor:'#121518', borderWidth:1, borderColor:'#6b5732' },
+  rootCompact:{ padding:12, borderRadius:18 },
   topline:{ flexDirection:'row', flexWrap:'wrap', gap:12, alignItems:'flex-start', justifyContent:'space-between' },
   heading:{ flex:1, minWidth:260 },
   kicker:{ color:'#c8a96a', fontSize:9, fontWeight:'900', letterSpacing:1.35 },
   title:{ color:'#f4eee4', fontSize:22, lineHeight:27, fontWeight:'900', marginTop:6 },
+  titleCompact:{ fontSize:18, lineHeight:22, marginTop:4 },
   subtitle:{ color:'#9da4aa', fontSize:10, lineHeight:15, marginTop:5, maxWidth:760 },
+  subtitleCompact:{ fontSize:9, lineHeight:13, marginTop:4 },
   statusPill:{ borderRadius:999, paddingHorizontal:11, paddingVertical:7, borderWidth:1 },
+  statusPillCompact:{ paddingHorizontal:9, paddingVertical:5 },
   statusReady:{ backgroundColor:'#122119', borderColor:'#315f43' },
   statusOpen:{ backgroundColor:'#24191a', borderColor:'#674044' },
   statusText:{ color:'#eadfc9', fontSize:8, fontWeight:'900', textTransform:'uppercase' },
   grid:{ flexDirection:'row', flexWrap:'wrap', gap:10, marginTop:13 },
+  mobileLayerRail:{ gap:9, paddingTop:11, paddingRight:8 },
   layer:{ flexGrow:1, flexBasis:360, minWidth:260, borderRadius:15, padding:12, backgroundColor:'#0e1114', borderWidth:1, borderColor:'#2c3237' },
+  layerCompact:{ width:286, minWidth:286, flexBasis:286, flexGrow:0, minHeight:176 },
   layerWarning:{ borderColor:'#604145', backgroundColor:'#151113' },
   layerLabel:{ color:'#c8a96a', fontSize:8, fontWeight:'900', letterSpacing:1.1 },
   layerHeadline:{ color:'#f1ece3', fontSize:14, lineHeight:18, fontWeight:'900', marginTop:6 },
@@ -262,10 +374,12 @@ const styles = StyleSheet.create({
   detailButton:{ alignSelf:'flex-start', minHeight:30, marginTop:8, borderRadius:9, backgroundColor:'#171b1e', borderWidth:1, borderColor:'#30363b' },
   detailContent:{ alignItems:'center', justifyContent:'center', paddingHorizontal:9 },
   detailText:{ color:'#c7cdd1', fontSize:8, fontWeight:'900' },
-  factBar:{ flexDirection:'row', flexWrap:'wrap', gap:8, marginTop:10 },
-  fact:{ flexGrow:1, flexBasis:115, minWidth:100, borderRadius:12, paddingVertical:8, paddingHorizontal:10, backgroundColor:'#171411', borderWidth:1, borderColor:'#3d3426' },
-  factValue:{ color:'#e8d7b2', fontSize:13, fontWeight:'900' },
-  factLabel:{ color:'#81796b', fontSize:7, fontWeight:'800', textTransform:'uppercase', marginTop:2 },
+  spine:{ flexDirection:'row', gap:7, marginTop:9 },
+  spineRail:{ gap:7, paddingTop:9, paddingRight:8 },
+  spineItem:{ flex:1, minWidth:0, minHeight:48, borderRadius:11, paddingHorizontal:9, paddingVertical:7, backgroundColor:'#171411', borderWidth:1, borderColor:'#3d3426' },
+  spineItemCompact:{ width:176, minWidth:176, flex:0 },
+  spineLabel:{ color:'#c8a96a', fontSize:6.5, fontWeight:'900', letterSpacing:.8 },
+  spineValue:{ color:'#e8e0d1', fontSize:8, lineHeight:11, fontWeight:'800', marginTop:3 },
   actionRow:{ flexDirection:'row', flexWrap:'wrap', gap:8, marginTop:11 },
   cta:{ flexGrow:1, minWidth:220, minHeight:42, borderRadius:13, backgroundColor:'#d3b36f' },
   secondary:{ minWidth:180, minHeight:42, borderRadius:13, backgroundColor:'#15181b', borderWidth:1, borderColor:'#3a4046' },
