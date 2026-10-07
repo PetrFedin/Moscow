@@ -150,7 +150,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
           </Text>
         )}
         {item.priceClass&&item.priceClass!=='unknown'&&(
-          <Text style={styles.decisionSecondary}>{item.priceClass.toUpperCase()}</Text>
+          <Text style={[styles.decisionSecondary,{color:palette.textMuted}]}>{item.priceClass.toUpperCase()}</Text>
         )}
       </View>
 
@@ -165,7 +165,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
       </View>
 
       {item.decision.totalMinutes!==undefined&&(
-        <Text style={styles.fitNote}>
+        <Text style={[styles.fitNote,{color:palette.textSoft}]}>
           {tr(
             language,
             `Всего ~${item.decision.totalMinutes} мин с дорогой · на само место ${Math.round((item.decision.experienceShare??0)*100)}%`,
@@ -178,10 +178,10 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
       <PhysicalPressable
         style={[styles.addToTrip,{borderColor:palette.borderStrong}]}
         contentStyle={styles.center}
-        accessibilityLabel={tr(language,`Добавить ${item.titleRu} в поездку`,`Add ${item.titleEn} to trip`,`将${item.titleZh}加入行程`)}
+        accessibilityLabel={tr(language,`Добавить ${item.titleRu} в план`,`Add ${item.titleEn} to plan`,`将${item.titleZh}加入计划`)}
         onPress={()=>onAddToTrip(item.id)}
       >
-        <Text style={[styles.addToTripText,{color:palette.accentStrong}]}>{tr(language,'В поездку','Add to trip','加入行程')} →</Text>
+        <Text style={[styles.addToTripText,{color:palette.accentStrong}]}>{tr(language,'В план','Add to plan','加入计划')} →</Text>
       </PhysicalPressable>
     </View>
   );
@@ -199,10 +199,10 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
         )}
       </Text>
 
-      <Text style={styles.label}>{tr(language,'ПОДБОРКИ','COLLECTIONS','精选')}</Text>
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language,'ПОДБОРКИ','COLLECTIONS','精选')}</Text>
       <View style={styles.chips}>
         <PhysicalPressable style={[styles.chip,{borderColor:palette.border},!collectionId&&styles.chipActive,!collectionId&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setCollectionId(null)}>
-          <Text style={[styles.chipText,!collectionId&&styles.chipTextActive,{color:palette.textMuted}]}>{tr(language,'Для меня','For me','为我推荐')}</Text>
+          <Text style={[styles.chipText,{color:!collectionId?palette.accentText:palette.textMuted}]}>{tr(language,'Для меня','For me','为我推荐')}</Text>
         </PhysicalPressable>
         {collections.map(collection=>(
           <PhysicalPressable
@@ -211,64 +211,64 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
             contentStyle={styles.center}
             onPress={()=>setCollectionId(collection.id)}
           >
-            <Text style={[styles.chipText,collectionId===collection.id&&styles.chipTextActive,{color:palette.textMuted},>
+            <Text style={[styles.chipText,{color:collectionId===collection.id?palette.accentText:palette.textMuted}]}>
               {collectionTitle(language,collection)} · {collection.items.length}
             </Text>
           </PhysicalPressable>
         ))}
       </View>
 
-      <Text style={styles.label}>{tr(language,'КОНТЕКСТ','CONTEXT','情境')}</Text>
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language,'КОНТЕКСТ','CONTEXT','情境')}</Text>
       <View style={styles.contextGrid}>
-        <View style={styles.contextBlock}>
-          <Text style={styles.contextLabel}>{tr(language,'Состав','Party','同行')}</Text>
+        <View style={[styles.contextBlock,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
+          <Text style={[styles.contextLabel,{color:palette.textSoft}]}>{tr(language,'Состав','Party','同行')}</Text>
           <View style={styles.miniRow}>
             {(['adult','family'] as PartyMode[]).map(value=>(
-              <PhysicalPressable key={value} style={[styles.miniChip,party===value&&styles.miniChipActive]} contentStyle={styles.center} onPress={()=>setParty(value)}>
-                <Text style={[styles.miniText,party===value&&styles.miniTextActive]}>
+              <PhysicalPressable key={value} style={[styles.miniChip,{borderColor:palette.border},party===value&&{backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={()=>setParty(value)}>
+                <Text style={[styles.miniText,{color:party===value?palette.accentStrong:palette.textMuted}]}>
                   {value==='adult'?tr(language,'Взрослые','Adults','成人'):tr(language,'С ребёнком','With child','亲子')}
                 </Text>
               </PhysicalPressable>
             ))}
           </View>
         </View>
-        <View style={styles.contextBlock}>
-          <Text style={styles.contextLabel}>{tr(language,'Погода','Weather','天气')}</Text>
+        <View style={[styles.contextBlock,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
+          <Text style={[styles.contextLabel,{color:palette.textSoft}]}>{tr(language,'Погода','Weather','天气')}</Text>
           <View style={styles.miniRow}>
             {(['clear','rain'] as WeatherMode[]).map(value=>(
-              <PhysicalPressable key={value} style={[styles.miniChip,weather===value&&styles.miniChipActive]} contentStyle={styles.center} onPress={()=>setWeather(value)}>
-                <Text style={[styles.miniText,weather===value&&styles.miniTextActive]}>
+              <PhysicalPressable key={value} style={[styles.miniChip,{borderColor:palette.border},weather===value&&{backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={()=>setWeather(value)}>
+                <Text style={[styles.miniText,{color:weather===value?palette.accentStrong:palette.textMuted}]}>
                   {value==='clear'?tr(language,'Сухо','Clear','晴'):tr(language,'Дождь','Rain','雨')}
                 </Text>
               </PhysicalPressable>
             ))}
           </View>
         </View>
-        <View style={styles.contextBlock}>
-          <Text style={styles.contextLabel}>{tr(language,'Доступность','Accessibility','无障碍')}</Text>
+        <View style={[styles.contextBlock,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
+          <Text style={[styles.contextLabel,{color:palette.textSoft}]}>{tr(language,'Доступность','Accessibility','无障碍')}</Text>
           <View style={styles.miniRow}>
             {(['none','required'] as AccessMode[]).map(value=>(
-              <PhysicalPressable key={value} style={[styles.miniChip,access===value&&styles.miniChipActive]} contentStyle={styles.center} onPress={()=>setAccess(value)}>
-                <Text style={[styles.miniText,access===value&&styles.miniTextActive]}>
+              <PhysicalPressable key={value} style={[styles.miniChip,{borderColor:palette.border},access===value&&{backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={()=>setAccess(value)}>
+                <Text style={[styles.miniText,{color:access===value?palette.accentStrong:palette.textMuted}]}>
                   {value==='none'?tr(language,'Обычно','Standard','普通'):tr(language,'Step-free','Step-free','无障碍')}
                 </Text>
               </PhysicalPressable>
             ))}
           </View>
         </View>
-        <View style={styles.contextBlock}>
-          <Text style={styles.contextLabel}>{tr(language,'Бюджет','Budget','预算')}</Text>
+        <View style={[styles.contextBlock,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
+          <Text style={[styles.contextLabel,{color:palette.textSoft}]}>{tr(language,'Бюджет','Budget','预算')}</Text>
           <View style={styles.miniRow}>
             {(['budget','mid','premium'] as DiscoveryPriceClass[]).map(value=>(
-              <PhysicalPressable key={value} style={[styles.miniChip,budget===value&&styles.miniChipActive]} contentStyle={styles.center} onPress={()=>setBudget(value)}>
-                <Text style={[styles.miniText,budget===value&&styles.miniTextActive]}>{value.toUpperCase()}</Text>
+              <PhysicalPressable key={value} style={[styles.miniChip,{borderColor:palette.border},budget===value&&{backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={()=>setBudget(value)}>
+                <Text style={[styles.miniText,{color:budget===value?palette.accentStrong:palette.textMuted}]}>{value.toUpperCase()}</Text>
               </PhysicalPressable>
             ))}
           </View>
         </View>
       </View>
 
-      <Text style={styles.label}>{tr(language,'КОГДА','WHEN','时间')}</Text>
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language,'КОГДА','WHEN','时间')}</Text>
       <View style={styles.chips}>
         {[
           ['fit',tr(language,'Подходит в окно','Fits my window','适合空档')],
@@ -278,21 +278,21 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
           ['120',tr(language,'Через 2 часа','In 2 hours','2小时内')]
         ].map(([id,label])=>(
           <PhysicalPressable key={id} style={[styles.chip,{borderColor:palette.border},quick===id&&styles.chipActive,quick===id&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setQuick(id as typeof quick)}>
-            <Text style={[styles.chipText,quick===id&&styles.chipTextActive,{color:palette.textMuted}]}>{label}</Text>
+            <Text style={[styles.chipText,{color:quick===id?palette.accentText:palette.textMuted}]}>{label}</Text>
           </PhysicalPressable>
         ))}
       </View>
 
-      <Text style={styles.label}>{tr(language,'СВОБОДНОЕ ВРЕМЯ','FREE WINDOW','空闲时间')}</Text>
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language,'СВОБОДНОЕ ВРЕМЯ','FREE WINDOW','空闲时间')}</Text>
       <View style={styles.chips}>
         {([45,90,120,180] as WindowFilter[]).map(value=>(
           <PhysicalPressable key={value} style={[styles.chip,{borderColor:palette.border},windowMinutes===value&&styles.chipActive,windowMinutes===value&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setWindowMinutes(value)}>
-            <Text style={[styles.chipText,windowMinutes===value&&styles.chipTextActive,{color:palette.textMuted}]}>{value} min</Text>
+            <Text style={[styles.chipText,{color:windowMinutes===value?palette.accentText:palette.textMuted}]}>{value} min</Text>
           </PhysicalPressable>
         ))}
       </View>
 
-      <Text style={styles.label}>{tr(language,'КАТЕГОРИЯ','CATEGORY','类别')}</Text>
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language,'КАТЕГОРИЯ','CATEGORY','类别')}</Text>
       <View style={styles.chips}>
         {[
           ['all',tr(language,'Всё','All','全部')],
@@ -304,7 +304,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
           ['bar',tr(language,'Вечер','Night','夜生活')]
         ].map(([id,label])=>(
           <PhysicalPressable key={id} style={[styles.chip,{borderColor:palette.border},kind===id&&styles.chipActive,kind===id&&{backgroundColor:palette.accent,borderColor:palette.accent}]} contentStyle={styles.center} onPress={()=>setKind(id as CityDiscoveryKind|'all')}>
-            <Text style={[styles.chipText,kind===id&&styles.chipTextActive,{color:palette.textMuted}]}>{label}</Text>
+            <Text style={[styles.chipText,{color:kind===id?palette.accentText:palette.textMuted}]}>{label}</Text>
           </PhysicalPressable>
         ))}
       </View>
@@ -329,7 +329,7 @@ export default function CityExploreDemo({language,onAddToTrip}:Props){
       {ranked.sponsored.length>0&&(
         <>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{tr(language,'Партнёрские предложения','Sponsored offers','赞助推荐')}</Text>
+            <Text style={[styles.sectionTitle,{color:palette.text}]}>{tr(language,'Партнёрские предложения','Sponsored offers','赞助推荐')}</Text>
           </View>
           {ranked.sponsored.map((item,index)=>renderCard(item,index,true))}
         </>
