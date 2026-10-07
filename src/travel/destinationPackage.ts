@@ -9,14 +9,32 @@ export type DestinationSourceRights =
 
 export type ExperienceNodeKind =
   | 'heritage'
+  | 'historical-site'
+  | 'landmark'
   | 'museum'
+  | 'gallery'
+  | 'exhibition'
+  | 'theatre'
+  | 'cinema'
+  | 'concert'
+  | 'restaurant'
+  | 'cafe'
+  | 'bar'
+  | 'nightlife'
   | 'food'
   | 'event'
   | 'activity'
   | 'nature'
+  | 'park'
+  | 'shopping'
+  | 'market'
+  | 'wellness'
+  | 'sport'
+  | 'kids'
   | 'stay'
   | 'transport'
-  | 'viewpoint';
+  | 'viewpoint'
+  | 'other';
 
 export type BookingMode =
   | 'none'
@@ -53,6 +71,13 @@ export type ExperienceNode = {
   sourceIds: string[];
   heritagePackageId?: string;
   booking?: BookingHandoff;
+  district?: string;
+  address?: string;
+  venueId?: string;
+  parentVenueId?: string;
+  indoorOutdoor?: 'indoor' | 'outdoor' | 'mixed';
+  priceBand?: 'free' | 'budget' | 'mid' | 'premium' | 'luxury' | 'unknown';
+  audience?: Array<'solo' | 'couple' | 'friends' | 'family' | 'business' | 'kids'>;
 };
 
 export type DestinationRoute = {
@@ -256,10 +281,34 @@ export function assertDestinationPackageCanPublish(pkg: DestinationPackage) {
 export function getDestinationCapabilities(pkg: DestinationPackage) {
   const kinds = new Set(pkg.nodes.map((node) => node.kind));
   return {
-    history: kinds.has('heritage') || kinds.has('museum'),
-    food: kinds.has('food'),
-    events: kinds.has('event'),
-    activities: kinds.has('activity') || kinds.has('nature'),
+    history:
+      kinds.has('heritage')
+      || kinds.has('historical-site')
+      || kinds.has('landmark')
+      || kinds.has('museum'),
+    museums: kinds.has('museum'),
+    art: kinds.has('gallery') || kinds.has('exhibition'),
+    theatre: kinds.has('theatre'),
+    entertainment:
+      kinds.has('cinema')
+      || kinds.has('concert')
+      || kinds.has('event')
+      || kinds.has('nightlife'),
+    food:
+      kinds.has('food')
+      || kinds.has('restaurant')
+      || kinds.has('cafe')
+      || kinds.has('bar')
+      || kinds.has('market'),
+    events: kinds.has('event') || kinds.has('exhibition') || kinds.has('concert'),
+    activities:
+      kinds.has('activity')
+      || kinds.has('nature')
+      || kinds.has('park')
+      || kinds.has('sport')
+      || kinds.has('wellness'),
+    shopping: kinds.has('shopping') || kinds.has('market'),
+    family: kinds.has('kids'),
     stays: kinds.has('stay'),
     transport: kinds.has('transport'),
     booking: pkg.nodes.some((node) => Boolean(node.booking)),

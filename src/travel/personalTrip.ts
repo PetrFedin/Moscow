@@ -3,12 +3,7 @@ import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
-export type PersonalTripItemKind =
-  | ExperienceNodeKind
-  | 'theatre'
-  | 'bar'
-  | 'shopping'
-  | 'other';
+export type PersonalTripItemKind = ExperienceNodeKind;
 
 export type PersonalTripItemSource = 'destination-package' | 'manual' | 'provider';
 

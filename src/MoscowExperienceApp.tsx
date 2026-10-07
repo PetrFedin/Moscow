@@ -15,7 +15,7 @@ import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from
 import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
-import DestinationDayPrototypeCard from './features/destination/DestinationDayPrototypeCard';
+import CitywideDiscoveryCard from './features/destination/CitywideDiscoveryCard';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
@@ -52,11 +52,11 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 const copy = {
   ru: {
     discover: 'Открыть', map: 'Карта', walk: 'Прогулка', trip: 'Поездка', savedTab: 'Моя Москва',
-    cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
-    hero: 'Москва раскрывается прямо вокруг вас',
-    heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
-    start: 'Начать Варварку · 45 мин',
-    places: 'Места пилота', story: 'ИСТОРИЯ МЕСТА', time: 'МАШИНА ВРЕМЕНИ',
+    cityTime: 'МОСКВА · ГОРОДСКАЯ ОПЕРАЦИОННАЯ СИСТЕМА',
+    hero: 'Спланируйте Москву под себя',
+    heroBody: 'Музеи, выставки, театры, рестораны, бары, парки, события и исторические места — в одном плане дня или всей поездки.',
+    start: 'Начать планировать Москву',
+    places: 'Историческая лаборатория', story: 'ИСТОРИЯ МЕСТА', time: 'МАШИНА ВРЕМЕНИ',
     today: 'Сегодня', facts: 'ЧТО ИСКАТЬ ГЛАЗАМИ', sources: 'ИСТОЧНИКИ',
     open3d: 'Открыть 3D', lens: 'Архив поверх камеры', save: 'Сохранить', savedAction: 'Сохранено',
     onlyFacts: 'Только факты', research: 'Факты + реконструкция',
@@ -67,11 +67,11 @@ const copy = {
   },
   en: {
     discover: 'Discover', map: 'Map', walk: 'Walk', trip: 'My Trip', savedTab: 'My Moscow',
-    cityTime: 'THE CITY AS A TIME MACHINE',
-    hero: 'Moscow reveals itself around you',
-    heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
-    start: 'Start Varvarka · 45 min',
-    places: 'Pilot places', story: 'PLACE STORY', time: 'TIME MACHINE',
+    cityTime: 'MOSCOW · CITY OPERATING SYSTEM',
+    hero: 'Plan Moscow around you',
+    heroBody: 'Museums, exhibitions, theatres, restaurants, bars, parks, events and historic places in one day or multi-day plan.',
+    start: 'Start planning Moscow',
+    places: 'Heritage laboratory', story: 'PLACE STORY', time: 'TIME MACHINE',
     today: 'Today', facts: 'WHAT TO LOOK FOR', sources: 'SOURCES',
     open3d: 'Open 3D', lens: 'Archive over camera', save: 'Save', savedAction: 'Saved',
     onlyFacts: 'Facts only', research: 'Facts + reconstruction',
@@ -83,11 +83,11 @@ const copy = {
 ,
   zh: {
     discover: '发现', map: '地图', walk: '路线', trip: '行程', savedTab: '我的莫斯科',
-    cityTime: '把城市变成时光机',
-    hero: '莫斯科就在你身边逐层展开',
-    heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
-    start: '开始瓦尔瓦尔卡路线 · 45分钟',
-    places: '试点地点', story: '地点故事', time: '时光机',
+    cityTime: '莫斯科 · 城市操作系统',
+    hero: '按你的方式规划莫斯科',
+    heroBody: '博物馆、展览、剧院、餐厅、酒吧、公园、活动和历史地点可以组成一天或多日行程。',
+    start: '开始规划莫斯科',
+    places: '历史体验实验室', story: '地点故事', time: '时光机',
     today: '今天', facts: '现场观察重点', sources: '来源',
     open3d: '打开3D', lens: '档案叠加相机', save: '收藏', savedAction: '已收藏',
     onlyFacts: '仅事实', research: '事实 + 重建',
@@ -498,7 +498,7 @@ export default function MoscowExperienceApp() {
       <StatusBar style="light" />
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.brand}>MOSCOW · TIME</Text>
+          <Text style={styles.brand}>MOSCOW · CITY OS</Text>
           <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
         </View>
         <PhysicalPressable
@@ -555,23 +555,41 @@ export default function MoscowExperienceApp() {
                 <Text style={styles.kicker}>{ui.cityTime}</Text>
                 <Text style={styles.heroTitle}>{ui.hero}</Text>
                 <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
-                  <Text style={styles.primaryText}>
-                    {routeFinished
-                      ? tr(language, 'Пройти Варварку ещё раз', 'Walk Varvarka again', '再次体验瓦尔瓦尔卡')
-                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
-                        ? (language === 'ru'
-                          ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
-                          : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
-                        : ui.start}
-                  </Text>
+                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => setTab('trip')}>
+                  <Text style={styles.primaryText}>{ui.start}</Text>
                 </PhysicalPressable>
               </View>
 
-              <DestinationDayPrototypeCard
+              <CitywideDiscoveryCard
                 language={language}
-                onStartHistory={openWalkFromHero}
+                onPlan={() => setTab('trip')}
               />
+
+              <View style={styles.citywideBoundary}>
+                <Text style={styles.kicker}>
+                  {tr(language, 'ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', 'SEPARATE HERITAGE LAYER', '独立历史体验层')}
+                </Text>
+                <Text style={styles.citywideBoundaryTitle}>
+                  {tr(language, 'Исторические маршруты — часть Москвы, а не весь продукт', 'Historic routes are one part of Moscow, not the whole product', '历史路线只是莫斯科体验的一部分')}
+                </Text>
+                <Text style={styles.citywideBoundaryBody}>
+                  {tr(
+                    language,
+                    'Полевые 3D/AR-проверки продолжают жить как отдельный evidence-контур. Они больше не являются входом в городской planner и не блокируют рестораны, театры, музеи, выставки, события и многодневные поездки.',
+                    'Field 3D/AR verification remains a separate evidence lane. It no longer defines the city planner or blocks restaurants, theatres, museums, exhibitions, events and multi-day trips.',
+                    '现场3D/AR验证继续作为独立证据层存在，不再定义整个城市规划体验。'
+                  )}
+                </Text>
+                <PhysicalPressable
+                  style={styles.secondary}
+                  contentStyle={styles.center}
+                  onPress={openWalkFromHero}
+                >
+                  <Text style={styles.secondaryText}>
+                    {tr(language, 'Открыть историческую прогулку', 'Open historic walk', '打开历史路线')}
+                  </Text>
+                </PhysicalPressable>
+              </View>
 
               <PhysicalPressable
                 style={styles.secondary}
@@ -994,6 +1012,27 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: '#d7bb84' },
   pauseWalk: { minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#444a51', marginTop: 12 },
   pauseWalkText: { color: '#a7abb1', fontSize: 9, fontWeight: '900' },
+  citywideBoundary: {
+    marginTop: 14,
+    marginBottom: 18,
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#12161a',
+    borderWidth: 1,
+    borderColor: '#2f353c'
+  },
+  citywideBoundaryTitle: {
+    color: '#efe9df',
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '900'
+  },
+  citywideBoundaryBody: {
+    marginTop: 7,
+    color: '#9299a2',
+    fontSize: 11,
+    lineHeight: 17
+  },
   myMoscowStats: { borderRadius: 20, borderWidth: 1, borderColor: '#343941', backgroundColor: '#111418', padding: 15, marginBottom: 14 },
   statsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   stat: { flex: 1, borderRadius: 14, backgroundColor: '#181b20', paddingVertical: 10, paddingHorizontal: 8 },

@@ -35,7 +35,7 @@ test('saved must-see influences a new plan but the active route is frozen after 
 
   await expect(page.getByText(/Сохранённые места считаем обязательными/)).toBeVisible();
   await page.getByLabel('15 мин').click();
-  await page.getByLabel('Архитектура').click();
+  await page.getByRole('button', { name: 'Архитектура', exact: true }).click();
   await page.getByLabel('Начать маршрут').click();
 
   await expect(page.getByText('Старый Английский двор', { exact: true })).toBeVisible();

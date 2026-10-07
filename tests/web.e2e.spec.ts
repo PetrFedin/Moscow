@@ -12,7 +12,7 @@ async function ensureRussian(page: import('@playwright/test').Page) {
 
 test('resident journey: two objects → time → lens → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('MOSCOW · TIME')).toBeVisible();
+  await expect(page.getByText('MOSCOW · CITY OS')).toBeVisible();
   await ensureRussian(page);
 
   await page.getByText('Карта', { exact: true }).last().click();
@@ -154,25 +154,25 @@ test('resident journey: two objects → time → lens → 3D → spatial → int
 });
 
 
-test('destination day prototype leads with a full-day journey and keeps live slots fail-closed', async ({ page }) => {
+test('citywide planner is the primary Moscow entry and heritage is a secondary layer', async ({ page }) => {
   await page.goto('/');
   await ensureRussian(page);
 
-  await expect(page.getByText('МОЙ ДЕНЬ В МОСКВЕ · PROTOTYPE', { exact: true })).toBeVisible();
-  await expect(page.getByText('Не ищите по отдельности — соберите день целиком', { exact: true })).toBeVisible();
-  await expect(page.getByText('1/4', { exact: true })).toBeVisible();
-  await expect(page.getByText('История и город', { exact: true })).toBeVisible();
-  await expect(page.getByText('Где поесть', { exact: true })).toBeVisible();
-  await expect(page.getByText('Что происходит сегодня', { exact: true })).toBeVisible();
-  await expect(page.getByText('Куда дальше', { exact: true })).toBeVisible();
+  await expect(page.getByText('МОСКВА · ГОРОДСКАЯ ОПЕРАЦИОННАЯ СИСТЕМА', { exact: true })).toBeVisible();
+  await expect(page.getByText('Спланируйте Москву под себя', { exact: true })).toBeVisible();
+  await expect(page.getByText('MOSCOW CITY PLANNER', { exact: true })).toBeVisible();
+  await expect(page.getByText('Соберите свой день в Москве', { exact: true })).toBeVisible();
 
-  await expect(page.getByText('НУЖЕН LIVE FEED', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Не показываем demo-данные как реальные', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Музеи · выставки · театры', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Рестораны · кафе · бары', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Парки · прогулки · природа', exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Выбрать 8 часов' }).click();
-  await expect(page.getByText('8 ч', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Рестораны · кафе · бары', exact: true }).click();
+  await page.getByRole('button', { name: 'Перейти к планированию Москвы' }).click();
+  await expect(page.getByText('МОЯ ПОЕЗДКА', { exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Начать историческую часть дня' }).click();
+  await page.getByText('Открыть', { exact: true }).last().click();
+  await expect(page.getByText('ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть историческую прогулку' }).click();
   await expect(page.getByText('WALK · 01', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Варварка/).first()).toBeVisible();
 });
