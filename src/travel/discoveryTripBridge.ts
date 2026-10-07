@@ -169,7 +169,7 @@ export function addDiscoveryItemToTrip(input:{
   updatedAt:string;
   commitmentMode:'plan-only'|'user-ticket'|'user-reservation';
 }){
-  if(placement.conflict) throw new Error('Cannot add discovery item into conflicting placement');
+  if(input.placement.conflict) throw new Error('Cannot add discovery item into conflicting placement');
 
   const commitment:PersonalTripCommitment|undefined=
     input.commitmentMode==='plan-only'
