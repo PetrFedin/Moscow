@@ -7,7 +7,7 @@ import {
   getPilotDecisionReadiness
 } from './pilotInvestmentDecision.ts';
 
-export const GOVERNMENT_INVESTOR_ROUTE_VERSION = 1 as const;
+export const GOVERNMENT_INVESTOR_ROUTE_VERSION = 2 as const;
 
 export type GovernmentInvestorAudience = 'moscow-partner' | 'investor' | 'federal';
 
@@ -37,6 +37,16 @@ export type GovernmentInvestorStakeholder = {
   caveat: string;
 };
 
+export type GovernmentPilotBrief = {
+  problem: string;
+  scope: string;
+  cityContribution: string;
+  deliverables: string;
+  acceptance: string;
+  blockers: string;
+  nextDecision: string;
+};
+
 export type GovernmentInvestorRoute = {
   version: typeof GOVERNMENT_INVESTOR_ROUTE_VERSION;
   title: string;
@@ -44,6 +54,7 @@ export type GovernmentInvestorRoute = {
   durationMinutes: '7–10';
   firstMeetingGoal: string;
   firstMeetingDoNotAsk: string;
+  pilotBrief: GovernmentPilotBrief;
   steps: GovernmentInvestorRouteStep[];
   stakeholderMap: GovernmentInvestorStakeholder[];
   cityNextAction: string;
@@ -60,6 +71,22 @@ export const governmentInvestorRoute: GovernmentInvestorRoute = {
     'Согласовать владельца задачи, площадку и формат доказательного пилота «Варварка во времени».',
   firstMeetingDoNotAsk:
     'Не просить финансирование всей платформы, Москвы и федерального масштаба одним решением.',
+  pilotBrief: {
+    problem:
+      'Городские карты, контент, билеты и отдельные AR/3D-решения существуют, но нет единого доказательного стандарта цифрового исторического объекта и исполнимого туристического пути.',
+    scope:
+      'Варварка — Зарядье: 5 точек, 2 spatial hero objects, RU/EN/ZH, audio/offline/accessibility и supervised visitor pilot 20–50 участников.',
+    cityContribution:
+      'Профильный owner, площадка, доступ к объектам и экспертам, integration/data contact, согласованная методология и формальная приёмка.',
+    deliverables:
+      'Verified heritage packages при пройденных gates, Studio workflow, mobile journey, integration contracts, field/user evidence, handover и измеренная production economics.',
+    acceptance:
+      'Приёмка только по заранее определённым evidence gates: spatial proof, repeatability второго объекта, reviewed visitor pilot, rights/security/IP/operations и измеренная экономика.',
+    blockers:
+      'Сейчас не закрыты реальные field/user/provider gates и часть decision-readiness evidence; software demo не конвертирует их в PASS.',
+    nextDecision:
+      'Назначить владельца задачи, определить пилотную площадку и провести рабочую сессию по scope / data / acceptance / IP / operations.'
+  },
   steps: [
     {
       id: 'problem',
@@ -245,6 +272,7 @@ export function getGovernmentInvestorRouteState() {
     economicsReady: investment.economicsReady,
     blockerCount: investment.blockers.length,
     firstMeetingGoal: governmentInvestorRoute.firstMeetingGoal,
-    cityNextAction: governmentInvestorRoute.cityNextAction
+    cityNextAction: governmentInvestorRoute.cityNextAction,
+    pilotBrief: governmentInvestorRoute.pilotBrief
   };
 }

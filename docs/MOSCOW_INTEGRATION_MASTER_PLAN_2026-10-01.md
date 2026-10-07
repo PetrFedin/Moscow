@@ -1725,3 +1725,53 @@ Compounding assets:
 **Sequencing:** Destination Package Standard -> reference dataset -> venue publishing -> partner network -> embedded hospitality distribution -> demand intelligence -> institutional feeds.
 
 **Moat:** Moscow becomes a continuously maintained destination graph and itinerary execution rail, not a static tourist guide.
+
+
+## Investor meeting discipline wave — Meeting Mode v2
+
+This wave does not add another governance subsystem. It hardens the existing CITY PILOT route as a board-room operating instrument.
+
+### Resume presentation — ADOPT / IMPLEMENTING
+
+Persist the exact guided-route step and presenter-mode state so a presenter can leave the route for evidence/detail and return to the same executive position instead of restarting the meeting.
+
+Boundaries:
+
+- persistence stores only local presentation state;
+- it does not store or fabricate evidence;
+- finishing the route clears the saved meeting progress;
+- route-version changes are explicit.
+
+### Presenter Mode — ADOPT / IMPLEMENTING
+
+Provide a reduced executive surface focused on:
+
+`Route -> Evidence -> Decision`
+
+When presenter mode is active, secondary explanatory panels such as the expanded funding path and full stakeholder-detail stack are hidden from the main guided flow. The underlying facts remain available outside presenter mode.
+
+The goal is meeting discipline, not data suppression.
+
+### Final one-page Pilot Brief — ADOPT / IMPLEMENTING
+
+At the final route step show one compact brief with exactly:
+
+- problem;
+- scope;
+- city contribution;
+- deliverables;
+- acceptance;
+- blockers;
+- next decision.
+
+The brief must inherit the same fail-closed evidence state as the rest of CITY PILOT. Missing field/user/provider proof remains visibly missing and can never be converted to PASS by presentation logic.
+
+### Acceptance extension
+
+- guided meeting progress resumes at the exact route step;
+- presenter mode can be toggled without mutating project evidence;
+- the final Pilot Brief contains no invented budget, ROI, provider state or approval;
+- completing the route clears stale presentation progress;
+- route state remains versioned and contract-tested.
+
+**Sequencing:** Meeting Mode v2 -> visual QA on wide/tablet/phone -> proof drill-down/back-to-route navigation -> Contract Builder handoff -> rehearsal of the real investor / Moscow Government meeting.

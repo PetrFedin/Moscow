@@ -78,3 +78,19 @@ test('stakeholder map separates pilot operator, buyer, heritage, integration and
   assert.match(operator?.caveat ?? '', /не считается автоматически конечным заказчиком/i);
   assert.match(contract?.caveat ?? '', /не назначаем бюджетодержателя/i);
 });
+
+
+test('meeting mode v2 exposes an executive pilot brief without inventing readiness', () => {
+  assert.equal(governmentInvestorRoute.version, 2);
+  assert.match(governmentInvestorRoute.pilotBrief.problem, /нет единого доказательного стандарта/i);
+  assert.match(governmentInvestorRoute.pilotBrief.scope, /5 точек/i);
+  assert.match(governmentInvestorRoute.pilotBrief.cityContribution, /профильный owner/i);
+  assert.match(governmentInvestorRoute.pilotBrief.acceptance, /evidence gates/i);
+  assert.match(governmentInvestorRoute.pilotBrief.blockers, /не закрыты реальные field\/user\/provider gates/i);
+  assert.match(governmentInvestorRoute.pilotBrief.nextDecision, /рабочую сессию/i);
+
+  const state = getGovernmentInvestorRouteState();
+  assert.deepEqual(state.pilotBrief, governmentInvestorRoute.pilotBrief);
+  assert.equal(state.pilotProven, false);
+  assert.equal(state.decisionPackReady, false);
+});
