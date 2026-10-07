@@ -19,6 +19,13 @@ import PhysicalPressable from './ui/PhysicalPressable';
 type DemoStage = null | 'lens' | 'model' | 'spatial';
 type DemoEra = '1857' | '1859';
 type DemoTrust = 'documented' | 'public';
+type LocalPreviewMode = 'auto' | 'phone' | 'tablet' | 'desktop';
+
+const LOCAL_PREVIEW_WIDTHS: Record<Exclude<LocalPreviewMode, 'auto'>, number> = {
+  phone: 390,
+  tablet: 834,
+  desktop: 1440
+};
 
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
@@ -31,10 +38,17 @@ export default function MoscowDemoShell() {
     useState<GovernmentMeetingEntryMode>('overview');
   const [demoEra, setDemoEra] = useState<DemoEra>('1857');
   const [demoTrust, setDemoTrust] = useState<DemoTrust>('public');
+  const [localPreviewMode, setLocalPreviewMode] = useState<LocalPreviewMode>('auto');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const language = detectLanguage();
   const romanov = useMemo(() => places.find((place) => place.id === 'romanov-chambers'), []);
   const demoEnabled = __DEV__ || Platform.OS === 'web' || process.env.EXPO_PUBLIC_DEMO_MODE === '1';
+  const localDeviceLabEnabled =
+    Platform.OS === 'web' &&
+    typeof globalThis.location !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(globalThis.location.hostname);
+  const forcedViewportWidth =
+    localPreviewMode === 'auto' ? undefined : LOCAL_PREVIEW_WIDTHS[localPreviewMode];
 
   useEffect(() => {
     if (!demoEnabled) return;
@@ -67,7 +81,43 @@ export default function MoscowDemoShell() {
 
   return (
     <View style={styles.root}>
-      <MoscowExperienceApp />
+      <View
+        testID="local-preview-frame"
+        style={[
+          styles.previewHost,
+          forcedViewportWidth !== undefined && {
+            width: forcedViewportWidth,
+            maxWidth: '100%',
+            alignSelf: 'center'
+          }
+        ]}
+      >
+        <MoscowExperienceApp forcedViewportWidth={forcedViewportWidth} />
+      </View>
+
+      {localDeviceLabEnabled && (
+        <View testID="local-device-lab" style={styles.deviceLab}>
+          <Text style={styles.deviceLabTitle}>LOCAL DEVICE LAB</Text>
+          <View style={styles.deviceLabRow}>
+            {([
+              ['auto', 'AUTO'],
+              ['phone', 'PHONE · 390'],
+              ['tablet', 'TABLET · 834'],
+              ['desktop', 'DESKTOP · 1440']
+            ] as const).map(([mode, label]) => (
+              <PhysicalPressable
+                key={mode}
+                style={[styles.deviceLabButton, localPreviewMode === mode && styles.deviceLabButtonActive]}
+                contentStyle={styles.centerContent}
+                hapticEvent="none"
+                onPress={() => setLocalPreviewMode(mode)}
+              >
+                <Text style={[styles.deviceLabText, localPreviewMode === mode && styles.deviceLabTextActive]}>{label}</Text>
+              </PhysicalPressable>
+            ))}
+          </View>
+        </View>
+      )}
 
       {demoEnabled && (
         <>
@@ -168,7 +218,26 @@ export default function MoscowDemoShell() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#050607' },
+  previewHost: { flex: 1, minWidth: 0, overflow: 'hidden', backgroundColor: '#090b0d' },
+  deviceLab: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    zIndex: 100,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#3d434a',
+    backgroundColor: 'rgba(10,12,15,0.94)',
+    padding: 8,
+    maxWidth: '94%'
+  },
+  deviceLabTitle: { color: '#767d84', fontSize: 7, letterSpacing: 1.1, fontWeight: '900', marginBottom: 6 },
+  deviceLabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  deviceLabButton: { minHeight: 30, borderRadius: 9, borderWidth: 1, borderColor: '#343a41', paddingHorizontal: 8 },
+  deviceLabButtonActive: { borderColor: '#a38758', backgroundColor: '#272016' },
+  deviceLabText: { color: '#858d95', fontSize: 7, fontWeight: '900' },
+  deviceLabTextActive: { color: '#e3c58b' },
   cityButton: {
     position: 'absolute',
     right: 14,
