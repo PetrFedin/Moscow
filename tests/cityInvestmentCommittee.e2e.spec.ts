@@ -5,7 +5,7 @@ test('City Investment Committee workspace shows end-to-end governance', async ({
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByText('Операции', { exact: true }).click();
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
-  await page.getByText('DEMO', { exact: true }).click();
+  await page.getByRole('button', { name: 'DEMO', exact: true }).click();
 
   await expect(page.getByText('CITY INVESTMENT COMMITTEE WORKSPACE · DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('BUSINESS CASE', { exact: true })).toBeVisible();
