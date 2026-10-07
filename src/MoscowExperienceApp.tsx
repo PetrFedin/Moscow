@@ -112,8 +112,13 @@ const evidenceLabel = {
   zh: { documented: '有文献依据', reconstructed: '学术重建', hypothesis: '假设' }
 } as const;
 
-export default function MoscowExperienceApp() {
-  const { width: viewportWidth } = useWindowDimensions();
+type MoscowExperienceAppProps = {
+  forcedViewportWidth?: number;
+};
+
+export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExperienceAppProps = {}) {
+  const { width: actualViewportWidth } = useWindowDimensions();
+  const viewportWidth = forcedViewportWidth ?? actualViewportWidth;
   const isDesktop = viewportWidth >= 1180;
   const isTablet = viewportWidth >= 720 && viewportWidth < 1180;
   const isWide = isTablet || isDesktop;
