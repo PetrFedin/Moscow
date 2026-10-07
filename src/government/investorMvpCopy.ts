@@ -139,9 +139,9 @@ const ru: InvestorMvpCopy = {
     title: 'Пилот должен закрыть неопределённости, а не создать ещё одну демонстрацию.',
     items: [
       'Пользовательский путь работает на заявленных целевых клиентах и не показывает demo/live данные как реальные.',
-      'Romanov проходит реальный physical field proof.',
-      'Old English Court подтверждает повторяемость pipeline на втором независимом объекте.',
-      'Visitor pilot завершён реальными сессиями и формальным итоговым отчётом.',
+      'Любой spatial/AR showcase проходит собственные field gates до заявления точности.',
+      'Ни один конкретный район или объект не является обязательной географией широкого MVP.',
+      'Туристический, партнёрский и городской контуры демонстрируются независимо от доступности отдельных provider/field интеграций.',
       'Provider / integration truth отделена от пользовательских ручных данных и имеет freshness / evidence boundary.',
       'Город получает формальный handover: код/контракты/документация/права/операционная модель в согласованном объёме.'
     ],
@@ -165,16 +165,16 @@ const en: InvestorMvpCopy = {
       'Replan the flexible part of the day without breaking fixed tickets and reservations.',
       'Keep a personal Moscow history after the visit: where the traveler went, what they saw, where they ate and what to continue.'
     ],
-    pilotKicker: 'PILOT SCOPE',
-    pilotTitle: 'Varvarka — Zaryadye',
-    pilotBody: 'A bounded, testable contour for measuring value, cost and repeatability.',
+    pilotKicker: 'REFERENCE MVP',
+    pilotTitle: 'Moscow as one city trip product',
+    pilotBody: 'A broad reference MVP demonstrates the full trip lifecycle, partner economics and city demand/load layer; specific districts and objects are replaceable demo scenarios.',
     pilotScope: [
-      'Territory: Varvarka — Zaryadye.',
-      '5 route points and 2 spatial hero objects: Romanov Chambers + Old English Court.',
-      'Working traveler flow: day plan → route → historical experience → visit confirmation.',
-      '20–50 supervised pilot sessions with an aggregate-only report.',
-      'One agreed live/provider integration contour or a formally documented integration handoff.',
-      'Measurement of actual cost, lead time and labour for the next verified object.'
+      'Multi-day Trip OS: dates, interests, pace, accessibility, must-sees, tickets and reservations.',
+      'Today: fixed commitments, free windows, nearby opportunities and adaptive replan.',
+      'Broad taxonomy: museums, events, theatre, food, nightlife, parks, shopping, stay and transport.',
+      'My Moscow: actual visit memory and recommendations focused on what remains new.',
+      'Partner flow: supply → offer → handoff → confirmation/attribution → revenue evidence.',
+      'City layer: demand gaps, load balancing, event/district opportunity and aggregate tourism intelligence.'
     ],
     excludedKicker: 'OUT OF MVP',
     excludedTitle: 'What the first contract deliberately does not buy',
@@ -226,9 +226,9 @@ const en: InvestorMvpCopy = {
     title: 'The pilot must remove uncertainty, not create another demo.',
     items: [
       'The visitor journey works on the declared target clients and never presents demo/live data as real.',
-      'Romanov passes real physical field proof.',
-      'Old English Court proves repeatability on a second independent object.',
-      'The visitor pilot is completed with real sessions and a formal final report.',
+      'Any spatial/AR showcase passes its own field gates before accuracy is claimed.',
+      'No single district or object is mandatory geography for the broad MVP.',
+      'Traveler, partner and city layers remain demonstrable independently from individual provider/field integrations.',
       'Provider/integration truth is separated from user-entered data and has freshness/evidence boundaries.',
       'The city receives the agreed handover: code/contracts/documentation/rights/operating model.'
     ],
@@ -252,16 +252,16 @@ const zh: InvestorMvpCopy = {
       '当计划变化时，只重排灵活部分，不破坏固定门票和预订。',
       '访问后保留个人莫斯科足迹：去过哪里、看过什么、在哪里用餐以及下一步值得继续什么。'
     ],
-    pilotKicker: '试点范围',
-    pilotTitle: '瓦尔瓦尔卡 — 扎里亚季耶',
-    pilotBody: '以有限、可验证的范围测量价值、成本和可复制性。',
+    pilotKicker: 'REFERENCE MVP',
+    pilotTitle: '把莫斯科作为一个完整的城市旅行产品',
+    pilotBody: '宽口径 reference MVP 展示完整旅行生命周期、合作伙伴经济与城市需求/客流层；具体区域和对象只是可替换的演示场景。',
     pilotScope: [
-      '区域：瓦尔瓦尔卡 — 扎里亚季耶。',
-      '5 个路线点，2 个核心空间对象：罗曼诺夫家族宅邸 + 老英国庭院。',
-      '完整游客流程：日计划 → 路线 → 历史体验 → 到访记录。',
-      '20–50 次受监督试点体验，仅输出汇总报告。',
-      '一个经协商的实时/服务商集成链路，或正式记录的集成交接方案。',
-      '测量下一个 verified object 的实际成本、周期和工时。'
+      '多日 Trip OS：日期、兴趣、节奏、无障碍意图、必看、门票和预订。',
+      'Today：固定计划、空闲时段、附近机会和动态重排。',
+      '广泛分类：博物馆、活动、剧院、美食、夜生活、公园、购物、住宿和交通。',
+      'My Moscow：真实到访历史，只推荐尚未体验的内容。',
+      'Partner flow：供给 → offer → handoff → confirmation/attribution → revenue evidence。',
+      'City layer：需求缺口、客流平衡、活动/区域机会和聚合旅游智能。'
     ],
     excludedKicker: 'MVP 不包含',
     excludedTitle: '首份合同明确不购买的内容',
@@ -313,9 +313,9 @@ const zh: InvestorMvpCopy = {
     title: '试点必须消除不确定性，而不是再产生一个演示版本。',
     items: [
       '游客旅程在声明的目标客户端上可运行，并且绝不把 demo/live 数据冒充真实数据。',
-      'Romanov 完成真实 physical field proof。',
-      'Old English Court 在第二个独立对象上证明 pipeline 可复制。',
-      '游客试点以真实体验完成，并形成正式最终报告。',
+      '任何 spatial/AR showcase 在宣称精度前必须通过自身 field gate。',
+      '任何单一区域或对象都不是宽口径 MVP 的强制地理范围。',
+      '游客、合作伙伴与城市层可独立于单个 provider/field integration 进行完整演示。',
       '服务商/集成事实与用户手工数据分离，并具有 freshness / evidence 边界。',
       '城市获得约定范围内的正式交接：代码/契约/文档/权利/运营模式。'
     ],
