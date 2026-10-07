@@ -121,7 +121,7 @@ const FORBIDDEN_LIVE_KEYS = new Set([
   'commercialscore'
 ]);
 
-const STATUS_BY_KIND: Record<LiveDestinationEntity['kind'], Set<LiveOperationalStatus>> = {
+const STATUS_BY_KIND: Partial<Record<LiveDestinationEntity['kind'], Set<LiveOperationalStatus>>> = {
   museum: new Set(['open', 'closed', 'temporarily-closed', 'unknown']),
   food: new Set(['open', 'closed', 'temporarily-closed', 'unknown']),
   event: new Set(['scheduled', 'cancelled', 'rescheduled', 'sold-out', 'finished', 'unknown']),
