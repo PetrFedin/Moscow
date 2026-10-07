@@ -5,10 +5,10 @@
 
 ## Wave 1 — Traveler core consolidation
 
-Status: **IN PROGRESS / STRONG FOUNDATION**
+Status: **IN PROGRESS / PLAN + MEMORY FOUNDATION IMPLEMENTED**
 
 Already present:
-- multi-day Personal Trip;
+- one-day / multi-day Plan authority (internal type remains PersonalTrip);
 - fixed/manual commitments;
 - ticket/reservation wallet semantics;
 - Today authority;
@@ -16,12 +16,18 @@ Already present:
 - free windows;
 - adaptive replan;
 - visit recording;
-- My Moscow passport;
+- persistent My Moscow memory independent of the active Plan;
+- revisit vs new-for-me continuation;
+- idempotent visit synchronization across multiple plans;
 - RU/EN/ZH;
-- City Trip OS home.
+- persistent light/dark theme authority;
+- responsive phone / tablet / desktop shell;
+- simplified Plan / Today / My Moscow product language.
 
 Still to harden:
-- make Today the default returning-user landing policy after trip activation;
+- make Today the default returning-user landing policy after plan activation;
+- add saved-for-later memory independent of active Plan;
+- add completed-plan archive/recap without coupling My Moscow to plan lifetime;
 - complete add-to-trip from non-Explore discovery surfaces;
 - remove remaining legacy Varvarka-first labels/data dependencies from generic flows;
 - complete full cross-language Golden Path.
@@ -105,3 +111,27 @@ Status: DEFERRED until the reference MVP is commercially and product-complete.
 ## Wave 10 — Scale
 
 Status: FUTURE.
+
+
+## Product correction implemented — Plan + persistent My Moscow
+
+The current traveler model is now:
+
+`Plan → Today → Visit → My Moscow → Revisit / New for me → New plan`
+
+Implemented:
+- active Plan remains editable and disposable;
+- My Moscow is stored separately from the active Plan;
+- clearing the current Plan does not clear visit memory;
+- repeated synchronization of the same visit is idempotent;
+- a genuinely new visit to the same place increments repeat count;
+- discovery items preserve stable identity into memory when available;
+- My Moscow exposes visit history, revisit actions and new-for-me ideas;
+- browser Golden Path now validates memory persistence after starting a new Plan;
+- dark/light theme authority persists user choice;
+- core traveler surfaces use shared theme tokens.
+
+This directly adopts the relevant direction from `GITHUB_TECH_RADAR_AND_CITY_PRODUCT.md`:
+Personal Itinerary Authority → Plan Reconciliation / Visited History → Day Replan → next free day / repeat visit.
+
+The older heritage field-pilot sequence remains valid only for spatial-accuracy claims and does not control the broad traveler MVP.
