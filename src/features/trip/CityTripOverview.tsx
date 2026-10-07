@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   language: AppLanguage;
@@ -19,52 +20,53 @@ const categories = {
 } as const;
 
 export default function CityTripOverview({ language, onOpenTrip, onOpenNearby, onOpenMap }: Props) {
+  const { palette } = useMoscowTheme();
   const items = categories[language];
 
   return (
     <View style={styles.root}>
-      <View style={styles.hero}>
+      <View style={[styles.hero,{backgroundColor:palette.surfaceRaised,borderColor:palette.borderStrong}]}>
         <Text style={styles.kicker}>
           {tr(language,'МОСКВА · CITY TRIP OS','MOSCOW · CITY TRIP OS','莫斯科 · CITY TRIP OS')}
         </Text>
-        <Text style={styles.title}>
+        <Text style={[styles.title,{color:palette.text}]}>
           {tr(
             language,
-            'Одна поездка. Весь город. Каждый день подстраивается под вас.',
-            'One trip. The whole city. Every day adapts around you.',
-            '一次旅行，整座城市，每一天都为你动态调整。'
+            'Планируйте Москву. Помните, где были. Каждый раз открывайте новое.',
+            'Plan Moscow. Remember where you have been. Discover something new every time.',
+            '规划莫斯科，记住去过的地方，每次都发现新的体验。'
           )}
         </Text>
-        <Text style={styles.body}>
+        <Text style={[styles.body,{color:palette.textMuted}]}>
           {tr(
             language,
-            'Соберите дни, добавьте свои билеты и брони, находите события и места рядом, перестраивайте свободные окна и сохраняйте всё увиденное в «Моей Москве».',
-            'Build your days, add your own tickets and reservations, discover events and nearby places, replan free windows and keep everything you experienced in My Moscow.',
-            '规划每日行程，加入自己的门票与预订，发现活动和附近地点，动态调整空闲时段，并把真实到访记录保存在“我的莫斯科”。'
+            'Составьте план на день или несколько дней, добавьте свои билеты и брони. Moscow запомнит, где вы были и что видели, а затем поможет повторить любимое или собрать новый маршрут.',
+            'Build a plan for one day or several days and add your tickets and reservations. Moscow remembers what you saw and where you went, then helps you revisit favourites or build a new route.',
+            '规划一天或多天，加入自己的门票和预订。Moscow 会记住你去过和看过的地方，之后帮助你重访喜欢的地点或创建新的路线。'
           )}
         </Text>
 
         <View style={styles.actions}>
           <PhysicalPressable
             accessibilityRole="button"
-            accessibilityLabel={tr(language,'Спланировать поездку','Plan my trip','规划我的行程')}
-            style={styles.primary}
+            accessibilityLabel={tr(language,'Создать план','Build a plan','创建计划')}
+            style={[styles.primary,{backgroundColor:palette.accent}]}
             contentStyle={styles.center}
             strong
             onPress={onOpenTrip}
           >
-            <Text style={styles.primaryText}>
-              {tr(language,'Спланировать поездку','Plan my trip','规划我的行程')} →
+            <Text style={[styles.primaryText,{color:palette.accentText}]}>
+              {tr(language,'Создать план','Build a plan','创建计划')} →
             </Text>
           </PhysicalPressable>
           <PhysicalPressable
             accessibilityRole="button"
             accessibilityLabel={tr(language,'Что рядом сейчас','What is nearby now','查看附近')}
-            style={styles.secondary}
+            style={[styles.secondary,{borderColor:palette.borderStrong}]}
             contentStyle={styles.center}
             onPress={onOpenNearby}
           >
-            <Text style={styles.secondaryText}>
+            <Text style={[styles.secondaryText,{color:palette.accentStrong}]}>
               {tr(language,'Что рядом сейчас','What is nearby now','查看附近')}
             </Text>
           </PhysicalPressable>
@@ -94,36 +96,36 @@ export default function CityTripOverview({ language, onOpenTrip, onOpenNearby, o
         />
       </View>
 
-      <View style={styles.categoriesCard}>
+      <View style={[styles.categoriesCard,{backgroundColor:palette.surface,borderColor:palette.border}]}>
         <View style={styles.sectionTop}>
           <View style={styles.flex}>
             <Text style={styles.kicker}>
               {tr(language,'ЧЕМ ЗАНЯТЬ ДЕНЬ','BUILD YOUR MOSCOW','玩转莫斯科')}
             </Text>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle,{color:palette.text}]}>
               {tr(language,'Не только достопримечательности','More than attractions','不只是景点')}
             </Text>
           </View>
           <PhysicalPressable
             accessibilityRole="button"
             accessibilityLabel={tr(language,'Открыть карту','Open map','打开地图')}
-            style={styles.mapButton}
+            style={[styles.mapButton,{borderColor:palette.borderStrong}]}
             contentStyle={styles.center}
             onPress={onOpenMap}
           >
-            <Text style={styles.mapText}>{tr(language,'Карта','Map','地图')} →</Text>
+            <Text style={[styles.mapText,{color:palette.accentStrong}]}>{tr(language,'Карта','Map','地图')} →</Text>
           </PhysicalPressable>
         </View>
 
         <View style={styles.chips}>
           {items.map((item) => (
-            <View key={item} style={styles.chip}>
-              <Text style={styles.chipText}>{item}</Text>
+            <View key={item} style={[styles.chip,{backgroundColor:palette.surfaceSoft,borderColor:palette.border}]}>
+              <Text style={[styles.chipText,{color:palette.textMuted}]}>{item}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={styles.note}>
+        <Text style={[styles.note,{color:palette.textSoft}]}>
           {tr(
             language,
             'MVP показывает широкую модель города. Live availability, цены и provider confirmation появляются только через согласованные источники; demo-контент маркируется отдельно.',
@@ -137,11 +139,12 @@ export default function CityTripOverview({ language, onOpenTrip, onOpenNearby, o
 }
 
 function Stage({label,title,text}:{label:string;title:string;text:string}) {
+  const { palette } = useMoscowTheme();
   return (
-    <View style={styles.stage}>
-      <Text style={styles.stageLabel}>{label}</Text>
-      <Text style={styles.stageTitle}>{title}</Text>
-      <Text style={styles.stageText}>{text}</Text>
+    <View style={[styles.stage,{backgroundColor:palette.surface,borderColor:palette.border}]}>
+      <Text style={[styles.stageLabel,{color:palette.textSoft}]}>{label}</Text>
+      <Text style={[styles.stageTitle,{color:palette.text}]}>{title}</Text>
+      <Text style={[styles.stageText,{color:palette.textMuted}]}>{text}</Text>
     </View>
   );
 }
