@@ -7,12 +7,14 @@ import { getUnseenDestinationNodes, type PersonalTrip } from '../../travel/perso
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 import { deriveTouristTodayState, minutesUntilItem, todayProgress } from '../../travel/touristToday';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
   visitedIds: string[];
   onOpenPlace: (placeId: string) => void;
+  showLegacyUnseen?: boolean;
 };
 
 function timeLabel(value?: string) {
@@ -51,7 +53,8 @@ function countdownLabel(language: AppLanguage, minutes: number) {
   );
 }
 
-export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace }: Props) {
+export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, showLegacyUnseen = true }: Props) {
+  const { palette } = useMoscowTheme();
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
   useEffect(() => {
@@ -73,20 +76,20 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
   if (!state.tripActive) {
     const nextTripDay = trip.days.find((day) => day > state.dayDate);
     return (
-      <View style={styles.root}>
+      <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
         <View style={styles.heading}>
-          <Text style={styles.kicker}>{tr(language, 'СЕГОДНЯ В МОСКВЕ', 'TODAY IN MOSCOW', '今天在莫斯科')}</Text>
-          <Text style={styles.clock}>{clockLabel(language, nowIso)} MSK</Text>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'СЕГОДНЯ В МОСКВЕ', 'TODAY IN MOSCOW', '今天在莫斯科')}</Text>
+          <Text style={[styles.clock,{color:palette.textSoft}]}>{clockLabel(language, nowIso)} MSK</Text>
         </View>
-        <Text style={styles.title}>
+        <Text style={[styles.title,{color:palette.text}]}>
           {nextTripDay
-            ? tr(language, 'Поездка ещё впереди', 'Your trip is coming up', '行程尚未开始')
-            : tr(language, 'Сегодня вне дат поездки', 'Today is outside this trip', '今天不在本次行程日期内')}
+            ? tr(language, 'План ещё впереди', 'Your plan starts later', '计划尚未开始')
+            : tr(language, 'Сегодня вне дат плана', 'Today is outside this plan', '今天不在当前计划日期内')}
         </Text>
-        <Text style={styles.body}>
+        <Text style={[styles.body,{color:palette.textMuted}]}>
           {nextTripDay
-            ? tr(language, 'Следующий день поездки: ', 'Next trip day: ', '下一个行程日：') + nextTripDay
-            : tr(language, 'История поездки сохранена — откройте нужный день выше.', 'Your trip history is preserved — open any day above.', '行程记录已保存，可在上方打开任意一天。')}
+            ? tr(language, 'Следующий день плана: ', 'Next plan day: ', '下一个计划日：') + nextTripDay
+            : tr(language, 'История Москвы сохранена — откройте нужный день плана.', 'Your Moscow history is preserved — open any plan day.', '莫斯科历史记录已保存，可打开任意计划日期。')}
         </Text>
       </View>
     );
@@ -97,39 +100,39 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
   const freeWindow = state.currentFreeWindow ?? state.nextFreeWindow;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>{tr(language, 'СЕГОДНЯ В МОСКВЕ', 'TODAY IN MOSCOW', '今天在莫斯科')}</Text>
-          <Text style={styles.clock}>{clockLabel(language, nowIso)} MSK · {state.dayDate}</Text>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'СЕГОДНЯ В МОСКВЕ', 'TODAY IN MOSCOW', '今天在莫斯科')}</Text>
+          <Text style={[styles.clock,{color:palette.textSoft}]}>{clockLabel(language, nowIso)} MSK · {state.dayDate}</Text>
         </View>
-        <View style={styles.progressBadge}>
-          <Text style={styles.progressValue}>{progress.completed}/{progress.total}</Text>
-          <Text style={styles.progressLabel}>{tr(language, 'готово', 'done', '已完成')}</Text>
+        <View style={[styles.progressBadge,{backgroundColor:palette.surfaceSoft}]}>
+          <Text style={[styles.progressValue,{color:palette.accentStrong}]}>{progress.completed}/{progress.total}</Text>
+          <Text style={[styles.progressLabel,{color:palette.textSoft}]}>{tr(language, 'готово', 'done', '已完成')}</Text>
         </View>
       </View>
 
       {current ? (
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>{tr(language, 'СЕЙЧАС ПО ПЛАНУ', 'NOW ON YOUR PLAN', '当前计划')}</Text>
-          <Text style={styles.heroTitle}>{current.title}</Text>
-          <Text style={styles.heroMeta}>
+        <View style={[styles.hero,{backgroundColor:palette.surfaceRaised,borderColor:palette.borderStrong}]}>
+          <Text style={[styles.eyebrow,{color:palette.accentStrong}]}>{tr(language, 'СЕЙЧАС ПО ПЛАНУ', 'NOW ON YOUR PLAN', '当前计划')}</Text>
+          <Text style={[styles.heroTitle,{color:palette.text}]}>{current.title}</Text>
+          <Text style={[styles.heroMeta,{color:palette.textMuted}]}>
             {(timeLabel(current.plannedStartAt) ?? '') + '–' + (timeLabel(current.plannedEndAt) ?? '')}
           </Text>
           {current.commitment?.externalUrl ? (
             <PhysicalPressable
-              style={styles.heroAction}
+              style={[styles.heroAction,{backgroundColor:palette.accent}]}
               contentStyle={styles.center}
               onPress={() => { void Linking.openURL(current.commitment!.externalUrl!); }}
             >
-              <Text style={styles.heroActionText}>{tr(language, 'Открыть подтверждение', 'Open confirmation', '打开确认信息')}</Text>
+              <Text style={[styles.heroActionText,{color:palette.accentText}]}>{tr(language, 'Открыть подтверждение', 'Open confirmation', '打开确认信息')}</Text>
             </PhysicalPressable>
           ) : null}
         </View>
       ) : (
-        <View style={styles.heroMuted}>
-          <Text style={styles.eyebrow}>{tr(language, 'СЕЙЧАС', 'NOW', '现在')}</Text>
-          <Text style={styles.heroMutedTitle}>
+        <View style={[styles.heroMuted,{backgroundColor:palette.surfaceSoft,borderColor:palette.border}]}>
+          <Text style={[styles.eyebrow,{color:palette.accentStrong}]}>{tr(language, 'СЕЙЧАС', 'NOW', '现在')}</Text>
+          <Text style={[styles.heroMutedTitle,{color:palette.textMuted}]}>
             {state.remainingItems.length > 0
               ? tr(language, 'Между пунктами плана', 'Between planned stops', '当前处于行程空档')
               : tr(language, 'План на сегодня выполнен', 'Today’s plan is complete', '今日计划已完成')}
@@ -138,54 +141,54 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
       )}
 
       {state.nextCommitment ? (
-        <View style={styles.nextBlock}>
+        <View style={[styles.nextBlock,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
           <View style={styles.nextTop}>
-            <Text style={styles.eyebrow}>{tr(language, 'СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', 'NEXT TICKET / BOOKING', '下一张门票 / 预订')}</Text>
+            <Text style={[styles.eyebrow,{color:palette.accentStrong}]}>{tr(language, 'СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', 'NEXT TICKET / BOOKING', '下一张门票 / 预订')}</Text>
             {nextMinutes !== null && nextMinutes >= 0 ? (
-              <Text style={styles.countdown}>{countdownLabel(language, nextMinutes)}</Text>
+              <Text style={[styles.countdown,{color:palette.accentStrong}]}>{countdownLabel(language, nextMinutes)}</Text>
             ) : null}
           </View>
-          <Text style={styles.nextTitle}>{state.nextCommitment.title}</Text>
-          <Text style={styles.nextMeta}>
+          <Text style={[styles.nextTitle,{color:palette.text}]}>{state.nextCommitment.title}</Text>
+          <Text style={[styles.nextMeta,{color:palette.textMuted}]}>
             {timeLabel(state.nextCommitment.plannedStartAt)}
             {state.nextCommitment.commitment?.provider ? ' · ' + state.nextCommitment.commitment.provider : ''}
           </Text>
-          <Text style={styles.truth}>
+          <Text style={[styles.truth,{color:palette.accentStrong}]}>
             {state.nextCommitment.commitment?.verification === 'provider-confirmed'
               ? tr(language, 'Подтверждено провайдером', 'Provider confirmed', '供应商已确认')
               : tr(language, 'Добавлено вами · статус провайдера не проверен', 'Added by you · provider status not verified', '由你添加 · 供应商状态未核验')}
           </Text>
           {state.nextCommitment.commitment?.externalUrl ? (
             <PhysicalPressable
-              style={styles.linkButton}
+              style={[styles.linkButton,{borderColor:palette.borderStrong}]}
               contentStyle={styles.center}
               onPress={() => { void Linking.openURL(state.nextCommitment!.commitment!.externalUrl!); }}
             >
-              <Text style={styles.linkButtonText}>{tr(language, 'Открыть билет / бронь', 'Open ticket / booking', '打开门票 / 预订')}</Text>
+              <Text style={[styles.linkButtonText,{color:palette.accentStrong}]}>{tr(language, 'Открыть билет / бронь', 'Open ticket / booking', '打开门票 / 预订')}</Text>
             </PhysicalPressable>
           ) : null}
         </View>
       ) : state.nextItem ? (
-        <View style={styles.nextBlock}>
-          <Text style={styles.eyebrow}>{tr(language, 'ДАЛЬШЕ', 'NEXT', '接下来')}</Text>
-          <Text style={styles.nextTitle}>{state.nextItem.title}</Text>
-          <Text style={styles.nextMeta}>
+        <View style={[styles.nextBlock,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]}>
+          <Text style={[styles.eyebrow,{color:palette.accentStrong}]}>{tr(language, 'ДАЛЬШЕ', 'NEXT', '接下来')}</Text>
+          <Text style={[styles.nextTitle,{color:palette.text}]}>{state.nextItem.title}</Text>
+          <Text style={[styles.nextMeta,{color:palette.textMuted}]}>
             {timeLabel(state.nextItem.plannedStartAt) ?? tr(language, 'без фиксированного времени', 'no fixed time', '无固定时间')}
           </Text>
         </View>
       ) : null}
 
       {freeWindow ? (
-        <View style={styles.freeWindow}>
-          <Text style={styles.freeTime}>
+        <View style={[styles.freeWindow,{backgroundColor:palette.surfaceSoft,borderColor:palette.border}]}>
+          <Text style={[styles.freeTime,{color:palette.positive}]}>
             {clockLabel(language, freeWindow.startsAt)}–{clockLabel(language, freeWindow.endsAt)}
           </Text>
-          <Text style={styles.freeTitle}>
+          <Text style={[styles.freeTitle,{color:palette.text}]}>
             {state.currentFreeWindow
               ? tr(language, 'Свободное окно сейчас', 'Free window now', '当前空闲时段')
               : tr(language, 'Следующее свободное окно', 'Next free window', '下一个空闲时段')}
           </Text>
-          <Text style={styles.freeWarning}>
+          <Text style={[styles.freeWarning,{color:palette.textSoft}]}>
             {tr(
               language,
               freeWindow.minutes + ' мин по вашему расписанию · дорога и часы работы не проверены',
@@ -197,8 +200,8 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
       ) : null}
 
       {state.conflictCount > 0 ? (
-        <View style={styles.warning}>
-          <Text style={styles.warningText}>
+        <View style={[styles.warning,{backgroundColor:palette.surfaceSoft,borderColor:palette.danger}]}>
+          <Text style={[styles.warningText,{color:palette.danger}]}>
             {tr(
               language,
               'В плане ' + state.conflictCount + ' конфликт времени — проверьте билеты и брони.',
@@ -210,18 +213,18 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
       ) : null}
 
       {state.visitsToday.length > 0 ? (
-        <View style={styles.visited}>
-          <Text style={styles.eyebrow}>{tr(language, 'УЖЕ СЕГОДНЯ', 'SEEN TODAY', '今日已到访')}</Text>
+        <View style={[styles.visited,{borderTopColor:palette.border}]}>
+          <Text style={[styles.eyebrow,{color:palette.accentStrong}]}>{tr(language, 'УЖЕ СЕГОДНЯ', 'SEEN TODAY', '今日已到访')}</Text>
           {state.visitsToday.slice(-3).reverse().map((visit) => (
-            <Text key={visit.id} style={styles.visitedText}>✓ {visit.title}</Text>
+            <Text key={visit.id} style={[styles.visitedText,{color:palette.positive}]}>✓ {visit.title}</Text>
           ))}
         </View>
       ) : null}
 
-      {unseen.length > 0 && freeWindow ? (
-        <View style={styles.unseen}>
-          <Text style={styles.eyebrow}>{tr(language, 'ЕЩЁ НЕ ВИДЕЛИ', 'STILL UNSEEN', '尚未到访')}</Text>
-          <Text style={styles.unseenHint}>
+      {showLegacyUnseen && unseen.length > 0 && freeWindow ? (
+        <View style={[styles.unseen,{borderTopColor:palette.border}]}>
+          <Text style={[styles.eyebrow,{color:palette.accentStrong}]}>{tr(language, 'ЕЩЁ НЕ ВИДЕЛИ', 'STILL UNSEEN', '尚未到访')}</Text>
+          <Text style={[styles.unseenHint,{color:palette.textSoft}]}>
             {tr(
               language,
               'Идеи для рассмотрения — без обещания, что вы успеете или что место открыто.',
@@ -232,12 +235,12 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
           {unseen.map((node) => (
             <PhysicalPressable
               key={node.id}
-              style={styles.unseenRow}
+              style={[styles.unseenRow,{backgroundColor:palette.surfaceSoft}]}
               contentStyle={styles.unseenContent}
               onPress={() => onOpenPlace(node.id)}
             >
-              <Text style={styles.unseenTitle}>{nodeTitle(language, node)}</Text>
-              <Text style={styles.unseenArrow}>→</Text>
+              <Text style={[styles.unseenTitle,{color:palette.text}]}>{nodeTitle(language, node)}</Text>
+              <Text style={[styles.unseenArrow,{color:palette.accentStrong}]}>→</Text>
             </PhysicalPressable>
           ))}
         </View>

@@ -1,5 +1,8 @@
 # Moscow — Spatial Heritage Integration Master Plan
 
+> **Scope correction — 2026-10-07**  
+> This document is now the engineering sub-plan for optional spatial-heritage experiences only. It does **not** gate the broad Moscow tourist MVP, partner marketplace, event discovery, trip planning, My Moscow, demand intelligence or city load-balancing layers. Romanov Chambers / Old English Court / Varvarka are replaceable validation/demo assets. Product authority is now `docs/MOSCOW_PRODUCT_MASTER_PLAN_2026-10-07.md`.
+
 **Status:** EXECUTING — MOSCOW-INT-00 BLOCKED ON REAL FIELD / USER EVIDENCE  
 **Date:** 2026-10-01  
 **Canonical file:** `docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md`

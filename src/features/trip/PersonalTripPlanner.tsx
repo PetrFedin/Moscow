@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -10,7 +9,6 @@ import {
   addManualTripItem,
   createPersonalTrip,
   getUnseenDestinationNodes,
-  parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
   resolvePersonalTripPreferences,
@@ -20,6 +18,21 @@ import {
   type PersonalTripCommitment,
   type PersonalTripItemKind
 } from '../../travel/personalTrip';
+import { cityDiscoveryDemoCatalog } from '../../travel/cityDiscoveryDemoCatalog';
+import {
+  addDiscoveryItemToTrip,
+  discoveryItemTitle,
+  suggestDiscoveryTripPlacements,
+  type DiscoveryTripPlacement
+} from '../../travel/discoveryTripBridge';
+import {
+  clearPendingDiscoveryAdd,
+  clearPersonalTrip,
+  loadPendingDiscoveryAdd,
+  loadPersonalTrip,
+  savePersonalTrip,
+  type PendingDiscoveryAdd
+} from '../../persistence/personalTripStorage';
 import {
   deriveTripFreeWindows,
   detectTripScheduleConflicts,
@@ -32,8 +45,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
-
-export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   language: AppLanguage;
@@ -182,6 +194,7 @@ export default function PersonalTripPlanner({
   visitedIds,
   onOpenPlace
 }: Props) {
+  const { palette } = useMoscowTheme();
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
@@ -200,18 +213,25 @@ export default function PersonalTripPlanner({
   const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [pendingDiscoveryAdd, setPendingDiscoveryAdd] = useState<PendingDiscoveryAdd | null>(null);
+  const [pendingPlacementId, setPendingPlacementId] = useState('');
+  const [pendingCommitmentMode, setPendingCommitmentMode] = useState<PendingDiscoveryAdd['requestedMode']>('plan-only');
 
   useEffect(() => {
-    AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const restored = parsePersonalTrip(raw);
-        setTrip(restored);
-        setSelectedDay(
-          restored.days.includes(localDateOnly())
-            ? localDateOnly()
-            : restored.days[0] ?? restored.startDate
-        );
+    Promise.all([loadPersonalTrip(), loadPendingDiscoveryAdd()])
+      .then(([restored, pending]) => {
+        if (restored) {
+          setTrip(restored);
+          setSelectedDay(
+            restored.days.includes(localDateOnly())
+              ? localDateOnly()
+              : restored.days[0] ?? restored.startDate
+          );
+        }
+        if (pending) {
+          setPendingDiscoveryAdd(pending);
+          setPendingCommitmentMode(pending.requestedMode);
+        }
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -219,7 +239,7 @@ export default function PersonalTripPlanner({
 
   useEffect(() => {
     if (!hydrated || !trip) return;
-    AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, JSON.stringify(trip)).catch(() => undefined);
+    savePersonalTrip(trip).catch(() => undefined);
   }, [hydrated, trip]);
 
   useEffect(() => {
@@ -267,6 +287,26 @@ export default function PersonalTripPlanner({
     () => trip ? detectTripScheduleConflicts(trip).filter((conflict) => conflict.dayDate === selectedDay) : [],
     [selectedDay, trip]
   );
+  const pendingDiscoveryItem = useMemo(
+    () => pendingDiscoveryAdd
+      ? cityDiscoveryDemoCatalog.find((item) => item.id === pendingDiscoveryAdd.discoveryItemId) ?? null
+      : null,
+    [pendingDiscoveryAdd]
+  );
+  const pendingPlacements = useMemo(
+    () => trip && pendingDiscoveryItem
+      ? suggestDiscoveryTripPlacements({ trip, item: pendingDiscoveryItem, maxPerDay: 2 })
+      : [],
+    [pendingDiscoveryItem, trip]
+  );
+  const pendingPlacement = useMemo(
+    () => pendingPlacements.find((placement) => placement.id === pendingPlacementId)
+      ?? pendingPlacements.find((placement) => !placement.conflict)
+      ?? pendingPlacements[0]
+      ?? null,
+    [pendingPlacementId, pendingPlacements]
+  );
+
   const freeWindows = useMemo(() => {
     if (!trip || !trip.days.includes(selectedDay)) return [];
     return deriveTripFreeWindows({
@@ -291,6 +331,34 @@ export default function PersonalTripPlanner({
     tripPreferences?.lunchWindow?.start,
     tripPreferences?.lunchWindow?.end
   ]);
+
+  const confirmPendingDiscoveryAdd = async () => {
+    if (!trip || !pendingDiscoveryItem || !pendingPlacement || pendingPlacement.conflict) return;
+    try {
+      const next = addDiscoveryItemToTrip({
+        trip,
+        item: pendingDiscoveryItem,
+        placement: pendingPlacement,
+        language,
+        itemId: itemId(`discovery:${pendingDiscoveryItem.id}`),
+        updatedAt: new Date().toISOString(),
+        commitmentMode: pendingCommitmentMode
+      });
+      setTrip(next);
+      setSelectedDay(pendingPlacement.dayDate);
+      setPendingDiscoveryAdd(null);
+      setPendingPlacementId('');
+      await clearPendingDiscoveryAdd();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'discovery-add-failed');
+    }
+  };
+
+  const cancelPendingDiscoveryAdd = async () => {
+    setPendingDiscoveryAdd(null);
+    setPendingPlacementId('');
+    await clearPendingDiscoveryAdd().catch(() => undefined);
+  };
 
   const createTrip = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
@@ -434,9 +502,9 @@ export default function PersonalTripPlanner({
 
   if (!trip) {
     return (
-      <View style={styles.root}>
-        <Text style={styles.kicker}>{tr(language, 'МОЯ ПОЕЗДКА', 'MY TRIP', '我的行程')}</Text>
-        <Text style={styles.title}>
+      <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
+        <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'МОЙ ПЛАН', 'MY PLAN', '我的计划')}</Text>
+        <Text style={[styles.title,{color:palette.text}]}>
           {tr(
             language,
             'Соберите Москву по дням',
@@ -444,7 +512,7 @@ export default function PersonalTripPlanner({
             '按天规划莫斯科行程'
           )}
         </Text>
-        <Text style={styles.body}>
+        <Text style={[styles.body,{color:palette.textMuted}]}>
           {tr(
             language,
             'Добавляйте места, рестораны, театры, события и уже купленные билеты. После визита они останутся в вашей истории Москвы.',
@@ -453,17 +521,17 @@ export default function PersonalTripPlanner({
           )}
         </Text>
 
-        <Text style={styles.label}>{tr(language, 'ДАТА ПРИЕЗДА', 'ARRIVAL DATE', '抵达日期')}</Text>
+        <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДАТА ПРИЕЗДА', 'ARRIVAL DATE', '抵达日期')}</Text>
         <TextInput
           value={startDateInput}
           onChangeText={setStartDateInput}
           placeholder="2026-10-02"
-          placeholderTextColor="#666d75"
-          style={styles.input}
+          placeholderTextColor={palette.textSoft}
+          style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
           autoCapitalize="none"
         />
 
-        <Text style={styles.label}>{tr(language, 'СКОЛЬКО ДНЕЙ', 'HOW MANY DAYS', '行程天数')}</Text>
+        <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'СКОЛЬКО ДНЕЙ', 'HOW MANY DAYS', '行程天数')}</Text>
         <View style={styles.chips}>
           {durationOptions.map((days) => (
             <PhysicalPressable
@@ -477,32 +545,32 @@ export default function PersonalTripPlanner({
           ))}
         </View>
 
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={createTrip}>
-          <Text style={styles.primaryText}>{tr(language, 'Создать поездку', 'Create trip', '创建行程')}</Text>
+        <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={createTrip}>
+          <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Создать план', 'Create plan', '创建计划')}</Text>
         </PhysicalPressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>{tr(language, 'МОЯ ПОЕЗДКА', 'MY TRIP', '我的行程')}</Text>
-          <Text style={styles.title}>{trip.title}</Text>
-          <Text style={styles.body}>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'МОЙ ПЛАН', 'MY PLAN', '我的计划')}</Text>
+          <Text style={[styles.title,{color:palette.text}]}>{trip.title}</Text>
+          <Text style={[styles.body,{color:palette.textMuted}]}>
             {trip.startDate} → {trip.endDate}
           </Text>
         </View>
         <PhysicalPressable
-          style={styles.reset}
+          style={[styles.reset,{borderColor:palette.borderStrong}]}
           contentStyle={styles.center}
           onPress={() => {
             setTrip(null);
-            AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY).catch(() => undefined);
+            clearPersonalTrip().catch(() => undefined);
           }}
         >
-          <Text style={styles.resetText}>{tr(language, 'Новая', 'New', '新行程')}</Text>
+          <Text style={[styles.resetText,{color:palette.accentStrong}]}>{tr(language, 'Новый план', 'New plan', '新计划')}</Text>
         </PhysicalPressable>
       </View>
 
@@ -536,7 +604,110 @@ export default function PersonalTripPlanner({
         onUpdate={setTrip}
       />
 
-      <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
+      {pendingDiscoveryAdd && pendingDiscoveryItem && (
+        <View style={styles.discoveryAddCard}>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ДОБАВИТЬ ИЗ EXPLORE', 'ADD FROM EXPLORE', '从探索添加')}</Text>
+          <Text style={styles.discoveryAddTitle}>{discoveryItemTitle(pendingDiscoveryItem, language)}</Text>
+          <Text style={styles.discoveryAddMeta}>{pendingDiscoveryItem.district} · {pendingDiscoveryItem.durationMinutes} min · {pendingDiscoveryItem.truth.toUpperCase()}</Text>
+
+          {pendingPlacements.length === 0 ? (
+            <Text style={styles.discoveryAddWarning}>
+              {tr(
+                language,
+                'Не найдено допустимого времени внутри дат плана. Выберите другой день/событие или измените план.',
+                'No valid placement exists inside this plan. Choose another day/event or change the plan.',
+                '当前计划内没有可用时段。请选择其他日期/活动或调整计划。'
+              )}
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДЕНЬ И ВРЕМЯ', 'DAY & TIME', '日期与时间')}</Text>
+              <View style={styles.discoveryPlacementList}>
+                {pendingPlacements.map((placement) => (
+                  <PhysicalPressable
+                    key={placement.id}
+                    style={[
+                      styles.discoveryPlacement,
+                      pendingPlacement?.id === placement.id && styles.discoveryPlacementActive,
+                      placement.conflict && styles.discoveryPlacementConflict
+                    ]}
+                    contentStyle={styles.discoveryPlacementContent}
+                    onPress={() => {
+                      setPendingPlacementId(placement.id);
+                      setSelectedDay(placement.dayDate);
+                    }}
+                  >
+                    <View style={styles.discoveryPlacementCopy}>
+                      <Text style={styles.discoveryPlacementTime}>
+                        {shortDay(language, placement.dayDate)} · {moscowTimeLabel(language, placement.startsAt)}–{moscowTimeLabel(language, placement.endsAt)}
+                      </Text>
+                      <Text style={styles.discoveryPlacementMeta}>
+                        {placement.source === 'event-time'
+                          ? tr(language, 'Время события', 'Event time', '活动时间')
+                          : tr(language, 'Свободное окно', 'Free window', '空闲时段')}
+                        {' · '}
+                        {placement.routingVerified
+                          ? tr(language, 'маршрут проверен', 'routing verified', '路线已核验')
+                          : tr(language, 'дорога пока не проверена', 'travel not yet verified', '交通尚未核验')}
+                      </Text>
+                    </View>
+                    <Text style={placement.conflict ? styles.discoveryConflictText : styles.discoveryOkText}>
+                      {placement.conflict
+                        ? tr(language, 'КОНФЛИКТ', 'CONFLICT', '冲突')
+                        : tr(language, 'ПОДХОДИТ', 'FITS', '可用')}
+                    </Text>
+                  </PhysicalPressable>
+                ))}
+              </View>
+
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'У МЕНЯ УЖЕ ЕСТЬ', 'I ALREADY HAVE', '我已经有')}</Text>
+              <View style={styles.chips}>
+                {([
+                  ['plan-only', tr(language, 'Только план', 'Plan only', '仅计划')],
+                  ['user-ticket', tr(language, 'Билет', 'Ticket', '门票')],
+                  ['user-reservation', tr(language, 'Бронь', 'Reservation', '预订')]
+                ] as const).map(([mode,label]) => (
+                  <PhysicalPressable
+                    key={mode}
+                    style={[styles.commitChip, pendingCommitmentMode === mode && styles.commitChipActive]}
+                    contentStyle={styles.center}
+                    onPress={() => setPendingCommitmentMode(mode)}
+                  >
+                    <Text style={[styles.commitText, pendingCommitmentMode === mode && styles.commitTextActive]}>{label}</Text>
+                  </PhysicalPressable>
+                ))}
+              </View>
+              {pendingCommitmentMode !== 'plan-only' && (
+                <Text style={styles.truthNote}>
+                  {tr(
+                    language,
+                    'Будет сохранено как указанное вами подтверждение. Это не provider confirmation.',
+                    'Saved as confirmation declared by you. This is not provider confirmation.',
+                    '将保存为你自行声明的确认信息，并非供应商确认。'
+                  )}
+                </Text>
+              )}
+
+              <View style={styles.discoveryAddActions}>
+                <PhysicalPressable
+                  style={[styles.primary, (!pendingPlacement || pendingPlacement.conflict) && styles.disabled]}
+                  contentStyle={styles.center}
+                  strong
+                  disabled={!pendingPlacement || pendingPlacement.conflict}
+                  onPress={() => { void confirmPendingDiscoveryAdd(); }}
+                >
+                  <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Добавить в план', 'Add to plan', '加入计划')}</Text>
+                </PhysicalPressable>
+                <PhysicalPressable style={styles.secondaryInline} contentStyle={styles.center} onPress={() => { void cancelPendingDiscoveryAdd(); }}>
+                  <Text style={styles.secondaryInlineText}>{tr(language, 'Отмена', 'Cancel', '取消')}</Text>
+                </PhysicalPressable>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
+      <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДНИ ПЛАНА', 'PLAN DAYS', '计划日期')}</Text>
       <View style={styles.dayChips}>
         {trip.days.map((day, index) => (
           <PhysicalPressable
@@ -555,7 +726,7 @@ export default function PersonalTripPlanner({
 
       <View style={styles.sectionTop}>
         <View>
-          <Text style={styles.kicker}>{tr(language, 'ПЛАН ДНЯ', 'DAY PLAN', '当天计划')}</Text>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ПЛАН ДНЯ', 'DAY PLAN', '当天计划')}</Text>
           <Text style={styles.sectionTitle}>{shortDay(language, selectedDay)}</Text>
         </View>
         <PhysicalPressable style={styles.smallPrimary} contentStyle={styles.center} onPress={() => setManualOpen((value) => !value)}>
@@ -571,10 +742,10 @@ export default function PersonalTripPlanner({
             onChangeText={setManualTitle}
             placeholder={tr(language, 'Например: Большой театр', 'For example: Bolshoi Theatre', '例如：莫斯科大剧院')}
             placeholderTextColor="#626972"
-            style={styles.input}
+            style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
           />
 
-          <Text style={styles.label}>{tr(language, 'ТИП', 'TYPE', '类型')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ТИП', 'TYPE', '类型')}</Text>
           <View style={styles.wrapChips}>
             {manualKinds.map((kind) => (
               <PhysicalPressable
@@ -592,28 +763,28 @@ export default function PersonalTripPlanner({
 
           <View style={styles.inlineFields}>
             <View style={styles.field}>
-              <Text style={styles.label}>{tr(language, 'ВРЕМЯ', 'TIME', '时间')}</Text>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ВРЕМЯ', 'TIME', '时间')}</Text>
               <TextInput
                 value={manualTime}
                 onChangeText={setManualTime}
                 placeholder="19:00"
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
               />
             </View>
             <View style={styles.field}>
-              <Text style={styles.label}>{tr(language, 'ДО', 'UNTIL', '结束')}</Text>
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ДО', 'UNTIL', '结束')}</Text>
               <TextInput
                 value={manualEndTime}
                 onChangeText={setManualEndTime}
                 placeholder="21:00"
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
               />
             </View>
           </View>
 
-          <Text style={styles.label}>{tr(language, 'УЖЕ ЕСТЬ', 'ALREADY HAVE', '已有')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'УЖЕ ЕСТЬ', 'ALREADY HAVE', '已有')}</Text>
           <View style={styles.chips}>
             {(['none', 'ticket', 'reservation'] as CommitmentChoice[]).map((choice) => (
               <PhysicalPressable
@@ -648,7 +819,7 @@ export default function PersonalTripPlanner({
                 onChangeText={setManualProvider}
                 placeholder={tr(language, 'Где куплено / забронировано', 'Where it was booked / bought', '购买 / 预订平台')}
                 placeholderTextColor="#626972"
-                style={styles.input}
+                style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]}
               />
               <TextInput
                 value={manualReference}
@@ -697,8 +868,8 @@ export default function PersonalTripPlanner({
                 : tr(language, 'Проверьте время и данные пункта', 'Check the time and item details', '请检查时间和项目详情')}
             </Text>
           ) : null}
-          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={addManual}>
-            <Text style={styles.primaryText}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
+          <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={addManual}>
+            <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
           </PhysicalPressable>
         </View>
       )}
@@ -850,7 +1021,7 @@ export default function PersonalTripPlanner({
 
       {freeWindows.length > 0 && (
         <>
-          <Text style={styles.label}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'FREE WINDOWS', '空闲时段')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'FREE WINDOWS', '空闲时段')}</Text>
           <View style={styles.freeWindows}>
             {freeWindows.map((window) => (
               <View key={`${window.startsAt}:${window.endsAt}`} style={styles.freeWindow}>
@@ -866,7 +1037,7 @@ export default function PersonalTripPlanner({
 
       {savedNodes.length > 0 && (
         <>
-          <Text style={styles.label}>{tr(language, 'ИЗ СОХРАНЁННОГО', 'FROM SAVED', '从收藏中添加')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ИЗ СОХРАНЁННОГО', 'FROM SAVED', '从收藏中添加')}</Text>
           <View style={styles.quickList}>
             {savedNodes.slice(0, 5).map((node) => {
               const added = trip.items.some((item) => item.destinationNodeId === node.id && item.dayDate === selectedDay);
@@ -895,7 +1066,7 @@ export default function PersonalTripPlanner({
         <>
           <View style={styles.sectionTop}>
             <View>
-              <Text style={styles.kicker}>{tr(language, 'ЧТО ЕЩЁ УВИДЕТЬ', 'WHAT ELSE TO SEE', '还可以去哪里')}</Text>
+              <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'ЧТО ЕЩЁ УВИДЕТЬ', 'WHAT ELSE TO SEE', '还可以去哪里')}</Text>
               <Text style={styles.sectionTitle}>{tr(language, 'Ещё не в плане и не посещено', 'Not planned or visited yet', '尚未计划或到访')}</Text>
             </View>
           </View>
@@ -1005,5 +1176,22 @@ const styles = StyleSheet.create({
   freeWindows: { gap: 6 },
   freeWindow: { borderRadius: 13, borderWidth: 1, borderColor: '#313941', backgroundColor: '#151a1f', padding: 10 },
   freeWindowTime: { color: '#d5bd8d', fontSize: 11, fontWeight: '900' },
-  freeWindowMeta: { color: '#79818a', fontSize: 8.5, marginTop: 3 }
+  freeWindowMeta: { color: '#79818a', fontSize: 8.5, marginTop: 3 },
+  discoveryAddCard: { borderRadius: 19, borderWidth: 1, borderColor: '#5d4d31', backgroundColor: '#17140f', padding: 14, marginTop: 16, marginBottom: 6 },
+  discoveryAddTitle: { color: '#f6e9cf', fontSize: 17, lineHeight: 22, fontWeight: '900', marginTop: 5 },
+  discoveryAddMeta: { color: '#9d8d70', fontSize: 8.5, marginTop: 4 },
+  discoveryAddWarning: { color: '#d5a199', fontSize: 9.5, lineHeight: 14, marginTop: 10 },
+  discoveryPlacementList: { gap: 6 },
+  discoveryPlacement: { minHeight: 56, borderRadius: 13, borderWidth: 1, borderColor: '#343a42', backgroundColor: '#171b20' },
+  discoveryPlacementActive: { borderColor: '#a98b57', backgroundColor: '#221c13' },
+  discoveryPlacementConflict: { borderColor: '#714b45', backgroundColor: '#211716' },
+  discoveryPlacementContent: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10 },
+  discoveryPlacementCopy: { flex: 1, minWidth: 0 },
+  discoveryPlacementTime: { color: '#e6dfd2', fontSize: 10, fontWeight: '900' },
+  discoveryPlacementMeta: { color: '#7f858c', fontSize: 8, lineHeight: 11, marginTop: 3 },
+  discoveryOkText: { color: '#9db69f', fontSize: 7.5, fontWeight: '900' },
+  discoveryConflictText: { color: '#d19a92', fontSize: 7.5, fontWeight: '900' },
+  discoveryAddActions: { flexDirection: 'row', gap: 8, alignItems: 'stretch', marginTop: 2 },
+  secondaryInline: { minHeight: 50, borderRadius: 15, borderWidth: 1, borderColor: '#454b53', paddingHorizontal: 12, marginTop: 14 },
+  secondaryInlineText: { color: '#a9aeb4', fontSize: 9, fontWeight: '900' }
 });

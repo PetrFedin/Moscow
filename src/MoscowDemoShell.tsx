@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MoscowExperienceApp from './MoscowExperienceApp';
 import GovernmentPartnershipDemo from './government/GovernmentPartnershipDemo';
+import InvestorMvpDemo from './government/InvestorMvpDemo';
 import {
   parseGovernmentMeetingEntryUrl,
   type GovernmentMeetingEntryMode
@@ -14,25 +15,42 @@ import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import { detectLanguage } from './i18n';
 import PhysicalPressable from './ui/PhysicalPressable';
+import { useMoscowTheme } from './theme/MoscowTheme';
 
 type DemoStage = null | 'lens' | 'model' | 'spatial';
 type DemoEra = '1857' | '1859';
 type DemoTrust = 'documented' | 'public';
+type LocalPreviewMode = 'auto' | 'phone' | 'tablet' | 'desktop';
+
+const LOCAL_PREVIEW_WIDTHS: Record<Exclude<LocalPreviewMode, 'auto'>, number> = {
+  phone: 390,
+  tablet: 834,
+  desktop: 1440
+};
 
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 export default function MoscowDemoShell() {
+  const { mode: themeMode, palette, toggleTheme } = useMoscowTheme();
   const [stage, setStage] = useState<DemoStage>(null);
   const [governmentOpen, setGovernmentOpen] = useState(false);
+  const [investorOpen, setInvestorOpen] = useState(false);
   const [governmentEntryMode, setGovernmentEntryMode] =
     useState<GovernmentMeetingEntryMode>('overview');
   const [demoEra, setDemoEra] = useState<DemoEra>('1857');
   const [demoTrust, setDemoTrust] = useState<DemoTrust>('public');
+  const [localPreviewMode, setLocalPreviewMode] = useState<LocalPreviewMode>('auto');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const language = detectLanguage();
   const romanov = useMemo(() => places.find((place) => place.id === 'romanov-chambers'), []);
   const demoEnabled = __DEV__ || Platform.OS === 'web' || process.env.EXPO_PUBLIC_DEMO_MODE === '1';
+  const localDeviceLabEnabled =
+    Platform.OS === 'web' &&
+    typeof globalThis.location !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(globalThis.location.hostname);
+  const forcedViewportWidth =
+    localPreviewMode === 'auto' ? undefined : LOCAL_PREVIEW_WIDTHS[localPreviewMode];
 
   useEffect(() => {
     if (!demoEnabled) return;
@@ -64,26 +82,72 @@ export default function MoscowDemoShell() {
   };
 
   return (
-    <View style={styles.root}>
-      <MoscowExperienceApp />
+    <View style={[styles.root,{backgroundColor:palette.background}]}>
+      <View
+        testID="local-preview-frame"
+        style={[
+          styles.previewHost,
+          {backgroundColor:palette.background},
+          forcedViewportWidth !== undefined && {
+            width: forcedViewportWidth,
+            maxWidth: '100%',
+            alignSelf: 'center'
+          }
+        ]}
+      >
+        <MoscowExperienceApp forcedViewportWidth={forcedViewportWidth} />
+      </View>
+
+      {localDeviceLabEnabled && (
+        <View testID="local-device-lab" style={[styles.deviceLab,{backgroundColor:palette.surfaceRaised,borderColor:palette.borderStrong}]}>
+          <Text style={[styles.deviceLabTitle,{color:palette.textSoft}]}>LOCAL DEVICE LAB</Text>
+          <View style={styles.deviceLabRow}>
+            {([
+              ['auto', 'AUTO'],
+              ['phone', 'PHONE · 390'],
+              ['tablet', 'TABLET · 834'],
+              ['desktop', 'DESKTOP · 1440']
+            ] as const).map(([mode, label]) => (
+              <PhysicalPressable
+                key={mode}
+                style={[styles.deviceLabButton, localPreviewMode === mode && styles.deviceLabButtonActive]}
+                contentStyle={styles.centerContent}
+                hapticEvent="none"
+                onPress={() => setLocalPreviewMode(mode)}
+              >
+                <Text style={[styles.deviceLabText, localPreviewMode === mode && styles.deviceLabTextActive]}>{label}</Text>
+              </PhysicalPressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      <PhysicalPressable
+        testID="theme-toggle"
+        accessibilityRole="button"
+        accessibilityLabel={themeMode==='dark'?'Включить светлую тему':'Включить тёмную тему'}
+        style={[styles.themeButton,{backgroundColor:palette.surfaceRaised,borderColor:palette.borderStrong}]}
+        contentStyle={styles.centerContent}
+        hapticEvent="none"
+        onPress={toggleTheme}
+      >
+        <Text style={[styles.themeIcon,{color:palette.text}]}>{themeMode==='dark'?'☀':'☾'}</Text>
+      </PhysicalPressable>
 
       {demoEnabled && (
         <>
           <PhysicalPressable
             accessibilityRole="button"
-            accessibilityLabel="Открыть сценарий городского пилота и сотрудничества"
+            accessibilityLabel="Открыть investor MVP для Москвы"
             style={styles.cityButton}
             contentStyle={styles.demoButtonContent}
             strong
-            onPress={() => {
-              setGovernmentEntryMode('overview');
-              setGovernmentOpen(true);
-            }}
+            onPress={() => setInvestorOpen(true)}
           >
             <Text style={styles.cityMark}>M</Text>
             <View>
-              <Text style={styles.cityKicker}>CITY</Text>
-              <Text style={styles.cityText}>PILOT</Text>
+              <Text style={styles.cityKicker}>MOSCOW</Text>
+              <Text style={styles.cityText}>INVESTOR MVP</Text>
             </View>
           </PhysicalPressable>
 
@@ -98,11 +162,15 @@ export default function MoscowDemoShell() {
           <Text style={styles.demoStar}>✦</Text>
           <View>
             <Text style={styles.demoKicker}>WOW</Text>
-            <Text style={styles.demoText}>DEMO</Text>
+            <Text style={styles.demoText}>3D</Text>
           </View>
           </PhysicalPressable>
         </>
       )}
+
+      <Modal visible={investorOpen} animationType="slide" onRequestClose={() => setInvestorOpen(false)}>
+        <InvestorMvpDemo onClose={() => setInvestorOpen(false)} />
+      </Modal>
 
       <Modal visible={governmentOpen} animationType="slide" onRequestClose={() => setGovernmentOpen(false)}>
         <GovernmentPartnershipDemo
@@ -165,7 +233,28 @@ export default function MoscowDemoShell() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#050607' },
+  previewHost: { flex: 1, minWidth: 0, overflow: 'hidden', backgroundColor: '#090b0d' },
+  themeButton: { position:'absolute', right:14, top:14, zIndex:120, width:44, height:44, borderRadius:22, borderWidth:1, shadowColor:'#000', shadowOpacity:0.12, shadowRadius:8, shadowOffset:{width:0,height:3} },
+  themeIcon: { fontSize:18, fontWeight:'900' },
+  deviceLab: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    zIndex: 100,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#3d434a',
+    backgroundColor: 'rgba(10,12,15,0.94)',
+    padding: 8,
+    maxWidth: '94%'
+  },
+  deviceLabTitle: { color: '#767d84', fontSize: 7, letterSpacing: 1.1, fontWeight: '900', marginBottom: 6 },
+  deviceLabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  deviceLabButton: { minHeight: 30, borderRadius: 9, borderWidth: 1, borderColor: '#343a41', paddingHorizontal: 8 },
+  deviceLabButtonActive: { borderColor: '#a38758', backgroundColor: '#272016' },
+  deviceLabText: { color: '#858d95', fontSize: 7, fontWeight: '900' },
+  deviceLabTextActive: { color: '#e3c58b' },
   cityButton: {
     position: 'absolute',
     right: 14,

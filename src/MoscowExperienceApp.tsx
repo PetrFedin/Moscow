@@ -8,7 +8,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  useWindowDimensions
 } from 'react-native';
 import { trackTouristEvent } from './analytics/touristAnalytics';
 import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from './analytics/touristAnalyticsContract';
@@ -21,6 +22,12 @@ import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
 import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
 import PersonalTripPlanner from './features/trip/PersonalTripPlanner';
+import CityTripOverview from './features/trip/CityTripOverview';
+import CityPulseDemo from './features/trip/CityPulseDemo';
+import CityExploreDemo from './features/trip/CityExploreDemo';
+import TripTodaySurface from './features/trip/TripTodaySurface';
+import TripWalletSurface from './features/trip/TripWalletSurface';
+import MoscowMemorySurface from './features/trip/MoscowMemorySurface';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -28,6 +35,7 @@ import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { savePendingDiscoveryAdd } from './persistence/personalTripStorage';
 import {
   canOpenArchiveLens,
   canOpenModel3d,
@@ -39,6 +47,7 @@ import PhysicalPressable from './ui/PhysicalPressable';
 import PhysicalSheet from './ui/PhysicalSheet';
 import TimeMachineSlider from './ui/TimeMachineSlider';
 import type { StableSheetState } from './ui/interactionPhysics';
+import { useMoscowTheme } from './theme/MoscowTheme';
 
 type Tab = PersistedTab;
 type ModalMode = null | 'lens' | 'model' | 'spatial';
@@ -51,7 +60,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 const copy = {
   ru: {
-    discover: 'Открыть', map: 'Карта', walk: 'Прогулка', trip: 'Поездка', savedTab: 'Моя Москва',
+    todayTab: 'Сегодня', discover: 'Москва', map: 'Карта', walk: 'История', trip: 'План', walletTab: 'Wallet', savedTab: 'Моя Москва',
     cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
     hero: 'Москва раскрывается прямо вокруг вас',
     heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
@@ -66,7 +75,7 @@ const copy = {
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
   },
   en: {
-    discover: 'Discover', map: 'Map', walk: 'Walk', trip: 'My Trip', savedTab: 'My Moscow',
+    todayTab: 'Today', discover: 'Moscow', map: 'Map', walk: 'Heritage', trip: 'Plan', walletTab: 'Wallet', savedTab: 'My Moscow',
     cityTime: 'THE CITY AS A TIME MACHINE',
     hero: 'Moscow reveals itself around you',
     heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
@@ -82,7 +91,7 @@ const copy = {
   }
 ,
   zh: {
-    discover: '发现', map: '地图', walk: '路线', trip: '行程', savedTab: '我的莫斯科',
+    todayTab: '今天', discover: '莫斯科', map: '地图', walk: '历史', trip: '计划', walletTab: 'Wallet', savedTab: '我的莫斯科',
     cityTime: '把城市变成时光机',
     hero: '莫斯科就在你身边逐层展开',
     heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
@@ -104,7 +113,17 @@ const evidenceLabel = {
   zh: { documented: '有文献依据', reconstructed: '学术重建', hypothesis: '假设' }
 } as const;
 
-export default function MoscowExperienceApp() {
+type MoscowExperienceAppProps = {
+  forcedViewportWidth?: number;
+};
+
+export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExperienceAppProps = {}) {
+  const { mode: themeMode, palette } = useMoscowTheme();
+  const { width: actualViewportWidth } = useWindowDimensions();
+  const viewportWidth = forcedViewportWidth ?? actualViewportWidth;
+  const isDesktop = viewportWidth >= 1180;
+  const isTablet = viewportWidth >= 720 && viewportWidth < 1180;
+  const isWide = isTablet || isDesktop;
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
   const [selectedId, setSelectedId] = useState('romanov-chambers');
@@ -137,10 +156,12 @@ export default function MoscowExperienceApp() {
 
   const ui = copy[language];
   const tabLabels: Record<Tab, string> = {
+    today: ui.todayTab,
     discover: ui.discover,
     map: ui.map,
     walk: ui.walk,
     trip: ui.trip,
+    wallet: ui.walletTab,
     saved: ui.savedTab
   };
   const localizedPlaces = useMemo(() => localizePlaces(places, language), [language]);
@@ -494,23 +515,53 @@ export default function MoscowExperienceApp() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar style="light" />
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.root,{backgroundColor:palette.background}]}>
+      <StatusBar style={themeMode==='dark'?'light':'dark'} />
+      <View style={[styles.header,{backgroundColor:palette.surface,borderBottomColor:palette.border}]}>
         <View style={styles.headerCopy}>
-          <Text style={styles.brand}>MOSCOW · TIME</Text>
-          <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
+          <Text style={[styles.brand,{color:palette.textSoft}]}>MOSCOW · MEMORY</Text>
+          <Text style={[styles.headerTitle,{color:palette.text}]}>{tabLabels[tab]}</Text>
         </View>
         <PhysicalPressable
-          style={styles.language}
+          style={[styles.language,{backgroundColor:palette.surfaceSoft}]}
           contentStyle={styles.center}
           onPress={() => setLanguage(nextLanguage(language))}
           accessibilityLabel="Change language"
         >
-          <Text style={styles.languageText}>{language.toUpperCase()}</Text>
+          <Text style={[styles.languageText,{color:palette.accentStrong}]}>{language.toUpperCase()}</Text>
         </PhysicalPressable>
       </View>
 
+      <View style={styles.workspace}>
+        {isWide && (
+          <View
+            testID="responsive-sidebar"
+            style={[styles.sideNav,{backgroundColor:palette.surface,borderRightColor:palette.border}, isDesktop ? styles.sideNavDesktop : styles.sideNavTablet]}
+          >
+            <Text style={[styles.sideNavKicker,{color:palette.textSoft}]}>{isDesktop ? 'MOSCOW · PLAN & MEMORY' : 'MOSCOW'}</Text>
+            <View style={styles.sideNavItems}>
+              {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
+                <PhysicalPressable
+                  key={item}
+                  style={[styles.sideNavItem, tab === item && styles.sideNavItemActive,tab===item&&{backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]}
+                  contentStyle={styles.sideNavItemContent}
+                  hapticEvent="none"
+                  onPress={() => setTab(item)}
+                >
+                  <Text style={[styles.sideNavText,{color:palette.textMuted}, tab === item && styles.sideNavTextActive,tab===item&&{color:palette.accentStrong}]}>{tabLabels[item]}</Text>
+                </PhysicalPressable>
+              ))}
+            </View>
+            <View style={styles.sideNavFoot}>
+              <Text style={[styles.sideNavMode,{color:palette.accentStrong}]}>{isDesktop ? tr(language, 'МОНИТОР', 'DESKTOP', '桌面') : tr(language, 'ПЛАНШЕТ', 'TABLET', '平板')}</Text>
+              <Text style={[styles.sideNavHint,{color:palette.textSoft}]}>
+                {tr(language, 'Навигация остаётся слева, контент не растягивается на всю ширину.', 'Navigation stays left and content keeps a readable width.', '导航固定在左侧，内容保持舒适阅读宽度。')}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <View testID="responsive-main" style={[styles.mainSurface,{backgroundColor:palette.background}]}>
       {tab === 'map' ? (
         <View style={styles.mapPage}>
           <View style={styles.mapStage}>
@@ -548,41 +599,82 @@ export default function MoscowExperienceApp() {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          testID="content-scroll"
+          contentContainerStyle={[
+            styles.content,
+            isTablet && styles.contentTablet,
+            isDesktop && styles.contentDesktop
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {tab === 'today' && (
+            <TripTodaySurface
+              language={language}
+              onOpenTrip={() => setTab('trip')}
+            />
+          )}
+
+          {tab === 'wallet' && (
+            <TripWalletSurface
+              language={language}
+              onOpenTrip={() => setTab('trip')}
+            />
+          )}
+
           {tab === 'discover' && (
             <>
-              <View style={styles.hero}>
-                <Text style={styles.kicker}>{ui.cityTime}</Text>
-                <Text style={styles.heroTitle}>{ui.hero}</Text>
-                <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={openWalkFromHero}>
-                  <Text style={styles.primaryText}>
-                    {routeFinished
-                      ? tr(language, 'Пройти Варварку ещё раз', 'Walk Varvarka again', '再次体验瓦尔瓦尔卡')
-                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
-                        ? (language === 'ru'
-                          ? `Продолжить прогулку · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`
-                          : `Resume walk · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
-                        : ui.start}
-                  </Text>
-                </PhysicalPressable>
-              </View>
+              <CityTripOverview
+                language={language}
+                onOpenTrip={() => setTab('trip')}
+                onOpenNearby={() => setTab('discover')}
+                onOpenMap={() => setTab('map')}
+              />
+
+              <CityPulseDemo language={language} />
+
+              <CityExploreDemo
+                language={language}
+                onAddToTrip={(itemId) => {
+                  void savePendingDiscoveryAdd({
+                    version: 1,
+                    discoveryItemId: itemId,
+                    requestedMode: 'plan-only',
+                    requestedAt: new Date().toISOString()
+                  }).then(() => setTab('trip'));
+                }}
+              />
 
               <DestinationDayPrototypeCard
                 language={language}
                 onStartHistory={openWalkFromHero}
               />
 
-              <PhysicalPressable
-                style={styles.secondary}
-                contentStyle={styles.center}
-                onPress={() => setTab('trip')}
-                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
-              >
-                <Text style={styles.secondaryText}>
-                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
+              <View style={styles.heritageShowcase}>
+                <Text style={styles.kicker}>
+                  {tr(language, 'ПРЕМИАЛЬНЫЙ HERITAGE-СЛОЙ', 'PREMIUM HERITAGE LAYER', '高级文化遗产体验')}
                 </Text>
-              </PhysicalPressable>
+                <Text style={styles.heritageTitle}>
+                  {tr(language, 'История, 3D и Time Machine — там, где это действительно усиливает место', 'History, 3D and Time Machine where they genuinely improve the place', '历史、3D 与时光机只在真正提升地点体验时出现')}
+                </Text>
+                <Text style={styles.heritageBody}>
+                  {tr(
+                    language,
+                    'Старый маршрут Варварки остаётся showcase одной механики продукта, но больше не определяет весь Moscow MVP.',
+                    'The former Varvarka route remains a showcase for one product mechanic, but no longer defines the Moscow MVP.',
+                    '原瓦尔瓦尔卡路线保留为一种产品机制的展示，不再定义整个 Moscow MVP。'
+                  )}
+                </Text>
+                <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={openWalkFromHero}>
+                  <Text style={styles.secondaryText}>
+                    {routeFinished
+                      ? tr(language, 'Открыть heritage showcase снова', 'Open heritage showcase again', '再次打开文化遗产体验')
+                      : completedRouteStops > 0 && completedRouteStops < activeRoutePlan.stopIds.length
+                        ? tr(language, `Продолжить showcase · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`, `Resume showcase · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`, `继续体验 · ${completedRouteStops}/${activeRoutePlan.stopIds.length}`)
+                        : tr(language, 'Открыть исторический showcase', 'Open heritage showcase', '打开历史体验')}
+                  </Text>
+                </PhysicalPressable>
+              </View>
 
               <NearbyNow
                 language={language}
@@ -749,17 +841,17 @@ export default function MoscowExperienceApp() {
                   </Text>
 
                   <View style={styles.statsRow}>
-                    <View style={styles.stat}>
-                      <Text style={styles.statValue}>{activeRoutePlan.stopIds.length}</Text>
-                      <Text style={styles.statLabel}>{tr(language, 'мест пройдено', 'stops completed', '已完成站点')}</Text>
+                    <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}>
+                      <Text style={[styles.statValue,{color:palette.accentStrong}]}>{activeRoutePlan.stopIds.length}</Text>
+                      <Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'мест пройдено', 'stops completed', '已完成站点')}</Text>
                     </View>
-                    <View style={styles.stat}>
-                      <Text style={styles.statValue}>{routeMissionCount}</Text>
-                      <Text style={styles.statLabel}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text>
+                    <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}>
+                      <Text style={[styles.statValue,{color:palette.accentStrong}]}>{routeMissionCount}</Text>
+                      <Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text>
                     </View>
-                    <View style={styles.stat}>
-                      <Text style={styles.statValue}>{routeSavedCount}</Text>
-                      <Text style={styles.statLabel}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text>
+                    <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}>
+                      <Text style={[styles.statValue,{color:palette.accentStrong}]}>{routeSavedCount}</Text>
+                      <Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text>
                     </View>
                   </View>
 
@@ -847,24 +939,37 @@ export default function MoscowExperienceApp() {
 
           {tab === 'saved' && (
             <>
-              <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
-              <View style={styles.myMoscowStats}>
+              <Text style={[styles.sectionTitle,{color:palette.text}]}>{ui.savedTab}</Text>
+              <MoscowMemorySurface
+                language={language}
+                onAddDiscoveryToPlan={(itemId) => {
+                  void savePendingDiscoveryAdd({
+                    version: 1,
+                    discoveryItemId: itemId,
+                    requestedMode: 'plan-only',
+                    requestedAt: new Date().toISOString()
+                  }).then(() => setTab('trip'));
+                }}
+                onOpenPlan={() => setTab('trip')}
+                onOpenExplore={() => setTab('discover')}
+              />
+              <View style={[styles.myMoscowStats,{backgroundColor:palette.surface,borderColor:palette.border}]}>
                 <Text style={styles.kicker}>{tr(language, 'МОЯ ИСТОРИЯ МОСКВЫ', 'MY MOSCOW HISTORY', '我的莫斯科足迹')}</Text>
                 <View style={styles.statsRow}>
-                  <View style={styles.stat}><Text style={styles.statValue}>{visitedIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'мест открыто', 'places seen', '已探索地点')}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text></View>
+                  <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}><Text style={[styles.statValue,{color:palette.accentStrong}]}>{visitedIds.length}</Text><Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'мест открыто', 'places seen', '已探索地点')}</Text></View>
+                  <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}><Text style={[styles.statValue,{color:palette.accentStrong}]}>{missionDoneIds.length}</Text><Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text></View>
+                  <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}><Text style={[styles.statValue,{color:palette.accentStrong}]}>{savedIds.length}</Text><Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text></View>
                 </View>
               </View>
               <PilotAnalyticsReportControl language={language} />
               {savedIds.length === 0 ? (
-                <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
+                <View style={[styles.empty,{backgroundColor:palette.surface,borderColor:palette.border}]}><Text style={[styles.emptyText,{color:palette.textMuted}]}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
                 const place = localizedPlaces.find((item) => item.id === id);
                 if (!place) return null;
                 return (
-                  <PhysicalPressable key={id} style={styles.placeCard} contentStyle={styles.placeCardContent} onPress={() => { selectPlace(id); setTab('discover'); }}>
-                    <View style={styles.placeCopy}><Text style={styles.placeTitle}>{place.title}</Text><Text style={styles.placeSubtitle}>{place.district}</Text></View>
+                  <PhysicalPressable key={id} style={[styles.placeCard,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]} contentStyle={styles.placeCardContent} onPress={() => { selectPlace(id); setTab('discover'); }}>
+                    <View style={styles.placeCopy}><Text style={[styles.placeTitle,{color:palette.text}]}>{place.title}</Text><Text style={[styles.placeSubtitle,{color:palette.textMuted}]}>{place.district}</Text></View>
                   </PhysicalPressable>
                 );
               })}
@@ -872,14 +977,18 @@ export default function MoscowExperienceApp() {
           )}
         </ScrollView>
       )}
-
-      <View style={styles.nav}>
-        {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
-          <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
-            <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
-          </PhysicalPressable>
-        ))}
+        </View>
       </View>
+
+      {!isWide && (
+        <View testID="bottom-navigation" style={[styles.nav,{backgroundColor:palette.surface,borderTopColor:palette.border}]}>
+          {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
+            <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
+              <Text style={[styles.navText,{color:palette.textMuted}, tab === item && styles.navTextActive,tab===item&&{color:palette.accentStrong}]}>{tabLabels[item]}</Text>
+            </PhysicalPressable>
+          ))}
+        </View>
+      )}
 
       <Modal visible={modal === 'lens'} animationType="fade" onRequestClose={() => setModal(null)}>
         {selected && archiveAvailable && (
@@ -923,6 +1032,21 @@ export default function MoscowExperienceApp() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#090b0d' },
+  workspace: { flex: 1, flexDirection: 'row', minHeight: 0 },
+  mainSurface: { flex: 1, minWidth: 0 },
+  sideNav: { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#292d33', backgroundColor: '#0d1013', paddingVertical: 18, paddingHorizontal: 12 },
+  sideNavTablet: { width: 176 },
+  sideNavDesktop: { width: 226 },
+  sideNavKicker: { color: '#777d84', fontSize: 8, letterSpacing: 1.25, fontWeight: '900', marginHorizontal: 8, marginBottom: 14 },
+  sideNavItems: { gap: 6 },
+  sideNavItem: { minHeight: 44, borderRadius: 13, borderWidth: 1, borderColor: 'transparent' },
+  sideNavItemActive: { backgroundColor: '#1d1a14', borderColor: '#5a4c34' },
+  sideNavItemContent: { flex: 1, justifyContent: 'center', paddingHorizontal: 12 },
+  sideNavText: { color: '#858c93', fontSize: 11, fontWeight: '800' },
+  sideNavTextActive: { color: '#e6c98f' },
+  sideNavFoot: { marginTop: 'auto', paddingHorizontal: 8, paddingTop: 18 },
+  sideNavMode: { color: '#b99b69', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  sideNavHint: { color: '#626970', fontSize: 8, lineHeight: 12, marginTop: 5 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   header: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#292d33' },
   headerCopy: { flex: 1 },
@@ -930,7 +1054,12 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#f7f3eb', fontSize: 27, fontWeight: '900', marginTop: 2 },
   language: { width: 48, height: 44, borderRadius: 22, backgroundColor: '#20242a' },
   languageText: { color: '#e7c98f', fontSize: 11, fontWeight: '900' },
-  content: { padding: 18, paddingBottom: 120 },
+  content: { width: '100%', padding: 18, paddingBottom: 120, alignSelf: 'center' },
+  contentTablet: { maxWidth: 760, paddingHorizontal: 22, paddingBottom: 48 },
+  contentDesktop: { maxWidth: 1120, paddingHorizontal: 30, paddingTop: 24, paddingBottom: 56 },
+  heritageShowcase: { borderRadius: 22, padding: 17, backgroundColor: '#101316', borderWidth: 1, borderColor: '#363126', marginBottom: 20 },
+  heritageTitle: { color: '#f4efe6', fontSize: 18, lineHeight: 23, fontWeight: '900', marginTop: 6 },
+  heritageBody: { color: '#92989f', fontSize: 11, lineHeight: 17, marginTop: 7 },
   hero: { borderRadius: 27, padding: 22, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#31353b', marginBottom: 22 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginBottom: 7 },
   heroTitle: { color: '#fff8ea', fontSize: 29, lineHeight: 35, fontWeight: '900' },
@@ -976,7 +1105,7 @@ const styles = StyleSheet.create({
   sourceContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   sourceText: { color: '#c8cbd0', fontSize: 11, flex: 1 },
   sourceArrow: { color: '#d7bb84', fontSize: 16 },
-  mapPage: { flex: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 86 },
+  mapPage: { flex: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 20 },
   mapStage: { flex: 1, minHeight: 520, borderRadius: 25, overflow: 'hidden', position: 'relative', backgroundColor: '#111418' },
   mapSheet: { top: 0, zIndex: 20 },
   sheetSurface: { minHeight: 250, borderTopLeftRadius: 25, borderTopRightRadius: 25, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#3b4149', padding: 16, shadowColor: '#000', shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },

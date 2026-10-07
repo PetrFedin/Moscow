@@ -12,6 +12,7 @@ import {
 } from '../../travel/personalTrip';
 import type { StepFreeIntent } from '../../travel/accessibilityRouteProfile';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   trip: PersonalTrip;
@@ -42,6 +43,7 @@ function stepFreeLabel(language: AppLanguage, value: StepFreeIntent) {
 }
 
 export default function TripPreferencesCard({ trip, language, onUpdate }: Props) {
+  const { palette } = useMoscowTheme();
   const resolved = resolvePersonalTripPreferences(trip);
   const [open, setOpen] = useState(false);
   const [pace, setPace] = useState<TripPace>(resolved.pace);
@@ -103,65 +105,65 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>{tr(language, 'КАК Я ХОЧУ ПРОВЕСТИ ПОЕЗДКУ', 'HOW I WANT TO TRAVEL', '我的出行偏好')}</Text>
-          <Text style={styles.title}>{tr(language, 'Настройки поездки', 'Trip preferences', '行程设置')}</Text>
-          <Text style={styles.summary}>
+          <Text style={[styles.kicker,{color:palette.textSoft}]}>{tr(language, 'КАК Я ХОЧУ ПРОВЕСТИ ДЕНЬ', 'HOW I WANT TO SPEND THE DAY', '我想怎样度过一天')}</Text>
+          <Text style={[styles.title,{color:palette.text}]}>{tr(language, 'Настройки плана', 'Plan preferences', '计划设置')}</Text>
+          <Text style={[styles.summary,{color:palette.textMuted}]}>
             {paceLabel(language, resolved.pace)} · {resolved.dayStart}–{resolved.dayEnd} · {tr(language, 'пешком до', 'walk up to', '连续步行')} {resolved.maxContinuousWalkingMinutes} {tr(language, 'мин', 'min', '分钟')}
           </Text>
-          <Text style={styles.summary}>
+          <Text style={[styles.summary,{color:palette.textMuted}]}>
             {tr(language, 'Без ступеней', 'Step-free', '无障碍')}: {stepFreeLabel(language, resolved.stepFreeIntent)} · {priorityLabel(language, resolved.priorityMode)}
           </Text>
         </View>
-        <PhysicalPressable style={styles.edit} contentStyle={styles.center} onPress={() => setOpen((value) => !value)}>
-          <Text style={styles.editText}>{open ? '×' : tr(language, 'Изменить', 'Edit', '编辑')}</Text>
+        <PhysicalPressable style={[styles.edit,{borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={() => setOpen((value) => !value)}>
+          <Text style={[styles.editText,{color:palette.accentStrong}]}>{open ? '×' : tr(language, 'Изменить', 'Edit', '编辑')}</Text>
         </PhysicalPressable>
       </View>
 
       {open ? (
-        <View style={styles.form}>
-          <Text style={styles.label}>{tr(language, 'ТЕМП', 'PACE', '节奏')}</Text>
+        <View style={[styles.form,{borderTopColor:palette.border}]}>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ТЕМП', 'PACE', '节奏')}</Text>
           <View style={styles.chips}>
             {paceOptions.map((value) => (
               <PhysicalPressable
                 key={value}
-                style={[styles.chip, pace === value && styles.chipActive]}
+                style={[styles.chip,{borderColor:palette.border}, pace === value && {backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]}
                 contentStyle={styles.center}
                 onPress={() => setPace(value)}
               >
-                <Text style={[styles.chipText, pace === value && styles.chipTextActive]}>{paceLabel(language, value)}</Text>
+                <Text style={[styles.chipText,{color:pace===value?palette.accentStrong:palette.textMuted}]}>{paceLabel(language, value)}</Text>
               </PhysicalPressable>
             ))}
           </View>
 
           <View style={styles.fields}>
             <View style={styles.field}>
-              <Text style={styles.label}>{tr(language, 'НАЧАЛО ДНЯ', 'DAY START', '开始')}</Text>
-              <TextInput value={dayStart} onChangeText={setDayStart} placeholder="09:00" placeholderTextColor="#626972" style={styles.input} />
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'НАЧАЛО ДНЯ', 'DAY START', '开始')}</Text>
+              <TextInput value={dayStart} onChangeText={setDayStart} placeholder="09:00" placeholderTextColor={palette.textSoft} style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]} />
             </View>
             <View style={styles.field}>
-              <Text style={styles.label}>{tr(language, 'КОНЕЦ ДНЯ', 'DAY END', '结束')}</Text>
-              <TextInput value={dayEnd} onChangeText={setDayEnd} placeholder="23:00" placeholderTextColor="#626972" style={styles.input} />
+              <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'КОНЕЦ ДНЯ', 'DAY END', '结束')}</Text>
+              <TextInput value={dayEnd} onChangeText={setDayEnd} placeholder="23:00" placeholderTextColor={palette.textSoft} style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]} />
             </View>
           </View>
 
-          <Text style={styles.label}>{tr(language, 'БЕЗ СТУПЕНЕЙ', 'STEP-FREE', '无障碍')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'БЕЗ СТУПЕНЕЙ', 'STEP-FREE', '无障碍')}</Text>
           <View style={styles.chips}>
             {stepFreeOptions.map((value) => (
               <PhysicalPressable
                 key={value}
-                style={[styles.chip, stepFreeIntent === value && styles.chipActive]}
+                style={[styles.chip,{borderColor:palette.border}, stepFreeIntent === value && {backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]}
                 contentStyle={styles.center}
                 onPress={() => setStepFreeIntent(value)}
               >
-                <Text style={[styles.chipText, stepFreeIntent === value && styles.chipTextActive]}>{stepFreeLabel(language, value)}</Text>
+                <Text style={[styles.chipText,{color:stepFreeIntent===value?palette.accentStrong:palette.textMuted}]}>{stepFreeLabel(language, value)}</Text>
               </PhysicalPressable>
             ))}
           </View>
           {stepFreeIntent !== 'none' ? (
-            <Text style={styles.truth}>
+            <Text style={[styles.truth,{color:palette.accentStrong}]}>
               {tr(
                 language,
                 'Это ваше требование к маршруту. Оно не означает, что конкретный маршрут уже подтверждён как доступный.',
@@ -171,36 +173,36 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
             </Text>
           ) : null}
 
-          <Text style={styles.label}>{tr(language, 'МАКС. НЕПРЕРЫВНО ПЕШКОМ, МИН', 'MAX CONTINUOUS WALK, MIN', '最长连续步行，分钟')}</Text>
-          <TextInput value={maxWalking} onChangeText={setMaxWalking} keyboardType="number-pad" placeholder="60" placeholderTextColor="#626972" style={styles.input} />
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'МАКС. НЕПРЕРЫВНО ПЕШКОМ, МИН', 'MAX CONTINUOUS WALK, MIN', '最长连续步行，分钟')}</Text>
+          <TextInput value={maxWalking} onChangeText={setMaxWalking} keyboardType="number-pad" placeholder="60" placeholderTextColor={palette.textSoft} style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]} />
 
-          <Text style={styles.label}>{tr(language, 'ОКНО НА ОБЕД · НЕОБЯЗАТЕЛЬНО', 'LUNCH WINDOW · OPTIONAL', '午餐时段 · 可选')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ОКНО НА ОБЕД · НЕОБЯЗАТЕЛЬНО', 'LUNCH WINDOW · OPTIONAL', '午餐时段 · 可选')}</Text>
           <View style={styles.fields}>
             <View style={styles.field}>
-              <TextInput value={lunchStart} onChangeText={setLunchStart} placeholder="13:00" placeholderTextColor="#626972" style={styles.input} />
+              <TextInput value={lunchStart} onChangeText={setLunchStart} placeholder="13:00" placeholderTextColor={palette.textSoft} style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]} />
             </View>
             <View style={styles.field}>
-              <TextInput value={lunchEnd} onChangeText={setLunchEnd} placeholder="14:00" placeholderTextColor="#626972" style={styles.input} />
+              <TextInput value={lunchEnd} onChangeText={setLunchEnd} placeholder="14:00" placeholderTextColor={palette.textSoft} style={[styles.input,{backgroundColor:palette.surfaceRaised,borderColor:palette.border,color:palette.text}]} />
             </View>
           </View>
 
-          <Text style={styles.label}>{tr(language, 'ПРИОРИТЕТ', 'PRIORITY', '优先级')}</Text>
+          <Text style={[styles.label,{color:palette.textSoft}]}>{tr(language, 'ПРИОРИТЕТ', 'PRIORITY', '优先级')}</Text>
           <View style={styles.chips}>
             {priorityOptions.map((value) => (
               <PhysicalPressable
                 key={value}
-                style={[styles.chip, priorityMode === value && styles.chipActive]}
+                style={[styles.chip,{borderColor:palette.border}, priorityMode === value && {backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]}
                 contentStyle={styles.center}
                 onPress={() => setPriorityMode(value)}
               >
-                <Text style={[styles.chipText, priorityMode === value && styles.chipTextActive]}>{priorityLabel(language, value)}</Text>
+                <Text style={[styles.chipText,{color:priorityMode===value?palette.accentStrong:palette.textMuted}]}>{priorityLabel(language, value)}</Text>
               </PhysicalPressable>
             ))}
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PhysicalPressable style={styles.save} contentStyle={styles.center} strong onPress={save}>
-            <Text style={styles.saveText}>{tr(language, 'Сохранить настройки', 'Save preferences', '保存设置')}</Text>
+          {error ? <Text style={[styles.error,{color:palette.danger}]}>{error}</Text> : null}
+          <PhysicalPressable style={[styles.save,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={save}>
+            <Text style={[styles.saveText,{color:palette.accentText}]}>{tr(language, 'Сохранить настройки', 'Save preferences', '保存设置')}</Text>
           </PhysicalPressable>
         </View>
       ) : null}
