@@ -32,6 +32,11 @@ Still to harden:
 Status: **ACTIVE**
 
 Completed in current wave:
+- Explore → pending add → Trip placement authority;
+- day/time selection from event time or free windows;
+- conflict detection before insertion;
+- optional user-declared ticket/reservation → Wallet;
+- user-confirmed visit → completed item / trip history;
 - canonical broad city discovery kinds;
 - event timing;
 - open-now / starts-30 / starts-60 / starts-120 filters;
@@ -46,7 +51,8 @@ Completed in current wave:
 - City Pulse load-balancing demo.
 
 Next:
-- add-to-trip from Explore;
+- promote Today / Wallet / My Moscow to first-class app navigation;
+- complete add-to-trip browser E2E;
 - event recurrence;
 - venue identity;
 - opening-hours model;
