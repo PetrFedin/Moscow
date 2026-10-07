@@ -392,6 +392,7 @@ export function evaluateMoscowPilotApplicationReadiness(
       title: field.title,
       status: field.status,
       requiredAction: field.requiredAction,
+      authority: field.authority,
       refs: [...field.refs]
     }));
 
