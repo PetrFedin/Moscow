@@ -27,7 +27,7 @@ import CityPulseDemo from './features/trip/CityPulseDemo';
 import CityExploreDemo from './features/trip/CityExploreDemo';
 import TripTodaySurface from './features/trip/TripTodaySurface';
 import TripWalletSurface from './features/trip/TripWalletSurface';
-import TripMoscowHistorySurface from './features/trip/TripMoscowHistorySurface';
+import MoscowMemorySurface from './features/trip/MoscowMemorySurface';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -841,17 +841,17 @@ export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExper
                   </Text>
 
                   <View style={styles.statsRow}>
-                    <View style={styles.stat}>
-                      <Text style={styles.statValue}>{activeRoutePlan.stopIds.length}</Text>
-                      <Text style={styles.statLabel}>{tr(language, 'мест пройдено', 'stops completed', '已完成站点')}</Text>
+                    <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}>
+                      <Text style={[styles.statValue,{color:palette.accentStrong}]}>{activeRoutePlan.stopIds.length}</Text>
+                      <Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'мест пройдено', 'stops completed', '已完成站点')}</Text>
                     </View>
-                    <View style={styles.stat}>
-                      <Text style={styles.statValue}>{routeMissionCount}</Text>
-                      <Text style={styles.statLabel}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text>
+                    <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}>
+                      <Text style={[styles.statValue,{color:palette.accentStrong}]}>{routeMissionCount}</Text>
+                      <Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text>
                     </View>
-                    <View style={styles.stat}>
-                      <Text style={styles.statValue}>{routeSavedCount}</Text>
-                      <Text style={styles.statLabel}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text>
+                    <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}>
+                      <Text style={[styles.statValue,{color:palette.accentStrong}]}>{routeSavedCount}</Text>
+                      <Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text>
                     </View>
                   </View>
 
@@ -939,25 +939,37 @@ export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExper
 
           {tab === 'saved' && (
             <>
-              <Text style={styles.sectionTitle}>{ui.savedTab}</Text>
-              <TripMoscowHistorySurface language={language} />
-              <View style={styles.myMoscowStats}>
+              <Text style={[styles.sectionTitle,{color:palette.text}]}>{ui.savedTab}</Text>
+              <MoscowMemorySurface
+                language={language}
+                onAddDiscoveryToPlan={(itemId) => {
+                  void savePendingDiscoveryAdd({
+                    version: 1,
+                    discoveryItemId: itemId,
+                    requestedMode: 'plan-only',
+                    requestedAt: new Date().toISOString()
+                  }).then(() => setTab('trip'));
+                }}
+                onOpenPlan={() => setTab('trip')}
+                onOpenExplore={() => setTab('discover')}
+              />
+              <View style={[styles.myMoscowStats,{backgroundColor:palette.surface,borderColor:palette.border}]}>
                 <Text style={styles.kicker}>{tr(language, 'МОЯ ИСТОРИЯ МОСКВЫ', 'MY MOSCOW HISTORY', '我的莫斯科足迹')}</Text>
                 <View style={styles.statsRow}>
-                  <View style={styles.stat}><Text style={styles.statValue}>{visitedIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'мест открыто', 'places seen', '已探索地点')}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{missionDoneIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text></View>
-                  <View style={styles.stat}><Text style={styles.statValue}>{savedIds.length}</Text><Text style={styles.statLabel}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text></View>
+                  <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}><Text style={[styles.statValue,{color:palette.accentStrong}]}>{visitedIds.length}</Text><Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'мест открыто', 'places seen', '已探索地点')}</Text></View>
+                  <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}><Text style={[styles.statValue,{color:palette.accentStrong}]}>{missionDoneIds.length}</Text><Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'наблюдений', 'observations', '观察任务')}</Text></View>
+                  <View style={[styles.stat,{backgroundColor:palette.surfaceSoft}]}><Text style={[styles.statValue,{color:palette.accentStrong}]}>{savedIds.length}</Text><Text style={[styles.statLabel,{color:palette.textSoft}]}>{tr(language, 'сохранено', 'saved', '已收藏')}</Text></View>
                 </View>
               </View>
               <PilotAnalyticsReportControl language={language} />
               {savedIds.length === 0 ? (
-                <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
+                <View style={[styles.empty,{backgroundColor:palette.surface,borderColor:palette.border}]}><Text style={[styles.emptyText,{color:palette.textMuted}]}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
                 const place = localizedPlaces.find((item) => item.id === id);
                 if (!place) return null;
                 return (
-                  <PhysicalPressable key={id} style={styles.placeCard} contentStyle={styles.placeCardContent} onPress={() => { selectPlace(id); setTab('discover'); }}>
-                    <View style={styles.placeCopy}><Text style={styles.placeTitle}>{place.title}</Text><Text style={styles.placeSubtitle}>{place.district}</Text></View>
+                  <PhysicalPressable key={id} style={[styles.placeCard,{backgroundColor:palette.surfaceRaised,borderColor:palette.border}]} contentStyle={styles.placeCardContent} onPress={() => { selectPlace(id); setTab('discover'); }}>
+                    <View style={styles.placeCopy}><Text style={[styles.placeTitle,{color:palette.text}]}>{place.title}</Text><Text style={[styles.placeSubtitle,{color:palette.textMuted}]}>{place.district}</Text></View>
                   </PhysicalPressable>
                 );
               })}
