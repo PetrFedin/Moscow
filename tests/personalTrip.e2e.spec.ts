@@ -260,8 +260,8 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
   await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
-  await expect(page.getByText('10:00–13:00', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('14:00–18:00', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Свободное окно · 180 мин', { exact: true })).toBeVisible();
+  await expect(page.getByText('Свободное окно · 240 мин', { exact: true })).toBeVisible();
 
   await page.reload();
   await ensureRussian(page);
