@@ -5,7 +5,7 @@ test('City Capital Programme Control Tower shows portfolio-wide capital and bene
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByText('Операции', { exact: true }).click();
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
-  await page.getByText('DEMO', { exact: true }).click();
+  await page.getByRole('button', { name: 'DEMO', exact: true }).click();
 
   await expect(page.getByText('CITY CAPITAL PROGRAMME CONTROL TOWER · DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('PROGRAMME ENVELOPE', { exact: true })).toBeVisible();
