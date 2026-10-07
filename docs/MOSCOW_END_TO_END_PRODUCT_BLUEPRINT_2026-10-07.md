@@ -10,13 +10,13 @@
 
 # 0. Executive definition
 
-Moscow is a **City Trip Operating System** for the full visitor lifecycle.
+Moscow is a **personal Moscow planner and memory layer** for the full visitor lifecycle.
 
-It is not another attraction catalogue and it is not a replacement OTA.
+It is not another attraction catalogue, not a replacement OTA, and not a product that asks a person to think of Moscow as one giant trip.
 
 The product connects:
 
-`inspiration → plan → fixed commitments → live day → discovery → booking/handoff → adaptive replan → visit → memory → repeat visit`
+`inspiration → plan a day or several days → fixed commitments → live day → discovery → booking/handoff → adaptive replan → visit → memory → revisit or build a new plan`
 
 with:
 
@@ -69,6 +69,12 @@ Therefore Moscow must not be positioned as a duplicate catalogue or booking site
 **Every visitor should be able to answer:**
 
 > What should I do next in Moscow, given what I already booked, where I am, what I like, what I already saw and how much time I actually have?
+
+The user-facing product promise is deliberately simpler than the internal Trip OS architecture:
+
+> **Plan Moscow. Remember where you have been. Revisit what you loved or build a new route.**
+
+The technical trip object remains an implementation primitive. It must not dominate user-facing language.
 
 ## Partner North Star
 
@@ -150,7 +156,7 @@ Recommended public bottom navigation:
 
 1. **Today**
 2. **Explore**
-3. **Trip**
+3. **Plan**
 4. **Wallet**
 5. **My Moscow**
 
@@ -200,9 +206,9 @@ Modes:
 - Free;
 - Premium.
 
-## Trip
+## Plan
 
-Multi-day planning.
+Planning for one day, several days, or a return visit.
 
 Contains:
 
@@ -696,9 +702,9 @@ User-defined:
 - next visit;
 - wishlist.
 
-## Repeat visit
+## Repeat visit / next plan
 
-Use history to avoid recommending the same obvious set.
+Use history to avoid recommending the same obvious set and to support both deliberate revisits and a fresh plan.
 
 A repeat visitor should feel:
 
