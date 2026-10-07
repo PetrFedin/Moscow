@@ -5,7 +5,7 @@ test('Urban Decision Audit Ledger exposes complete institutional memory', async 
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByText('Операции', { exact: true }).click();
   await page.getByRole('button', { name: 'Контроль спроса' }).click();
-  await page.getByText('DEMO', { exact: true }).click();
+  await page.getByRole('button', { name: 'DEMO', exact: true }).click();
 
   await expect(page.getByText('URBAN EVIDENCE & DECISION AUDIT LEDGER · DEMO', { exact: true })).toBeVisible();
   await expect(page.getByText('LEDGER INTEGRITY', { exact: true })).toBeVisible();
