@@ -10,6 +10,7 @@ export type MoscowMemoryEntry={
   lastVisitedAt:string;
   visitCount:number;
   evidence:PersonalTripVisit['evidence'][];
+  visitIds:string[];
   destinationNodeId?:string;
   discoveryItemId?:string;
 };
@@ -72,7 +73,7 @@ export function mergeTripIntoMoscowMemory(input:{
   updatedAt:string;
 }):MoscowMemory{
   parseIso(input.updatedAt);
-  const byId=new Map(input.memory.entries.map(entry=>[entry.id,{...entry,evidence:[...entry.evidence]}]));
+  const byId=new Map(input.memory.entries.map(entry=>[entry.id,{...entry,evidence:[...entry.evidence],visitIds:[...entry.visitIds]}]));
 
   for(const visit of input.trip.visits){
     const item=visit.itemId?input.trip.items.find(x=>x.id===visit.itemId):undefined;
@@ -81,9 +82,11 @@ export function mergeTripIntoMoscowMemory(input:{
     const id=entryIdentity({visit,destinationNodeId,discoveryItemId});
     const existing=byId.get(id);
     if(existing){
+      if(existing.visitIds.includes(visit.id)) continue;
       existing.firstVisitedAt=existing.firstVisitedAt<visit.visitedAt?existing.firstVisitedAt:visit.visitedAt;
       existing.lastVisitedAt=existing.lastVisitedAt>visit.visitedAt?existing.lastVisitedAt:visit.visitedAt;
       existing.visitCount+=1;
+      existing.visitIds.push(visit.id);
       if(!existing.evidence.includes(visit.evidence)) existing.evidence.push(visit.evidence);
       byId.set(id,existing);
     }else{
@@ -95,6 +98,7 @@ export function mergeTripIntoMoscowMemory(input:{
         lastVisitedAt:visit.visitedAt,
         visitCount:1,
         evidence:[visit.evidence],
+        visitIds:[visit.id],
         ...(destinationNodeId?{destinationNodeId}:{}),
         ...(discoveryItemId?{discoveryItemId}:{})
       });
@@ -139,10 +143,11 @@ export function parseMoscowMemory(raw:string):MoscowMemory{
     parseIso(entry.lastVisitedAt);
     if(!Number.isInteger(entry.visitCount)||entry.visitCount<1) throw new Error('Invalid Moscow Memory visit count');
     if(!Array.isArray(entry.evidence)||entry.evidence.length<1) throw new Error('Invalid Moscow Memory evidence');
+    if(!Array.isArray(entry.visitIds)||entry.visitIds.length<1||entry.visitIds.some(id=>!id.trim())) throw new Error('Invalid Moscow Memory visit ids');
   }
   return {
     schemaVersion:MOSCOW_MEMORY_SCHEMA_VERSION,
-    entries:parsed.entries.map(entry=>({...entry,evidence:[...entry.evidence]})),
+    entries:parsed.entries.map(entry=>({...entry,evidence:[...entry.evidence],visitIds:[...entry.visitIds]})),
     updatedAt:parsed.updatedAt
   } as MoscowMemory;
 }
