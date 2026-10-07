@@ -119,9 +119,9 @@ const ru: InvestorMvpCopy = {
     paysLabel: 'ЗА ЧТО ПЛАТИТ ГОРОД',
     acceptanceLabel: 'КАК ПРИНИМАЕТСЯ',
     layers: [
-      { id: 'pilot', title: '1 · Доказательный пилот', paysFor: 'Ограниченный scope Варварки, production двух hero objects, полевой proof, user pilot, интеграционный контур и итоговый evidence pack.', acceptedBy: 'Согласованная матрица критериев пилота. Сам статус пилота не равен автоматическому масштабированию.' },
+      { id: 'pilot', title: '1 · Reference MVP', paysFor: 'Рабочий туристический контур: Trip OS, Today, Wallet, широкая городская выдача, события, My Moscow, partner attribution и city tourism intelligence с чёткой маркировкой demo/live truth.', acceptedBy: 'Согласованный Golden Path для туриста, партнёра и города. Конкретные районы и providers не являются обязательными для reference MVP.' },
       { id: 'platform', title: '2 · Платформа и эксплуатация', paysFor: 'После успешного пилота: лицензирование/эксплуатация client + Studio + Control Center, hosting, monitoring, support и обновления.', acceptedBy: 'SLA, security/data-flow, release governance и эксплуатационные KPI.' },
-      { id: 'district', title: '3 · Новый район / destination pack', paysFor: 'Shared setup района + интеграция + производство и верификация согласованного количества объектов и маршрутов.', acceptedBy: 'Published destination package, прошедшие gates объекты и формальная приёмка контента/прав/интеграций.' },
+      { id: 'district', title: '3 · Районы, события и supply expansion', paysFor: 'Подключение новых районов, категорий, событий, партнёров и verified content/inventory по согласованному production plan.', acceptedBy: 'Опубликованный supply/content package, data freshness, права, локализации и agreed acceptance для подключённого контура.' },
       { id: 'integration', title: '4 · Интеграции и развитие', paysFor: 'Новые provider adapters, городские data contracts, новые сценарии и change requests, которые не входят в базовый scope.', acceptedBy: 'Конкретный API/data contract, тестовый evidence и agreed acceptance для каждой интеграции.' }
     ],
     scaleKicker: 'ФОРМУЛА МАСШТАБА',
@@ -206,9 +206,9 @@ const en: InvestorMvpCopy = {
     paysLabel: 'WHAT THE CITY PAYS FOR',
     acceptanceLabel: 'HOW IT IS ACCEPTED',
     layers: [
-      { id: 'pilot', title: '1 · Evidence pilot', paysFor: 'Bounded Varvarka scope, production of two hero objects, field proof, user pilot, integration contour and final evidence pack.', acceptedBy: 'Agreed pilot acceptance matrix. Pilot status does not automatically approve scale.' },
+      { id: 'pilot', title: '1 · Reference MVP', paysFor: 'Working traveler product: Trip OS, Today, Wallet, broad city discovery, events, My Moscow, partner attribution and city tourism intelligence with explicit demo/live truth.', acceptedBy: 'Agreed traveler, partner and city Golden Paths. No specific district or provider is mandatory for the reference MVP.' },
       { id: 'platform', title: '2 · Platform and operations', paysFor: 'After a successful pilot: client + Studio + Control Center licensing/operations, hosting, monitoring, support and updates.', acceptedBy: 'SLA, security/data-flow, release governance and operational KPIs.' },
-      { id: 'district', title: '3 · New district / destination pack', paysFor: 'District shared setup + integration + production and verification of an agreed number of objects and routes.', acceptedBy: 'Published destination package, objects that passed gates, and formal content/rights/integration acceptance.' },
+      { id: 'district', title: '3 · District, event & supply expansion', paysFor: 'Connect additional districts, categories, events, partners and verified content/inventory under an agreed production plan.', acceptedBy: 'Published supply/content package, freshness, rights, localisation and agreed acceptance for the connected scope.' },
       { id: 'integration', title: '4 · Integrations and development', paysFor: 'New provider adapters, city data contracts, new scenarios and change requests outside the base scope.', acceptedBy: 'A specific API/data contract, test evidence and agreed acceptance for each integration.' }
     ],
     scaleKicker: 'SCALE FORMULA',
@@ -293,9 +293,9 @@ const zh: InvestorMvpCopy = {
     paysLabel: '城市为什么付费',
     acceptanceLabel: '如何验收',
     layers: [
-      { id: 'pilot', title: '1 · 证据型试点', paysFor: '有限的瓦尔瓦尔卡范围、两个核心对象的制作、现场验证、用户试点、集成链路和最终证据包。', acceptedBy: '依据双方确认的试点验收矩阵。试点完成并不自动批准扩展。' },
+      { id: 'pilot', title: '1 · Reference MVP', paysFor: '可运行游客产品：Trip OS、Today、Wallet、全城探索、活动、My Moscow、合作伙伴归因与城市旅游智能，并明确区分 demo/live truth。', acceptedBy: '验收游客、合作伙伴和城市三条 Golden Path。Reference MVP 不依赖任何指定城区或服务商。' },
       { id: 'platform', title: '2 · 平台与运营', paysFor: '试点成功后：client + Studio + Control Center 的许可/运营、托管、监控、支持和更新。', acceptedBy: 'SLA、安全/数据流、发布治理和运营 KPI。' },
-      { id: 'district', title: '3 · 新区域 / destination pack', paysFor: '区域 shared setup + 集成 + 约定数量对象和路线的制作与核验。', acceptedBy: '已发布 destination package、通过 gates 的对象，以及内容/权利/集成的正式验收。' },
+      { id: 'district', title: '3 · 区域、活动与供给扩展', paysFor: '按约定 production plan 接入新的城区、品类、活动、合作伙伴及 verified content/inventory。', acceptedBy: '已发布 supply/content package、数据新鲜度、权利、本地化及接入范围的正式验收。' },
       { id: 'integration', title: '4 · 集成与发展', paysFor: '新的 provider adapters、城市数据契约、新场景及基础范围外的变更需求。', acceptedBy: '针对每个集成项的 API/data contract、测试证据和双方确认的验收条件。' }
     ],
     scaleKicker: '规模化公式',
