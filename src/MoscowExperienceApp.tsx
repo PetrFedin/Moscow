@@ -23,6 +23,7 @@ import TouristRoutePlanner from './features/planning/TouristRoutePlanner';
 import PersonalTripPlanner from './features/trip/PersonalTripPlanner';
 import CityTripOverview from './features/trip/CityTripOverview';
 import CityPulseDemo from './features/trip/CityPulseDemo';
+import CityExploreDemo from './features/trip/CityExploreDemo';
 import { estimateTouristRouteMinutes, type TouristInterest, type TouristRoutePlan, type TouristTimeBudget } from './features/planning/touristPlanner';
 import ArchiveTimeLens from './features/spatial/ArchiveTimeLens';
 import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
@@ -561,6 +562,8 @@ export default function MoscowExperienceApp() {
               />
 
               <CityPulseDemo language={language} />
+
+              <CityExploreDemo language={language} />
 
               <DestinationDayPrototypeCard
                 language={language}
