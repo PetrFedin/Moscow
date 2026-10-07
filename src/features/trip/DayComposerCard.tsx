@@ -71,6 +71,8 @@ export default function DayComposerCard({
           </View>
         ) : projection.timeline.map((entry) => {
           if (entry.type === 'conflict') {
+            const left = projection.items.find((item) => item.itemId === entry.itemIds[0]);
+            const right = projection.items.find((item) => item.itemId === entry.itemIds[1]);
             return (
               <View key={entry.id} style={[styles.row, styles.conflict]}>
                 <View style={styles.timeCol}>
@@ -80,6 +82,9 @@ export default function DayComposerCard({
                 </View>
                 <View style={styles.rowBody}>
                   <Text style={styles.conflictTitle}>{tr(language, 'КОНФЛИКТ ВРЕМЕНИ', 'TIME CONFLICT', '时间冲突')}</Text>
+                  <Text style={styles.conflictNames}>
+                    {left?.title ?? entry.itemIds[0]} ↔ {right?.title ?? entry.itemIds[1]}
+                  </Text>
                   <Text style={styles.rowMeta}>
                     {entry.minutes} {tr(language, 'мин пересечения', 'min overlap', '分钟重叠')}
                   </Text>
@@ -217,6 +222,7 @@ const styles = StyleSheet.create({
   itemTitle: { color: '#f0ece5', fontSize: 13, lineHeight: 17, fontWeight: '900' },
   freeTitle: { color: '#c8d0d5', fontSize: 11, fontWeight: '900' },
   conflictTitle: { color: '#e4a197', fontSize: 10, fontWeight: '900' },
+  conflictNames: { color: '#d6c1bc', fontSize: 9, lineHeight: 13, marginTop: 3, fontWeight: '800' },
   rowMeta: { color: '#777f88', fontSize: 8, lineHeight: 12, marginTop: 4 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
   badge: { borderRadius: 7, borderWidth: 1, borderColor: '#3b424a', paddingHorizontal: 6, paddingVertical: 3 },
