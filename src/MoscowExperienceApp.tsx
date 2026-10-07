@@ -31,6 +31,7 @@ import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { savePendingDiscoveryAdd } from './persistence/personalTripStorage';
 import {
   canOpenArchiveLens,
   canOpenModel3d,
@@ -563,7 +564,17 @@ export default function MoscowExperienceApp() {
 
               <CityPulseDemo language={language} />
 
-              <CityExploreDemo language={language} />
+              <CityExploreDemo
+                language={language}
+                onAddToTrip={(itemId) => {
+                  void savePendingDiscoveryAdd({
+                    version: 1,
+                    discoveryItemId: itemId,
+                    requestedMode: 'plan-only',
+                    requestedAt: new Date().toISOString()
+                  }).then(() => setTab('trip'));
+                }}
+              />
 
               <DestinationDayPrototypeCard
                 language={language}
