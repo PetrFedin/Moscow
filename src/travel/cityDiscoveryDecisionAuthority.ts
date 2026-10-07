@@ -20,9 +20,13 @@ function parseIso(value:string){
 
 function hhmmToMinutes(value:string){
   if(!/^\d{2}:\d{2}$/.test(value)) throw new Error(`Invalid HH:MM: ${value}`);
-  const [h,m]=value.split(':').map(Number);
-  if(!Number.isInteger(h)||!Number.isInteger(m)||h!<0||h!>23||m!<0||m!>59) throw new Error(`Invalid HH:MM: ${value}`);
-  return h!*60+m!;
+  const parts=value.split(':').map(Number);
+  const h=parts[0];
+  const m=parts[1];
+  if(h===undefined||m===undefined||!Number.isInteger(h)||!Number.isInteger(m)||h<0||h>23||m<0||m>59) {
+    throw new Error(`Invalid HH:MM: ${value}`);
+  }
+  return h*60+m;
 }
 
 function moscowClock(value:string){
