@@ -43,6 +43,9 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Создать поездку', { exact: true }).click();
 
   await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ваш день как единая временная линия', { exact: true })).toBeVisible();
+  await expect(page.getByText('FREE', { exact: true })).toBeVisible();
   await page.getByText('+ Добавить', { exact: true }).click();
   await page.getByPlaceholder('Например: Большой театр').fill('Большой театр · мой билет');
   await page.getByText('Театр', { exact: true }).click();
@@ -94,6 +97,8 @@ test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved
 
   await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toBeVisible();
   await expect(page.getByText(/Музей · фиксированный билет ↔ Театр · фиксированная бронь/)).toBeVisible();
+  await expect(page.getByText('CONFLICT', { exact: true })).toBeVisible();
+  await expect(page.getByText('ALTERNATIVE SLOTS', { exact: true })).toBeVisible();
 
   await page.getByLabel('Перенести Театр · фиксированная бронь на следующий день').click();
   await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toHaveCount(0);
