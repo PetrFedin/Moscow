@@ -60,6 +60,7 @@ export default function DayComposerCard({
         <Status label="TICKET" value={projection.counts.ticketed} />
         <Status label="RESERVE" value={projection.counts.reserved} />
         <Status label="FREE" value={projection.counts.free} />
+        <Status label="TRAVEL" value={projection.counts.travel} />
         <Status label="CONFLICT" value={projection.counts.conflict} alert={projection.counts.conflict > 0} />
       </View>
 
