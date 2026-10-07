@@ -52,10 +52,10 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         <Text style={styles.freezeBadge}>{INVESTOR_MVP_FREEZE.state}</Text>
         <Text style={styles.freezeText}>
           {language === 'ru'
-            ? 'Новые функции заморожены · следующий этап: pilot readiness и реальные evidence'
+            ? 'Governance-контур заморожен · туристический продукт, партнёры и city tourism intelligence развиваются'
             : language === 'en'
-              ? 'New features frozen · next phase: pilot readiness and real evidence'
-              : '新功能已冻结 · 下一阶段：pilot readiness 与真实 evidence'}
+              ? 'Governance layer frozen · traveler product, partners and city tourism intelligence remain active'
+              : '治理层已冻结 · 游客产品、合作伙伴与城市旅游智能继续发展'}
         </Text>
       </View>
 
