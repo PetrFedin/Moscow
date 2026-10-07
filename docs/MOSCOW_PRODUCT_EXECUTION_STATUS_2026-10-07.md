@@ -28,9 +28,9 @@ Still to harden:
 
 ## Wave 2 — Broad City Discovery & Event Engine
 
-Status: **ACTIVE**
+Status: **ACTIVE / DECISION ENGINE IMPLEMENTED**
 
-Completed in current wave:
+Completed:
 - primary navigation: Today / Moscow / Trip / Wallet / My Moscow;
 - Today and Wallet promoted to first-class surfaces;
 - Trip OS visits surfaced in My Moscow;
@@ -41,7 +41,7 @@ Completed in current wave:
 - optional user-declared ticket/reservation → Wallet;
 - user-confirmed visit → completed item / trip history;
 - canonical broad city discovery kinds;
-- event timing;
+- event timing and recurrence authority;
 - open-now / starts-30 / starts-60 / starts-120 filters;
 - free-window fit;
 - novelty;
@@ -50,24 +50,29 @@ Completed in current wave:
 - separate sponsored inventory;
 - explicit demo/provider truth;
 - multi-district synthetic catalogue;
-- Explore Moscow demo UI;
+- Opening Hours Authority: open / closing-soon / closed / unknown;
+- Price & Budget Fit: free / budget / mid / premium;
+- Family & Age Fit including adult-only rules;
+- Accessibility Fit with required-step-free fail-closed behavior;
+- Travel Friction adapter boundary and demo travel estimates;
+- total-time / experience-share calculation;
+- weather suitability boundary;
+- explainable positive reasons / cautions / blockers;
+- contextual collections: Tonight / Weekend / Rainy day / Free / New district / Family / After theatre / Continue evening;
+- Explore Decision Engine UI with context controls and explanation badges;
 - City Pulse load-balancing demo.
 
 Next:
-- opening-hours authority and open/closed fit;
-- price/budget fit;
-- family/age fit;
-- accessibility fit;
-- travel-time friction adapter;
-- Tonight / Weekend / Rainy day / Free / New district collections;
-- event recurrence integration into Explore;
-- venue identity;
-- opening-hours model;
-- price/budget fit;
-- family/accessibility fit;
-- travel-time friction adapter;
-- weather-context adapter boundary;
-- collections: Tonight / Weekend / Family / Rainy day / Free / New district.
+- integrate recurring event occurrences directly into Explore date surfaces;
+- canonical venue identity binding for discovery items;
+- opening-hours overnight intervals and holiday exceptions;
+- authoritative weather adapter boundary;
+- travel-time provider adapter contract;
+- collection-aware add-to-trip defaults;
+- broaden browser E2E across RU / EN / ZH;
+- remove remaining legacy Varvarka-first dependencies from generic traveler flows.
+
+**Wave 2 exit target:** a tourist can use a broad Moscow catalogue to choose a contextually suitable option, understand why it fits, add it safely into the trip, execute it, and preserve the visit in My Moscow without fabricated live-provider truth.
 
 ## Wave 3 — Ratings & Trust
 
