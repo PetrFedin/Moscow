@@ -21,9 +21,8 @@ Already present:
 - City Trip OS home.
 
 Still to harden:
-- make Today the primary returning-user surface;
-- unify Wallet as a first-class top-level screen;
-- complete add-to-trip from all discovery surfaces;
+- make Today the default returning-user landing policy after trip activation;
+- complete add-to-trip from non-Explore discovery surfaces;
 - remove remaining legacy Varvarka-first labels/data dependencies from generic flows;
 - complete full cross-language Golden Path.
 
@@ -32,6 +31,10 @@ Still to harden:
 Status: **ACTIVE**
 
 Completed in current wave:
+- primary navigation: Today / Moscow / Trip / Wallet / My Moscow;
+- Today and Wallet promoted to first-class surfaces;
+- Trip OS visits surfaced in My Moscow;
+- browser E2E for Explore → Trip → Today → Wallet → Visit → My Moscow;
 - Explore → pending add → Trip placement authority;
 - day/time selection from event time or free windows;
 - conflict detection before insertion;
@@ -51,9 +54,13 @@ Completed in current wave:
 - City Pulse load-balancing demo.
 
 Next:
-- promote Today / Wallet / My Moscow to first-class app navigation;
-- complete add-to-trip browser E2E;
-- event recurrence;
+- opening-hours authority and open/closed fit;
+- price/budget fit;
+- family/age fit;
+- accessibility fit;
+- travel-time friction adapter;
+- Tonight / Weekend / Rainy day / Free / New district collections;
+- event recurrence integration into Explore;
 - venue identity;
 - opening-hours model;
 - price/budget fit;
