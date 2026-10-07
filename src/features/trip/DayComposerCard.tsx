@@ -111,6 +111,56 @@ export default function DayComposerCard({
             );
           }
 
+          if (entry.type === 'travel') {
+            const statusLabel = entry.status === 'safe'
+              ? 'SAFE'
+              : entry.status === 'tight'
+                ? 'TIGHT'
+                : entry.status === 'impossible'
+                  ? 'IMPOSSIBLE'
+                  : 'UNKNOWN';
+            return (
+              <View
+                key={entry.id}
+                style={[
+                  styles.row,
+                  styles.travel,
+                  entry.status === 'tight' && styles.travelTight,
+                  entry.status === 'impossible' && styles.travelImpossible
+                ]}
+              >
+                <View style={styles.timeCol}>
+                  <Text style={styles.timeText}>{time(entry.startsAt)}</Text>
+                  <Text style={styles.timeDash}>↓</Text>
+                  <Text style={styles.timeText}>{time(entry.mustArriveBy)}</Text>
+                </View>
+                <View style={styles.rowBody}>
+                  <Text style={styles.travelTitle}>
+                    {tr(language, 'ПЕРЕМЕЩЕНИЕ', 'TRAVEL', '移动')} · {statusLabel}
+                  </Text>
+                  <Text style={styles.rowMeta}>
+                    {entry.routingVerified && entry.requiredTravelMinutes !== undefined
+                      ? tr(
+                          language,
+                          `${entry.requiredTravelMinutes} мин в пути · buffer ${entry.bufferMinutes ?? 0} мин`,
+                          `${entry.requiredTravelMinutes} min travel · ${entry.bufferMinutes ?? 0} min buffer`,
+                          `${entry.requiredTravelMinutes} 分钟路程 · 余量 ${entry.bufferMinutes ?? 0} 分钟`
+                        )
+                      : tr(
+                          language,
+                          'Время в пути не подтверждено',
+                          'Travel time is not verified',
+                          '行程时间尚未核验'
+                        )}
+                  </Text>
+                  {entry.mode ? (
+                    <Text style={styles.travelMode}>{entry.mode.toUpperCase()}</Text>
+                  ) : null}
+                </View>
+              </View>
+            );
+          }
+
           return (
             <View key={entry.id} style={styles.row}>
               <View style={styles.timeCol}>
@@ -214,6 +264,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', borderRadius: 15, borderWidth: 1, borderColor: '#252c33', backgroundColor: '#12171c', padding: 11 },
   free: { borderStyle: 'dashed', backgroundColor: '#10161a' },
   conflict: { borderColor: '#714940', backgroundColor: '#1e1312' },
+  travel: { borderColor: '#30404a', backgroundColor: '#10171b' },
+  travelTight: { borderColor: '#6f6544', backgroundColor: '#1c1a12' },
+  travelImpossible: { borderColor: '#74443f', backgroundColor: '#211312' },
   timeCol: { width: 52, paddingRight: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#343b42' },
   timeText: { color: '#e6c98f', fontSize: 10, fontWeight: '900' },
   timeEnd: { color: '#737b84', fontSize: 9, marginTop: 4 },
@@ -223,6 +276,8 @@ const styles = StyleSheet.create({
   freeTitle: { color: '#c8d0d5', fontSize: 11, fontWeight: '900' },
   conflictTitle: { color: '#e4a197', fontSize: 10, fontWeight: '900' },
   conflictNames: { color: '#d6c1bc', fontSize: 9, lineHeight: 13, marginTop: 3, fontWeight: '800' },
+  travelTitle: { color: '#a9bac3', fontSize: 10, fontWeight: '900' },
+  travelMode: { color: '#6f7d85', fontSize: 7, fontWeight: '900', marginTop: 4, letterSpacing: 0.7 },
   rowMeta: { color: '#777f88', fontSize: 8, lineHeight: 12, marginTop: 4 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
   badge: { borderRadius: 7, borderWidth: 1, borderColor: '#3b424a', paddingHorizontal: 6, paddingVertical: 3 },
