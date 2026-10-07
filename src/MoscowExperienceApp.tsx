@@ -8,7 +8,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  useWindowDimensions
 } from 'react-native';
 import { trackTouristEvent } from './analytics/touristAnalytics';
 import type { TouristAnalyticsCompletionMode, TouristAnalyticsRouteOrigin } from './analytics/touristAnalyticsContract';
@@ -112,6 +113,10 @@ const evidenceLabel = {
 } as const;
 
 export default function MoscowExperienceApp() {
+  const { width: viewportWidth } = useWindowDimensions();
+  const isDesktop = viewportWidth >= 1180;
+  const isTablet = viewportWidth >= 720 && viewportWidth < 1180;
+  const isWide = isTablet || isDesktop;
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
   const [selectedId, setSelectedId] = useState('romanov-chambers');
@@ -520,6 +525,36 @@ export default function MoscowExperienceApp() {
         </PhysicalPressable>
       </View>
 
+      <View style={styles.workspace}>
+        {isWide && (
+          <View
+            testID="responsive-sidebar"
+            style={[styles.sideNav, isDesktop ? styles.sideNavDesktop : styles.sideNavTablet]}
+          >
+            <Text style={styles.sideNavKicker}>{isDesktop ? 'MOSCOW · CITY TRIP OS' : 'MOSCOW'}</Text>
+            <View style={styles.sideNavItems}>
+              {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
+                <PhysicalPressable
+                  key={item}
+                  style={[styles.sideNavItem, tab === item && styles.sideNavItemActive]}
+                  contentStyle={styles.sideNavItemContent}
+                  hapticEvent="none"
+                  onPress={() => setTab(item)}
+                >
+                  <Text style={[styles.sideNavText, tab === item && styles.sideNavTextActive]}>{tabLabels[item]}</Text>
+                </PhysicalPressable>
+              ))}
+            </View>
+            <View style={styles.sideNavFoot}>
+              <Text style={styles.sideNavMode}>{isDesktop ? tr(language, 'МОНИТОР', 'DESKTOP', '桌面') : tr(language, 'ПЛАНШЕТ', 'TABLET', '平板')}</Text>
+              <Text style={styles.sideNavHint}>
+                {tr(language, 'Навигация остаётся слева, контент не растягивается на всю ширину.', 'Navigation stays left and content keeps a readable width.', '导航固定在左侧，内容保持舒适阅读宽度。')}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <View testID="responsive-main" style={styles.mainSurface}>
       {tab === 'map' ? (
         <View style={styles.mapPage}>
           <View style={styles.mapStage}>
@@ -557,7 +592,15 @@ export default function MoscowExperienceApp() {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          testID="content-scroll"
+          contentContainerStyle={[
+            styles.content,
+            isTablet && styles.contentTablet,
+            isDesktop && styles.contentDesktop
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           {tab === 'today' && (
             <TripTodaySurface
               language={language}
@@ -915,14 +958,18 @@ export default function MoscowExperienceApp() {
           )}
         </ScrollView>
       )}
-
-      <View style={styles.nav}>
-        {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
-          <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
-            <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
-          </PhysicalPressable>
-        ))}
+        </View>
       </View>
+
+      {!isWide && (
+        <View testID="bottom-navigation" style={styles.nav}>
+          {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
+            <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
+              <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
+            </PhysicalPressable>
+          ))}
+        </View>
+      )}
 
       <Modal visible={modal === 'lens'} animationType="fade" onRequestClose={() => setModal(null)}>
         {selected && archiveAvailable && (
@@ -966,6 +1013,21 @@ export default function MoscowExperienceApp() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#090b0d' },
+  workspace: { flex: 1, flexDirection: 'row', minHeight: 0 },
+  mainSurface: { flex: 1, minWidth: 0 },
+  sideNav: { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#292d33', backgroundColor: '#0d1013', paddingVertical: 18, paddingHorizontal: 12 },
+  sideNavTablet: { width: 176 },
+  sideNavDesktop: { width: 226 },
+  sideNavKicker: { color: '#777d84', fontSize: 8, letterSpacing: 1.25, fontWeight: '900', marginHorizontal: 8, marginBottom: 14 },
+  sideNavItems: { gap: 6 },
+  sideNavItem: { minHeight: 44, borderRadius: 13, borderWidth: 1, borderColor: 'transparent' },
+  sideNavItemActive: { backgroundColor: '#1d1a14', borderColor: '#5a4c34' },
+  sideNavItemContent: { flex: 1, justifyContent: 'center', paddingHorizontal: 12 },
+  sideNavText: { color: '#858c93', fontSize: 11, fontWeight: '800' },
+  sideNavTextActive: { color: '#e6c98f' },
+  sideNavFoot: { marginTop: 'auto', paddingHorizontal: 8, paddingTop: 18 },
+  sideNavMode: { color: '#b99b69', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
+  sideNavHint: { color: '#626970', fontSize: 8, lineHeight: 12, marginTop: 5 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   header: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#292d33' },
   headerCopy: { flex: 1 },
@@ -973,7 +1035,9 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#f7f3eb', fontSize: 27, fontWeight: '900', marginTop: 2 },
   language: { width: 48, height: 44, borderRadius: 22, backgroundColor: '#20242a' },
   languageText: { color: '#e7c98f', fontSize: 11, fontWeight: '900' },
-  content: { padding: 18, paddingBottom: 120 },
+  content: { width: '100%', padding: 18, paddingBottom: 120, alignSelf: 'center' },
+  contentTablet: { maxWidth: 760, paddingHorizontal: 22, paddingBottom: 48 },
+  contentDesktop: { maxWidth: 1120, paddingHorizontal: 30, paddingTop: 24, paddingBottom: 56 },
   hero: { borderRadius: 27, padding: 22, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#31353b', marginBottom: 22 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginBottom: 7 },
   heroTitle: { color: '#fff8ea', fontSize: 29, lineHeight: 35, fontWeight: '900' },
@@ -1019,7 +1083,7 @@ const styles = StyleSheet.create({
   sourceContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   sourceText: { color: '#c8cbd0', fontSize: 11, flex: 1 },
   sourceArrow: { color: '#d7bb84', fontSize: 16 },
-  mapPage: { flex: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 86 },
+  mapPage: { flex: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 20 },
   mapStage: { flex: 1, minHeight: 520, borderRadius: 25, overflow: 'hidden', position: 'relative', backgroundColor: '#111418' },
   mapSheet: { top: 0, zIndex: 20 },
   sheetSurface: { minHeight: 250, borderTopLeftRadius: 25, borderTopRightRadius: 25, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#3b4149', padding: 16, shadowColor: '#000', shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },
