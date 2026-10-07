@@ -47,6 +47,7 @@ import PhysicalPressable from './ui/PhysicalPressable';
 import PhysicalSheet from './ui/PhysicalSheet';
 import TimeMachineSlider from './ui/TimeMachineSlider';
 import type { StableSheetState } from './ui/interactionPhysics';
+import { useMoscowTheme } from './theme/MoscowTheme';
 
 type Tab = PersistedTab;
 type ModalMode = null | 'lens' | 'model' | 'spatial';
@@ -59,7 +60,7 @@ const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 const copy = {
   ru: {
-    todayTab: 'Сегодня', discover: 'Москва', map: 'Карта', walk: 'История', trip: 'Поездка', walletTab: 'Wallet', savedTab: 'Моя Москва',
+    todayTab: 'Сегодня', discover: 'Москва', map: 'Карта', walk: 'История', trip: 'План', walletTab: 'Wallet', savedTab: 'Моя Москва',
     cityTime: 'ГОРОД КАК МАШИНА ВРЕМЕНИ',
     hero: 'Москва раскрывается прямо вокруг вас',
     heroBody: 'Места, архивы, 3D, AR, VR и проверенные источники собраны в один непрерывный маршрут.',
@@ -74,7 +75,7 @@ const copy = {
     noSaved: 'Пока ничего не сохранено', back3d: '← 3D-модель', close: 'Закрыть'
   },
   en: {
-    todayTab: 'Today', discover: 'Moscow', map: 'Map', walk: 'Heritage', trip: 'My Trip', walletTab: 'Wallet', savedTab: 'My Moscow',
+    todayTab: 'Today', discover: 'Moscow', map: 'Map', walk: 'Heritage', trip: 'Plan', walletTab: 'Wallet', savedTab: 'My Moscow',
     cityTime: 'THE CITY AS A TIME MACHINE',
     hero: 'Moscow reveals itself around you',
     heroBody: 'Places, archives, 3D, AR, VR and verified sources form one continuous journey.',
@@ -90,7 +91,7 @@ const copy = {
   }
 ,
   zh: {
-    todayTab: '今天', discover: '莫斯科', map: '地图', walk: '历史', trip: '行程', walletTab: 'Wallet', savedTab: '我的莫斯科',
+    todayTab: '今天', discover: '莫斯科', map: '地图', walk: '历史', trip: '计划', walletTab: 'Wallet', savedTab: '我的莫斯科',
     cityTime: '把城市变成时光机',
     hero: '莫斯科就在你身边逐层展开',
     heroBody: '地点、档案、3D、AR、VR 与经验证的来源被连接成一条连续的旅行体验。',
@@ -117,6 +118,7 @@ type MoscowExperienceAppProps = {
 };
 
 export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExperienceAppProps = {}) {
+  const { mode: themeMode, palette } = useMoscowTheme();
   const { width: actualViewportWidth } = useWindowDimensions();
   const viewportWidth = forcedViewportWidth ?? actualViewportWidth;
   const isDesktop = viewportWidth >= 1180;
@@ -513,20 +515,20 @@ export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExper
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar style="light" />
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.root,{backgroundColor:palette.background}]}>
+      <StatusBar style={themeMode==='dark'?'light':'dark'} />
+      <View style={[styles.header,{backgroundColor:palette.surface,borderBottomColor:palette.border}]}>
         <View style={styles.headerCopy}>
-          <Text style={styles.brand}>MOSCOW · TIME</Text>
-          <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
+          <Text style={[styles.brand,{color:palette.textSoft}]}>MOSCOW · MEMORY</Text>
+          <Text style={[styles.headerTitle,{color:palette.text}]}>{tabLabels[tab]}</Text>
         </View>
         <PhysicalPressable
-          style={styles.language}
+          style={[styles.language,{backgroundColor:palette.surfaceSoft}]}
           contentStyle={styles.center}
           onPress={() => setLanguage(nextLanguage(language))}
           accessibilityLabel="Change language"
         >
-          <Text style={styles.languageText}>{language.toUpperCase()}</Text>
+          <Text style={[styles.languageText,{color:palette.accentStrong}]}>{language.toUpperCase()}</Text>
         </PhysicalPressable>
       </View>
 
@@ -534,32 +536,32 @@ export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExper
         {isWide && (
           <View
             testID="responsive-sidebar"
-            style={[styles.sideNav, isDesktop ? styles.sideNavDesktop : styles.sideNavTablet]}
+            style={[styles.sideNav,{backgroundColor:palette.surface,borderRightColor:palette.border}, isDesktop ? styles.sideNavDesktop : styles.sideNavTablet]}
           >
-            <Text style={styles.sideNavKicker}>{isDesktop ? 'MOSCOW · CITY TRIP OS' : 'MOSCOW'}</Text>
+            <Text style={[styles.sideNavKicker,{color:palette.textSoft}]}>{isDesktop ? 'MOSCOW · PLAN & MEMORY' : 'MOSCOW'}</Text>
             <View style={styles.sideNavItems}>
               {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
                 <PhysicalPressable
                   key={item}
-                  style={[styles.sideNavItem, tab === item && styles.sideNavItemActive]}
+                  style={[styles.sideNavItem, tab === item && styles.sideNavItemActive,tab===item&&{backgroundColor:palette.surfaceSoft,borderColor:palette.borderStrong}]}
                   contentStyle={styles.sideNavItemContent}
                   hapticEvent="none"
                   onPress={() => setTab(item)}
                 >
-                  <Text style={[styles.sideNavText, tab === item && styles.sideNavTextActive]}>{tabLabels[item]}</Text>
+                  <Text style={[styles.sideNavText,{color:palette.textMuted}, tab === item && styles.sideNavTextActive,tab===item&&{color:palette.accentStrong}]}>{tabLabels[item]}</Text>
                 </PhysicalPressable>
               ))}
             </View>
             <View style={styles.sideNavFoot}>
-              <Text style={styles.sideNavMode}>{isDesktop ? tr(language, 'МОНИТОР', 'DESKTOP', '桌面') : tr(language, 'ПЛАНШЕТ', 'TABLET', '平板')}</Text>
-              <Text style={styles.sideNavHint}>
+              <Text style={[styles.sideNavMode,{color:palette.accentStrong}]}>{isDesktop ? tr(language, 'МОНИТОР', 'DESKTOP', '桌面') : tr(language, 'ПЛАНШЕТ', 'TABLET', '平板')}</Text>
+              <Text style={[styles.sideNavHint,{color:palette.textSoft}]}>
                 {tr(language, 'Навигация остаётся слева, контент не растягивается на всю ширину.', 'Navigation stays left and content keeps a readable width.', '导航固定在左侧，内容保持舒适阅读宽度。')}
               </Text>
             </View>
           </View>
         )}
 
-        <View testID="responsive-main" style={styles.mainSurface}>
+        <View testID="responsive-main" style={[styles.mainSurface,{backgroundColor:palette.background}]}>
       {tab === 'map' ? (
         <View style={styles.mapPage}>
           <View style={styles.mapStage}>
@@ -967,10 +969,10 @@ export default function MoscowExperienceApp({ forcedViewportWidth }: MoscowExper
       </View>
 
       {!isWide && (
-        <View testID="bottom-navigation" style={styles.nav}>
+        <View testID="bottom-navigation" style={[styles.nav,{backgroundColor:palette.surface,borderTopColor:palette.border}]}>
           {(['today', 'discover', 'trip', 'wallet', 'saved'] as Tab[]).map((item) => (
             <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
-              <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
+              <Text style={[styles.navText,{color:palette.textMuted}, tab === item && styles.navTextActive,tab===item&&{color:palette.accentStrong}]}>{tabLabels[item]}</Text>
             </PhysicalPressable>
           ))}
         </View>
