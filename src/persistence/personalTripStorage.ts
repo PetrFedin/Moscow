@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { parsePersonalTrip, type PersonalTrip } from '../travel/personalTrip.ts';
+import { syncTripToMoscowMemory } from './moscowMemoryStorage.ts';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 export const PENDING_DISCOVERY_ADD_STORAGE_KEY = 'moscow:v1:pending-discovery-add';
@@ -24,6 +25,7 @@ export async function loadPersonalTrip():Promise<PersonalTrip|null>{
 
 export async function savePersonalTrip(trip:PersonalTrip){
   await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY,JSON.stringify(trip));
+  await syncTripToMoscowMemory(trip,trip.updatedAt);
 }
 
 export async function clearPersonalTrip(){
