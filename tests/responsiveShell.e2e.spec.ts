@@ -35,3 +35,23 @@ test.describe('responsive application shell', () => {
     expect(main!.width).toBeLessThan(1220);
   });
 });
+
+
+test('theme toggle switches palette and persists after reload', async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto('/');
+
+  const frame = page.getByTestId('local-preview-frame');
+  const toggle = page.getByTestId('theme-toggle');
+  await expect(frame).toBeVisible();
+  await expect(toggle).toBeVisible();
+
+  const before = await frame.evaluate((node) => getComputedStyle(node).backgroundColor);
+  await toggle.click();
+  const after = await frame.evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(after).not.toBe(before);
+
+  await page.reload();
+  const persisted = await frame.evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(persisted).toBe(after);
+});
