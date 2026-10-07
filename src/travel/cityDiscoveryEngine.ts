@@ -1,3 +1,6 @@
+import type { AccessibilityProfile, DiscoveryDecisionContext, DiscoveryPriceClass, FamilyProfile, OpeningHoursProfile, WeatherProfile } from './cityDiscoveryDecisionTypes.ts';
+import { evaluateDiscoveryDecision } from './cityDiscoveryDecisionAuthority.ts';
+
 export type CityDiscoveryKind =
   | 'heritage'
   | 'museum'
@@ -42,15 +45,17 @@ export type CityDiscoveryItem = {
   availability: 'unknown' | 'available' | 'limited' | 'sold-out';
   availabilityTruth: 'demo' | 'provider' | 'unknown';
   qualityScore: number;
+  openingHours?: OpeningHoursProfile;
+  priceClass?: DiscoveryPriceClass;
+  family?: FamilyProfile;
+  accessibility?: AccessibilityProfile;
+  weather?: WeatherProfile;
   sponsored?: boolean;
 };
 
-export type DiscoveryContext = {
-  now: string;
-  freeWindowMinutes: number;
+export type DiscoveryContext = DiscoveryDecisionContext & {
   preferredKinds?: CityDiscoveryKind[];
   visitedIds?: string[];
-  currentDistrict?: string;
   maxDistanceKm?: number;
 };
 
@@ -59,6 +64,7 @@ export type RankedDiscoveryItem = CityDiscoveryItem & {
   fitsWindow: boolean;
   isNew: boolean;
   organicScore: number;
+  decision: ReturnType<typeof evaluateDiscoveryDecision>;
 };
 
 function parseIso(value:string){
@@ -101,30 +107,34 @@ export function rankCityDiscovery(
       : 0.5;
 
     const districtBoost=context.currentDistrict && item.district===context.currentDistrict ? 0.1 : 0;
+    const decision=evaluateDiscoveryDecision(item,context);
+    const decisionBoost=Math.max(0,Math.min(1,decision.decisionScore))/5;
 
     const organicScore=
-      preferenceScore*0.28+
-      noveltyScore*0.22+
-      quality*0.2+
-      timing*0.18+
-      availability*0.12+
-      districtBoost;
+      preferenceScore*0.24+
+      noveltyScore*0.18+
+      quality*0.18+
+      timing*0.14+
+      availability*0.1+
+      districtBoost+
+      decisionBoost;
 
     return {
       ...item,
       ...(startsInMinutes!==undefined?{startsInMinutes}:{}),
       fitsWindow,
       isNew,
-      organicScore:Number(organicScore.toFixed(4))
+      organicScore:Number(organicScore.toFixed(4)),
+      decision
     };
   });
 
   const organic=ranked
-    .filter(x=>!x.sponsored && x.availability!=='sold-out' && x.fitsWindow)
+    .filter(x=>!x.sponsored && x.availability!=='sold-out' && x.fitsWindow && x.decision.eligible)
     .sort((a,b)=>b.organicScore-a.organicScore || a.id.localeCompare(b.id));
 
   const sponsored=ranked
-    .filter(x=>x.sponsored && x.availability!=='sold-out' && x.fitsWindow)
+    .filter(x=>x.sponsored && x.availability!=='sold-out' && x.fitsWindow && x.decision.eligible)
     .sort((a,b)=>b.organicScore-a.organicScore || a.id.localeCompare(b.id));
 
   return {organic,sponsored};
