@@ -10,6 +10,7 @@ import {
   type PersonalTripReplanProposal
 } from '../../travel/personalTripReplan';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 
 type Props = {
   trip: PersonalTrip;
@@ -35,6 +36,7 @@ function unplacedLabel(language: AppLanguage, reason: 'missing-duration' | 'no-s
 }
 
 export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Props) {
+  const { palette } = useMoscowTheme();
   const [proposal, setProposal] = useState<PersonalTripReplanProposal | null>(null);
   const [error, setError] = useState('');
 
@@ -92,14 +94,14 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.surface,borderColor:palette.border}]}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
-          <Text style={styles.kicker}>{tr(language, 'DAY REPLAN', 'DAY REPLAN', '当日重排')}</Text>
-          <Text style={styles.title}>
+          <Text style={[styles.kicker,{color:palette.accentStrong}]}>{tr(language, 'DAY REPLAN', 'DAY REPLAN', '当日重排')}</Text>
+          <Text style={[styles.title,{color:palette.text}]}>
             {tr(language, 'Пересобрать остаток дня', 'Rebuild the rest of the day', '重新安排当天剩余行程')}
           </Text>
-          <Text style={styles.body}>
+          <Text style={[styles.body,{color:palette.textMuted}]}>
             {tr(
               language,
               'Фиксированные билеты и брони останутся на месте. Меняются только гибкие пункты.',
@@ -109,15 +111,15 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
           </Text>
         </View>
         {!proposal ? (
-          <PhysicalPressable style={styles.action} contentStyle={styles.center} onPress={build}>
-            <Text style={styles.actionText}>{tr(language, 'Предложить', 'Propose', '生成方案')}</Text>
+          <PhysicalPressable style={[styles.action,{borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={build}>
+            <Text style={[styles.actionText,{color:palette.accentStrong}]}>{tr(language, 'Предложить', 'Propose', '生成方案')}</Text>
           </PhysicalPressable>
         ) : null}
       </View>
 
-      <View style={styles.truthBox}>
-        <Text style={styles.truthTitle}>{tr(language, 'Сейчас это schedule-only', 'Schedule-only for now', '当前仅按时间表')}</Text>
-        <Text style={styles.truthText}>
+      <View style={[styles.truthBox,{backgroundColor:palette.surfaceSoft}]}>
+        <Text style={[styles.truthTitle,{color:palette.accentStrong}]}>{tr(language, 'Сейчас это schedule-only', 'Schedule-only for now', '当前仅按时间表')}</Text>
+        <Text style={[styles.truthText,{color:palette.textMuted}]}>
           {tr(
             language,
             'Маршрут, часы работы, доступность и погода не подтверждены. Приложение не называет этот вариант выполнимым маршрутом.',
@@ -130,25 +132,25 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
       {proposal ? (
         <View style={styles.proposal}>
           <View style={styles.metrics}>
-            <View style={styles.metric}>
-              <Text style={styles.metricValue}>{proposal.preservedFixedCommitments.length}</Text>
-              <Text style={styles.metricLabel}>{tr(language, 'фиксировано', 'fixed', '固定')}</Text>
+            <View style={[styles.metric,{backgroundColor:palette.surfaceSoft}]}>
+              <Text style={[styles.metricValue,{color:palette.accentStrong}]}>{proposal.preservedFixedCommitments.length}</Text>
+              <Text style={[styles.metricLabel,{color:palette.textSoft}]}>{tr(language, 'фиксировано', 'fixed', '固定')}</Text>
             </View>
-            <View style={styles.metric}>
-              <Text style={styles.metricValue}>{proposal.placements.length}</Text>
-              <Text style={styles.metricLabel}>{tr(language, 'переставим', 'move', '调整')}</Text>
+            <View style={[styles.metric,{backgroundColor:palette.surfaceSoft}]}>
+              <Text style={[styles.metricValue,{color:palette.accentStrong}]}>{proposal.placements.length}</Text>
+              <Text style={[styles.metricLabel,{color:palette.textSoft}]}>{tr(language, 'переставим', 'move', '调整')}</Text>
             </View>
-            <View style={styles.metric}>
-              <Text style={styles.metricValue}>{proposal.unplaced.length}</Text>
-              <Text style={styles.metricLabel}>{tr(language, 'без времени', 'unscheduled', '未排期')}</Text>
+            <View style={[styles.metric,{backgroundColor:palette.surfaceSoft}]}>
+              <Text style={[styles.metricValue,{color:palette.accentStrong}]}>{proposal.unplaced.length}</Text>
+              <Text style={[styles.metricLabel,{color:palette.textSoft}]}>{tr(language, 'без времени', 'unscheduled', '未排期')}</Text>
             </View>
           </View>
 
           {proposal.preservedFixedCommitments.length > 0 ? (
-            <View style={styles.group}>
-              <Text style={styles.groupTitle}>{tr(language, 'СОХРАНЯЕМ ТОЧНО', 'KEEP EXACTLY', '保持不变')}</Text>
+            <View style={[styles.group,{borderTopColor:palette.border}]}>
+              <Text style={[styles.groupTitle,{color:palette.textSoft}]}>{tr(language, 'СОХРАНЯЕМ ТОЧНО', 'KEEP EXACTLY', '保持不变')}</Text>
               {proposal.preservedFixedCommitments.map((item) => (
-                <Text key={item.itemId} style={styles.line}>
+                <Text key={item.itemId} style={[styles.line,{color:palette.textMuted}]}>
                   {timeLabel(language, item.startAt)}–{timeLabel(language, item.endAt)} · {titleById.get(item.itemId) ?? item.itemId}
                 </Text>
               ))}
@@ -156,10 +158,10 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
           ) : null}
 
           {proposal.placements.length > 0 ? (
-            <View style={styles.group}>
-              <Text style={styles.groupTitle}>{tr(language, 'ПРЕДЛАГАЕМ', 'PROPOSED', '建议')}</Text>
+            <View style={[styles.group,{borderTopColor:palette.border}]}>
+              <Text style={[styles.groupTitle,{color:palette.textSoft}]}>{tr(language, 'ПРЕДЛАГАЕМ', 'PROPOSED', '建议')}</Text>
               {proposal.placements.map((item) => (
-                <Text key={item.itemId} style={styles.line}>
+                <Text key={item.itemId} style={[styles.line,{color:palette.textMuted}]}>
                   {timeLabel(language, item.proposedStartAt)}–{timeLabel(language, item.proposedEndAt)} · {titleById.get(item.itemId) ?? item.itemId}
                 </Text>
               ))}
@@ -167,10 +169,10 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
           ) : null}
 
           {proposal.unplaced.length > 0 ? (
-            <View style={styles.group}>
-              <Text style={styles.groupTitle}>{tr(language, 'ОСТАВИМ БЕЗ ВРЕМЕНИ', 'LEAVE UNSCHEDULED', '暂不排期')}</Text>
+            <View style={[styles.group,{borderTopColor:palette.border}]}>
+              <Text style={[styles.groupTitle,{color:palette.textSoft}]}>{tr(language, 'ОСТАВИМ БЕЗ ВРЕМЕНИ', 'LEAVE UNSCHEDULED', '暂不排期')}</Text>
               {proposal.unplaced.map((item) => (
-                <Text key={item.itemId} style={styles.unplaced}>
+                <Text key={item.itemId} style={[styles.unplaced,{color:palette.caution}]}>
                   {titleById.get(item.itemId) ?? item.itemId} · {unplacedLabel(language, item.reason)}
                 </Text>
               ))}
@@ -178,17 +180,17 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
           ) : null}
 
           <View style={styles.buttons}>
-            <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={build}>
-              <Text style={styles.secondaryText}>{tr(language, 'Пересчитать', 'Rebuild', '重新计算')}</Text>
+            <PhysicalPressable style={[styles.secondary,{borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={build}>
+              <Text style={[styles.secondaryText,{color:palette.textMuted}]}>{tr(language, 'Пересчитать', 'Rebuild', '重新计算')}</Text>
             </PhysicalPressable>
-            <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={apply}>
-              <Text style={styles.primaryText}>{tr(language, 'Применить', 'Apply', '应用')}</Text>
+            <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={apply}>
+              <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language, 'Применить', 'Apply', '应用')}</Text>
             </PhysicalPressable>
           </View>
         </View>
       ) : null}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error,{color:palette.danger}]}>{error}</Text> : null}
     </View>
   );
 }
