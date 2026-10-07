@@ -6,6 +6,7 @@ import { tr } from '../../i18n';
 import { loadPersonalTrip } from '../../persistence/personalTripStorage';
 import type { PersonalTrip } from '../../travel/personalTrip';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { useMoscowTheme } from '../../theme/MoscowTheme';
 import BookingWalletCard from './BookingWalletCard';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function TripWalletSurface({ language, onOpenTrip }: Props) {
+  const { palette } = useMoscowTheme();
   const [trip,setTrip]=useState<PersonalTrip|null>(null);
   const [loaded,setLoaded]=useState(false);
 
@@ -28,10 +30,10 @@ export default function TripWalletSurface({ language, onOpenTrip }: Props) {
 
   if(!trip){
     return (
-      <View style={styles.empty}>
+      <View style={[styles.empty,{backgroundColor:palette.surface,borderColor:palette.border}]}>
         <Text style={styles.kicker}>WALLET</Text>
-        <Text style={styles.title}>{tr(language,'Билеты и брони появятся здесь','Tickets and bookings live here','门票和预订会显示在这里')}</Text>
-        <Text style={styles.body}>
+        <Text style={[styles.title,{color:palette.text}]}>{tr(language,'Билеты и брони появятся здесь','Tickets and bookings live here','门票和预订会显示在这里')}</Text>
+        <Text style={[styles.body,{color:palette.textMuted}]}>
           {tr(
             language,
             'Добавьте свою поездку и существующие подтверждения. Moscow всегда показывает, что введено вами, а что подтверждено провайдером.',
@@ -39,8 +41,8 @@ export default function TripWalletSurface({ language, onOpenTrip }: Props) {
             '添加行程和已有确认信息。Moscow 始终区分你自行录入的信息和供应商确认信息。'
           )}
         </Text>
-        <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={onOpenTrip}>
-          <Text style={styles.primaryText}>{tr(language,'Открыть поездку','Open trip','打开行程')} →</Text>
+        <PhysicalPressable style={[styles.primary,{backgroundColor:palette.accent}]} contentStyle={styles.center} strong onPress={onOpenTrip}>
+          <Text style={[styles.primaryText,{color:palette.accentText}]}>{tr(language,'Открыть поездку','Open trip','打开行程')} →</Text>
         </PhysicalPressable>
       </View>
     );
@@ -53,10 +55,10 @@ export default function TripWalletSurface({ language, onOpenTrip }: Props) {
       {hasCommitments ? (
         <BookingWalletCard trip={trip} language={language} />
       ) : (
-        <View style={styles.empty}>
+        <View style={[styles.empty,{backgroundColor:palette.surface,borderColor:palette.border}]}>
           <Text style={styles.kicker}>WALLET</Text>
-          <Text style={styles.title}>{tr(language,'Пока нет билетов и броней','No tickets or bookings yet','暂无门票或预订')}</Text>
-          <Text style={styles.body}>
+          <Text style={[styles.title,{color:palette.text}]}>{tr(language,'Пока нет билетов и броней','No tickets or bookings yet','暂无门票或预订')}</Text>
+          <Text style={[styles.body,{color:palette.textMuted}]}>
             {tr(
               language,
               'Добавьте в поездку свой билет, ресторанную бронь или событие. User-declared подтверждения не выдаются за provider-confirmed.',
@@ -66,8 +68,8 @@ export default function TripWalletSurface({ language, onOpenTrip }: Props) {
           </Text>
         </View>
       )}
-      <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={onOpenTrip}>
-        <Text style={styles.secondaryText}>{tr(language,'Управлять поездкой','Manage trip','管理行程')} →</Text>
+      <PhysicalPressable style={[styles.secondary,{borderColor:palette.borderStrong}]} contentStyle={styles.center} onPress={onOpenTrip}>
+        <Text style={[styles.secondaryText,{color:palette.accentStrong}]}>{tr(language,'Управлять планом','Manage plan','管理计划')} →</Text>
       </PhysicalPressable>
     </View>
   );
