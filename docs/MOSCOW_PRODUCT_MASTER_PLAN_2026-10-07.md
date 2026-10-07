@@ -6,11 +6,11 @@
 
 ## Product thesis
 
-Moscow is a **city trip operating system**, not a catalogue of attractions and not a single heritage route.
+Moscow is a **personal Moscow planner, live-day assistant and persistent city memory**, not a catalogue of attractions and not a single heritage route.
 
 It connects:
 
-`plan trip → live day → tickets/reservations → nearby opportunities → adaptive replan → confirmed visits → My Moscow → next-day discovery`
+`plan a day or several days → live day → tickets/reservations → nearby opportunities → adaptive replan → visit → persistent My Moscow memory → revisit or build a new plan`
 
 with:
 
@@ -22,16 +22,17 @@ with:
 
 The tourist gets:
 
-- one multi-day trip;
+- a plan for one day, several days or a return visit;
 - personal interests, pace, accessibility intent and day bounds;
 - imported/manual tickets and reservations;
 - museums, heritage, restaurants, bars, theatres, events, activities, shopping, stays and transport in one timeline;
 - Today view;
 - nearby options for free windows;
 - replan without breaking fixed commitments;
-- visited/history memory;
-- My Moscow passport;
-- recommendations that avoid already visited places;
+- persistent visited/history memory independent of the current plan;
+- My Moscow as the long-lived personal city layer;
+- explicit `revisit` and `new for me` paths;
+- recommendations that know what was already visited without forbidding deliberate repeat visits;
 - RU / EN / 中文;
 - offline-safe content where available.
 
@@ -242,10 +243,10 @@ Their field gates continue to govern any claims about their own AR/spatial accur
 
 ## Product development priority
 
-1. Traveler Trip OS.
+1. Traveler Plan + persistent My Moscow memory.
 2. Today / adaptive day.
 3. Booking & ticket wallet.
-4. My Moscow visit memory.
+4. Repeat visit / next-plan intelligence.
 5. Broad supply taxonomy + events.
 6. Partner Console / attribution.
 7. City demand & load-balancing intelligence.
@@ -269,3 +270,21 @@ Their field gates continue to govern any claims about their own AR/spatial accur
 - Execution roadmap: `docs/MOSCOW_EXECUTION_ROADMAP_2026-10-07.md`
 
 These two files define the complete traveler / partner / city product and implementation order. They supersede ad-hoc feature expansion.
+
+
+## Product language correction — 2026-10-07
+
+User-facing language must not imply that the product is "one trip for the whole city".
+
+Preferred mental model:
+
+`Plan → Today → My Moscow → Revisit / New plan`
+
+Rules:
+- **Plan** is temporary and editable.
+- **My Moscow** is persistent across plans and visits.
+- deleting or replacing the current plan must not delete visit memory.
+- a repeated visit is a valid user choice, not automatically a recommendation error.
+- recommendations distinguish **already seen**, **worth revisiting**, **saved for later**, and **new for me**.
+- internal types may continue to use `PersonalTrip` where changing them would add technical risk without user value.
+- public copy should prefer "план", "день", "Моя Москва", "следующий план", "повторить" and "открыть новое".
