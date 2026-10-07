@@ -80,7 +80,7 @@ test('Meeting Mode keeps the presenter on the same executive step after evidence
   await page.getByRole('button', { name: 'Начать встречу' }).click();
   await expect(page.getByRole('button', { name: 'Route' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Evidence' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Decision' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Dossier' })).toBeVisible();
 
   await page.getByRole('button', { name: 'ШАГ 7' }).click();
   await expect(page.getByText('7 / 12', { exact: true })).toBeVisible();
@@ -93,22 +93,30 @@ test('Meeting Mode keeps the presenter on the same executive step after evidence
   await expect(page.getByText(/Digital Twin нужен не для/)).toBeVisible();
 });
 
-test('Meeting Mode Decision opens the one-page Pilot Brief and can continue to Contract Builder', async ({ page }) => {
+test('Meeting Mode Dossier compresses the decision into four executive layers', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Открыть investor MVP для Москвы' }).click();
   await page.getByRole('button', { name: 'Начать встречу' }).click();
 
-  await page.getByRole('button', { name: 'Decision' }).click();
-  await expect(page.getByText('ONE-PAGE PILOT BRIEF', { exact: true })).toBeVisible();
-  await expect(page.getByText('Варварка — Зарядье · первый закупаемый шаг', { exact: true })).toBeVisible();
-  await expect(page.getByText('ПРОБЛЕМА', { exact: true })).toBeVisible();
-  await expect(page.getByText('ВКЛАД МОСКВЫ', { exact: true })).toBeVisible();
-  await expect(page.getByText('DELIVERABLES', { exact: true })).toBeVisible();
-  await expect(page.getByText('ACCEPTANCE', { exact: true })).toBeVisible();
-  await expect(page.getByText('BLOCKERS', { exact: true })).toBeVisible();
-  await expect(page.getByText('NEXT DECISION', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Печать / сохранить PDF' })).toBeVisible();
+  await page.getByRole('button', { name: 'Dossier' }).click();
+  await expect(page.getByText('PROJECT DOSSIER · EXECUTIVE VIEW', { exact: true })).toBeVisible();
+  await expect(page.getByText('Варварка — Зарядье · решение за 30–60 секунд', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 · DECISION', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 · COMMERCIAL', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 · PROOF', { exact: true })).toBeVisible();
+  await expect(page.getByText('4 · CONFIDENTIALITY', { exact: true })).toBeVisible();
 
+  const dossier = page.getByTestId('project-dossier');
+  const box = await dossier.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.height).toBeLessThan(700);
+
+  await expect(page.getByText(/Следующий шаг открывает реальный evidence path/)).not.toBeVisible();
+  await page.getByRole('button', { name: 'Детали: 1 · DECISION' }).click();
+  await expect(page.getByText(/Следующий шаг открывает реальный evidence path/)).toBeVisible();
+
+  await expect(page.getByRole('button', { name: 'Печать / сохранить PDF' })).toBeVisible();
   await page.getByRole('button', { name: 'Открыть Contract Builder' }).click();
   await expect(page.getByText('Конструктор предмета пилотного договора', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Вернуться в презентацию' })).toBeVisible();

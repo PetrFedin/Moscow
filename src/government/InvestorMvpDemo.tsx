@@ -5,7 +5,7 @@ import { DEFAULT_LANGUAGE, type AppLanguage } from '../i18n';
 import PhysicalPressable from '../ui/PhysicalPressable';
 import InvestorControlScreen from './InvestorControlScreen';
 import GovernmentOwnerRoute from './GovernmentOwnerRoute';
-import PilotBrief from './PilotBrief.tsx';
+import ProjectDossier from './ProjectDossier.tsx';
 import { INVESTOR_MVP_FREEZE } from './investorMvpFreeze.ts';
 import type { GovernmentOwnerRouteDestination } from './governmentOwnerRoute.ts';
 import PilotContractBuilder from './PilotContractBuilder';
@@ -124,7 +124,7 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
           />
           <PresenterTab
             active={section === 'brief'}
-            label={language === 'ru' ? 'Decision' : language === 'en' ? 'Decision' : '决策'}
+            label={language === 'ru' ? 'Dossier' : language === 'en' ? 'Dossier' : '项目档案'}
             onPress={() => setSection('brief')}
           />
         </View>
@@ -166,10 +166,9 @@ export default function InvestorMvpDemo({ onClose }: { onClose: () => void }) {
         )}
 
         {section === 'brief' && (
-          <PilotBrief
+          <ProjectDossier
             language={language}
             onOpenContract={() => {
-              setLastEvidenceSection('contract');
               setLastEvidenceSection('contract');
               setSection('contract');
             }}
