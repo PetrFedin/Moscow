@@ -146,7 +146,7 @@ const ru: InvestorMvpCopy = {
       'Город получает формальный handover: код/контракты/документация/права/операционная модель в согласованном объёме.'
     ],
     nextDecisionKicker: 'СЛЕДУЮЩЕЕ РЕШЕНИЕ',
-    nextDecision: 'Согласовать профильного owner задачи, пилотную площадку, integration/data owner и рабочую сессию по scope + acceptance + правовой форме пилота.'
+    nextDecision: 'Согласовать product/business owner, integration/data routes и рабочую сессию по citywide Reference MVP: Tourist Golden Path → Partner Golden Path → City Golden Path → коммерческая модель → только затем выбрать наиболее подходящий controlled pilot.'
   }
 };
 
@@ -233,7 +233,7 @@ const en: InvestorMvpCopy = {
       'The city receives the agreed handover: code/contracts/documentation/rights/operating model.'
     ],
     nextDecisionKicker: 'NEXT DECISION',
-    nextDecision: 'Agree the business owner, pilot site, integration/data owner and a working session on scope + acceptance + legal form of the pilot.'
+    nextDecision: 'Agree the product/business owner, integration/data routes and a working session around the citywide Reference MVP: Tourist Golden Path → Partner Golden Path → City Golden Path → commercial model → then select the best controlled pilot.'
   }
 };
 
@@ -320,7 +320,7 @@ const zh: InvestorMvpCopy = {
       '城市获得约定范围内的正式交接：代码/契约/文档/权利/运营模式。'
     ],
     nextDecisionKicker: '下一步决策',
-    nextDecision: '确定业务负责人、试点场地、集成/数据负责人，并就 scope + acceptance + 试点法律形式召开工作会议。'
+    nextDecision: '确定产品/业务负责人和集成/数据路径，并围绕 citywide Reference MVP 召开工作会议：Tourist Golden Path → Partner Golden Path → City Golden Path → 商业模式 → 之后再选择最合适的 controlled pilot。'
   }
 };
 
