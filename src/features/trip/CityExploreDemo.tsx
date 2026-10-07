@@ -69,7 +69,7 @@ function cautionLabel(language:AppLanguage,caution:string){
 }
 
 export default function CityExploreDemo({language,onAddToTrip}:Props){
-  const [windowMinutes,setWindowMinutes]=useState<WindowFilter>(90);
+  const [windowMinutes,setWindowMinutes]=useState<WindowFilter>(120);
   const [kind,setKind]=useState<CityDiscoveryKind | 'all'>('all');
   const [quick,setQuick]=useState<'fit'|'now'|'30'|'60'|'120'>('fit');
   const [collectionId,setCollectionId]=useState<DiscoveryCollectionId|null>(null);
