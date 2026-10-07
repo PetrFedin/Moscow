@@ -95,7 +95,7 @@ export const cityDiscoveryDemoCatalog:CityDiscoveryItem[]=[
     availability:'available',
     availabilityTruth:'demo',
     qualityScore:4.5,
-    openingHours:daily('12:00','00:00'),
+    openingHours:daily('12:00','23:59'),
     priceClass:'mid',
     family:{familyFriendly:'yes'},
     accessibility:{stepFree:'verified'},
