@@ -15,6 +15,7 @@ import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import { detectLanguage } from './i18n';
 import PhysicalPressable from './ui/PhysicalPressable';
+import { useMoscowTheme } from './theme/MoscowTheme';
 
 type DemoStage = null | 'lens' | 'model' | 'spatial';
 type DemoEra = '1857' | '1859';
@@ -31,6 +32,7 @@ const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
 
 export default function MoscowDemoShell() {
+  const { mode: themeMode, palette, toggleTheme } = useMoscowTheme();
   const [stage, setStage] = useState<DemoStage>(null);
   const [governmentOpen, setGovernmentOpen] = useState(false);
   const [investorOpen, setInvestorOpen] = useState(false);
@@ -80,11 +82,12 @@ export default function MoscowDemoShell() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root,{backgroundColor:palette.background}]}>
       <View
         testID="local-preview-frame"
         style={[
           styles.previewHost,
+          {backgroundColor:palette.background},
           forcedViewportWidth !== undefined && {
             width: forcedViewportWidth,
             maxWidth: '100%',
@@ -96,8 +99,8 @@ export default function MoscowDemoShell() {
       </View>
 
       {localDeviceLabEnabled && (
-        <View testID="local-device-lab" style={styles.deviceLab}>
-          <Text style={styles.deviceLabTitle}>LOCAL DEVICE LAB</Text>
+        <View testID="local-device-lab" style={[styles.deviceLab,{backgroundColor:palette.surfaceRaised,borderColor:palette.borderStrong}]}>
+          <Text style={[styles.deviceLabTitle,{color:palette.textSoft}]}>LOCAL DEVICE LAB</Text>
           <View style={styles.deviceLabRow}>
             {([
               ['auto', 'AUTO'],
@@ -118,6 +121,18 @@ export default function MoscowDemoShell() {
           </View>
         </View>
       )}
+
+      <PhysicalPressable
+        testID="theme-toggle"
+        accessibilityRole="button"
+        accessibilityLabel={themeMode==='dark'?'Включить светлую тему':'Включить тёмную тему'}
+        style={[styles.themeButton,{backgroundColor:palette.surfaceRaised,borderColor:palette.borderStrong}]}
+        contentStyle={styles.centerContent}
+        hapticEvent="none"
+        onPress={toggleTheme}
+      >
+        <Text style={[styles.themeIcon,{color:palette.text}]}>{themeMode==='dark'?'☀':'☾'}</Text>
+      </PhysicalPressable>
 
       {demoEnabled && (
         <>
@@ -220,6 +235,8 @@ export default function MoscowDemoShell() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#050607' },
   previewHost: { flex: 1, minWidth: 0, overflow: 'hidden', backgroundColor: '#090b0d' },
+  themeButton: { position:'absolute', right:14, top:14, zIndex:120, width:44, height:44, borderRadius:22, borderWidth:1, shadowColor:'#000', shadowOpacity:0.12, shadowRadius:8, shadowOffset:{width:0,height:3} },
+  themeIcon: { fontSize:18, fontWeight:'900' },
   deviceLab: {
     position: 'absolute',
     left: 10,
