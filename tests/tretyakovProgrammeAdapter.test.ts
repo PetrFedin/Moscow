@@ -106,3 +106,15 @@ test('stale programme evidence degrades operational status to unknown', () => {
   assert.equal(projection.entities[0]?.operationalStatus, 'unknown');
   assert.equal(projection.entities[0]?.journeyEligible, false);
 });
+
+
+test('official SSR payload shape normalizes current programme without relying on visible HTML text', () => {
+  const ssr = `<!doctype html><html><head><title>Алексей Боголюбов. От Невы до Босфора - Третьяковская галерея</title></head><body><script>
+  window.__NUXT__={event:{name:"Алексей Боголюбов. От Невы до Босфора",status:"Уже идет",status_code:"current",date_and_time:{date_start:"29 сентября 2026",date_start_format:"2026-09-29T00:00:00",date_end:"6 июня 2027"}}}
+  </script></body></html>`;
+
+  const entity = normalizeTretyakovProgrammePage(ssr, snapshot())[0]!;
+  assert.equal(entity.operationalStatus, 'scheduled');
+  assert.equal(entity.startsAt, '2026-09-29T00:00:00+03:00');
+  assert.equal(entity.endsAt, '2027-06-06T23:59:59+03:00');
+});
