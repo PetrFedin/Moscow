@@ -27,6 +27,8 @@ import HistoricalModelViewer from './features/spatial/HistoricalModelViewer';
 import MoscowSpatialNavigator from './features/spatial/MoscowSpatialNavigator';
 import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
+import { loadCurrentLiveCityProjection } from './travel/currentLiveCityClient';
+import { projectLiveDestinationFeed } from './travel/liveDestinationAuthority';
 import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
 import {
   canOpenArchiveLens,
@@ -48,6 +50,7 @@ type TrustMode = 'documented' | 'public';
 const SPATIAL_PLACE_STORAGE_KEY = 'moscow:p0:spatial-place:v1';
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
+const LIVE_CITY_SNAPSHOT_URL = process.env.EXPO_PUBLIC_LIVE_CITY_SNAPSHOT_URL?.trim();
 
 const copy = {
   ru: {
@@ -126,6 +129,9 @@ export default function MoscowExperienceApp() {
   const [lensVisible, setLensVisible] = useState(true);
   const [mapSheetState, setMapSheetState] = useState<StableSheetState>('preview');
   const [modal, setModal] = useState<ModalMode>(null);
+  const [currentLiveResult, setCurrentLiveResult] = useState<
+    Awaited<ReturnType<typeof loadCurrentLiveCityProjection>> | null
+  >(null);
   const appOpenTrackedRef = useRef(false);
   const previousAnalyticsTabRef = useRef<Tab | null>(null);
   const stopPresentedTrackedRef = useRef(new Set<string>());
@@ -202,6 +208,41 @@ export default function MoscowExperienceApp() {
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (!LIVE_CITY_SNAPSHOT_URL) return;
+
+    let active = true;
+    const refresh = async () => {
+      const nowIso = new Date().toISOString();
+      try {
+        const next = await loadCurrentLiveCityProjection({
+          url: LIVE_CITY_SNAPSHOT_URL,
+          nowIso
+        });
+        if (active) setCurrentLiveResult(next);
+      } catch {
+        if (!active) return;
+        setCurrentLiveResult((previous) => previous
+          ? {
+              snapshot: previous.snapshot,
+              projection: projectLiveDestinationFeed(previous.snapshot.mergedFeed, nowIso)
+            }
+          : null
+        );
+      }
+    };
+
+    void refresh();
+    const timer = setInterval(() => {
+      void refresh();
+    }, 5 * 60_000);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -856,6 +897,7 @@ export default function MoscowExperienceApp() {
               language={language}
               savedIds={savedIds}
               visitedIds={visitedIds}
+              currentLiveDestinationProjection={currentLiveResult?.projection}
               onOpenPlace={(id) => {
                 selectPlace(id);
                 setTab('discover');

@@ -2314,3 +2314,135 @@ Fixture tests cover all supported statuses but do not count as real-source proof
 - real-source PASS requires archived HTTPS evidence.
 
 **Sequencing:** programme adapter -> real smoke -> evidence archive -> Day Composer source-backed event -> browser E2E -> current live refresh runtime.
+
+
+## Current Live Refresh Runtime v1 — IMPLEMENTING
+
+This layer turns the already proven real provider sources into rotating current city truth.
+
+### Authority reuse
+
+Do not create a second journey runtime.
+
+Reuse:
+
+- `LiveProviderRefreshPolicy` and snapshot ingestion;
+- `mergeLiveDestinationFeeds`;
+- `projectLiveDestinationFeed`;
+- `DestinationJourneyRuntime`;
+- existing Personal Trip / Day Composer projection.
+
+Runtime chain:
+
+`scheduled provider refresh -> raw snapshot + SHA-256 -> provider ingestion -> merged live feed -> current projection -> Day Composer -> disruption -> existing Journey Runtime replan-required`
+
+### Current providers in v1
+
+- Tretyakov New Gallery official venue/opening-hours source;
+- Tretyakov official programme/exhibition source.
+
+Both sources are refreshed independently and retain their own snapshot IDs, fetch times and SHA-256 evidence.
+
+### Refresh cadence
+
+The first worker cadence is every 20 minutes.
+
+Reason:
+
+- current entity expiry is 30 minutes;
+- expected provider refresh is 15 minutes;
+- 20 minutes avoids unnecessary high-frequency traffic while remaining inside the current truth window under normal scheduling.
+
+GitHub scheduled execution is an operational proof/runtime worker, not the final production publication transport.
+
+### Current snapshot contract
+
+The worker writes a current snapshot containing:
+
+- destination ID;
+- refreshedAt;
+- source snapshot metadata;
+- ingestion records;
+- merged live feed;
+- current projection;
+- detected disruptions.
+
+The full raw HTML snapshots remain evidence artifacts.
+
+### Publication boundary
+
+The client consumes a configured HTTPS snapshot URL through:
+
+`EXPO_PUBLIC_LIVE_CITY_SNAPSHOT_URL`
+
+The repository does not hard-code GitHub artifacts or raw GitHub URLs as production runtime dependencies.
+
+A publication service may later be Render, Netlify, Supabase or another approved HTTPS endpoint without changing Day Composer authority.
+
+If no current snapshot endpoint is configured, live truth remains absent rather than fabricated.
+
+### Client freshness rotation
+
+The client must not trust a stored projection indefinitely.
+
+It validates the merged feed and re-projects it against the current clock.
+
+Therefore:
+
+`last successful snapshot + current time -> fresh / stale / unknown`
+
+If network refresh fails, the previous snapshot may remain cached only as source material. Once entity expiry is crossed, OPEN/SCHEDULED automatically degrades to UNKNOWN.
+
+### Day Composer
+
+Normal Personal Trip flows may consume the current live projection.
+
+Explicit historical replay namespaces retain priority for evidence-demo scenarios.
+
+Current live truth remains projection metadata and never mutates PersonalTrip.
+
+### Disruption detection
+
+The current refresh runtime emits source-bound disruptions for:
+
+- closed / temporarily closed -> closed;
+- cancelled;
+- rescheduled;
+- stale.
+
+Each disruption carries provider identity, entity identity and an evidence reference derived from the provider snapshot ID + payload SHA-256.
+
+### Journey Runtime bridge
+
+Matching live-destination blocks are invalidated through the existing `provider-invalidated` event.
+
+Flow:
+
+`live source change -> disruption -> provider-invalidated -> block blocked -> replan-required`
+
+Completed/resolved blocks retain their historical outcome and are not rewritten.
+
+`rescheduled` is now an explicit provider invalidation reason.
+
+### Fail-closed rules
+
+- no source snapshot -> no live claim;
+- invalid source payload -> refresh failure, not synthetic fallback;
+- expired provider snapshot -> reject ingestion;
+- expired entity truth -> stale / UNKNOWN;
+- missing publication endpoint -> no current live projection;
+- GitHub artifact alone is not production current-state delivery;
+- refresh runtime cannot silently move fixed Personal Trip commitments.
+
+### Acceptance
+
+- two real Tretyakov sources refresh in one cycle;
+- raw provider payload SHA-256 values are recorded independently;
+- merged feed validates before projection;
+- current snapshot can be loaded through a replaceable HTTPS endpoint;
+- client freshness rotates locally even during publication/network failure;
+- Day Composer receives current live truth only from validated snapshot data;
+- closed/cancelled/rescheduled/stale can drive the existing Journey Runtime to `replan-required`;
+- fixed commitments remain preserved until an explicit accepted replan.
+
+**Sequencing:** real two-source refresh proof -> exact-head quality -> merge -> production current snapshot publication endpoint -> Day Composer current live browser proof -> disruption/replan UX -> verified replacement plan.

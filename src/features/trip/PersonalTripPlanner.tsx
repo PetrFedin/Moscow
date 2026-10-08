@@ -53,6 +53,7 @@ type Props = {
   language: AppLanguage;
   savedIds: string[];
   visitedIds: string[];
+  currentLiveDestinationProjection?: ReturnType<typeof import('../../travel/liveDestinationAuthority').projectLiveDestinationFeed>;
   onOpenPlace: (placeId: string) => void;
 };
 
@@ -194,6 +195,7 @@ export default function PersonalTripPlanner({
   language,
   savedIds,
   visitedIds,
+  currentLiveDestinationProjection,
   onOpenPlace
 }: Props) {
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
@@ -312,7 +314,7 @@ export default function PersonalTripPlanner({
     return hasProgramme ? projectTretyakovProgrammeReplay() : null;
   }, [selectedDay, trip]);
 
-  const liveProjection = replayProgrammeProjection ?? replayLiveCityProjection;
+  const liveProjection = replayProgrammeProjection ?? replayLiveCityProjection ?? currentLiveDestinationProjection ?? null;
   const liveEvidenceContext = replayProgrammeProjection
     ? {
         mode: tretyakovProgrammeReplayContext.mode,
@@ -323,7 +325,9 @@ export default function PersonalTripPlanner({
           mode: tretyakovLiveCityReplayContext.mode,
           evidenceRef: tretyakovLiveCityReplayContext.evidenceRef
         }
-      : undefined;
+      : currentLiveDestinationProjection
+        ? { mode: 'live' as const }
+        : undefined;
 
   const dayComposer = useMemo(
     () => trip && trip.days.includes(selectedDay)

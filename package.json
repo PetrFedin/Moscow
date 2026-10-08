@@ -29,7 +29,8 @@
     "provider:proof-status": "node --experimental-strip-types scripts/report_provider_proof_status.mjs",
     "routing:valhalla-smoke": "node --experimental-strip-types scripts/valhalla_route_smoke.mjs",
     "live:tretyakov-smoke": "node --experimental-strip-types scripts/tretyakov_live_city_smoke.mjs",
-    "live:tretyakov-programme-smoke": "node --experimental-strip-types scripts/tretyakov_programme_smoke.mjs"
+    "live:tretyakov-programme-smoke": "node --experimental-strip-types scripts/tretyakov_programme_smoke.mjs",
+    "live:refresh-runtime": "node --experimental-strip-types scripts/live_city_refresh_runtime.mjs"
   },
   "dependencies": {
     "@google/model-viewer": "4.3.1",
