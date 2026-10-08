@@ -1,5 +1,7 @@
 import http from 'node:http';
 import { createHash } from 'node:crypto';
+import { readFile, stat } from 'node:fs/promises';
+import path from 'node:path';
 
 import {
   buildTretyakovNewLiveAdapter,
@@ -19,6 +21,8 @@ const REFRESH_INTERVAL_MS = Math.max(
 );
 const venueUrl = process.env.TRETYAKOV_LIVE_URL?.trim() || TRETYAKOV_NEW_SOURCE_URL;
 const programmeUrl = process.env.TRETYAKOV_PROGRAMME_URL?.trim() || TRETYAKOV_PROGRAMME_SOURCE_URL;
+const SERVE_WEB_DIST = process.env.SERVE_WEB_DIST === '1';
+const WEB_DIST_DIR = path.resolve(process.env.WEB_DIST_DIR?.trim() || 'dist');
 
 let currentSnapshot = null;
 let refreshInFlight = null;
@@ -39,6 +43,62 @@ function json(res, status, body, cacheControl = 'no-store') {
     'access-control-allow-headers': 'content-type'
   });
   res.end(payload);
+}
+
+
+const MIME_BY_EXT = new Map([
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.mjs', 'text/javascript; charset=utf-8'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.svg', 'image/svg+xml'],
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'],
+  ['.ico', 'image/x-icon'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2']
+]);
+
+async function fileExists(filePath) {
+  try {
+    return (await stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function serveStaticWeb(pathname, res) {
+  if (!SERVE_WEB_DIST) return false;
+
+  const decoded = decodeURIComponent(pathname);
+  const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+  const candidate = path.resolve(WEB_DIST_DIR, relative);
+
+  if (!candidate.startsWith(WEB_DIST_DIR + path.sep) && candidate !== path.join(WEB_DIST_DIR, 'index.html')) {
+    return false;
+  }
+
+  let filePath = candidate;
+  if (!(await fileExists(filePath))) {
+    if (path.extname(relative)) return false;
+    filePath = path.join(WEB_DIST_DIR, 'index.html');
+    if (!(await fileExists(filePath))) return false;
+  }
+
+  const body = await readFile(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  res.writeHead(200, {
+    'content-type': MIME_BY_EXT.get(ext) || 'application/octet-stream',
+    'content-length': String(body.length),
+    'cache-control': ext === '.html'
+      ? 'no-cache'
+      : 'public, max-age=31536000, immutable'
+  });
+  res.end(body);
+  return true;
 }
 
 async function fetchHtml(sourceUrl, userAgent) {
@@ -170,7 +230,7 @@ function readiness(nowIso) {
   };
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', 'http://localhost');
 
   if (req.method === 'OPTIONS') {
@@ -210,6 +270,10 @@ const server = http.createServer((req, res) => {
     return json(res, 200, currentSnapshot, 'public, max-age=60, stale-while-revalidate=120');
   }
 
+  if (req.method === 'GET' && await serveStaticWeb(url.pathname, res)) {
+    return;
+  }
+
   return json(res, 404, { ok: false });
 });
 
@@ -219,7 +283,9 @@ server.listen(PORT, '0.0.0.0', () => {
     port: PORT,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
     venueUrl,
-    programmeUrl
+    programmeUrl,
+    serveWebDist: SERVE_WEB_DIST,
+    webDistDir: SERVE_WEB_DIST ? WEB_DIST_DIR : null
   }));
 
   void refreshCurrentSnapshot().catch(() => undefined);
