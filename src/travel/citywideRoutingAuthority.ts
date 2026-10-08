@@ -72,6 +72,11 @@ export type CitywideRouteFeasibilityDecision = {
   requiredTravelMinutes?: number;
   bufferMinutes?: number;
   routeObservationId?: string;
+  providerId?: string;
+  providerName?: string;
+  sourceUrl?: string;
+  observedAt?: string;
+  expiresAt?: string;
   mode?: CitywideTravelMode;
   reason:
     | 'fresh-route-with-buffer'
@@ -298,6 +303,11 @@ export function decideCitywideRouteFeasibility(input: {
       requiredTravelMinutes: route.durationMinutes,
       bufferMinutes,
       routeObservationId: route.id,
+      providerId: route.providerId,
+      providerName: route.providerName,
+      sourceUrl: route.sourceUrl,
+      observedAt: route.observedAt,
+      expiresAt: route.expiresAt,
       mode: route.mode,
       reason: 'fresh-route-exceeds-window'
     };
@@ -314,6 +324,11 @@ export function decideCitywideRouteFeasibility(input: {
       requiredTravelMinutes: route.durationMinutes,
       bufferMinutes,
       routeObservationId: route.id,
+      providerId: route.providerId,
+      providerName: route.providerName,
+      sourceUrl: route.sourceUrl,
+      observedAt: route.observedAt,
+      expiresAt: route.expiresAt,
       mode: route.mode,
       reason: 'fresh-route-tight-buffer'
     };
@@ -329,6 +344,11 @@ export function decideCitywideRouteFeasibility(input: {
     requiredTravelMinutes: route.durationMinutes,
     bufferMinutes,
     routeObservationId: route.id,
+    providerId: route.providerId,
+    providerName: route.providerName,
+    sourceUrl: route.sourceUrl,
+    observedAt: route.observedAt,
+    expiresAt: route.expiresAt,
     mode: route.mode,
     reason: 'fresh-route-with-buffer'
   };
