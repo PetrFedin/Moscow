@@ -55,7 +55,7 @@ export type RuntimeEvent =
   | {
       type: 'provider-invalidated';
       blockId: string;
-      reason: 'closed' | 'cancelled' | 'sold-out' | 'stale' | 'provider-error';
+      reason: 'closed' | 'cancelled' | 'rescheduled' | 'sold-out' | 'stale' | 'provider-error';
       evidenceRef: string;
       at: string;
     };
