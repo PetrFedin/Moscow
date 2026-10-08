@@ -43,9 +43,13 @@ async function main() {
   const request = buildValhallaWalkingRequest(from, to);
   const url = endpoint(baseUrl);
 
+  const clientId = process.env.VALHALLA_CLIENT_ID?.trim() || 'moscow-city-journey-os';
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      'x-client-id': clientId
+    },
     body: JSON.stringify(request)
   });
 
@@ -96,6 +100,7 @@ async function main() {
     adapterId: 'valhalla-route-v1',
     fetchedAt,
     sourceUrl: url,
+    clientId,
     request,
     rawResponseSha256: sha256(rawText),
     rawResponse: raw,

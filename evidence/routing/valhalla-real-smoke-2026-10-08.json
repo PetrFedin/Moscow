@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "kind": "routing-real-smoke-evidence",
+  "providerId": "valhalla",
+  "adapterId": "valhalla-route-v1",
+  "workflowRunId": 37758332333,
+  "workflowJobId": 113248336423,
+  "artifactId": 11541226761,
+  "artifactName": "valhalla-real-smoke-evidence",
+  "artifactDigest": "sha256:b660d288c815a8d39d0501230d3e03517ca71c6d5ec1b20d406cf8dfe0d40644",
+  "headSha": "22df56b0d7dec70b072b3e07e4c6e7e83ef4b675",
+  "fetchedAt": "2026-10-08T09:41:00.499Z",
+  "sourceUrl": "https://valhalla1.openstreetmap.de/route",
+  "clientId": "moscow-city-journey-os",
+  "request": {
+    "from": {
+      "id": "pushkin-museum",
+      "latitude": 55.7472,
+      "longitude": 37.6054
+    },
+    "to": {
+      "id": "bolshoi-theatre",
+      "latitude": 55.7601,
+      "longitude": 37.6186
+    },
+    "mode": "walk"
+  },
+  "rawResponseSha256": "4a4a7dbaf85bf4446a59788dd2c74e7db05384c934f3dd6c49409f677e53ef90",
+  "providerSummary": {
+    "timeSeconds": 1448.271,
+    "distanceKilometers": 1.813
+  },
+  "normalizedObservation": {
+    "id": "valhalla:pushkin-museum:bolshoi-theatre:walk:2026-10-08T09:41:00.499Z",
+    "providerId": "valhalla",
+    "mode": "walk",
+    "durationMinutes": 25,
+    "distanceMeters": 1813,
+    "observedAt": "2026-10-08T09:41:00.499Z",
+    "expiresAt": "2026-10-08T09:56:00.499Z",
+    "sourceUrl": "https://valhalla1.openstreetmap.de/route"
+  },
+  "truthBoundary": {
+    "realProviderCall": true,
+    "freshnessBound": true,
+    "safeForHistoricalReplay": true,
+    "safeToClaimAsCurrentAfterExpiry": false
+  }
+}
