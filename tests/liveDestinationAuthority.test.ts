@@ -17,7 +17,7 @@ function feed(): LiveDestinationFeed {
         id: 'official-events',
         name: 'Official Events Feed',
         relationship: 'official',
-        capabilities: ['inventory', 'event-schedule', 'operational-status'],
+        capabilities: ['inventory', 'event-schedule', 'operational-status', 'opening-hours'],
         sourceUrl: 'https://example.org/events',
         attributionRu: 'Источник: официальный календарь',
         attributionEn: 'Source: official calendar',
@@ -76,7 +76,20 @@ function feed(): LiveDestinationFeed {
         sourceUrl: 'https://example.org/places/restaurant-9',
         observedAt: '2026-09-28T11:55:00.000Z',
         expiresAt: '2026-09-28T12:10:00.000Z',
-        operationalStatus: 'open'
+        operationalStatus: 'open',
+        openingHours: {
+          timezone: 'Europe/Moscow',
+          windows: [
+            {
+              opensAt: '2026-09-28T10:00:00.000Z',
+              closesAt: '2026-09-28T12:30:00.000Z'
+            },
+            {
+              opensAt: '2026-09-28T13:00:00.000Z',
+              closesAt: '2026-09-28T18:00:00.000Z'
+            }
+          ]
+        }
       }
     ]
   };
@@ -216,4 +229,86 @@ test('booking provider must explicitly declare booking-handoff authority', () =>
   const validation = validateLiveDestinationFeed(value);
   assert.equal(validation.valid, false);
   assert.ok(validation.blockers.includes('booking-provider-lacks-handoff-authority:event-1'));
+});
+
+
+test('opening-hours truth projects open/closed and next change only while source is fresh', () => {
+  const value = feed();
+
+  const openProjection = projectLiveDestinationFeed(value, '2026-09-28T12:00:00.000Z');
+  const openFood = openProjection.entities.find((item) => item.id === 'food-1');
+  assert.ok(openFood);
+  assert.equal(openFood.openingState, 'open');
+  assert.equal(openFood.nextOpeningChangeAt, '2026-09-28T12:30:00.000Z');
+  assert.equal(openFood.journeyEligible, true);
+
+  const closedValue = feed();
+  closedValue.entities[1]!.expiresAt = '2026-09-28T13:30:00.000Z';
+  const closedProjection = projectLiveDestinationFeed(closedValue, '2026-09-28T12:45:00.000Z');
+  const closedFood = closedProjection.entities.find((item) => item.id === 'food-1');
+  assert.ok(closedFood);
+  assert.equal(closedFood.openingState, 'closed');
+  assert.equal(closedFood.nextOpeningChangeAt, '2026-09-28T13:00:00.000Z');
+  assert.equal(closedFood.journeyEligible, false);
+
+  const staleProjection = projectLiveDestinationFeed(value, '2026-09-28T12:15:00.000Z');
+  const staleFood = staleProjection.entities.find((item) => item.id === 'food-1');
+  assert.ok(staleFood);
+  assert.equal(staleFood.freshness, 'stale');
+  assert.equal(staleFood.openingState, 'unknown');
+  assert.equal(staleFood.nextOpeningChangeAt, undefined);
+});
+
+test('opening-hours claims require explicit provider authority and valid windows', () => {
+  const noAuthority = feed();
+  noAuthority.providers[0]!.capabilities = ['inventory', 'event-schedule', 'operational-status'];
+  let validation = validateLiveDestinationFeed(noAuthority);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('live-provider-lacks-opening-hours-authority:food-1'));
+
+  const invalidWindow = feed();
+  invalidWindow.entities[1]!.openingHours!.windows[0]!.closesAt =
+    invalidWindow.entities[1]!.openingHours!.windows[0]!.opensAt;
+  validation = validateLiveDestinationFeed(invalidWindow);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.blockers.includes('live-opening-window-order-invalid:food-1:0'));
+});
+
+test('citywide theatre and restaurant kinds accept bounded live status semantics', () => {
+  const value = feed();
+  value.entities.push({
+    id: 'theatre-1',
+    providerEntityId: 'theatre-provider-1',
+    providerId: 'official-events',
+    kind: 'theatre',
+    titleRu: 'Театр',
+    titleEn: 'Theatre',
+    titleZh: '剧院',
+    latitude: 55.75,
+    longitude: 37.61,
+    tags: ['театр'],
+    sourceUrl: 'https://example.org/theatre/1',
+    observedAt: '2026-09-28T11:55:00.000Z',
+    expiresAt: '2026-09-28T13:00:00.000Z',
+    operationalStatus: 'open'
+  });
+  value.entities.push({
+    id: 'restaurant-1',
+    providerEntityId: 'restaurant-provider-1',
+    providerId: 'official-events',
+    kind: 'restaurant',
+    titleRu: 'Ресторан',
+    titleEn: 'Restaurant',
+    titleZh: '餐厅',
+    latitude: 55.751,
+    longitude: 37.611,
+    tags: ['еда'],
+    sourceUrl: 'https://example.org/restaurant/1',
+    observedAt: '2026-09-28T11:55:00.000Z',
+    expiresAt: '2026-09-28T13:00:00.000Z',
+    operationalStatus: 'open'
+  });
+
+  const validation = validateLiveDestinationFeed(value);
+  assert.equal(validation.valid, true);
 });
