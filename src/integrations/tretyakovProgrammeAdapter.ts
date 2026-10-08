@@ -46,7 +46,7 @@ function contextsForTitle(html: string, title: string) {
   while (offset < html.length) {
     const index = html.indexOf(title, offset);
     if (index < 0) break;
-    contexts.push(html.slice(Math.max(0, index - 2500), Math.min(html.length, index + title.length + 5000)));
+    contexts.push(html.slice(Math.max(0, index - 5000), Math.min(html.length, index + title.length + 30000)));
     offset = index + title.length;
   }
   return contexts;
