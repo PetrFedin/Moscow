@@ -261,9 +261,13 @@ export function buildDayComposerProjection(input: {
   const dayStart = dayBoundary(input.dayDate, preferences.dayStart);
   const dayEnd = dayBoundary(input.dayDate, preferences.dayEnd);
 
-  const liveById = new Map(
-    (input.liveDestinationProjection?.entities ?? []).map((entity) => [entity.id, entity] as const)
-  );
+  const liveById = new Map<string, LiveDestinationProjectionEntity>();
+  for (const entity of input.liveDestinationProjection?.entities ?? []) {
+    liveById.set(entity.id, entity);
+    if (entity.canonicalDestinationNodeId) {
+      liveById.set(entity.canonicalDestinationNodeId, entity);
+    }
+  }
   const items = personalTripDayItems(input.trip, input.dayDate)
     .map((item) => projectItem(item, liveById));
 
