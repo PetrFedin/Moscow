@@ -54,6 +54,7 @@ test('fresh journey-eligible live entities can fill food event and activity slot
         expiresAt: '2026-09-29T13:00:00.000Z',
         freshness: 'fresh',
         operationalStatus: 'open',
+        openingState: 'open',
         journeyEligible: true
       },
       {
@@ -76,6 +77,7 @@ test('fresh journey-eligible live entities can fill food event and activity slot
         expiresAt: '2026-09-29T18:00:00.000Z',
         freshness: 'fresh',
         operationalStatus: 'scheduled',
+        openingState: 'unknown',
         startsAt: '2026-09-29T16:00:00.000Z',
         journeyEligible: true,
         booking: {
@@ -108,6 +110,7 @@ test('fresh journey-eligible live entities can fill food event and activity slot
         expiresAt: '2026-09-29T20:00:00.000Z',
         freshness: 'fresh',
         operationalStatus: 'open',
+        openingState: 'open',
         journeyEligible: true
       }
     ]
@@ -150,6 +153,7 @@ test('stale or non-journey-eligible live entities do not fill day slots', () => 
         expiresAt: '2026-09-29T11:00:00.000Z',
         freshness: 'stale',
         operationalStatus: 'unknown',
+        openingState: 'unknown',
         journeyEligible: false
       }
     ]
