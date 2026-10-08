@@ -26,11 +26,34 @@ async function main() {
   });
 
   const rawHtml = await response.text();
+  const finalUrl = response.url || sourceUrl;
+  const contentType = response.headers.get('content-type') || '';
+  const payloadSha256 = sha256(rawHtml);
+
+  const rawOut = process.env.LIVE_PROGRAMME_RAW_OUT?.trim();
+  if (rawOut) {
+    await writeFile(rawOut, rawHtml, 'utf8');
+  }
+
+  const diagnosticsOut = process.env.LIVE_PROGRAMME_DIAGNOSTICS_OUT?.trim();
+  if (diagnosticsOut) {
+    await writeFile(diagnosticsOut, JSON.stringify({
+      schemaVersion: 1,
+      requestedUrl: sourceUrl,
+      finalUrl,
+      status: response.status,
+      ok: response.ok,
+      contentType,
+      fetchedAt,
+      rawHtmlSha256: payloadSha256,
+      byteLength: Buffer.byteLength(rawHtml, 'utf8')
+    }, null, 2) + '\n', 'utf8');
+  }
+
   if (!response.ok) {
     throw new Error(`Tretyakov programme HTTP ${response.status}: ${rawHtml.slice(0, 400)}`);
   }
 
-  const payloadSha256 = sha256(rawHtml);
   const adapter = buildTretyakovProgrammeAdapter(sourceUrl);
   const snapshot = {
     schemaVersion: 1,
@@ -79,12 +102,8 @@ async function main() {
   };
 
   const evidenceOut = process.env.LIVE_PROGRAMME_EVIDENCE_OUT?.trim();
-  const rawOut = process.env.LIVE_PROGRAMME_RAW_OUT?.trim();
   if (evidenceOut) {
     await writeFile(evidenceOut, JSON.stringify(evidence, null, 2) + '\n', 'utf8');
-  }
-  if (rawOut) {
-    await writeFile(rawOut, rawHtml, 'utf8');
   }
 
   console.log(JSON.stringify({
