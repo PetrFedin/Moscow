@@ -137,15 +137,18 @@ export default function DayComposerCard({
                 </View>
                 <View style={styles.rowBody}>
                   <Text style={styles.travelTitle}>
-                    {tr(language, 'ПЕРЕМЕЩЕНИЕ', 'TRAVEL', '移动')} · {statusLabel}
+                    {entry.routingVerified && entry.requiredTravelMinutes !== undefined && entry.mode
+                      ? `TRAVEL · ${entry.requiredTravelMinutes} ${tr(language, 'мин', 'min', '分钟')} · ${entry.mode.toUpperCase()}`
+                      : `TRAVEL · ${statusLabel}`}
                   </Text>
+                  <Text style={styles.travelStatus}>{statusLabel}</Text>
                   <Text style={styles.rowMeta}>
                     {entry.routingVerified && entry.requiredTravelMinutes !== undefined
                       ? tr(
                           language,
-                          `${entry.requiredTravelMinutes} мин в пути · buffer ${entry.bufferMinutes ?? 0} мин`,
-                          `${entry.requiredTravelMinutes} min travel · ${entry.bufferMinutes ?? 0} min buffer`,
-                          `${entry.requiredTravelMinutes} 分钟路程 · 余量 ${entry.bufferMinutes ?? 0} 分钟`
+                          `Подтверждено источником · buffer ${entry.bufferMinutes ?? 0} мин`,
+                          `Source-backed · ${entry.bufferMinutes ?? 0} min buffer`,
+                          `来源已验证 · 余量 ${entry.bufferMinutes ?? 0} 分钟`
                         )
                       : tr(
                           language,
@@ -154,8 +157,14 @@ export default function DayComposerCard({
                           '行程时间尚未核验'
                         )}
                   </Text>
-                  {entry.mode ? (
-                    <Text style={styles.travelMode}>{entry.mode.toUpperCase()}</Text>
+                  {entry.evidenceMode === 'historical-evidence-replay' ? (
+                    <>
+                      <Text style={styles.replayBadge}>EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE</Text>
+                      <Text style={styles.rowMeta}>
+                        {entry.providerName ?? entry.providerId ?? 'routing provider'}
+                        {entry.observedAt ? ` · ${entry.observedAt}` : ''}
+                      </Text>
+                    </>
                   ) : null}
                 </View>
               </View>
@@ -278,7 +287,8 @@ const styles = StyleSheet.create({
   conflictTitle: { color: '#e4a197', fontSize: 10, fontWeight: '900' },
   conflictNames: { color: '#d6c1bc', fontSize: 9, lineHeight: 13, marginTop: 3, fontWeight: '800' },
   travelTitle: { color: '#a9bac3', fontSize: 10, fontWeight: '900' },
-  travelMode: { color: '#6f7d85', fontSize: 7, fontWeight: '900', marginTop: 4, letterSpacing: 0.7 },
+  travelStatus: { color: '#d6c08f', fontSize: 7, fontWeight: '900', marginTop: 4, letterSpacing: 0.8 },
+  replayBadge: { color: '#d0aa73', fontSize: 7, fontWeight: '900', marginTop: 5, letterSpacing: 0.7 },
   rowMeta: { color: '#777f88', fontSize: 8, lineHeight: 12, marginTop: 4 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
   badge: { borderRadius: 7, borderWidth: 1, borderColor: '#3b424a', paddingHorizontal: 6, paddingVertical: 3 },
