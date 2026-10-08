@@ -144,7 +144,7 @@ export type DayComposerProjection = {
   };
   externalTruth: {
     routingVerified: boolean;
-    openingHoursVerified: false;
+    openingHoursVerified: boolean;
     availabilityVerified: false;
     accessibilityVerified: false;
   };
