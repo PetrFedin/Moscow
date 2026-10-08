@@ -1,0 +1,43 @@
+name: tretyakov-programme-real-smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/integrations/tretyakovProgrammeAdapter.ts"
+      - "scripts/tretyakov_programme_smoke.mjs"
+      - ".github/workflows/tretyakov-programme-real-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  real-programme-smoke:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'live-event-programme-source-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch official Tretyakov programme truth
+        env:
+          LIVE_PROGRAMME_EVIDENCE_OUT: evidence/tretyakov-programme.json
+          LIVE_PROGRAMME_RAW_OUT: evidence/tretyakov-programme.html
+        run: |
+          mkdir -p evidence
+          npm run live:tretyakov-programme-smoke
+
+      - name: Upload programme evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tretyakov-programme-evidence
+          path: |
+            evidence/tretyakov-programme.json
+            evidence/tretyakov-programme.html
+          if-no-files-found: error
+          retention-days: 30
