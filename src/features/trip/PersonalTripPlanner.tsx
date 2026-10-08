@@ -7,6 +7,11 @@ import { tr } from '../../i18n';
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 import { buildDayComposerProjection } from '../../travel/dayComposer';
 import {
+  projectValhallaRealSmokeReplay,
+  valhallaRealSmokeReplayContext,
+  VALHALLA_REAL_SMOKE_ENDPOINTS
+} from '../../travel/routingEvidenceReplay';
+import {
   addDestinationNodeToTrip,
   addManualTripItem,
   createPersonalTrip,
@@ -261,11 +266,44 @@ export default function PersonalTripPlanner({
     () => new Map((trip?.visits ?? []).flatMap((visit) => visit.itemId ? [[visit.itemId, visit] as const] : [])),
     [trip]
   );
+  const replayRoutingProjection = useMemo(() => {
+    if (!trip || !trip.days.includes(selectedDay)) return null;
+    if (!trip.id.startsWith('routing-evidence-replay:')) return null;
+
+    const scheduled = personalTripDayItems(trip, selectedDay)
+      .filter((item) => item.plannedStartAt && item.plannedEndAt)
+      .sort((a, b) =>
+        Date.parse(a.plannedStartAt!) - Date.parse(b.plannedStartAt!)
+        || a.id.localeCompare(b.id)
+      );
+
+    const hasEvidencePair = scheduled.some((item, index) => {
+      const next = scheduled[index + 1];
+      return item.destinationNodeId === VALHALLA_REAL_SMOKE_ENDPOINTS.from.id
+        && next?.destinationNodeId === VALHALLA_REAL_SMOKE_ENDPOINTS.to.id;
+    });
+
+    return hasEvidencePair ? projectValhallaRealSmokeReplay() : null;
+  }, [selectedDay, trip]);
+
   const dayComposer = useMemo(
     () => trip && trip.days.includes(selectedDay)
-      ? buildDayComposerProjection({ trip, dayDate: selectedDay, minimumFreeMinutes: 30 })
+      ? buildDayComposerProjection({
+          trip,
+          dayDate: selectedDay,
+          minimumFreeMinutes: 30,
+          ...(replayRoutingProjection
+            ? {
+                routingProjection: replayRoutingProjection,
+                routingEvidenceContext: {
+                  mode: valhallaRealSmokeReplayContext.mode,
+                  evidenceRef: valhallaRealSmokeReplayContext.evidenceRef
+                }
+              }
+            : {})
+        })
       : null,
-    [selectedDay, trip]
+    [selectedDay, trip, replayRoutingProjection]
   );
 
   const openAddPreset = (preset: 'place' | 'restaurant' | 'ticket' | 'reservation' | 'event') => {
