@@ -1,0 +1,41 @@
+name: valhalla-real-smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/valhalla_route_smoke.mjs"
+      - ".github/workflows/valhalla-real-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  real-route-smoke:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'valhalla-real-smoke-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run real Moscow walking route smoke
+        env:
+          VALHALLA_URL: https://valhalla1.openstreetmap.de
+          VALHALLA_CLIENT_ID: moscow-city-journey-os
+          ROUTING_EVIDENCE_OUT: evidence/valhalla-real-smoke.json
+        run: |
+          mkdir -p evidence
+          npm run routing:valhalla-smoke
+
+      - name: Upload routing evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: valhalla-real-smoke-evidence
+          path: evidence/valhalla-real-smoke.json
+          if-no-files-found: error
+          retention-days: 30
