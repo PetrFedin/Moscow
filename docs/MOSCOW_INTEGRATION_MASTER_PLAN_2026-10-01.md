@@ -2084,3 +2084,58 @@ Fixture/unit tests do not count as a real provider route PASS.
 - no real-provider claim is made from fixtures.
 
 **Sequencing:** adapter contract -> exact-head quality -> real Valhalla smoke -> evidence archive -> Day Composer real travel edge -> browser E2E -> Live City Truth.
+
+
+## Routing Evidence Replay v1 — IMPLEMENTING
+
+The first real Valhalla smoke is preserved as historical routing evidence and may be replayed inside Day Composer without being promoted to current live truth.
+
+### Real evidence anchor
+
+Source:
+
+`evidence/routing/valhalla-real-smoke-2026-10-08.json`
+
+Observed route:
+
+`pushkin-museum -> bolshoi-theatre`
+
+Measured provider result:
+
+- mode: walk;
+- provider time: 1448.271 seconds;
+- normalized duration: 25 minutes;
+- distance: 1813 metres;
+- raw response SHA-256: `4a4a7dbaf85bf4446a59788dd2c74e7db05384c934f3dd6c49409f677e53ef90`.
+
+### Replay boundary
+
+Historical replay is allowed only when:
+
+- trip id explicitly uses the `routing-evidence-replay:` namespace;
+- canonical routing endpoint IDs match the evidence pair;
+- Day Composer receives the historical projection and explicit replay context.
+
+The same observation projected after its expiry must degrade to `stale` and cannot provide current travel duration.
+
+### UI semantics
+
+Historical replay must render:
+
+- source-backed route duration;
+- mode;
+- feasibility against the demo schedule;
+- provider name and observed timestamp;
+- explicit `EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE` disclosure.
+
+No replay value may be presented as current live navigation.
+
+### Acceptance
+
+- normal PersonalTrip flows do not receive replay evidence implicitly;
+- evidence replay does not create another itinerary store;
+- route source metadata reaches the Day Composer travel entry;
+- browser E2E proves the source-backed travel edge;
+- expiry test proves the same evidence becomes unusable as current truth.
+
+**Sequencing:** evidence replay -> browser E2E -> merge -> Live City Truth authority -> first real live city source.
