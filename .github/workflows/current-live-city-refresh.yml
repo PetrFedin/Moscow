@@ -1,12 +1,21 @@
 name: current-live-city-refresh
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/travel/liveCityRefreshRuntime.ts"
+      - "src/travel/currentLiveCityClient.ts"
+      - "scripts/live_city_refresh_runtime.mjs"
+      - ".github/workflows/current-live-city-refresh.yml"
   schedule:
     - cron: "*/20 * * * *"
   workflow_dispatch:
 
 jobs:
   refresh:
+    if: github.event_name != 'pull_request' || github.head_ref == 'current-live-refresh-runtime-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 7
     permissions:
