@@ -17,6 +17,15 @@ function time(value: string) {
   }).format(new Date(value));
 }
 
+function dateLabel(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Europe/Moscow'
+  }).format(new Date(value));
+}
+
 function itemBadge(
   language: AppLanguage,
   value: 'fixed' | 'flexible' | 'ticketed' | 'reserved' | 'user-declared' | 'provider-confirmed'
@@ -195,9 +204,11 @@ export default function DayComposerCard({
                         : `LIVE · ${entry.liveTruth.freshness.toUpperCase()} · ${entry.liveTruth.operationalStatus.toUpperCase()}`}
                     </Text>
                     <Text style={styles.liveTruthMeta}>
-                      {entry.liveTruth.openingState !== 'unknown'
-                        ? `${entry.liveTruth.openingState.toUpperCase()}${entry.liveTruth.nextOpeningChangeAt ? ` · next ${time(entry.liveTruth.nextOpeningChangeAt)}` : ''}`
-                        : tr(language, 'Часы работы: UNKNOWN', 'Opening hours: UNKNOWN', '营业时间：UNKNOWN')}
+                      {entry.liveTruth.programmeStartsAt
+                        ? `PROGRAMME · ${entry.liveTruth.operationalStatus.toUpperCase()} · ${dateLabel(entry.liveTruth.programmeStartsAt)}${entry.liveTruth.programmeEndsAt ? ` → ${dateLabel(entry.liveTruth.programmeEndsAt)}` : ''}`
+                        : entry.liveTruth.openingState !== 'unknown'
+                          ? `${entry.liveTruth.openingState.toUpperCase()}${entry.liveTruth.nextOpeningChangeAt ? ` · next ${time(entry.liveTruth.nextOpeningChangeAt)}` : ''}`
+                          : tr(language, 'Часы работы: UNKNOWN', 'Opening hours: UNKNOWN', '营业时间：UNKNOWN')}
                     </Text>
                     <Text style={styles.liveTruthSource}>
                       {entry.liveTruth.providerName} · {entry.liveTruth.observedAt}

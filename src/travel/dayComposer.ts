@@ -52,6 +52,8 @@ export type DayComposerItemEntry = {
     sourceUrl: string;
     observedAt: string;
     expiresAt: string;
+    programmeStartsAt?: string;
+    programmeEndsAt?: string;
     evidenceMode?: 'live' | 'historical-evidence-replay';
     evidenceRef?: string;
   };
@@ -217,6 +219,8 @@ function projectItem(
             sourceUrl: live.sourceUrl,
             observedAt: live.observedAt,
             expiresAt: live.expiresAt,
+            ...(live.startsAt ? { programmeStartsAt: live.startsAt } : {}),
+            ...(live.endsAt ? { programmeEndsAt: live.endsAt } : {}),
             ...(liveEvidenceContext
               ? {
                   evidenceMode: liveEvidenceContext.mode,

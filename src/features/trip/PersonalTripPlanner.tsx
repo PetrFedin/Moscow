@@ -17,6 +17,11 @@ import {
   TRETYAKOV_LIVE_CITY_CANONICAL_NODE_ID
 } from '../../travel/liveCityTruthEvidenceReplay';
 import {
+  projectTretyakovProgrammeReplay,
+  tretyakovProgrammeReplayContext,
+  TRETYAKOV_PROGRAMME_CANONICAL_NODE_ID
+} from '../../travel/liveProgrammeEvidenceReplay';
+import {
   addDestinationNodeToTrip,
   addManualTripItem,
   createPersonalTrip,
@@ -299,6 +304,27 @@ export default function PersonalTripPlanner({
     return hasTretyakov ? projectTretyakovLiveCityReplay() : null;
   }, [selectedDay, trip]);
 
+  const replayProgrammeProjection = useMemo(() => {
+    if (!trip || !trip.days.includes(selectedDay)) return null;
+    if (!trip.id.startsWith('live-programme-evidence-replay:')) return null;
+    const hasProgramme = personalTripDayItems(trip, selectedDay)
+      .some((item) => item.destinationNodeId === TRETYAKOV_PROGRAMME_CANONICAL_NODE_ID);
+    return hasProgramme ? projectTretyakovProgrammeReplay() : null;
+  }, [selectedDay, trip]);
+
+  const liveProjection = replayProgrammeProjection ?? replayLiveCityProjection;
+  const liveEvidenceContext = replayProgrammeProjection
+    ? {
+        mode: tretyakovProgrammeReplayContext.mode,
+        evidenceRef: tretyakovProgrammeReplayContext.evidenceRef
+      }
+    : replayLiveCityProjection
+      ? {
+          mode: tretyakovLiveCityReplayContext.mode,
+          evidenceRef: tretyakovLiveCityReplayContext.evidenceRef
+        }
+      : undefined;
+
   const dayComposer = useMemo(
     () => trip && trip.days.includes(selectedDay)
       ? buildDayComposerProjection({
@@ -314,18 +340,15 @@ export default function PersonalTripPlanner({
                 }
               }
             : {}),
-          ...(replayLiveCityProjection
+          ...(liveProjection
             ? {
-                liveDestinationProjection: replayLiveCityProjection,
-                liveEvidenceContext: {
-                  mode: tretyakovLiveCityReplayContext.mode,
-                  evidenceRef: tretyakovLiveCityReplayContext.evidenceRef
-                }
+                liveDestinationProjection: liveProjection,
+                ...(liveEvidenceContext ? { liveEvidenceContext } : {})
               }
             : {})
         })
       : null,
-    [selectedDay, trip, replayRoutingProjection, replayLiveCityProjection]
+    [selectedDay, trip, replayRoutingProjection, liveProjection, liveEvidenceContext]
   );
 
   const openAddPreset = (preset: 'place' | 'restaurant' | 'ticket' | 'reservation' | 'event') => {

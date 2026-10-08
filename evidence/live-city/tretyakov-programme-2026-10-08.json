@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "live-city-programme-real-smoke-evidence",
+  "providerId": "tretyakov-programme-official",
+  "adapterId": "tretyakov-exhibitions-programme-v1",
+  "workflowRunId": 37800450242,
+  "workflowJobId": 113390911511,
+  "artifactId": 11561270003,
+  "artifactName": "tretyakov-programme-evidence",
+  "artifactDigest": "sha256:af3b9c21e58155703e49edba7a73e9accd43bf79e3f8f061713671af0b0645df",
+  "headSha": "c9304fe4b760a21b2fb1f2b3a4aee35a03aaf283",
+  "sourceUrl": "https://www.tretyakovgallery.ru/exhibitions/o/aleksey-bogolyubov-ot-nevy-do-bosfora/",
+  "fetchedAt": "2026-10-08T15:24:28.881Z",
+  "normalizedAt": "2026-10-08T15:24:30.641Z",
+  "rawHtmlSha256": "794ae75ec513ea0adeff11311fd8cae8657f5798a29f2958bab7283398f92094",
+  "normalizedTruth": {
+    "entityId": "tretyakov-aleksey-bogolyubov-neva-bosporus",
+    "canonicalDestinationNodeId": "tretyakov-aleksey-bogolyubov-neva-bosporus",
+    "freshness": "fresh",
+    "operationalStatus": "scheduled",
+    "startsAt": "2026-09-29T00:00:00+03:00",
+    "endsAt": "2027-06-06T23:59:59+03:00",
+    "journeyEligible": true,
+    "observedAt": "2026-10-08T15:24:28.881Z",
+    "expiresAt": "2026-10-08T15:54:28.881Z"
+  },
+  "truthBoundary": {
+    "realHttpsFetch": true,
+    "officialSource": true,
+    "freshnessBound": true,
+    "safeForHistoricalReplay": true,
+    "safeToClaimAsCurrentAfterExpiry": false,
+    "realProofStatus": "scheduled",
+    "contractSupportedUnprovenStatuses": ["cancelled", "rescheduled", "finished"]
+  }
+}
