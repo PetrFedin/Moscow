@@ -17,9 +17,11 @@ import {
 
 export const LIVE_CITY_REFRESH_RUNTIME_VERSION = 1 as const;
 
-export type LiveCityRefreshSource<TPayload = unknown> = {
-  adapter: LiveProviderAdapter<TPayload>;
-  snapshot: LiveProviderSnapshot<TPayload>;
+export type LiveCityRefreshSource = {
+  // Heterogeneous provider aggregation boundary: each adapter/snapshot pair
+  // retains its payload contract before entering the merged runtime.
+  adapter: LiveProviderAdapter<any>;
+  snapshot: LiveProviderSnapshot<any>;
 };
 
 export type LiveCityDisruptionReason =
