@@ -12,6 +12,11 @@ import {
   VALHALLA_REAL_SMOKE_ENDPOINTS
 } from '../../travel/routingEvidenceReplay';
 import {
+  projectTretyakovLiveCityReplay,
+  tretyakovLiveCityReplayContext,
+  TRETYAKOV_LIVE_CITY_CANONICAL_NODE_ID
+} from '../../travel/liveCityTruthEvidenceReplay';
+import {
   addDestinationNodeToTrip,
   addManualTripItem,
   createPersonalTrip,
@@ -286,6 +291,14 @@ export default function PersonalTripPlanner({
     return hasEvidencePair ? projectValhallaRealSmokeReplay() : null;
   }, [selectedDay, trip]);
 
+  const replayLiveCityProjection = useMemo(() => {
+    if (!trip || !trip.days.includes(selectedDay)) return null;
+    if (!trip.id.startsWith('live-city-evidence-replay:')) return null;
+    const hasTretyakov = personalTripDayItems(trip, selectedDay)
+      .some((item) => item.destinationNodeId === TRETYAKOV_LIVE_CITY_CANONICAL_NODE_ID);
+    return hasTretyakov ? projectTretyakovLiveCityReplay() : null;
+  }, [selectedDay, trip]);
+
   const dayComposer = useMemo(
     () => trip && trip.days.includes(selectedDay)
       ? buildDayComposerProjection({
@@ -300,10 +313,19 @@ export default function PersonalTripPlanner({
                   evidenceRef: valhallaRealSmokeReplayContext.evidenceRef
                 }
               }
+            : {}),
+          ...(replayLiveCityProjection
+            ? {
+                liveDestinationProjection: replayLiveCityProjection,
+                liveEvidenceContext: {
+                  mode: tretyakovLiveCityReplayContext.mode,
+                  evidenceRef: tretyakovLiveCityReplayContext.evidenceRef
+                }
+              }
             : {})
         })
       : null,
-    [selectedDay, trip, replayRoutingProjection]
+    [selectedDay, trip, replayRoutingProjection, replayLiveCityProjection]
   );
 
   const openAddPreset = (preset: 'place' | 'restaurant' | 'ticket' | 'reservation' | 'event') => {
