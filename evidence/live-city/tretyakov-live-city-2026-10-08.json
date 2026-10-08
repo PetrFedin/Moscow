@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "live-city-truth-real-smoke-evidence",
+  "providerId": "tretyakov-official",
+  "adapterId": "tretyakov-new-opening-hours-v1",
+  "workflowRunId": 37784139228,
+  "workflowJobId": 113334430166,
+  "artifactId": 11553645959,
+  "artifactName": "tretyakov-live-city-evidence",
+  "artifactDigest": "sha256:f0049f0d73d8739e8f6a7a566f4df24d67e175fadb5d12f649f20c3e07a3156f",
+  "headSha": "d06c2706ae1dbf4e5fb3a1571486078de5d0d252",
+  "sourceUrl": "https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/",
+  "fetchedAt": "2026-10-08T13:25:33.145Z",
+  "normalizedAt": "2026-10-08T13:25:35.102Z",
+  "rawHtmlSha256": "200425047c507379d1c80b9f13de96911b6991caa8337e37f481d5505f35ef0d",
+  "normalizedTruth": {
+    "entityId": "new-tretyakov-live",
+    "canonicalDestinationNodeId": "new-tretyakov",
+    "freshness": "fresh",
+    "operationalStatus": "open",
+    "openingState": "open",
+    "nextOpeningChangeAt": "2026-10-08T21:00:00+03:00",
+    "journeyEligible": true,
+    "observedAt": "2026-10-08T13:25:33.145Z",
+    "expiresAt": "2026-10-08T13:55:33.145Z"
+  },
+  "truthBoundary": {
+    "realHttpsFetch": true,
+    "officialSource": true,
+    "freshnessBound": true,
+    "safeForHistoricalReplay": true,
+    "safeToClaimAsCurrentAfterExpiry": false
+  }
+}

@@ -2139,3 +2139,113 @@ No replay value may be presented as current live navigation.
 - expiry test proves the same evidence becomes unusable as current truth.
 
 **Sequencing:** evidence replay -> browser E2E -> merge -> Live City Truth authority -> first real live city source.
+
+
+## Live City Truth Authority v1 — IMPLEMENTING
+
+The existing Live Destination authority becomes the canonical citywide source for current operational truth.
+
+### Truth dimensions
+
+For source-backed city entities expose:
+
+- provider/source identity;
+- observedAt;
+- validFrom when applicable;
+- expiresAt;
+- freshness: fresh / stale / not-yet-valid;
+- operational status;
+- opening-hours state;
+- event schedule/status;
+- booking handoff when independently authorised.
+
+### Opening-hours authority
+
+Providers must explicitly declare the `opening-hours` capability.
+
+Opening hours are represented as bounded absolute time windows in `Europe/Moscow`:
+
+`opensAt -> closesAt`
+
+Projection produces:
+
+- OPEN;
+- CLOSED;
+- UNKNOWN;
+- optional nextOpeningChangeAt.
+
+Stale or not-yet-valid evidence always degrades opening state to UNKNOWN.
+
+### Canonical overlay rule
+
+A live source may attach to an existing destination node through `canonicalDestinationNodeId`.
+
+This avoids duplicating geometry merely to publish current hours/status.
+
+A live entity without a canonical target must provide its own valid geometry.
+
+### Citywide status semantics
+
+The live authority now supports citywide kinds including:
+
+- museum / gallery / exhibition;
+- theatre / cinema / concert;
+- restaurant / cafe / bar / nightlife;
+- park / market / shopping;
+- sport / wellness / kids;
+- landmarks and other city experiences.
+
+Status sets remain bounded by kind.
+
+### Day Composer
+
+Live truth is projection metadata only.
+
+`PersonalTrip -> Day Composer + live projection`
+
+An item may display:
+
+- freshness;
+- operationalStatus;
+- openingState;
+- next opening change;
+- provider/source;
+- journeyEligible.
+
+No live truth is written back into PersonalTrip.
+
+### First real live source
+
+The first source adapter targets the official New Tretyakov page:
+
+`https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/`
+
+Pipeline:
+
+`real HTTPS GET -> raw HTML -> SHA-256 -> LiveProviderSnapshot -> official adapter -> LiveDestinationFeed -> projection`
+
+The source page supplies official opening-hours/current-status truth only. Geometry is not attributed to that page unless separately sourced.
+
+### Evidence discipline
+
+The real-source smoke stores:
+
+- raw HTML;
+- SHA-256;
+- snapshot metadata;
+- ingestion record;
+- normalized feed;
+- projection state.
+
+Fixture tests do not count as a real live-source PASS.
+
+### Acceptance
+
+- stale source cannot remain OPEN/CLOSED;
+- opening hours require explicit provider capability;
+- malformed or changed source structure fails closed;
+- canonical overlays do not require duplicate geometry;
+- Day Composer remains a projection;
+- a real source PASS requires a real HTTPS fetch and archived evidence.
+
+**Sequencing:** authority -> opening-hours -> Day Composer projection -> real Tretyakov smoke -> evidence archive -> browser E2E -> next live event/status source.

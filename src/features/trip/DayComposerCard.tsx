@@ -187,6 +187,23 @@ export default function DayComposerCard({
                 <Text style={styles.rowMeta}>
                   {entry.state.toUpperCase()} · {entry.kind}
                 </Text>
+                {entry.liveTruth ? (
+                  <View style={styles.liveTruthBox}>
+                    <Text style={styles.liveTruthTitle}>
+                      {entry.liveTruth.evidenceMode === 'historical-evidence-replay'
+                        ? `LIVE EVIDENCE REPLAY · ${entry.liveTruth.freshness.toUpperCase()} · ${entry.liveTruth.operationalStatus.toUpperCase()} · NOT CURRENT`
+                        : `LIVE · ${entry.liveTruth.freshness.toUpperCase()} · ${entry.liveTruth.operationalStatus.toUpperCase()}`}
+                    </Text>
+                    <Text style={styles.liveTruthMeta}>
+                      {entry.liveTruth.openingState !== 'unknown'
+                        ? `${entry.liveTruth.openingState.toUpperCase()}${entry.liveTruth.nextOpeningChangeAt ? ` · next ${time(entry.liveTruth.nextOpeningChangeAt)}` : ''}`
+                        : tr(language, 'Часы работы: UNKNOWN', 'Opening hours: UNKNOWN', '营业时间：UNKNOWN')}
+                    </Text>
+                    <Text style={styles.liveTruthSource}>
+                      {entry.liveTruth.providerName} · {entry.liveTruth.observedAt}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           );
@@ -295,6 +312,10 @@ const styles = StyleSheet.create({
   badgeStrong: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
   badgeText: { color: '#9098a0', fontSize: 6, fontWeight: '900' },
   badgeTextStrong: { color: '#17130d' },
+  liveTruthBox: { marginTop: 7, borderRadius: 9, padding: 7, borderWidth: 1, borderColor: '#2e4338', backgroundColor: '#101a15' },
+  liveTruthTitle: { color: '#9fc7ac', fontSize: 7, fontWeight: '900', letterSpacing: 0.7 },
+  liveTruthMeta: { color: '#b5c3ba', fontSize: 8, lineHeight: 12, marginTop: 3 },
+  liveTruthSource: { color: '#66756c', fontSize: 7, lineHeight: 10, marginTop: 3 },
   empty: { borderRadius: 15, padding: 14, backgroundColor: '#12171c' },
   emptyTitle: { color: '#e8e2d8', fontSize: 12, fontWeight: '900' },
   emptyBody: { color: '#7f8790', fontSize: 9, lineHeight: 14, marginTop: 4 },

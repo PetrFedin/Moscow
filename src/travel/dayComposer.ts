@@ -15,6 +15,10 @@ import {
   type CitywideTravelMode,
   type projectCitywideRoutingFeed
 } from './citywideRoutingAuthority.ts';
+import type {
+  LiveDestinationProjectionEntity,
+  projectLiveDestinationFeed
+} from './liveDestinationAuthority.ts';
 
 export const DAY_COMPOSER_SCHEMA_VERSION = 1 as const;
 
@@ -37,6 +41,20 @@ export type DayComposerItemEntry = {
   state: DayComposerItemState;
   source: PersonalTripItem['source'];
   destinationNodeId?: string;
+  liveTruth?: {
+    freshness: LiveDestinationProjectionEntity['freshness'];
+    operationalStatus: LiveDestinationProjectionEntity['operationalStatus'];
+    openingState: LiveDestinationProjectionEntity['openingState'];
+    nextOpeningChangeAt?: string;
+    journeyEligible: boolean;
+    providerId: string;
+    providerName: string;
+    sourceUrl: string;
+    observedAt: string;
+    expiresAt: string;
+    evidenceMode?: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
+  };
 };
 
 export type DayComposerFreeEntry = {
@@ -126,7 +144,7 @@ export type DayComposerProjection = {
   };
   externalTruth: {
     routingVerified: boolean;
-    openingHoursVerified: false;
+    openingHoursVerified: boolean;
     availabilityVerified: false;
     accessibilityVerified: false;
   };
@@ -163,7 +181,15 @@ function flexibility(item: PersonalTripItem): DayComposerFlexibility {
     : 'flexible';
 }
 
-function projectItem(item: PersonalTripItem): DayComposerItemEntry {
+function projectItem(
+  item: PersonalTripItem,
+  liveById: Map<string, LiveDestinationProjectionEntity>,
+  liveEvidenceContext?: {
+    mode: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
+  }
+): DayComposerItemEntry {
+  const live = item.destinationNodeId ? liveById.get(item.destinationNodeId) : undefined;
   return {
     type: 'item',
     id: `item:${item.id}`,
@@ -177,7 +203,31 @@ function projectItem(item: PersonalTripItem): DayComposerItemEntry {
     verification: verification(item),
     state: item.status,
     source: item.source,
-    ...(item.destinationNodeId ? { destinationNodeId: item.destinationNodeId } : {})
+    ...(item.destinationNodeId ? { destinationNodeId: item.destinationNodeId } : {}),
+    ...(live
+      ? {
+          liveTruth: {
+            freshness: live.freshness,
+            operationalStatus: live.operationalStatus,
+            openingState: live.openingState,
+            ...(live.nextOpeningChangeAt ? { nextOpeningChangeAt: live.nextOpeningChangeAt } : {}),
+            journeyEligible: live.journeyEligible,
+            providerId: live.providerId,
+            providerName: live.providerName,
+            sourceUrl: live.sourceUrl,
+            observedAt: live.observedAt,
+            expiresAt: live.expiresAt,
+            ...(liveEvidenceContext
+              ? {
+                  evidenceMode: liveEvidenceContext.mode,
+                  ...(liveEvidenceContext.evidenceRef
+                    ? { evidenceRef: liveEvidenceContext.evidenceRef }
+                    : {})
+                }
+              : {})
+          }
+        }
+      : {})
   };
 }
 
@@ -209,6 +259,11 @@ export function buildDayComposerProjection(input: {
   dayDate: string;
   minimumFreeMinutes?: number;
   routingProjection?: ReturnType<typeof projectCitywideRoutingFeed>;
+  liveDestinationProjection?: ReturnType<typeof projectLiveDestinationFeed>;
+  liveEvidenceContext?: {
+    mode: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
+  };
   routingEvidenceContext?: {
     mode: 'live' | 'historical-evidence-replay';
     evidenceRef?: string;
@@ -224,7 +279,15 @@ export function buildDayComposerProjection(input: {
   const dayStart = dayBoundary(input.dayDate, preferences.dayStart);
   const dayEnd = dayBoundary(input.dayDate, preferences.dayEnd);
 
-  const items = personalTripDayItems(input.trip, input.dayDate).map(projectItem);
+  const liveById = new Map<string, LiveDestinationProjectionEntity>();
+  for (const entity of input.liveDestinationProjection?.entities ?? []) {
+    liveById.set(entity.id, entity);
+    if (entity.canonicalDestinationNodeId) {
+      liveById.set(entity.canonicalDestinationNodeId, entity);
+    }
+  }
+  const items = personalTripDayItems(input.trip, input.dayDate)
+    .map((item) => projectItem(item, liveById, input.liveEvidenceContext));
 
   const freeWindows = deriveTripFreeWindows({
     trip: input.trip,
@@ -368,7 +431,11 @@ export function buildDayComposerProjection(input: {
     },
     externalTruth: {
       routingVerified: travel.length > 0 && travel.every((entry) => entry.routingVerified),
-      openingHoursVerified: false,
+      openingHoursVerified:
+        items.some((item) =>
+          item.liveTruth?.freshness === 'fresh'
+          && item.liveTruth.openingState !== 'unknown'
+        ),
       availabilityVerified: false,
       accessibilityVerified: false
     }

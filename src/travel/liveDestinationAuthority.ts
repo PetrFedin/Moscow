@@ -12,6 +12,7 @@ export type LiveProviderCapability =
   | 'inventory'
   | 'event-schedule'
   | 'operational-status'
+  | 'opening-hours'
   | 'booking-handoff';
 
 export type LiveDestinationProvider = {
@@ -42,22 +43,36 @@ export type LiveBookingHandoff = BookingHandoff & {
   expiresAt: string;
 };
 
+export type LiveOpeningWindow = {
+  opensAt: string;
+  closesAt: string;
+};
+
+export type LiveOpeningHours = {
+  timezone: 'Europe/Moscow';
+  windows: LiveOpeningWindow[];
+};
+
+export type LiveOpeningState = 'open' | 'closed' | 'unknown';
+
 export type LiveDestinationEntity = {
   id: string;
   providerEntityId: string;
   providerId: string;
+  canonicalDestinationNodeId?: string;
   kind: Exclude<ExperienceNodeKind, 'heritage'>;
   titleRu: string;
   titleEn: string;
   titleZh: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   tags: string[];
   sourceUrl: string;
   observedAt: string;
   validFrom?: string;
   expiresAt: string;
   operationalStatus: LiveOperationalStatus;
+  openingHours?: LiveOpeningHours;
   startsAt?: string;
   endsAt?: string;
   booking?: LiveBookingHandoff;
@@ -84,6 +99,7 @@ export type LiveDestinationProjectionEntity = {
   providerEntityId: string;
   providerId: string;
   providerName: string;
+  canonicalDestinationNodeId?: string;
   providerAttributionRu: string;
   providerAttributionEn: string;
   providerAttributionZh: string;
@@ -91,14 +107,16 @@ export type LiveDestinationProjectionEntity = {
   titleRu: string;
   titleEn: string;
   titleZh: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   tags: string[];
   sourceUrl: string;
   observedAt: string;
   expiresAt: string;
   freshness: LiveFreshness;
   operationalStatus: LiveOperationalStatus;
+  openingState: LiveOpeningState;
+  nextOpeningChangeAt?: string;
   startsAt?: string;
   endsAt?: string;
   booking?: LiveBookingHandoff;
@@ -121,15 +139,46 @@ const FORBIDDEN_LIVE_KEYS = new Set([
   'commercialscore'
 ]);
 
+const VENUE_STATUSES = new Set<LiveOperationalStatus>([
+  'open', 'closed', 'temporarily-closed', 'unknown'
+]);
+
+const PROGRAMME_STATUSES = new Set<LiveOperationalStatus>([
+  'scheduled', 'cancelled', 'rescheduled', 'sold-out', 'finished', 'unknown'
+]);
+
+const HYBRID_STATUSES = new Set<LiveOperationalStatus>([
+  'open', 'closed', 'temporarily-closed',
+  'scheduled', 'cancelled', 'rescheduled', 'sold-out', 'finished', 'unknown'
+]);
+
 const STATUS_BY_KIND: Partial<Record<LiveDestinationEntity['kind'], Set<LiveOperationalStatus>>> = {
-  museum: new Set(['open', 'closed', 'temporarily-closed', 'unknown']),
-  food: new Set(['open', 'closed', 'temporarily-closed', 'unknown']),
-  event: new Set(['scheduled', 'cancelled', 'rescheduled', 'sold-out', 'finished', 'unknown']),
-  activity: new Set(['open', 'closed', 'temporarily-closed', 'scheduled', 'cancelled', 'sold-out', 'unknown']),
-  nature: new Set(['open', 'closed', 'temporarily-closed', 'unknown']),
-  stay: new Set(['open', 'closed', 'temporarily-closed', 'unknown']),
-  transport: new Set(['open', 'closed', 'temporarily-closed', 'scheduled', 'cancelled', 'unknown']),
-  viewpoint: new Set(['open', 'closed', 'temporarily-closed', 'unknown'])
+  'historical-site': VENUE_STATUSES,
+  landmark: VENUE_STATUSES,
+  museum: VENUE_STATUSES,
+  gallery: VENUE_STATUSES,
+  exhibition: PROGRAMME_STATUSES,
+  theatre: HYBRID_STATUSES,
+  cinema: HYBRID_STATUSES,
+  concert: PROGRAMME_STATUSES,
+  restaurant: VENUE_STATUSES,
+  cafe: VENUE_STATUSES,
+  bar: VENUE_STATUSES,
+  nightlife: HYBRID_STATUSES,
+  food: VENUE_STATUSES,
+  event: PROGRAMME_STATUSES,
+  activity: HYBRID_STATUSES,
+  nature: VENUE_STATUSES,
+  park: VENUE_STATUSES,
+  shopping: VENUE_STATUSES,
+  market: VENUE_STATUSES,
+  wellness: VENUE_STATUSES,
+  sport: HYBRID_STATUSES,
+  kids: HYBRID_STATUSES,
+  stay: VENUE_STATUSES,
+  transport: HYBRID_STATUSES,
+  viewpoint: VENUE_STATUSES,
+  other: HYBRID_STATUSES
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -168,6 +217,7 @@ function providerCapabilitySet(raw: Record<string, unknown>) {
           value === 'inventory'
           || value === 'event-schedule'
           || value === 'operational-status'
+          || value === 'opening-hours'
           || value === 'booking-handoff'
         )
       : []
@@ -286,6 +336,7 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
         value !== 'inventory'
         && value !== 'event-schedule'
         && value !== 'operational-status'
+        && value !== 'opening-hours'
         && value !== 'booking-handoff'
       )
     ) {
@@ -324,8 +375,17 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     if (!isText(raw.titleRu)) blockers.push(`live-title-ru-missing:${id}`);
     if (!isText(raw.titleEn)) blockers.push(`live-title-en-missing:${id}`);
     if (!isText(raw.titleZh)) blockers.push(`live-title-zh-missing:${id}`);
-    if (!coordinate(raw.latitude, -90, 90)) blockers.push(`live-latitude-invalid:${id}`);
-    if (!coordinate(raw.longitude, -180, 180)) blockers.push(`live-longitude-invalid:${id}`);
+    const hasCanonicalTarget = isText(raw.canonicalDestinationNodeId);
+    const hasLatitude = raw.latitude !== undefined;
+    const hasLongitude = raw.longitude !== undefined;
+    if (!hasCanonicalTarget && (!hasLatitude || !hasLongitude)) {
+      blockers.push(`live-entity-location-or-canonical-target-missing:${id}`);
+    }
+    if (hasLatitude !== hasLongitude) {
+      blockers.push(`live-entity-partial-geometry:${id}`);
+    }
+    if (hasLatitude && !coordinate(raw.latitude, -90, 90)) blockers.push(`live-latitude-invalid:${id}`);
+    if (hasLongitude && !coordinate(raw.longitude, -180, 180)) blockers.push(`live-longitude-invalid:${id}`);
     if (!nonEmptyUniqueStrings(raw.tags)) blockers.push(`live-tags-invalid:${id}`);
     if (!isHttps(raw.sourceUrl)) blockers.push(`live-source-url-invalid:${id}`);
 
@@ -359,7 +419,37 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
       blockers.push(`live-provider-lacks-operational-status-authority:${id}`);
     }
 
-    if (kind === 'event') {
+    if (raw.openingHours !== undefined) {
+      if (!sourceProviderCapabilities.has('opening-hours')) {
+        blockers.push(`live-provider-lacks-opening-hours-authority:${id}`);
+      }
+      if (!isRecord(raw.openingHours)) {
+        blockers.push(`live-opening-hours-invalid:${id}`);
+      } else {
+        if (raw.openingHours.timezone !== 'Europe/Moscow') {
+          blockers.push(`live-opening-hours-timezone-invalid:${id}`);
+        }
+        const windows = Array.isArray(raw.openingHours.windows)
+          ? raw.openingHours.windows
+          : [];
+        if (windows.length === 0) blockers.push(`live-opening-hours-windows-empty:${id}`);
+        for (const [windowIndex, window] of windows.entries()) {
+          if (!isRecord(window)) {
+            blockers.push(`live-opening-window-invalid:${id}:${windowIndex}`);
+            continue;
+          }
+          const opensAt = isoMillis(window.opensAt);
+          const closesAt = isoMillis(window.closesAt);
+          if (opensAt === null) blockers.push(`live-opening-window-start-invalid:${id}:${windowIndex}`);
+          if (closesAt === null) blockers.push(`live-opening-window-end-invalid:${id}:${windowIndex}`);
+          if (opensAt !== null && closesAt !== null && closesAt <= opensAt) {
+            blockers.push(`live-opening-window-order-invalid:${id}:${windowIndex}`);
+          }
+        }
+      }
+    }
+
+    if (kind === 'event' || kind === 'concert' || kind === 'exhibition') {
       if (!sourceProviderCapabilities.has('event-schedule')) {
         blockers.push(`live-provider-lacks-event-schedule-authority:${id}`);
       }
@@ -414,6 +504,40 @@ function operationalForJourney(status: LiveOperationalStatus) {
   return status === 'open' || status === 'scheduled' || status === 'rescheduled';
 }
 
+function projectOpeningState(
+  openingHours: LiveOpeningHours | undefined,
+  nowMs: number,
+  freshnessState: LiveFreshness
+): { openingState: LiveOpeningState; nextOpeningChangeAt?: string } {
+  if (freshnessState !== 'fresh' || !openingHours) {
+    return { openingState: 'unknown' };
+  }
+
+  const windows = [...openingHours.windows]
+    .map((window) => ({
+      ...window,
+      opensAtMs: Date.parse(window.opensAt),
+      closesAtMs: Date.parse(window.closesAt)
+    }))
+    .sort((a, b) => a.opensAtMs - b.opensAtMs);
+
+  const active = windows.find((window) =>
+    nowMs >= window.opensAtMs && nowMs < window.closesAtMs
+  );
+  if (active) {
+    return {
+      openingState: 'open',
+      nextOpeningChangeAt: active.closesAt
+    };
+  }
+
+  const next = windows.find((window) => window.opensAtMs > nowMs);
+  return {
+    openingState: 'closed',
+    ...(next ? { nextOpeningChangeAt: next.opensAt } : {})
+  };
+}
+
 export function projectLiveDestinationFeed(
   value: unknown,
   now: string
@@ -439,12 +563,16 @@ export function projectLiveDestinationFeed(
       && bookingIsFresh(entity.booking, nowMs)
       ? { ...entity.booking }
       : undefined;
+    const opening = projectOpeningState(entity.openingHours, nowMs, state);
 
     return {
       id: entity.id,
       providerEntityId: entity.providerEntityId,
       providerId: entity.providerId,
       providerName: provider.name,
+      ...(entity.canonicalDestinationNodeId
+        ? { canonicalDestinationNodeId: entity.canonicalDestinationNodeId }
+        : {}),
       providerAttributionRu: provider.attributionRu,
       providerAttributionEn: provider.attributionEn,
       providerAttributionZh: provider.attributionZh,
@@ -452,18 +580,23 @@ export function projectLiveDestinationFeed(
       titleRu: entity.titleRu,
       titleEn: entity.titleEn,
       titleZh: entity.titleZh,
-      latitude: entity.latitude,
-      longitude: entity.longitude,
+      ...(entity.latitude !== undefined ? { latitude: entity.latitude } : {}),
+      ...(entity.longitude !== undefined ? { longitude: entity.longitude } : {}),
       tags: [...entity.tags],
       sourceUrl: entity.sourceUrl,
       observedAt: entity.observedAt,
       expiresAt: entity.expiresAt,
       freshness: state,
       operationalStatus: liveStatus,
+      openingState: opening.openingState,
+      ...(opening.nextOpeningChangeAt ? { nextOpeningChangeAt: opening.nextOpeningChangeAt } : {}),
       ...(entity.startsAt ? { startsAt: entity.startsAt } : {}),
       ...(entity.endsAt ? { endsAt: entity.endsAt } : {}),
       ...(booking ? { booking } : {}),
-      journeyEligible: state === 'fresh' && operationalForJourney(entity.operationalStatus)
+      journeyEligible:
+        state === 'fresh'
+        && operationalForJourney(entity.operationalStatus)
+        && opening.openingState !== 'closed'
     };
   });
 

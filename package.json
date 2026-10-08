@@ -27,7 +27,8 @@
     "integration:status": "node --experimental-strip-types scripts/report_integration_master_plan.mjs",
     "integration:validate-phase0": "node --experimental-strip-types scripts/validate_phase0_evidence_manifest.mjs",
     "provider:proof-status": "node --experimental-strip-types scripts/report_provider_proof_status.mjs",
-    "routing:valhalla-smoke": "node --experimental-strip-types scripts/valhalla_route_smoke.mjs"
+    "routing:valhalla-smoke": "node --experimental-strip-types scripts/valhalla_route_smoke.mjs",
+    "live:tretyakov-smoke": "node --experimental-strip-types scripts/tretyakov_live_city_smoke.mjs"
   },
   "dependencies": {
     "@google/model-viewer": "4.3.1",
