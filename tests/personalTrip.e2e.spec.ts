@@ -378,3 +378,44 @@ test('Day Composer replays source-backed Valhalla evidence without claiming it i
   await expect(page.getByText('EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE', { exact: true })).toBeVisible();
   await expect(page.getByText(/Valhalla · 2026-10-08T09:41:00.499Z/)).toBeVisible();
 });
+
+
+test('Day Composer replays real Tretyakov live-city truth with explicit not-current disclosure', async ({ page }) => {
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion: 1,
+      id: 'live-city-evidence-replay:tretyakov-2026-10-08',
+      destinationId: 'moscow',
+      title: 'Tretyakov live city evidence replay',
+      startDate: '2026-10-08',
+      endDate: '2026-10-08',
+      days: ['2026-10-08'],
+      items: [{
+        id: 'tretyakov',
+        dayDate: '2026-10-08',
+        title: 'Новая Третьяковка',
+        kind: 'museum',
+        source: 'provider',
+        destinationNodeId: 'new-tretyakov',
+        plannedStartAt: '2026-10-08T17:00:00+03:00',
+        plannedEndAt: '2026-10-08T19:00:00+03:00',
+        status: 'planned'
+      }],
+      visits: [],
+      createdAt: '2026-10-08T13:26:00.000Z',
+      updatedAt: '2026-10-08T13:26:00.000Z'
+    }));
+  });
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · OPEN · NOT CURRENT', { exact: true })).toBeVisible();
+  await expect(page.getByText('OPEN · next 21:00', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Государственная Третьяковская галерея · 2026-10-08T13:25:33.145Z/)).toBeVisible();
+});
