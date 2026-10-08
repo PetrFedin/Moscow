@@ -74,6 +74,13 @@ export type DayComposerTravelEntry = {
   bufferMinutes?: number;
   mode?: CitywideTravelMode;
   routeObservationId?: string;
+  providerId?: string;
+  providerName?: string;
+  sourceUrl?: string;
+  observedAt?: string;
+  expiresAt?: string;
+  evidenceMode?: 'live' | 'historical-evidence-replay';
+  evidenceRef?: string;
   routingVerified: boolean;
 };
 
@@ -202,6 +209,10 @@ export function buildDayComposerProjection(input: {
   dayDate: string;
   minimumFreeMinutes?: number;
   routingProjection?: ReturnType<typeof projectCitywideRoutingFeed>;
+  routingEvidenceContext?: {
+    mode: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
+  };
   preferredTravelModes?: CitywideTravelMode[];
   safeTravelBufferMinutes?: number;
 }): DayComposerProjection {
@@ -316,6 +327,19 @@ export function buildDayComposerProjection(input: {
       ...(decision.bufferMinutes !== undefined ? { bufferMinutes: decision.bufferMinutes } : {}),
       ...(decision.mode ? { mode: decision.mode } : {}),
       ...(decision.routeObservationId ? { routeObservationId: decision.routeObservationId } : {}),
+      ...(decision.providerId ? { providerId: decision.providerId } : {}),
+      ...(decision.providerName ? { providerName: decision.providerName } : {}),
+      ...(decision.sourceUrl ? { sourceUrl: decision.sourceUrl } : {}),
+      ...(decision.observedAt ? { observedAt: decision.observedAt } : {}),
+      ...(decision.expiresAt ? { expiresAt: decision.expiresAt } : {}),
+      ...(decision.status !== 'unknown'
+        ? {
+            evidenceMode: input.routingEvidenceContext?.mode ?? 'live',
+            ...(input.routingEvidenceContext?.evidenceRef
+              ? { evidenceRef: input.routingEvidenceContext.evidenceRef }
+              : {})
+          }
+        : {}),
       routingVerified: decision.status !== 'unknown'
     });
   }
