@@ -11,12 +11,12 @@ import type {
 export const TRETYAKOV_PROGRAMME_ADAPTER_ID = 'tretyakov-exhibitions-programme-v1' as const;
 export const TRETYAKOV_PROGRAMME_PROVIDER_ID = 'tretyakov-programme-official' as const;
 export const TRETYAKOV_PROGRAMME_SOURCE_URL =
-  'https://www.tretyakovgallery.ru/exhibitions/' as const;
+  'https://www.tretyakovgallery.ru/exhibitions/o/aleksey-bogolyubov-ot-nevy-do-bosfora/' as const;
 
-export const TRETYAKOV_GORSKY_EVENT_ID =
-  'tretyakov-andrey-gorsky-centenary' as const;
+export const TRETYAKOV_BOGOLYUBOV_EVENT_ID =
+  'tretyakov-aleksey-bogolyubov-neva-bosporus' as const;
 
-const TARGET_TITLE = 'Андрей Горский. К 100-летию художника';
+const TARGET_TITLE = 'Алексей Боголюбов. От Невы до Босфора';
 
 const MONTHS: Record<string, string> = {
   'января': '01',
@@ -88,7 +88,7 @@ export function normalizeTretyakovProgrammePage(
   if (!text.includes('Выставки')) throw new Error('Tretyakov programme source identity marker missing');
 
   const context = cardContext(text, TARGET_TITLE);
-  if (!context.includes('Новая Третьяковка')) {
+  if (!context.includes('Третьяковская галерея')) {
     throw new Error('Tretyakov programme venue marker missing');
   }
 
@@ -102,15 +102,15 @@ export function normalizeTretyakovProgrammePage(
   if (!Number.isFinite(fetchedMs)) throw new Error('Tretyakov programme snapshot fetchedAt is invalid');
 
   return [{
-    id: TRETYAKOV_GORSKY_EVENT_ID,
-    providerEntityId: 'andrey-gorsky-centenary',
+    id: TRETYAKOV_BOGOLYUBOV_EVENT_ID,
+    providerEntityId: 'aleksey-bogolyubov-neva-bosporus',
     providerId: TRETYAKOV_PROGRAMME_PROVIDER_ID,
-    canonicalDestinationNodeId: TRETYAKOV_GORSKY_EVENT_ID,
+    canonicalDestinationNodeId: TRETYAKOV_BOGOLYUBOV_EVENT_ID,
     kind: 'exhibition',
     titleRu: TARGET_TITLE,
-    titleEn: 'Andrey Gorsky. Marking the Artist’s Centenary',
-    titleZh: '安德烈·戈尔斯基：艺术家百年纪念展',
-    tags: ['выставка', 'искусство', 'новая третьяковка'],
+    titleEn: 'Alexey Bogolyubov. From the Neva to the Bosphorus',
+    titleZh: '阿列克谢·博戈柳博夫：从涅瓦河到博斯普鲁斯海峡',
+    tags: ['выставка', 'искусство', 'третьяковская галерея'],
     sourceUrl: snapshot.sourceUrl,
     observedAt: snapshot.fetchedAt,
     expiresAt: new Date(fetchedMs + 30 * 60_000).toISOString(),
