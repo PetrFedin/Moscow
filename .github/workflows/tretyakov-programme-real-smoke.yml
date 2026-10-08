@@ -1,18 +1,10 @@
 name: tretyakov-programme-real-smoke
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "src/integrations/tretyakovProgrammeAdapter.ts"
-      - "scripts/tretyakov_programme_smoke.mjs"
-      - ".github/workflows/tretyakov-programme-real-smoke.yml"
   workflow_dispatch:
 
 jobs:
   real-programme-smoke:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'live-event-programme-source-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -43,4 +35,4 @@ jobs:
             evidence/tretyakov-programme.html
             evidence/tretyakov-programme-diagnostics.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
