@@ -2538,3 +2538,43 @@ The browser proof must contain no:
 - Render service URL is configuration, not domain authority.
 
 **Sequencing:** endpoint code -> exact-head quality -> merge -> create Render service -> /health + /ready + current.json live proof -> configure moscow-mobile-preview env -> redeploy exact main -> browser current-truth proof -> disruption UX -> verified replacement plan.
+
+
+## Render quota fallback — co-located publication v1
+
+Render Hobby workspace is currently at the 25-service limit, so a new dedicated `moscow-live-city-authority` service cannot be created through the active workspace.
+
+### Temporary deployment contour
+
+Until a slot is available, `moscow-mobile-preview` may co-locate:
+
+- Expo web static assets;
+- `/health`;
+- `/ready`;
+- `/live-city/current.json`.
+
+The existing Render start command remains `npm run serve:web`.
+
+The repository changes `serve:web` to run the live-city publication process with static `dist` serving enabled.
+
+This is an operational quota fallback only. The authority contract remains separate and replaceable.
+
+### Client URL
+
+The current snapshot endpoint becomes:
+
+`https://moscow-mobile-preview.onrender.com/live-city/current.json`
+
+and is provided to the Expo build through:
+
+`EXPO_PUBLIC_LIVE_CITY_SNAPSHOT_URL`.
+
+### Exit criterion
+
+When one Render service slot becomes available, restore the target topology:
+
+`moscow-mobile-preview -> UI only`
+
+`moscow-live-city-authority -> live current truth only`
+
+without changing Day Composer or the current snapshot contract.
