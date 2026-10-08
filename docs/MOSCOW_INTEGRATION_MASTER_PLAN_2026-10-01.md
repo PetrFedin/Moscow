@@ -2249,3 +2249,67 @@ Fixture tests do not count as a real live-source PASS.
 - a real source PASS requires a real HTTPS fetch and archived evidence.
 
 **Sequencing:** authority -> opening-hours -> Day Composer projection -> real Tretyakov smoke -> evidence archive -> browser E2E -> next live event/status source.
+
+
+## Live Event / Programme Status Source v1 — IMPLEMENTING
+
+The second real Live City source targets the official Tretyakov Gallery exhibition programme.
+
+Source:
+
+`https://www.tretyakovgallery.ru/exhibitions/`
+
+### Programme status contract
+
+Status must come from explicit source markers, not from inferred dates.
+
+Supported mappings:
+
+- `Отменено` -> cancelled;
+- `Архив` -> finished;
+- `Сроки проведения изменены` on an active programme card -> rescheduled;
+- `Уже идет` / `Скоро будет` / `Скоро закончится` -> scheduled;
+- no recognised marker -> unknown / fail closed.
+
+Dates remain programme-window evidence but do not override explicit source status.
+
+### First target programme
+
+`Андрей Горский. К 100-летию художника`
+
+Official page evidence currently exposes:
+
+- active programme marker;
+- changed-dates marker;
+- programme window;
+- New Tretyakov venue marker.
+
+The normalized live entity is an exhibition with operationalStatus=`rescheduled`.
+
+### Real source pipeline
+
+`HTTPS GET -> raw HTML -> SHA-256 -> LiveProviderSnapshot -> programme adapter -> LiveDestinationFeed -> projection`
+
+### Evidence discipline
+
+The one-shot smoke stores:
+
+- raw programme HTML;
+- SHA-256;
+- snapshot metadata;
+- ingestion record;
+- normalized programme entity;
+- projected freshness/status/window.
+
+Fixture tests cover all supported statuses but do not count as real-source proof.
+
+### Acceptance
+
+- explicit marker is required;
+- cancelled / finished / rescheduled / scheduled remain bounded source statuses;
+- stale programme evidence becomes UNKNOWN;
+- programme dates cannot manufacture a status;
+- Day Composer consumes the source-backed programme projection without mutating PersonalTrip;
+- real-source PASS requires archived HTTPS evidence.
+
+**Sequencing:** programme adapter -> real smoke -> evidence archive -> Day Composer source-backed event -> browser E2E -> current live refresh runtime.
