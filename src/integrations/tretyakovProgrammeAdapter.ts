@@ -33,26 +33,51 @@ const MONTHS: Record<string, string> = {
   'декабря': '12'
 };
 
-function normalizeHtmlText(html: string) {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;|&#160;/gi, ' ')
-    .replace(/&mdash;|&#8212;|&#x2014;|&ndash;|&#8211;|&#x2013;/gi, '—')
-    .replace(/&quot;/gi, '"')
-    .replace(/&amp;/gi, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
+function decodeEscaped(value: string) {
+  return value
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\\//g, '/')
+    .replace(/\\\"/g, '"');
 }
 
-function cardContext(text: string, title: string) {
-  const index = text.indexOf(title);
-  if (index < 0) throw new Error(`Tretyakov programme title marker missing: ${title}`);
-  return text.slice(Math.max(0, index - 450), Math.min(text.length, index + title.length + 350));
+function contextsForTitle(html: string, title: string) {
+  const contexts: string[] = [];
+  let offset = 0;
+  while (offset < html.length) {
+    const index = html.indexOf(title, offset);
+    if (index < 0) break;
+    contexts.push(html.slice(Math.max(0, index - 2500), Math.min(html.length, index + title.length + 5000)));
+    offset = index + title.length;
+  }
+  return contexts;
+}
+
+function programmeContext(html: string, title: string) {
+  const contexts = contextsForTitle(html, title);
+  if (contexts.length === 0) {
+    throw new Error(`Tretyakov programme title marker missing: ${title}`);
+  }
+
+  const structured = contexts.find((context) =>
+    /status(?:_code)?\s*:\s*["']/.test(context)
+    || /status(?:_code)?\\?["']?\s*:\s*\\?["']/.test(context)
+  );
+  return decodeEscaped(structured ?? contexts[contexts.length - 1]!);
 }
 
 function parseDateRange(context: string) {
+  const structuredStart = context.match(/date_start_format:"(\d{4}-\d{2}-\d{2})T[^"]*"/);
+  const structuredEnd = context.match(/date_end:"(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})"/i);
+
+  if (structuredStart && structuredEnd) {
+    const endMonth = MONTHS[structuredEnd[2]!.toLowerCase()];
+    if (!endMonth) throw new Error('Tretyakov programme month mapping failed');
+    return {
+      startsAt: `${structuredStart[1]}T00:00:00+03:00`,
+      endsAt: `${structuredEnd[3]}-${endMonth}-${structuredEnd[1]!.padStart(2, '0')}T23:59:59+03:00`
+    };
+  }
+
   const match = context.match(
     /(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})\s*—\s*(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)\s+(\d{4})/i
   );
@@ -72,10 +97,14 @@ function parseDateRange(context: string) {
 export function programmeStatusFromTretyakovContext(
   context: string
 ): LiveOperationalStatus {
-  if (/Отмен(?:ено|ена|ён|ен)/i.test(context)) return 'cancelled';
-  if (/Архив/i.test(context)) return 'finished';
-  if (/Сроки проведения изменены/i.test(context)) return 'rescheduled';
-  if (/Уже идет|Скоро будет|Скоро закончится/i.test(context)) return 'scheduled';
+  const normalized = decodeEscaped(context);
+  if (/status_code:"cancelled"|Отмен(?:ено|ена|ён|ен)/i.test(normalized)) return 'cancelled';
+  if (/status_code:"archive"|status_code:"finished"|Архив/i.test(normalized)) return 'finished';
+  if (/status_code:"rescheduled"|Сроки проведения изменены/i.test(normalized)) return 'rescheduled';
+  if (
+    /status_code:"current"|status_code:"future"|status:"Уже идет"|status:"Скоро будет"|status:"Скоро закончится"/i.test(normalized)
+    || /Уже идет|Скоро будет|Скоро закончится/i.test(normalized)
+  ) return 'scheduled';
   return 'unknown';
 }
 
@@ -84,13 +113,7 @@ export function normalizeTretyakovProgrammePage(
   snapshot: LiveProviderSnapshot<string>
 ): LiveDestinationEntity[] {
   if (!html.trim()) throw new Error('Tretyakov programme source page is empty');
-  const text = normalizeHtmlText(html);
-  if (!text.includes('Выставки')) throw new Error('Tretyakov programme source identity marker missing');
-
-  const context = cardContext(text, TARGET_TITLE);
-  if (!context.includes('Третьяковская галерея')) {
-    throw new Error('Tretyakov programme venue marker missing');
-  }
+  const context = programmeContext(html, TARGET_TITLE);
 
   const { startsAt, endsAt } = parseDateRange(context);
   const status = programmeStatusFromTretyakovContext(context);
