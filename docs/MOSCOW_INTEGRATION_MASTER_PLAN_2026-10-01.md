@@ -1922,3 +1922,73 @@ Until authoritative sources exist, alternative slots must keep:
 - browser E2E proves Day Composer is visible in the normal My Trip flow.
 
 **Sequencing:** Day Composer projection -> timeline UI -> Quick Add -> alternative slots -> contract tests -> browser E2E -> citywide routing authority.
+
+
+## Citywide Routing Authority v1 — IMPLEMENTING
+
+Routing is an external truth-layer for Day Composer. It does not write travel duration into PersonalTrip.
+
+Authority chain:
+
+`routing provider observation -> freshness validation -> route projection -> feasibility decision -> Day Composer travel edge`
+
+### Observation contract
+
+Each route observation binds:
+
+- from endpoint;
+- to endpoint;
+- travel mode;
+- duration;
+- optional distance;
+- provider;
+- source URL;
+- observedAt;
+- validFrom when applicable;
+- expiresAt.
+
+Supported modes:
+
+- walk;
+- transit;
+- car;
+- taxi;
+- mixed.
+
+### Feasibility states
+
+For the time window between two scheduled trip items:
+
+- SAFE — verified route fits with configured buffer;
+- TIGHT — verified route fits but buffer is below the safe threshold;
+- IMPOSSIBLE — verified route duration exceeds the available window;
+- UNKNOWN — no fresh route evidence exists.
+
+UNKNOWN is mandatory when routing evidence is absent, stale or not yet valid.
+
+### Day Composer integration
+
+Travel appears as a projection entry between consecutive scheduled items:
+
+`item A -> travel edge -> item B`
+
+The travel edge may show:
+
+- mode;
+- verified duration;
+- available window;
+- remaining buffer;
+- source-backed feasibility.
+
+PersonalTrip remains free of provider-derived travel-time fields.
+
+### Acceptance
+
+- stale route observations cannot remain verified;
+- missing route evidence cannot produce estimated travel duration;
+- route feasibility is deterministic from the observed duration and schedule window;
+- Day Composer exposes UNKNOWN when no fresh route exists;
+- route data remains replaceable by another provider without changing PersonalTrip;
+- routing does not imply opening-hours, booking availability or accessibility truth.
+
+**Sequencing:** routing authority -> Day Composer travel projection -> provider adapter -> real Moscow route calls -> browser E2E -> Live City Truth.
