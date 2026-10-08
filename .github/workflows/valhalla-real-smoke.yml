@@ -1,17 +1,10 @@
 name: valhalla-real-smoke
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "scripts/valhalla_route_smoke.mjs"
-      - ".github/workflows/valhalla-real-smoke.yml"
   workflow_dispatch:
 
 jobs:
   real-route-smoke:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'valhalla-real-smoke-evidence'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -38,4 +31,4 @@ jobs:
           name: valhalla-real-smoke-evidence
           path: evidence/valhalla-real-smoke.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
