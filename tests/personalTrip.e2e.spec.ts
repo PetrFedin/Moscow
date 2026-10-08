@@ -460,3 +460,100 @@ test('Day Composer replays real Tretyakov programme status with explicit not-cur
   await expect(page.getByText('PROGRAMME · SCHEDULED · 29.09.2026 → 06.06.2027', { exact: true })).toBeVisible();
   await expect(page.getByText(/Государственная Третьяковская галерея · выставки · 2026-10-08T15:24:28.881Z/)).toBeVisible();
 });
+
+
+test('Day Composer consumes current live truth from runtime snapshot endpoint without replay mode', async ({ page }) => {
+  await page.addInitScript(() => {
+    (globalThis as { __MOSCOW_LIVE_CITY_SNAPSHOT_URL__?: string })
+      .__MOSCOW_LIVE_CITY_SNAPSHOT_URL__ = 'https://live-city.test/live-city/current.json';
+  });
+
+  await page.route('https://live-city.test/live-city/current.json', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        kind: 'live-city-current-snapshot',
+        destinationId: 'moscow',
+        refreshedAt: '2026-10-08T15:45:04.572Z',
+        mergedFeed: {
+          schemaVersion: 1,
+          destinationId: 'moscow',
+          generatedAt: '2026-10-08T15:45:04.572Z',
+          providers: [{
+            id: 'tretyakov-official',
+            name: 'Государственная Третьяковская галерея',
+            relationship: 'official',
+            capabilities: ['inventory', 'operational-status', 'opening-hours'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
+            attributionRu: 'Источник: Государственная Третьяковская галерея',
+            attributionEn: 'Source: State Tretyakov Gallery',
+            attributionZh: '来源：国立特列季亚科夫画廊'
+          }],
+          entities: [{
+            id: 'new-tretyakov-live',
+            providerEntityId: 'new-tretyakov',
+            providerId: 'tretyakov-official',
+            canonicalDestinationNodeId: 'new-tretyakov',
+            kind: 'museum',
+            titleRu: 'Новая Третьяковка',
+            titleEn: 'New Tretyakov',
+            titleZh: '新特列季亚科夫画廊',
+            tags: ['музей', 'искусство'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
+            observedAt: '2020-01-01T00:00:00.000Z',
+            expiresAt: '2099-12-31T23:59:59.000Z',
+            operationalStatus: 'open',
+            openingHours: {
+              timezone: 'Europe/Moscow',
+              windows: [{
+                opensAt: '2020-01-01T00:00:00+03:00',
+                closesAt: '2099-12-31T23:59:59+03:00'
+              }]
+            }
+          }]
+        }
+      })
+    });
+  });
+
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion: 1,
+      id: 'personal-trip:current-live',
+      destinationId: 'moscow',
+      title: 'Current live truth trip',
+      startDate: '2026-10-08',
+      endDate: '2026-10-08',
+      days: ['2026-10-08'],
+      items: [{
+        id: 'tretyakov-current',
+        dayDate: '2026-10-08',
+        title: 'Новая Третьяковка',
+        kind: 'museum',
+        source: 'provider',
+        destinationNodeId: 'new-tretyakov',
+        plannedStartAt: '2026-10-08T17:00:00+03:00',
+        plannedEndAt: '2026-10-08T19:00:00+03:00',
+        status: 'planned'
+      }],
+      visits: [],
+      createdAt: '2026-10-08T15:40:00.000Z',
+      updatedAt: '2026-10-08T15:40:00.000Z'
+    }));
+  });
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('LIVE · FRESH · OPEN', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Государственная Третьяковская галерея · 2020-01-01T00:00:00.000Z/)).toBeVisible();
+  await expect(page.getByText(/EVIDENCE REPLAY/)).toHaveCount(0);
+  await expect(page.getByText(/NOT CURRENT/)).toHaveCount(0);
+});
