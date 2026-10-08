@@ -190,7 +190,9 @@ export default function DayComposerCard({
                 {entry.liveTruth ? (
                   <View style={styles.liveTruthBox}>
                     <Text style={styles.liveTruthTitle}>
-                      LIVE · {entry.liveTruth.freshness.toUpperCase()} · {entry.liveTruth.operationalStatus.toUpperCase()}
+                      {entry.liveTruth.evidenceMode === 'historical-evidence-replay'
+                        ? `LIVE EVIDENCE REPLAY · ${entry.liveTruth.freshness.toUpperCase()} · ${entry.liveTruth.operationalStatus.toUpperCase()} · NOT CURRENT`
+                        : `LIVE · ${entry.liveTruth.freshness.toUpperCase()} · ${entry.liveTruth.operationalStatus.toUpperCase()}`}
                     </Text>
                     <Text style={styles.liveTruthMeta}>
                       {entry.liveTruth.openingState !== 'unknown'
