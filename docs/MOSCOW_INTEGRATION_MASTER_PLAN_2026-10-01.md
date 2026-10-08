@@ -2446,3 +2446,95 @@ Completed/resolved blocks retain their historical outcome and are not rewritten.
 - fixed commitments remain preserved until an explicit accepted replan.
 
 **Sequencing:** real two-source refresh proof -> exact-head quality -> merge -> production current snapshot publication endpoint -> Day Composer current live browser proof -> disruption/replan UX -> verified replacement plan.
+
+
+## Production Current Snapshot Publication Endpoint v1 — IMPLEMENTING
+
+The current live snapshot must be served from a production-capable HTTPS authority, not from GitHub Actions artifacts.
+
+### Deployment contour
+
+The first production contour is a dedicated Render Node service from the Moscow repository:
+
+`moscow-live-city-authority`
+
+Endpoints:
+
+- `GET /health`
+- `GET /ready`
+- `GET /live-city/current.json`
+
+The service is intentionally separate from the Expo web renderer and from the YCLIENTS evidence receiver.
+
+### Refresh ownership
+
+The publication service refreshes the same two admitted real sources:
+
+- official New Tretyakov venue/opening-hours source;
+- official Tretyakov programme source.
+
+On startup and every 20 minutes:
+
+`source fetch -> SHA-256 -> ingestion -> merge -> current snapshot`
+
+The service retains the last successful snapshot only as source material.
+
+Refresh failure cannot manufacture a new snapshot or change source checksums.
+
+### Readiness
+
+`/health` proves process availability only.
+
+`/ready` re-projects the retained merged feed against the current clock.
+
+It returns ready only while at least one source-backed entity is still fresh.
+
+Therefore an old in-memory snapshot cannot keep the service falsely READY after live truth expires.
+
+### Current JSON
+
+`/live-city/current.json` returns the current snapshot contract:
+
+- schema version;
+- destination;
+- refreshedAt;
+- source snapshot identities and checksums;
+- merged feed;
+- disruption list.
+
+The client does not trust a serialized projection from the server. It re-projects `mergedFeed` locally against its own current clock.
+
+### Client configuration
+
+Primary build-time config:
+
+`EXPO_PUBLIC_LIVE_CITY_SNAPSHOT_URL`
+
+Optional runtime override:
+
+`globalThis.__MOSCOW_LIVE_CITY_SNAPSHOT_URL__`
+
+The runtime override exists for replaceable deployment configuration and deterministic browser QA. It is subject to the same HTTPS validation as the build-time URL.
+
+### Browser acceptance
+
+A normal PersonalTrip without any replay namespace must be able to consume a current snapshot and render:
+
+`LIVE · FRESH · OPEN`
+
+The browser proof must contain no:
+
+- `EVIDENCE REPLAY`;
+- `NOT CURRENT`.
+
+### Fail-closed rules
+
+- publication endpoint must use HTTPS in the client;
+- no current snapshot -> endpoint returns 503;
+- stale retained truth -> `/ready` returns 503;
+- malformed snapshot -> client rejects it;
+- current source truth never mutates PersonalTrip;
+- historical replay remains a separate explicit namespace;
+- Render service URL is configuration, not domain authority.
+
+**Sequencing:** endpoint code -> exact-head quality -> merge -> create Render service -> /health + /ready + current.json live proof -> configure moscow-mobile-preview env -> redeploy exact main -> browser current-truth proof -> disruption UX -> verified replacement plan.

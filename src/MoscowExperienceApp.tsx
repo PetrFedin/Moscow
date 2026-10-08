@@ -50,7 +50,15 @@ type TrustMode = 'documented' | 'public';
 const SPATIAL_PLACE_STORAGE_KEY = 'moscow:p0:spatial-place:v1';
 const ERA_STORAGE_KEY = 'moscow:p0:romanov-era:v1';
 const TRUST_STORAGE_KEY = 'moscow:p0:romanov-trust-mode:v1';
-const LIVE_CITY_SNAPSHOT_URL = process.env.EXPO_PUBLIC_LIVE_CITY_SNAPSHOT_URL?.trim();
+function currentLiveSnapshotUrl() {
+  const runtimeOverride = (globalThis as {
+    __MOSCOW_LIVE_CITY_SNAPSHOT_URL__?: string;
+  }).__MOSCOW_LIVE_CITY_SNAPSHOT_URL__?.trim();
+
+  return runtimeOverride
+    || process.env.EXPO_PUBLIC_LIVE_CITY_SNAPSHOT_URL?.trim()
+    || undefined;
+}
 
 const copy = {
   ru: {
@@ -211,14 +219,15 @@ export default function MoscowExperienceApp() {
   }, []);
 
   useEffect(() => {
-    if (!LIVE_CITY_SNAPSHOT_URL) return;
+    const snapshotUrl = currentLiveSnapshotUrl();
+    if (!snapshotUrl) return;
 
     let active = true;
     const refresh = async () => {
       const nowIso = new Date().toISOString();
       try {
         const next = await loadCurrentLiveCityProjection({
-          url: LIVE_CITY_SNAPSHOT_URL,
+          url: snapshotUrl,
           nowIso
         });
         if (active) setCurrentLiveResult(next);
