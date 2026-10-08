@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "kind": "current-live-city-refresh-real-evidence",
+  "workflowRunId": 37803247222,
+  "workflowJobId": 113400690854,
+  "artifactId": 11560733948,
+  "artifactName": "current-live-city-snapshot",
+  "artifactDigest": "sha256:9a098a014e72e86b6454b86b77f16868d79f07e25f57d2ede491956fd8ebaba4",
+  "headSha": "3b085e48f61299b2c15557b542140fc2ced1921e",
+  "refreshedAt": "2026-10-08T15:45:04.572Z",
+  "providers": [
+    {
+      "providerId": "tretyakov-official",
+      "payloadSha256": "96703db2c7efe868ac97e0704e80dd74b39099a76cd2553d8b04530b2cc093de",
+      "snapshotFreshness": "fresh",
+      "projectedTruth": {
+        "operationalStatus": "open",
+        "openingState": "open"
+      }
+    },
+    {
+      "providerId": "tretyakov-programme-official",
+      "payloadSha256": "794ae75ec513ea0adeff11311fd8cae8657f5798a29f2958bab7283398f92094",
+      "snapshotFreshness": "fresh",
+      "projectedTruth": {
+        "operationalStatus": "scheduled",
+        "openingState": "unknown"
+      }
+    }
+  ],
+  "disruptions": [],
+  "truthBoundary": {
+    "realTwoSourceRefresh": true,
+    "mergedProjectionValidated": true,
+    "artifactIsEvidenceOnly": true,
+    "productionPublicationEndpointConfigured": false
+  }
+}
