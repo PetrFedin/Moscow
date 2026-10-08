@@ -1,0 +1,32 @@
+name: current-live-city-refresh
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build current live city snapshot
+        env:
+          LIVE_CITY_REFRESH_OUT_DIR: evidence/live-city-current
+        run: npm run live:refresh-runtime
+
+      - name: Upload current live city snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-live-city-snapshot
+          path: evidence/live-city-current/
+          if-no-files-found: error
+          retention-days: 7
