@@ -1,18 +1,10 @@
 name: tretyakov-live-city-real-smoke
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "src/integrations/tretyakovLiveCityAdapter.ts"
-      - "scripts/tretyakov_live_city_smoke.mjs"
-      - ".github/workflows/tretyakov-live-city-real-smoke.yml"
   workflow_dispatch:
 
 jobs:
   real-live-city-smoke:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'live-city-truth-authority-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -36,6 +28,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tretyakov-live-city-evidence
-          path: evidence/
+          path: |
+            evidence/tretyakov-live-city.json
+            evidence/tretyakov-live-city.html
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
