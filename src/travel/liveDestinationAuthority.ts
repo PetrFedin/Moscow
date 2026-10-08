@@ -59,12 +59,13 @@ export type LiveDestinationEntity = {
   id: string;
   providerEntityId: string;
   providerId: string;
+  canonicalDestinationNodeId?: string;
   kind: Exclude<ExperienceNodeKind, 'heritage'>;
   titleRu: string;
   titleEn: string;
   titleZh: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   tags: string[];
   sourceUrl: string;
   observedAt: string;
@@ -98,6 +99,7 @@ export type LiveDestinationProjectionEntity = {
   providerEntityId: string;
   providerId: string;
   providerName: string;
+  canonicalDestinationNodeId?: string;
   providerAttributionRu: string;
   providerAttributionEn: string;
   providerAttributionZh: string;
@@ -105,8 +107,8 @@ export type LiveDestinationProjectionEntity = {
   titleRu: string;
   titleEn: string;
   titleZh: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   tags: string[];
   sourceUrl: string;
   observedAt: string;
@@ -373,8 +375,17 @@ export function validateLiveDestinationFeed(value: unknown): LiveDestinationVali
     if (!isText(raw.titleRu)) blockers.push(`live-title-ru-missing:${id}`);
     if (!isText(raw.titleEn)) blockers.push(`live-title-en-missing:${id}`);
     if (!isText(raw.titleZh)) blockers.push(`live-title-zh-missing:${id}`);
-    if (!coordinate(raw.latitude, -90, 90)) blockers.push(`live-latitude-invalid:${id}`);
-    if (!coordinate(raw.longitude, -180, 180)) blockers.push(`live-longitude-invalid:${id}`);
+    const hasCanonicalTarget = isText(raw.canonicalDestinationNodeId);
+    const hasLatitude = raw.latitude !== undefined;
+    const hasLongitude = raw.longitude !== undefined;
+    if (!hasCanonicalTarget && (!hasLatitude || !hasLongitude)) {
+      blockers.push(`live-entity-location-or-canonical-target-missing:${id}`);
+    }
+    if (hasLatitude !== hasLongitude) {
+      blockers.push(`live-entity-partial-geometry:${id}`);
+    }
+    if (hasLatitude && !coordinate(raw.latitude, -90, 90)) blockers.push(`live-latitude-invalid:${id}`);
+    if (hasLongitude && !coordinate(raw.longitude, -180, 180)) blockers.push(`live-longitude-invalid:${id}`);
     if (!nonEmptyUniqueStrings(raw.tags)) blockers.push(`live-tags-invalid:${id}`);
     if (!isHttps(raw.sourceUrl)) blockers.push(`live-source-url-invalid:${id}`);
 
@@ -559,6 +570,9 @@ export function projectLiveDestinationFeed(
       providerEntityId: entity.providerEntityId,
       providerId: entity.providerId,
       providerName: provider.name,
+      ...(entity.canonicalDestinationNodeId
+        ? { canonicalDestinationNodeId: entity.canonicalDestinationNodeId }
+        : {}),
       providerAttributionRu: provider.attributionRu,
       providerAttributionEn: provider.attributionEn,
       providerAttributionZh: provider.attributionZh,
@@ -566,8 +580,8 @@ export function projectLiveDestinationFeed(
       titleRu: entity.titleRu,
       titleEn: entity.titleEn,
       titleZh: entity.titleZh,
-      latitude: entity.latitude,
-      longitude: entity.longitude,
+      ...(entity.latitude !== undefined ? { latitude: entity.latitude } : {}),
+      ...(entity.longitude !== undefined ? { longitude: entity.longitude } : {}),
       tags: [...entity.tags],
       sourceUrl: entity.sourceUrl,
       observedAt: entity.observedAt,
