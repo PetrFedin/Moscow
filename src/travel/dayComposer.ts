@@ -410,10 +410,10 @@ export function buildDayComposerProjection(input: {
     externalTruth: {
       routingVerified: travel.length > 0 && travel.every((entry) => entry.routingVerified),
       openingHoursVerified:
-        items.some((item) => item.liveTruth?.openingState !== undefined)
-        && items
-          .filter((item) => item.liveTruth)
-          .every((item) => item.liveTruth?.freshness === 'fresh'),
+        items.some((item) =>
+          item.liveTruth?.freshness === 'fresh'
+          && item.liveTruth.openingState !== 'unknown'
+        ),
       availabilityVerified: false,
       accessibilityVerified: false
     }
