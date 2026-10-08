@@ -2273,18 +2273,19 @@ Supported mappings:
 
 Dates remain programme-window evidence but do not override explicit source status.
 
-### First target programme
+### First real target programme
 
-`Андрей Горский. К 100-летию художника`
+`Алексей Боголюбов. От Невы до Босфора`
 
-Official page evidence currently exposes:
+Official server-rendered page evidence exposes:
 
-- active programme marker;
-- changed-dates marker;
-- programme window;
-- New Tretyakov venue marker.
+- explicit active programme marker `Уже идет`;
+- programme window `29 September 2026 -> 6 June 2027`;
+- Tretyakov Gallery venue marker.
 
-The normalized live entity is an exhibition with operationalStatus=`rescheduled`.
+The normalized real-source entity is an exhibition with operationalStatus=`scheduled`.
+
+The parser contract also supports explicit `cancelled`, `rescheduled` and `finished` markers, but those states are not claimed as real-provider proof until a server-fetchable official source exposes them.
 
 ### Real source pipeline
 
