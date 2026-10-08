@@ -5,7 +5,7 @@ import {
   buildTretyakovProgrammeAdapter,
   normalizeTretyakovProgrammePage,
   programmeStatusFromTretyakovContext,
-  TRETYAKOV_GORSKY_EVENT_ID,
+  TRETYAKOV_BOGOLYUBOV_EVENT_ID,
   TRETYAKOV_PROGRAMME_SOURCE_URL
 } from '../src/integrations/tretyakovProgrammeAdapter.ts';
 import {
@@ -18,8 +18,8 @@ const html = `
 <html>
   <body>
     <h1>Выставки</h1>
-    <div>Уже идет Купить билет 18 мая 2026 — 24 августа 2026 Сроки проведения изменены
-      Андрей Горский. К 100-летию художника Новая Третьяковка</div>
+    <div>Уже идет 6+ Алексей Боголюбов. От Невы до Босфора 29 сентября 2026 — 6 июня 2027
+      Третьяковская галерея</div>
   </body>
 </html>
 `;
@@ -45,20 +45,20 @@ test('Tretyakov programme parser maps explicit source markers to bounded statuse
   assert.equal(programmeStatusFromTretyakovContext('Без статуса'), 'unknown');
 });
 
-test('real target card normalizes as rescheduled exhibition with programme dates', () => {
+test('real target page normalizes as scheduled exhibition with programme dates', () => {
   const entities = normalizeTretyakovProgrammePage(html, snapshot());
   assert.equal(entities.length, 1);
 
   const entity = entities[0]!;
-  assert.equal(entity.id, TRETYAKOV_GORSKY_EVENT_ID);
+  assert.equal(entity.id, TRETYAKOV_BOGOLYUBOV_EVENT_ID);
   assert.equal(entity.kind, 'exhibition');
-  assert.equal(entity.operationalStatus, 'rescheduled');
-  assert.equal(entity.startsAt, '2026-05-18T00:00:00+03:00');
-  assert.equal(entity.endsAt, '2026-08-24T23:59:59+03:00');
-  assert.equal(entity.canonicalDestinationNodeId, TRETYAKOV_GORSKY_EVENT_ID);
+  assert.equal(entity.operationalStatus, 'scheduled');
+  assert.equal(entity.startsAt, '2026-09-29T00:00:00+03:00');
+  assert.equal(entity.endsAt, '2027-06-06T23:59:59+03:00');
+  assert.equal(entity.canonicalDestinationNodeId, TRETYAKOV_BOGOLYUBOV_EVENT_ID);
 });
 
-test('programme adapter uses common ingestion and projects source-backed rescheduled status', () => {
+test('programme adapter uses common ingestion and projects source-backed scheduled status', () => {
   const adapter = buildTretyakovProgrammeAdapter();
   const result = ingestLiveProviderSnapshot({
     adapter,
@@ -70,10 +70,10 @@ test('programme adapter uses common ingestion and projects source-backed resched
   const projection = projectLiveDestinationFeed(result.feed, '2026-10-08T14:05:00.000Z');
   const entity = projection.entities[0]!;
   assert.equal(entity.freshness, 'fresh');
-  assert.equal(entity.operationalStatus, 'rescheduled');
+  assert.equal(entity.operationalStatus, 'scheduled');
   assert.equal(entity.journeyEligible, true);
-  assert.equal(entity.startsAt, '2026-05-18T00:00:00+03:00');
-  assert.equal(entity.endsAt, '2026-08-24T23:59:59+03:00');
+  assert.equal(entity.startsAt, '2026-09-29T00:00:00+03:00');
+  assert.equal(entity.endsAt, '2027-06-06T23:59:59+03:00');
 });
 
 test('programme source fails closed when target card or explicit marker disappears', () => {
@@ -87,7 +87,7 @@ test('programme source fails closed when target card or explicit marker disappea
 
   assert.throws(
     () => normalizeTretyakovProgrammePage(
-      '<html><body><h1>Выставки</h1><div>18 мая 2026 — 24 августа 2026 Андрей Горский. К 100-летию художника Новая Третьяковка</div></body></html>',
+      '<html><body><h1>Выставки</h1><div>29 сентября 2026 — 6 июня 2027 Алексей Боголюбов. От Невы до Босфора Третьяковская галерея</div></body></html>',
       snapshot()
     ),
     /explicit status marker missing/
