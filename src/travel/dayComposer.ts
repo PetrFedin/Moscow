@@ -52,6 +52,8 @@ export type DayComposerItemEntry = {
     sourceUrl: string;
     observedAt: string;
     expiresAt: string;
+    evidenceMode?: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
   };
 };
 
@@ -210,7 +212,15 @@ function projectItem(
             providerName: live.providerName,
             sourceUrl: live.sourceUrl,
             observedAt: live.observedAt,
-            expiresAt: live.expiresAt
+            expiresAt: live.expiresAt,
+            ...(input.liveEvidenceContext
+              ? {
+                  evidenceMode: input.liveEvidenceContext.mode,
+                  ...(input.liveEvidenceContext.evidenceRef
+                    ? { evidenceRef: input.liveEvidenceContext.evidenceRef }
+                    : {})
+                }
+              : {})
           }
         }
       : {})
@@ -246,6 +256,10 @@ export function buildDayComposerProjection(input: {
   minimumFreeMinutes?: number;
   routingProjection?: ReturnType<typeof projectCitywideRoutingFeed>;
   liveDestinationProjection?: ReturnType<typeof projectLiveDestinationFeed>;
+  liveEvidenceContext?: {
+    mode: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
+  };
   routingEvidenceContext?: {
     mode: 'live' | 'historical-evidence-replay';
     evidenceRef?: string;
