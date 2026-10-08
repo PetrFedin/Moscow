@@ -10,7 +10,7 @@ export type ProviderAdmissionCapability =
   | 'routing';
 
 export type ProviderCredentialAdmission = {
-  mode: 'api-key' | 'oauth2' | 'signed-feed' | 'public-feed';
+  mode: 'api-key' | 'oauth2' | 'signed-feed' | 'public-feed' | 'public-api';
   secretRef?: string;
   admittedAt: string;
   evidenceRef: string;
@@ -63,7 +63,11 @@ export function validateRealProviderAdmission(
   if (!admission.sourceUrl.startsWith('https://')) blockers.push('provider-source-url-invalid');
   if (!validIso(admission.credentials.admittedAt)) blockers.push('credential-admission-time-invalid');
   if (!admission.credentials.evidenceRef.trim()) blockers.push('credential-admission-evidence-missing');
-  if (admission.credentials.mode !== 'public-feed' && !admission.credentials.secretRef?.trim()) {
+  if (
+    admission.credentials.mode !== 'public-feed'
+    && admission.credentials.mode !== 'public-api'
+    && !admission.credentials.secretRef?.trim()
+  ) {
     blockers.push('credential-secret-ref-missing');
   }
   if (!admission.capabilityEvidenceRef.trim()) blockers.push('capability-evidence-missing');
