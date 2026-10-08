@@ -183,7 +183,11 @@ function flexibility(item: PersonalTripItem): DayComposerFlexibility {
 
 function projectItem(
   item: PersonalTripItem,
-  liveById: Map<string, LiveDestinationProjectionEntity>
+  liveById: Map<string, LiveDestinationProjectionEntity>,
+  liveEvidenceContext?: {
+    mode: 'live' | 'historical-evidence-replay';
+    evidenceRef?: string;
+  }
 ): DayComposerItemEntry {
   const live = item.destinationNodeId ? liveById.get(item.destinationNodeId) : undefined;
   return {
@@ -213,11 +217,11 @@ function projectItem(
             sourceUrl: live.sourceUrl,
             observedAt: live.observedAt,
             expiresAt: live.expiresAt,
-            ...(input.liveEvidenceContext
+            ...(liveEvidenceContext
               ? {
-                  evidenceMode: input.liveEvidenceContext.mode,
-                  ...(input.liveEvidenceContext.evidenceRef
-                    ? { evidenceRef: input.liveEvidenceContext.evidenceRef }
+                  evidenceMode: liveEvidenceContext.mode,
+                  ...(liveEvidenceContext.evidenceRef
+                    ? { evidenceRef: liveEvidenceContext.evidenceRef }
                     : {})
                 }
               : {})
@@ -283,7 +287,7 @@ export function buildDayComposerProjection(input: {
     }
   }
   const items = personalTripDayItems(input.trip, input.dayDate)
-    .map((item) => projectItem(item, liveById));
+    .map((item) => projectItem(item, liveById, input.liveEvidenceContext));
 
   const freeWindows = deriveTripFreeWindows({
     trip: input.trip,
