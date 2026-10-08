@@ -1,0 +1,41 @@
+name: tretyakov-live-city-real-smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/integrations/tretyakovLiveCityAdapter.ts"
+      - "scripts/tretyakov_live_city_smoke.mjs"
+      - ".github/workflows/tretyakov-live-city-real-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  real-live-city-smoke:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'live-city-truth-authority-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch official Tretyakov live city truth
+        env:
+          LIVE_CITY_EVIDENCE_OUT: evidence/tretyakov-live-city.json
+          LIVE_CITY_RAW_OUT: evidence/tretyakov-live-city.html
+        run: |
+          mkdir -p evidence
+          npm run live:tretyakov-smoke
+
+      - name: Upload live city evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tretyakov-live-city-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
