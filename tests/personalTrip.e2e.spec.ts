@@ -324,3 +324,57 @@ test('Day Replan requires explicit apply and preserves fixed booking', async ({ 
   await expect(page.getByText(/12:00–13:00/).first()).toBeVisible();
   await expect(page.getByText('СОХРАНЯЕМ ТОЧНО', { exact: true })).toHaveCount(0);
 });
+
+
+test('Day Composer replays source-backed Valhalla evidence without claiming it is live', async ({ page }) => {
+  await page.goto('/');
+
+  await page.evaluate(() => {
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion: 1,
+      id: 'routing-evidence-replay:valhalla-2026-10-08',
+      destinationId: 'moscow',
+      title: 'Valhalla evidence replay',
+      startDate: '2026-10-08',
+      endDate: '2026-10-08',
+      days: ['2026-10-08'],
+      items: [
+        {
+          id: 'pushkin',
+          dayDate: '2026-10-08',
+          title: 'Пушкинский музей · evidence endpoint',
+          kind: 'museum',
+          source: 'provider',
+          destinationNodeId: 'pushkin-museum',
+          plannedStartAt: '2026-10-08T12:00:00+03:00',
+          plannedEndAt: '2026-10-08T13:00:00+03:00',
+          status: 'planned'
+        },
+        {
+          id: 'bolshoi',
+          dayDate: '2026-10-08',
+          title: 'Большой театр · evidence endpoint',
+          kind: 'theatre',
+          source: 'provider',
+          destinationNodeId: 'bolshoi-theatre',
+          plannedStartAt: '2026-10-08T13:35:00+03:00',
+          plannedEndAt: '2026-10-08T15:30:00+03:00',
+          status: 'planned'
+        }
+      ],
+      visits: [],
+      createdAt: '2026-10-08T09:42:00.000Z',
+      updatedAt: '2026-10-08T09:42:00.000Z'
+    }));
+  });
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('TRAVEL · 25 мин · WALK', { exact: true })).toBeVisible();
+  await expect(page.getByText('TIGHT', { exact: true })).toBeVisible();
+  await expect(page.getByText('EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Valhalla · 2026-10-08T09:41:00.499Z/)).toBeVisible();
+});
