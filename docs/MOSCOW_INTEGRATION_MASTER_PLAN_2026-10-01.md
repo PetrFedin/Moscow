@@ -1992,3 +1992,95 @@ PersonalTrip remains free of provider-derived travel-time fields.
 - routing does not imply opening-hours, booking availability or accessibility truth.
 
 **Sequencing:** routing authority -> Day Composer travel projection -> provider adapter -> real Moscow route calls -> browser E2E -> Live City Truth.
+
+
+## Valhalla Routing Provider Adapter v1 — IMPLEMENTING
+
+Valhalla is the first admitted routing provider for walking-route evidence.
+
+### Role
+
+Valhalla provides route observations only. It does not own:
+
+- PersonalTrip;
+- Day Composer ordering;
+- user priorities;
+- booking state;
+- destination catalogue;
+- final navigation UI.
+
+Yandex MapKit remains the primary renderer/navigation handoff. OpenTripPlanner remains a conditional future multimodal sidecar.
+
+### Admission
+
+Valhalla is admitted through the common provider authority with:
+
+- provider kind: routing;
+- capability: routing;
+- credential mode: public-api or credentialed API where applicable;
+- route duration schema path;
+- route distance schema path;
+- capability/schema evidence references.
+
+### Adapter contract
+
+The v1 adapter is walking-only:
+
+`from + to -> pedestrian route request -> raw provider response -> SHA-256 -> normalized CitywideRouteObservation`
+
+The normalized observation records:
+
+- from/to coordinates and canonical IDs;
+- mode=walk;
+- durationMinutes;
+- distanceMeters;
+- fetched/observed time;
+- expiry;
+- source URL;
+- provider identity.
+
+The provider response remains external evidence; travel time is not written into PersonalTrip.
+
+### Real route smoke
+
+A manual/runtime smoke command is available:
+
+`npm run routing:valhalla-smoke`
+
+Required:
+
+`VALHALLA_URL=https://<authorised-or-approved-instance>`
+
+Optional route overrides:
+
+- ROUTE_FROM_ID / ROUTE_FROM_LAT / ROUTE_FROM_LON;
+- ROUTE_TO_ID / ROUTE_TO_LAT / ROUTE_TO_LON;
+- ROUTING_EVIDENCE_OUT.
+
+Default smoke coordinates are Moscow city points used only as request defaults. A smoke PASS requires a real HTTP response from the configured Valhalla instance.
+
+### Evidence
+
+The smoke runner records:
+
+- request body;
+- raw response;
+- rawResponseSha256;
+- provider admission;
+- admission result;
+- normalized routing feed.
+
+Fixture/unit tests do not count as a real provider route PASS.
+
+### Acceptance
+
+- public API is not mislabeled as public-feed;
+- failed provider responses fail closed;
+- unsupported units fail closed;
+- missing duration fails closed;
+- normalized walking duration rounds provider seconds up to whole minutes;
+- distance is normalized to meters;
+- a real route PASS requires a configured HTTPS provider endpoint;
+- no real-provider claim is made from fixtures.
+
+**Sequencing:** adapter contract -> exact-head quality -> real Valhalla smoke -> evidence archive -> Day Composer real travel edge -> browser E2E -> Live City Truth.
