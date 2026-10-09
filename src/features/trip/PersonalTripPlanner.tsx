@@ -6,6 +6,7 @@ import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 import { buildDayComposerProjection } from '../../travel/dayComposer';
+import { buildDayComposerDisruptionCases } from '../../travel/dayComposerDisruption';
 import {
   projectValhallaRealSmokeReplay,
   valhallaRealSmokeReplayContext,
@@ -46,6 +47,7 @@ import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
 import DayComposerCard from './DayComposerCard';
+import LiveDisruptionCard from './LiveDisruptionCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -355,6 +357,11 @@ export default function PersonalTripPlanner({
     [selectedDay, trip, replayRoutingProjection, liveProjection, liveEvidenceContext]
   );
 
+  const liveDisruptions = useMemo(
+    () => dayComposer ? buildDayComposerDisruptionCases(dayComposer) : [],
+    [dayComposer]
+  );
+
   const openAddPreset = (preset: 'place' | 'restaurant' | 'ticket' | 'reservation' | 'event') => {
     setFormError('');
     setCommitmentChoice('none');
@@ -618,6 +625,11 @@ export default function PersonalTripPlanner({
       />
 
       <BookingWalletCard trip={trip} language={language} />
+
+      <LiveDisruptionCard
+        disruptions={liveDisruptions}
+        language={language}
+      />
 
       <DayReplanCard
         trip={trip}
