@@ -19,6 +19,10 @@ const REFRESH_INTERVAL_MS = Math.max(
   60_000,
   Number(process.env.LIVE_CITY_REFRESH_INTERVAL_MS || 20 * 60_000)
 );
+const PROVIDER_FETCH_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.LIVE_CITY_PROVIDER_FETCH_TIMEOUT_MS || 20_000)
+);
 const venueUrl = process.env.TRETYAKOV_LIVE_URL?.trim() || TRETYAKOV_NEW_SOURCE_URL;
 const programmeUrl = process.env.TRETYAKOV_PROGRAMME_URL?.trim() || TRETYAKOV_PROGRAMME_SOURCE_URL;
 const SERVE_WEB_DIST = process.env.SERVE_WEB_DIST === '1';
@@ -103,22 +107,55 @@ async function serveStaticWeb(pathname, res) {
 
 async function fetchHtml(sourceUrl, userAgent) {
   const fetchedAt = new Date().toISOString();
-  const response = await fetch(sourceUrl, {
-    method: 'GET',
-    headers: {
-      'user-agent': userAgent,
-      'accept': 'text/html,application/xhtml+xml'
-    }
-  });
-  const rawHtml = await response.text();
-  if (!response.ok) {
-    throw new Error(`Live city publication HTTP ${response.status} for ${sourceUrl}`);
-  }
-  return {
+  const startedAtMs = Date.now();
+
+  console.log(JSON.stringify({
+    event: 'live-city-provider-fetch-started',
+    sourceUrl,
     fetchedAt,
-    rawHtml,
-    payloadSha256: sha256(rawHtml)
-  };
+    timeoutMs: PROVIDER_FETCH_TIMEOUT_MS
+  }));
+
+  try {
+    const response = await fetch(sourceUrl, {
+      method: 'GET',
+      headers: {
+        'user-agent': userAgent,
+        'accept': 'text/html,application/xhtml+xml'
+      },
+      signal: AbortSignal.timeout(PROVIDER_FETCH_TIMEOUT_MS)
+    });
+
+    const rawHtml = await response.text();
+    if (!response.ok) {
+      throw new Error(`Live city publication HTTP ${response.status} for ${sourceUrl}`);
+    }
+
+    const result = {
+      fetchedAt,
+      rawHtml,
+      payloadSha256: sha256(rawHtml)
+    };
+
+    console.log(JSON.stringify({
+      event: 'live-city-provider-fetch-succeeded',
+      sourceUrl,
+      fetchedAt,
+      payloadSha256: result.payloadSha256,
+      durationMs: Date.now() - startedAtMs
+    }));
+
+    return result;
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: 'live-city-provider-fetch-failed',
+      sourceUrl,
+      fetchedAt,
+      durationMs: Date.now() - startedAtMs,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+    throw error;
+  }
 }
 
 async function buildCurrentSnapshot() {
@@ -284,6 +321,7 @@ server.listen(PORT, '0.0.0.0', () => {
     refreshIntervalMs: REFRESH_INTERVAL_MS,
     venueUrl,
     programmeUrl,
+    providerFetchTimeoutMs: PROVIDER_FETCH_TIMEOUT_MS,
     serveWebDist: SERVE_WEB_DIST,
     webDistDir: SERVE_WEB_DIST ? WEB_DIST_DIR : null
   }));
