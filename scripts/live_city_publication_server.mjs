@@ -1,6 +1,15 @@
 import http from 'node:http';
-import { createHash } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import {
+  createHash,
+  createPublicKey,
+  verify as verifySignature
+} from 'node:crypto';
+import {
+  readFile,
+  rename,
+  stat,
+  writeFile
+} from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -13,6 +22,11 @@ import {
 } from '../src/integrations/tretyakovProgrammeAdapter.ts';
 import { projectLiveDestinationFeed } from '../src/travel/liveDestinationAuthority.ts';
 import { runLiveCityRefreshRuntime } from '../src/travel/liveCityRefreshRuntime.ts';
+import {
+  assertGitHubActionsPublisherClaims,
+  LIVE_CITY_PUBLISH_AUDIENCE,
+  parsePublishedLiveCitySnapshot
+} from '../src/travel/liveCityPublicationAuthority.ts';
 
 const PORT = Number(process.env.PORT || 3000);
 const REFRESH_INTERVAL_MS = Math.max(
@@ -23,14 +37,28 @@ const PROVIDER_FETCH_TIMEOUT_MS = Math.max(
   5_000,
   Number(process.env.LIVE_CITY_PROVIDER_FETCH_TIMEOUT_MS || 20_000)
 );
+const REFRESH_MODE = process.env.LIVE_CITY_REFRESH_MODE?.trim() === 'push'
+  ? 'push'
+  : 'pull';
 const venueUrl = process.env.TRETYAKOV_LIVE_URL?.trim() || TRETYAKOV_NEW_SOURCE_URL;
 const programmeUrl = process.env.TRETYAKOV_PROGRAMME_URL?.trim() || TRETYAKOV_PROGRAMME_SOURCE_URL;
 const SERVE_WEB_DIST = process.env.SERVE_WEB_DIST === '1';
 const WEB_DIST_DIR = path.resolve(process.env.WEB_DIST_DIR?.trim() || 'dist');
+const SNAPSHOT_CACHE_PATH = path.resolve(
+  process.env.LIVE_CITY_SNAPSHOT_CACHE_PATH?.trim() || '/tmp/moscow-live-city-current.json'
+);
+const GITHUB_OIDC_CONFIGURATION_URL =
+  'https://token.actions.githubusercontent.com/.well-known/openid-configuration';
 
 let currentSnapshot = null;
 let refreshInFlight = null;
 let lastRefreshError = null;
+let lastPublisher = null;
+let oidcKeyCache = {
+  expiresAtMs: 0,
+  jwksUri: '',
+  keys: []
+};
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -43,12 +71,30 @@ function json(res, status, body, cacheControl = 'no-store') {
     'content-length': String(payload.length),
     'cache-control': cacheControl,
     'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, OPTIONS',
-    'access-control-allow-headers': 'content-type'
+    'access-control-allow-methods': 'GET, PUT, OPTIONS',
+    'access-control-allow-headers': 'authorization, content-type'
   });
   res.end(payload);
 }
 
+function readBody(req, maxBytes = 5 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+
+    req.on('data', (chunk) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        reject(new Error('payload-too-large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
 
 const MIME_BY_EXT = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -103,6 +149,98 @@ async function serveStaticWeb(pathname, res) {
   });
   res.end(body);
   return true;
+}
+
+async function fetchJson(url, timeoutMs = 8_000) {
+  const response = await fetch(url, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!response.ok) throw new Error(`OIDC metadata HTTP ${response.status}`);
+  return response.json();
+}
+
+async function githubOidcKey(kid) {
+  const nowMs = Date.now();
+  if (nowMs >= oidcKeyCache.expiresAtMs || !oidcKeyCache.keys.length) {
+    const configuration = await fetchJson(GITHUB_OIDC_CONFIGURATION_URL);
+    if (!configuration || typeof configuration.jwks_uri !== 'string') {
+      throw new Error('GitHub OIDC JWKS URI missing');
+    }
+    const jwks = await fetchJson(configuration.jwks_uri);
+    if (!jwks || !Array.isArray(jwks.keys)) {
+      throw new Error('GitHub OIDC JWKS invalid');
+    }
+    oidcKeyCache = {
+      expiresAtMs: nowMs + 60 * 60_000,
+      jwksUri: configuration.jwks_uri,
+      keys: jwks.keys
+    };
+  }
+
+  const key = oidcKeyCache.keys.find((item) => item && item.kid === kid);
+  if (!key) {
+    oidcKeyCache.expiresAtMs = 0;
+    throw new Error(`GitHub OIDC signing key not found: ${kid}`);
+  }
+  return key;
+}
+
+function decodeJwtJson(segment, label) {
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
+  } catch {
+    throw new Error(`GitHub OIDC ${label} is invalid`);
+  }
+}
+
+async function verifyGitHubActionsPublisherToken(token) {
+  const segments = String(token || '').split('.');
+  if (segments.length !== 3) throw new Error('GitHub OIDC token format invalid');
+
+  const [encodedHeader, encodedPayload, encodedSignature] = segments;
+  const header = decodeJwtJson(encodedHeader, 'header');
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid) {
+    throw new Error('GitHub OIDC header invalid');
+  }
+
+  const jwk = await githubOidcKey(header.kid);
+  const publicKey = createPublicKey({ key: jwk, format: 'jwk' });
+  const verified = verifySignature(
+    'RSA-SHA256',
+    Buffer.from(`${encodedHeader}.${encodedPayload}`),
+    publicKey,
+    Buffer.from(encodedSignature, 'base64url')
+  );
+  if (!verified) throw new Error('GitHub OIDC signature invalid');
+
+  const claims = decodeJwtJson(encodedPayload, 'payload');
+  return assertGitHubActionsPublisherClaims(claims);
+}
+
+async function cacheCurrentSnapshot(snapshot) {
+  const tempPath = `${SNAPSHOT_CACHE_PATH}.tmp`;
+  await writeFile(tempPath, JSON.stringify(snapshot) + '\n', 'utf8');
+  await rename(tempPath, SNAPSHOT_CACHE_PATH);
+}
+
+async function loadCachedSnapshot() {
+  try {
+    const raw = JSON.parse(await readFile(SNAPSHOT_CACHE_PATH, 'utf8'));
+    currentSnapshot = parsePublishedLiveCitySnapshot(raw, new Date().toISOString(), 30 * 60_000);
+    console.log(JSON.stringify({
+      event: 'live-city-published-snapshot-cache-restored',
+      refreshedAt: currentSnapshot.refreshedAt,
+      cachePath: SNAPSHOT_CACHE_PATH
+    }));
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return;
+    console.error(JSON.stringify({
+      event: 'live-city-published-snapshot-cache-rejected',
+      cachePath: SNAPSHOT_CACHE_PATH,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+  }
 }
 
 async function fetchHtml(sourceUrl, userAgent) {
@@ -206,6 +344,7 @@ async function buildCurrentSnapshot() {
     sourceSnapshots: refresh.ingestionRecords.map((record) => ({
       providerId: record.providerId,
       snapshotId: record.snapshotId,
+      sourceUrl: record.sourceUrl,
       fetchedAt: record.fetchedAt,
       payloadSha256: record.payloadSha256,
       snapshotFreshness: record.snapshotFreshness
@@ -219,8 +358,9 @@ async function refreshCurrentSnapshot() {
   if (refreshInFlight) return refreshInFlight;
 
   refreshInFlight = buildCurrentSnapshot()
-    .then((snapshot) => {
+    .then(async (snapshot) => {
       currentSnapshot = snapshot;
+      await cacheCurrentSnapshot(snapshot);
       lastRefreshError = null;
       console.log(JSON.stringify({
         event: 'live-city-snapshot-refreshed',
@@ -273,8 +413,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'access-control-allow-origin': '*',
-      'access-control-allow-methods': 'GET, OPTIONS',
-      'access-control-allow-headers': 'content-type'
+      'access-control-allow-methods': 'GET, PUT, OPTIONS',
+      'access-control-allow-headers': 'authorization, content-type'
     });
     return res.end();
   }
@@ -284,8 +424,10 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       service: 'moscow-live-city-authority',
       time: new Date().toISOString(),
+      refreshMode: REFRESH_MODE,
       refreshInFlight: Boolean(refreshInFlight),
-      lastRefreshError
+      lastRefreshError,
+      lastPublisher
     });
   }
 
@@ -293,7 +435,9 @@ const server = http.createServer(async (req, res) => {
     const state = readiness(new Date().toISOString());
     return json(res, state.ready ? 200 : 503, {
       ...state,
-      lastRefreshError
+      refreshMode: REFRESH_MODE,
+      lastRefreshError,
+      lastPublisher
     });
   }
 
@@ -307,6 +451,88 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, currentSnapshot, 'public, max-age=60, stale-while-revalidate=120');
   }
 
+  if (req.method === 'PUT' && url.pathname === '/live-city/publish') {
+    if (REFRESH_MODE !== 'push') return json(res, 404, { ok: false });
+
+    const authorization = req.headers.authorization || '';
+    const token = authorization.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : '';
+
+    let claims;
+    try {
+      claims = await verifyGitHubActionsPublisherToken(token);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: 'live-city-publish-auth-rejected',
+        error: error instanceof Error ? error.message : String(error)
+      }));
+      return json(res, 401, { ok: false, error: 'publisher-unauthorized' });
+    }
+
+    let parsedBody;
+    try {
+      const rawBody = await readBody(req);
+      parsedBody = JSON.parse(rawBody.toString('utf8'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(res, message === 'payload-too-large' ? 413 : 400, {
+        ok: false,
+        error: message === 'payload-too-large' ? message : 'invalid-json'
+      });
+    }
+
+    let snapshot;
+    try {
+      snapshot = parsePublishedLiveCitySnapshot(parsedBody, new Date().toISOString());
+      if (
+        currentSnapshot
+        && Date.parse(snapshot.refreshedAt) <= Date.parse(currentSnapshot.refreshedAt)
+      ) {
+        return json(res, 409, {
+          ok: false,
+          error: 'snapshot-not-newer',
+          currentRefreshedAt: currentSnapshot.refreshedAt
+        });
+      }
+      await cacheCurrentSnapshot(snapshot);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({
+        event: 'live-city-publish-payload-rejected',
+        runId: claims.run_id,
+        sha: claims.sha,
+        error: message
+      }));
+      return json(res, 422, { ok: false, error: message });
+    }
+
+    currentSnapshot = snapshot;
+    lastRefreshError = null;
+    lastPublisher = {
+      runId: claims.run_id,
+      runAttempt: claims.run_attempt || null,
+      sha: claims.sha,
+      eventName: claims.event_name,
+      publishedAt: new Date().toISOString()
+    };
+
+    console.log(JSON.stringify({
+      event: 'live-city-snapshot-published',
+      refreshedAt: snapshot.refreshedAt,
+      runId: claims.run_id,
+      sha: claims.sha,
+      providerIds: snapshot.sourceSnapshots.map((item) => item.providerId),
+      disruptionCount: snapshot.disruptions.length
+    }));
+
+    return json(res, 202, {
+      ok: true,
+      refreshedAt: snapshot.refreshedAt,
+      publisherRunId: claims.run_id
+    });
+  }
+
   if (req.method === 'GET' && await serveStaticWeb(url.pathname, res)) {
     return;
   }
@@ -318,16 +544,22 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(JSON.stringify({
     event: 'moscow-live-city-authority-started',
     port: PORT,
+    refreshMode: REFRESH_MODE,
     refreshIntervalMs: REFRESH_INTERVAL_MS,
     venueUrl,
     programmeUrl,
     providerFetchTimeoutMs: PROVIDER_FETCH_TIMEOUT_MS,
+    publishAudience: LIVE_CITY_PUBLISH_AUDIENCE,
     serveWebDist: SERVE_WEB_DIST,
-    webDistDir: SERVE_WEB_DIST ? WEB_DIST_DIR : null
+    webDistDir: SERVE_WEB_DIST ? WEB_DIST_DIR : null,
+    snapshotCachePath: SNAPSHOT_CACHE_PATH
   }));
 
-  void refreshCurrentSnapshot().catch(() => undefined);
-  setInterval(() => {
+  void loadCachedSnapshot();
+  if (REFRESH_MODE === 'pull') {
     void refreshCurrentSnapshot().catch(() => undefined);
-  }, REFRESH_INTERVAL_MS);
+    setInterval(() => {
+      void refreshCurrentSnapshot().catch(() => undefined);
+    }, REFRESH_INTERVAL_MS);
+  }
 });

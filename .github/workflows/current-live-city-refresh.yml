@@ -1,6 +1,15 @@
 name: current-live-city-refresh
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/current-live-city-refresh.yml"
+      - "scripts/live_city_publication_server.mjs"
+      - "scripts/live_city_refresh_runtime.mjs"
+      - "scripts/publish_live_city_snapshot.mjs"
+      - "src/travel/liveCityPublicationAuthority.ts"
   schedule:
     - cron: "*/20 * * * *"
   workflow_dispatch:
@@ -8,9 +17,10 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 10
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +32,14 @@ jobs:
         env:
           LIVE_CITY_REFRESH_OUT_DIR: evidence/live-city-current
         run: npm run live:refresh-runtime
+
+      - name: Publish current snapshot to live authority
+        env:
+          LIVE_CITY_PUBLISH_URL: https://moscow-mobile-preview.onrender.com/live-city/publish
+          LIVE_CITY_SNAPSHOT_PATH: evidence/live-city-current/current.json
+          LIVE_CITY_PUBLISH_ATTEMPTS: "24"
+          LIVE_CITY_PUBLISH_RETRY_DELAY_MS: "10000"
+        run: npm run live:publish-current
 
       - name: Upload current live city snapshot
         uses: actions/upload-artifact@v4
