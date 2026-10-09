@@ -557,3 +557,112 @@ test('Day Composer consumes current live truth from runtime snapshot endpoint wi
   await expect(page.getByText(/EVIDENCE REPLAY/)).toHaveCount(0);
   await expect(page.getByText(/NOT CURRENT/)).toHaveCount(0);
 });
+
+
+test('current live disruption surfaces replan-required without moving fixed commitments', async ({ page }) => {
+  await page.addInitScript(() => {
+    (globalThis as { __MOSCOW_LIVE_CITY_SNAPSHOT_URL__?: string })
+      .__MOSCOW_LIVE_CITY_SNAPSHOT_URL__ = 'https://live-city.test/live-city/current.json';
+  });
+
+  await page.route('https://live-city.test/live-city/current.json', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        kind: 'live-city-current-snapshot',
+        destinationId: 'moscow',
+        refreshedAt: new Date().toISOString(),
+        mergedFeed: {
+          schemaVersion: 1,
+          destinationId: 'moscow',
+          generatedAt: new Date().toISOString(),
+          providers: [{
+            id: 'tretyakov-official',
+            name: 'Государственная Третьяковская галерея',
+            relationship: 'official',
+            capabilities: ['inventory', 'operational-status', 'opening-hours'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
+            attributionRu: 'Источник',
+            attributionEn: 'Source',
+            attributionZh: '来源'
+          }],
+          entities: [{
+            id: 'new-tretyakov-live',
+            providerEntityId: 'new-tretyakov',
+            providerId: 'tretyakov-official',
+            canonicalDestinationNodeId: 'new-tretyakov',
+            kind: 'museum',
+            titleRu: 'Новая Третьяковка',
+            titleEn: 'New Tretyakov',
+            titleZh: '新特列季亚科夫画廊',
+            tags: ['museum'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
+            observedAt: new Date(Date.now() - 30_000).toISOString(),
+            expiresAt: new Date(Date.now() + 20 * 60_000).toISOString(),
+            operationalStatus: 'closed'
+          }]
+        }
+      })
+    });
+  });
+
+  const date = moscowNowParts().date;
+  await page.goto('/');
+
+  await page.evaluate((dayDate) => {
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion: 1,
+      id: 'personal-trip:live-disruption',
+      destinationId: 'moscow',
+      title: 'Live disruption trip',
+      startDate: dayDate,
+      endDate: dayDate,
+      days: [dayDate],
+      items: [{
+        id: 'tretyakov',
+        dayDate,
+        title: 'Новая Третьяковка',
+        kind: 'museum',
+        source: 'provider',
+        destinationNodeId: 'new-tretyakov',
+        plannedStartAt: dayDate + 'T12:00:00+03:00',
+        plannedEndAt: dayDate + 'T14:00:00+03:00',
+        status: 'planned'
+      }, {
+        id: 'fixed-theatre',
+        dayDate,
+        title: 'Большой театр · фиксированный билет',
+        kind: 'theatre',
+        source: 'manual',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T22:00:00+03:00',
+        status: 'planned',
+        commitment: {
+          kind: 'ticket',
+          status: 'confirmed',
+          verification: 'user-declared',
+          reference: 'USER-TICKET'
+        }
+      }],
+      visits: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }));
+  }, date);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toBeVisible();
+  await expect(page.getByText(/REPLAN REQUIRED · ЗАКРЫТО/)).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/19:00–22:00 · Большой театр · фиксированный билет/)).toBeVisible();
+
+  const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  const fixed = stored.items.find((item: { id: string }) => item.id === 'fixed-theatre');
+  expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
+  expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
+});
