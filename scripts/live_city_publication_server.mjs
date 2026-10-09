@@ -14,7 +14,7 @@ import {
 import { projectLiveDestinationFeed } from '../src/travel/liveDestinationAuthority.ts';
 import { runLiveCityRefreshRuntime } from '../src/travel/liveCityRefreshRuntime.ts';
 
-const PORT = Number(process.env.PORT || 3002);
+const PORT = Number(process.env.PORT || 3000);
 const REFRESH_INTERVAL_MS = Math.max(
   60_000,
   Number(process.env.LIVE_CITY_REFRESH_INTERVAL_MS || 20 * 60_000)
