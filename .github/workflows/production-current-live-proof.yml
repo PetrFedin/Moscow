@@ -1,0 +1,52 @@
+name: production-current-live-proof
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/production-current-live-proof.yml"
+      - "playwright.production.config.ts"
+      - "tests/productionCurrentLive.e2e.spec.ts"
+      - "docs/PRODUCTION_CURRENT_LIVE_PROOF.md"
+  workflow_dispatch:
+
+jobs:
+  production-proof:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'production-current-live-proof-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prove production current live truth
+        env:
+          PRODUCTION_BASE_URL: https://moscow-mobile-preview.onrender.com
+        run: >-
+          npx playwright test
+          tests/productionCurrentLive.e2e.spec.ts
+          --config=playwright.production.config.ts
+          --project=production-chromium
+
+      - name: Upload production proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-current-live-proof
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 30
