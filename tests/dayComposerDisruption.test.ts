@@ -26,7 +26,10 @@ function buildTrip() {
       id: 'new-tretyakov',
       kind: 'museum',
       titleRu: 'Новая Третьяковка',
-      tags: ['museum']
+      latitude: 55.735,
+      longitude: 37.605,
+      tags: ['museum'],
+      sourceIds: ['tretyakov-official']
     },
     itemId: 'tretyakov',
     dayDate: '2026-10-10',
