@@ -2578,3 +2578,33 @@ When one Render service slot becomes available, restore the target topology:
 `moscow-live-city-authority -> live current truth only`
 
 without changing Day Composer or the current snapshot contract.
+
+
+## Live Disruption -> Replan Required v1 — IMPLEMENTING
+
+Production current truth is already admitted through the two-source OIDC publication contour and ordinary Day Composer browser proof.
+
+This layer converts a current source-backed invalidation into a user-visible operational state without silently rewriting PersonalTrip.
+
+Authority chain:
+
+`published current live truth -> Day Composer item -> disruption case -> existing Journey Runtime provider-invalidated -> replan-required`
+
+Rules:
+
+- only planned items with a canonical destination node and scheduled interval can enter this disruption surface;
+- current `closed`, `cancelled`, `rescheduled` or stale truth creates a disruption case;
+- the affected item is bound to provider name, source URL, observation timestamp and evidence reference;
+- existing Journey Runtime owns the `replan-required` state; this layer does not invent a second runtime;
+- unrelated fixed tickets/reservations are projected as immutable commitments that the next replacement proposal must preserve exactly;
+- no automatic mutation of PersonalTrip occurs at disruption detection time;
+- no replacement is presented as executable until source-backed candidate truth and route feasibility are available;
+- user acceptance remains mandatory before any replacement plan changes PersonalTrip.
+
+Browser acceptance for this layer:
+
+`current live closed/rescheduled -> LIVE DISRUPTION -> REPLAN REQUIRED -> affected item -> source -> fixed commitment unchanged`
+
+Next strict transition:
+
+`disruption detection PASS -> source-backed replacement candidates -> route feasibility around fixed commitments -> explicit acceptance -> continuation`.
