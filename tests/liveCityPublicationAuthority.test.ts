@@ -129,11 +129,13 @@ test('GitHub Actions publisher claims admit the immutable exact-main workflow id
 });
 
 test('GitHub Actions publisher claims reject legacy subject, PR refs and wrong workflow identity', () => {
-  const value = claims();
-  value.ref = 'refs/pull/12/merge' as typeof value.ref;
-  value.sub = 'repo:PetrFedin/Moscow:ref:refs/heads/main';
-  value.workflow_ref = 'PetrFedin/Moscow/.github/workflows/other.yml@refs/heads/main' as typeof value.workflow_ref;
-  value.event_name = 'pull_request' as typeof value.event_name;
+  const value: Record<string, unknown> = {
+    ...claims(),
+    ref: 'refs/pull/12/merge',
+    sub: 'repo:PetrFedin/Moscow:ref:refs/heads/main',
+    workflow_ref: 'PetrFedin/Moscow/.github/workflows/other.yml@refs/heads/main',
+    event_name: 'pull_request'
+  };
 
   const result = validateGitHubActionsPublisherClaims(value, 1_050);
   assert.equal(result.valid, false);
@@ -144,8 +146,10 @@ test('GitHub Actions publisher claims reject legacy subject, PR refs and wrong w
 });
 
 test('GitHub Actions publisher claims reject a mismatched owner ID when present', () => {
-  const value = claims();
-  value.repository_owner_id = '999999' as typeof value.repository_owner_id;
+  const value: Record<string, unknown> = {
+    ...claims(),
+    repository_owner_id: '999999'
+  };
   const result = validateGitHubActionsPublisherClaims(value, 1_050);
   assert.equal(result.valid, false);
   assert.ok(result.blockers.includes('oidc-repository-owner-id-invalid'));
