@@ -1,6 +1,6 @@
 # Live City OIDC Publication Relay
 
-Status: implementing
+Status: implementing — immutable GitHub OIDC subject admitted
 
 Canonical context: `docs/MOSCOW_INTEGRATION_MASTER_PLAN_2026-10-01.md`
 
@@ -57,7 +57,13 @@ The publication authority validates:
 - issued-at, not-before and expiry window;
 - exact subject for the main branch.
 
-Pull-request workflow identities are rejected.
+The repository uses GitHub's immutable subject format for repositories created after the July 2026 rollout:
+
+`repo:PetrFedin@81327591/Moscow@1371430954:ref:refs/heads/main`
+
+The first production publish attempt proved the signature, audience and surrounding claims but was correctly rejected because the authority still expected the legacy name-only subject. The authority now requires the immutable owner/repository IDs and continues to validate the independent `repository`, `repository_id`, optional `repository_owner_id`, `ref` and `workflow_ref` claims.
+
+Pull-request workflow identities and the legacy name-only subject are rejected.
 
 ## Snapshot admission
 
@@ -101,7 +107,7 @@ This is sufficient for the current MVP proof but is not final durable authority.
 - scheduled worker fetches both real sources;
 - raw source SHA-256 values remain independently inspectable;
 - OIDC-authenticated publish is accepted;
-- unauthenticated/PR/wrong-workflow publish is rejected;
+- unauthenticated/PR/wrong-workflow/legacy-subject publish is rejected;
 - `/ready=200` only while admitted entity truth remains fresh;
 - `/live-city/current.json` exposes both provider snapshots;
 - ordinary Personal Trip renders current truth without replay labels;
@@ -110,4 +116,4 @@ This is sufficient for the current MVP proof but is not final durable authority.
 
 ## Sequence
 
-`OIDC publisher contract -> exact-head quality -> merge -> Render push mode -> merge-triggered real publish -> /ready=200 -> current.json proof -> production Day Composer proof -> disruption UX -> verified replacement plan`
+`immutable subject contract -> exact-head quality -> merge -> exact-main Render deploy -> merge-triggered real publish -> /ready=200 -> current.json proof -> production Day Composer proof -> disruption UX -> verified replacement plan`

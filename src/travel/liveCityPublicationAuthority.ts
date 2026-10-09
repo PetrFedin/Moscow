@@ -5,10 +5,13 @@ import {
 
 export const LIVE_CITY_PUBLISH_AUDIENCE = 'moscow-live-city-publish-v1' as const;
 export const LIVE_CITY_PUBLISH_REPOSITORY = 'PetrFedin/Moscow' as const;
+export const LIVE_CITY_PUBLISH_REPOSITORY_OWNER_ID = '81327591' as const;
 export const LIVE_CITY_PUBLISH_REPOSITORY_ID = '1371430954' as const;
 export const LIVE_CITY_PUBLISH_REF = 'refs/heads/main' as const;
 export const LIVE_CITY_PUBLISH_WORKFLOW_REF =
   'PetrFedin/Moscow/.github/workflows/current-live-city-refresh.yml@refs/heads/main' as const;
+export const LIVE_CITY_PUBLISH_SUBJECT =
+  `repo:PetrFedin@${LIVE_CITY_PUBLISH_REPOSITORY_OWNER_ID}/Moscow@${LIVE_CITY_PUBLISH_REPOSITORY_ID}:ref:${LIVE_CITY_PUBLISH_REF}` as const;
 
 const REQUIRED_PROVIDER_IDS = [
   'tretyakov-official',
@@ -21,6 +24,7 @@ export type GitHubActionsPublisherClaims = {
   sub: string;
   repository: typeof LIVE_CITY_PUBLISH_REPOSITORY;
   repository_id: typeof LIVE_CITY_PUBLISH_REPOSITORY_ID;
+  repository_owner_id?: typeof LIVE_CITY_PUBLISH_REPOSITORY_OWNER_ID;
   ref: typeof LIVE_CITY_PUBLISH_REF;
   sha: string;
   workflow_ref: typeof LIVE_CITY_PUBLISH_WORKFLOW_REF;
@@ -80,7 +84,7 @@ export function validateGitHubActionsPublisherClaims(
   if (!audienceContains(value.aud, LIVE_CITY_PUBLISH_AUDIENCE)) {
     blockers.push('oidc-audience-invalid');
   }
-  if (value.sub !== `repo:${LIVE_CITY_PUBLISH_REPOSITORY}:ref:${LIVE_CITY_PUBLISH_REF}`) {
+  if (value.sub !== LIVE_CITY_PUBLISH_SUBJECT) {
     blockers.push('oidc-subject-invalid');
   }
   if (value.repository !== LIVE_CITY_PUBLISH_REPOSITORY) {
@@ -88,6 +92,12 @@ export function validateGitHubActionsPublisherClaims(
   }
   if (String(value.repository_id ?? '') !== LIVE_CITY_PUBLISH_REPOSITORY_ID) {
     blockers.push('oidc-repository-id-invalid');
+  }
+  if (
+    value.repository_owner_id !== undefined
+    && String(value.repository_owner_id) !== LIVE_CITY_PUBLISH_REPOSITORY_OWNER_ID
+  ) {
+    blockers.push('oidc-repository-owner-id-invalid');
   }
   if (value.ref !== LIVE_CITY_PUBLISH_REF) blockers.push('oidc-ref-invalid');
   if (!isText(value.sha) || !/^[0-9a-f]{40}$/i.test(value.sha)) {

@@ -6,6 +6,8 @@ import {
   LIVE_CITY_PUBLISH_REF,
   LIVE_CITY_PUBLISH_REPOSITORY,
   LIVE_CITY_PUBLISH_REPOSITORY_ID,
+  LIVE_CITY_PUBLISH_REPOSITORY_OWNER_ID,
+  LIVE_CITY_PUBLISH_SUBJECT,
   LIVE_CITY_PUBLISH_WORKFLOW_REF,
   parsePublishedLiveCitySnapshot,
   validateGitHubActionsPublisherClaims
@@ -15,9 +17,10 @@ function claims() {
   return {
     iss: 'https://token.actions.githubusercontent.com',
     aud: LIVE_CITY_PUBLISH_AUDIENCE,
-    sub: `repo:${LIVE_CITY_PUBLISH_REPOSITORY}:ref:${LIVE_CITY_PUBLISH_REF}`,
+    sub: LIVE_CITY_PUBLISH_SUBJECT,
     repository: LIVE_CITY_PUBLISH_REPOSITORY,
     repository_id: LIVE_CITY_PUBLISH_REPOSITORY_ID,
+    repository_owner_id: LIVE_CITY_PUBLISH_REPOSITORY_OWNER_ID,
     ref: LIVE_CITY_PUBLISH_REF,
     sha: 'a'.repeat(40),
     workflow_ref: LIVE_CITY_PUBLISH_WORKFLOW_REF,
@@ -115,18 +118,24 @@ function snapshot() {
   };
 }
 
-test('GitHub Actions publisher claims admit only the exact main workflow identity', () => {
+test('GitHub Actions publisher claims admit the immutable exact-main workflow identity', () => {
   const result = validateGitHubActionsPublisherClaims(claims(), 1_050);
   assert.equal(result.valid, true);
   assert.deepEqual(result.blockers, []);
+  assert.equal(
+    LIVE_CITY_PUBLISH_SUBJECT,
+    'repo:PetrFedin@81327591/Moscow@1371430954:ref:refs/heads/main'
+  );
 });
 
-test('GitHub Actions publisher claims reject PR refs and wrong workflow identity', () => {
-  const value = claims();
-  value.ref = 'refs/pull/12/merge' as typeof value.ref;
-  value.sub = 'repo:PetrFedin/Moscow:pull_request';
-  value.workflow_ref = 'PetrFedin/Moscow/.github/workflows/other.yml@refs/heads/main' as typeof value.workflow_ref;
-  value.event_name = 'pull_request' as typeof value.event_name;
+test('GitHub Actions publisher claims reject legacy subject, PR refs and wrong workflow identity', () => {
+  const value: Record<string, unknown> = {
+    ...claims(),
+    ref: 'refs/pull/12/merge',
+    sub: 'repo:PetrFedin/Moscow:ref:refs/heads/main',
+    workflow_ref: 'PetrFedin/Moscow/.github/workflows/other.yml@refs/heads/main',
+    event_name: 'pull_request'
+  };
 
   const result = validateGitHubActionsPublisherClaims(value, 1_050);
   assert.equal(result.valid, false);
@@ -134,6 +143,16 @@ test('GitHub Actions publisher claims reject PR refs and wrong workflow identity
   assert.ok(result.blockers.includes('oidc-ref-invalid'));
   assert.ok(result.blockers.includes('oidc-workflow-ref-invalid'));
   assert.ok(result.blockers.includes('oidc-event-invalid'));
+});
+
+test('GitHub Actions publisher claims reject a mismatched owner ID when present', () => {
+  const value: Record<string, unknown> = {
+    ...claims(),
+    repository_owner_id: '999999'
+  };
+  const result = validateGitHubActionsPublisherClaims(value, 1_050);
+  assert.equal(result.valid, false);
+  assert.ok(result.blockers.includes('oidc-repository-owner-id-invalid'));
 });
 
 test('published current snapshot requires both admitted real providers and recent truth', () => {
