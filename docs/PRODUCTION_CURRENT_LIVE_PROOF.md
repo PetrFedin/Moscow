@@ -1,6 +1,6 @@
 # Production Current Live Proof
 
-Status: executing
+Status: **PASS**
 
 Canonical product and integration plan:
 
@@ -32,11 +32,15 @@ The following chain is now factually proven:
 
 -> `GET /live-city/current.json`
 
+-> ordinary PersonalTrip
+
+-> Day Composer current-truth rendering.
+
 The first successful publication was produced from exact main:
 
 `788fe9ea8fcabd1658d4a953a5fac76ad829eb03`
 
-GitHub Actions run:
+GitHub Actions publication run:
 
 `37962471778`
 
@@ -63,20 +67,50 @@ Render admission log confirmed:
 - both provider IDs;
 - disruption count `0`.
 
-## Browser proof objective
+## Production browser proof
 
-A normal PersonalTrip—not an evidence-replay namespace—must consume the production current snapshot and render:
+Proof workflow:
 
-`LIVE · FRESH · OPEN`
+`production-current-live-proof`
 
-for the canonical destination node:
+GitHub Actions run:
 
-`new-tretyakov`
+`37963447562`
 
-The same browser proof must contain neither:
+Result:
 
-- `EVIDENCE REPLAY`;
-- `NOT CURRENT`.
+`1 passed (3.4s)`
+
+The proof used the public production origin:
+
+`https://moscow-mobile-preview.onrender.com`
+
+The same browser/API run verified:
+
+1. `/ready` returned `200`.
+2. Runtime mode was `push`.
+3. Current publisher identity was present.
+4. `/live-city/current.json` returned `200`.
+5. Both source snapshots were present.
+6. Both source SHA-256 values were structurally valid.
+7. Both provider authorities were present in the merged feed.
+8. `new-tretyakov-live` was source-backed and operationally `open`.
+9. A normal PersonalTrip with canonical node `new-tretyakov` rendered:
+
+   `LIVE · FRESH · OPEN`
+
+10. The same Day Composer contained neither:
+
+   - `EVIDENCE REPLAY`;
+   - `NOT CURRENT`.
+
+Evidence artifact:
+
+- name: `production-current-live-proof`;
+- artifact ID: `11632363024`;
+- ZIP SHA-256: `994809a357319ebcc036f1227ac87d1a60484ab4084e11c2f850c667459cc933`;
+- retention: 30 days;
+- contents: full-page production screenshot and Playwright evidence output.
 
 ## Proof scope
 
