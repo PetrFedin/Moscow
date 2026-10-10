@@ -793,7 +793,7 @@ test('source-backed replacement stays blocked in browser until routing around fi
   await expect(page.getByText('SOURCE-BACKED REPLACEMENT · V1', { exact: true })).toBeVisible();
   await expect(page.getByText('Музей-кандидат', { exact: true })).toBeVisible();
   await expect(page.getByText('ROUTING UNVERIFIED', { exact: true })).toBeVisible();
-  await expect(page.getByText('Нужна проверка маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText('Проверить маршрут', { exact: true })).toBeVisible();
   await expect(page.getByText('Принять замену', { exact: true })).toHaveCount(0);
 
   const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
