@@ -26,8 +26,8 @@ function responseSnapshot() {
     rawResponseSha256: 'b'.repeat(64),
     request: {
       mode: 'walk',
-      from,
-      to
+      from: { ...from },
+      to: { ...to }
     },
     feed: {
       schemaVersion: 1,
@@ -42,8 +42,8 @@ function responseSnapshot() {
       observations: [{
         id: 'route-1',
         providerId: 'valhalla',
-        from,
-        to,
+        from: { ...from },
+        to: { ...to },
         mode: 'walk',
         durationMinutes: 18,
         distanceMeters: 1400,
