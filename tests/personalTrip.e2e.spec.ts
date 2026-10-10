@@ -801,3 +801,240 @@ test('source-backed replacement stays blocked in browser until routing around fi
   expect(stored.items.find((item: { id: string }) => item.id === 'fixed-theatre').plannedStartAt)
     .toBe(date + 'T19:00:00+03:00');
 });
+
+
+test('source-backed replacement becomes executable after current route verification and explicit acceptance', async ({ page }) => {
+  await page.addInitScript(() => {
+    (globalThis as {
+      __MOSCOW_LIVE_CITY_SNAPSHOT_URL__?: string;
+      __MOSCOW_CURRENT_ROUTING_URL__?: string;
+    }).__MOSCOW_LIVE_CITY_SNAPSHOT_URL__ =
+      'https://live-city.test/live-city/current.json';
+    (globalThis as {
+      __MOSCOW_CURRENT_ROUTING_URL__?: string;
+    }).__MOSCOW_CURRENT_ROUTING_URL__ =
+      'https://live-city.test/routing/walk';
+  });
+
+  await page.route('https://live-city.test/live-city/current.json', async (route) => {
+    const now = Date.now();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        kind: 'live-city-current-snapshot',
+        destinationId: 'moscow',
+        refreshedAt: new Date(now).toISOString(),
+        mergedFeed: {
+          schemaVersion: 1,
+          destinationId: 'moscow',
+          generatedAt: new Date(now).toISOString(),
+          providers: [{
+            id: 'tretyakov-official',
+            name: 'Государственная Третьяковская галерея',
+            relationship: 'official',
+            capabilities: ['inventory', 'operational-status'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
+            attributionRu: 'Источник',
+            attributionEn: 'Source',
+            attributionZh: '来源'
+          }, {
+            id: 'tretyakov-programme-official',
+            name: 'Государственная Третьяковская галерея · выставки',
+            relationship: 'official',
+            capabilities: ['inventory', 'event-schedule', 'operational-status'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/exhibitions/o/aleksey-bogolyubov-ot-nevy-do-bosfora/',
+            attributionRu: 'Источник',
+            attributionEn: 'Source',
+            attributionZh: '来源'
+          }],
+          entities: [{
+            id: 'new-tretyakov-live',
+            providerEntityId: 'new-tretyakov',
+            providerId: 'tretyakov-official',
+            canonicalDestinationNodeId: 'new-tretyakov',
+            kind: 'museum',
+            titleRu: 'Новая Третьяковка',
+            titleEn: 'New Tretyakov',
+            titleZh: '新特列季亚科夫画廊',
+            tags: ['museum'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
+            observedAt: new Date(now - 20_000).toISOString(),
+            expiresAt: new Date(now + 20 * 60_000).toISOString(),
+            operationalStatus: 'closed'
+          }, {
+            id: 'bogolyubov-live',
+            providerEntityId: 'aleksey-bogolyubov-neva-bosporus',
+            providerId: 'tretyakov-programme-official',
+            canonicalDestinationNodeId: 'tretyakov-aleksey-bogolyubov-neva-bosporus',
+            kind: 'exhibition',
+            titleRu: 'Алексей Боголюбов. От Невы до Босфора',
+            titleEn: 'Alexey Bogolyubov. From the Neva to the Bosphorus',
+            titleZh: '阿列克谢·博戈柳博夫：从涅瓦河到博斯普鲁斯海峡',
+            tags: ['exhibition', 'art'],
+            sourceUrl: 'https://www.tretyakovgallery.ru/exhibitions/o/aleksey-bogolyubov-ot-nevy-do-bosfora/',
+            observedAt: new Date(now - 15_000).toISOString(),
+            expiresAt: new Date(now + 20 * 60_000).toISOString(),
+            operationalStatus: 'scheduled',
+            startsAt: '2026-09-29T00:00:00+03:00',
+            endsAt: '2027-06-06T23:59:59+03:00'
+          }]
+        }
+      })
+    });
+  });
+
+  await page.route(/https:\/\/live-city\.test\/routing\/walk\?.*/, async (route) => {
+    const requestUrl = new URL(route.request().url());
+    expect(requestUrl.searchParams.get('fromId'))
+      .toBe('tretyakov-aleksey-bogolyubov-neva-bosporus');
+    expect(requestUrl.searchParams.get('fromLat')).toBe('55.7413613');
+    expect(requestUrl.searchParams.get('fromLon')).toBe('37.6202196');
+    expect(requestUrl.searchParams.get('toId')).toBe('bolshoi-theatre');
+    expect(requestUrl.searchParams.get('toLat')).toBe('55.7601296');
+    expect(requestUrl.searchParams.get('toLon')).toBe('37.6186118');
+
+    const now = new Date();
+    const observedAt = now.toISOString();
+    const expiresAt = new Date(now.getTime() + 15 * 60_000).toISOString();
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        kind: 'citywide-routing-current-snapshot',
+        destinationId: 'moscow',
+        fetchedAt: observedAt,
+        rawResponseSha256: 'd'.repeat(64),
+        request: {
+          mode: 'walk',
+          from: {
+            id: 'tretyakov-aleksey-bogolyubov-neva-bosporus',
+            latitude: 55.7413613,
+            longitude: 37.6202196
+          },
+          to: {
+            id: 'bolshoi-theatre',
+            latitude: 55.7601296,
+            longitude: 37.6186118
+          }
+        },
+        feed: {
+          schemaVersion: 1,
+          destinationId: 'moscow',
+          generatedAt: observedAt,
+          providers: [{
+            id: 'valhalla',
+            name: 'Valhalla',
+            relationship: 'routing-provider',
+            sourceUrl: 'https://valhalla1.openstreetmap.de'
+          }],
+          observations: [{
+            id: 'valhalla:candidate-to-bolshoi',
+            providerId: 'valhalla',
+            from: {
+              id: 'tretyakov-aleksey-bogolyubov-neva-bosporus',
+              latitude: 55.7413613,
+              longitude: 37.6202196
+            },
+            to: {
+              id: 'bolshoi-theatre',
+              latitude: 55.7601296,
+              longitude: 37.6186118
+            },
+            mode: 'walk',
+            durationMinutes: 25,
+            distanceMeters: 1900,
+            observedAt,
+            expiresAt,
+            sourceUrl: 'https://valhalla1.openstreetmap.de/route'
+          }]
+        }
+      })
+    });
+  });
+
+  const date = '2026-10-11';
+  await page.goto('/');
+
+  await page.evaluate((dayDate) => {
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion: 1,
+      id: 'personal-trip:replacement-acceptance',
+      destinationId: 'moscow',
+      title: 'Executable replacement trip',
+      startDate: dayDate,
+      endDate: dayDate,
+      days: [dayDate],
+      items: [{
+        id: 'affected',
+        dayDate,
+        title: 'Новая Третьяковка',
+        kind: 'museum',
+        source: 'provider',
+        destinationNodeId: 'new-tretyakov',
+        plannedStartAt: dayDate + 'T12:00:00+03:00',
+        plannedEndAt: dayDate + 'T14:00:00+03:00',
+        status: 'planned'
+      }, {
+        id: 'fixed-theatre',
+        dayDate,
+        title: 'Большой театр · фиксированный билет',
+        kind: 'theatre',
+        source: 'manual',
+        destinationNodeId: 'bolshoi-theatre',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T22:00:00+03:00',
+        status: 'planned',
+        commitment: {
+          kind: 'ticket',
+          status: 'confirmed',
+          verification: 'user-declared',
+          reference: 'USER-TICKET'
+        }
+      }],
+      visits: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }));
+  }, date);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true })).toBeVisible();
+  await expect(page.getByText('ROUTING UNVERIFIED', { exact: true })).toBeVisible();
+
+  await page.getByText('Проверить маршрут', { exact: true }).click();
+
+  await expect(page.getByText('EXECUTABLE', { exact: true })).toBeVisible();
+  await expect(page.getByText(/OUT · SAFE · 25 мин/)).toBeVisible();
+  await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
+
+  await page.getByText('Принять замену', { exact: true }).click();
+
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toHaveCount(0);
+
+  const stored = await page.evaluate(() => JSON.parse(
+    window.localStorage.getItem('moscow:v1:personal-trip') || '{}'
+  ));
+
+  const affected = stored.items.find((item: { id: string }) => item.id === 'affected');
+  const fixed = stored.items.find((item: { id: string }) => item.id === 'fixed-theatre');
+
+  expect(affected.title).toBe('Алексей Боголюбов. От Невы до Босфора');
+  expect(affected.destinationNodeId)
+    .toBe('tretyakov-aleksey-bogolyubov-neva-bosporus');
+  expect(affected.plannedStartAt).toBe(date + 'T12:00:00+03:00');
+  expect(affected.plannedEndAt).toBe(date + 'T14:00:00+03:00');
+
+  expect(fixed.title).toBe('Большой театр · фиксированный билет');
+  expect(fixed.destinationNodeId).toBe('bolshoi-theatre');
+  expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
+  expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
+  expect(fixed.commitment.reference).toBe('USER-TICKET');
+});
