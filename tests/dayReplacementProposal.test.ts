@@ -349,3 +349,35 @@ test('acceptance tolerates bounded routing clock skew but rejects evidence too f
     acceptedAt: '2026-10-10T06:11:00.000Z'
   }), /route evidence is stale/);
 });
+
+
+test('explicit acceptance validates only route legs that the proposal actually requires', () => {
+  const { trip, live, dayProjection, disruption } = context();
+  const proposal = buildDayReplacementProposals({
+    trip,
+    dayProjection,
+    disruption,
+    liveProjection: live,
+    routingProjection: routingProjection()
+  }).proposals[0]!;
+
+  const outboundOnly = structuredClone(proposal);
+  delete outboundOnly.routeRequirements.inbound;
+  delete outboundOnly.inboundRoute;
+
+  const accepted = acceptDayReplacementProposal({
+    trip,
+    disruption,
+    proposal: outboundOnly,
+    acceptedAt: '2026-10-10T06:11:00.000Z'
+  });
+
+  assert.equal(
+    accepted.trip.items.find((item) => item.id === 'affected')?.destinationNodeId,
+    'candidate-museum'
+  );
+  assert.deepEqual(
+    accepted.receipt.routeObservationIds,
+    ['candidate-to-fixed']
+  );
+});
