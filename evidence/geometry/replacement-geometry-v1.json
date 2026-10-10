@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "canonical-geometry-evidence",
+  "capturedOn": "2026-10-11",
+  "facts": [
+    {
+      "canonicalNodeId": "tretyakov-aleksey-bogolyubov-neva-bosporus",
+      "label": "Третьяковская галерея · Лаврушинский переулок, 10",
+      "address": "Москва, Лаврушинский переулок, 10",
+      "officialAddressSource": "https://www.tretyakovgallery.ru/exhibitions/o/aleksey-bogolyubov-ot-nevy-do-bosfora/",
+      "geocoder": {
+        "providerId": "openstreetmap-nominatim",
+        "queryUrl": "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&countrycodes=ru&q=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D0%9B%D0%B0%D0%B2%D1%80%D1%83%D1%88%D0%B8%D0%BD%D1%81%D0%BA%D0%B8%D0%B9%20%D0%BF%D0%B5%D1%80%D0%B5%D1%83%D0%BB%D0%BE%D0%BA%2C%2010",
+        "placeId": 194451687,
+        "osmType": "relation",
+        "osmId": 1907261,
+        "displayName": "Tretyakov Gallery, 10, Lavrushinskiy Lane, Yakimanka District, Moscow, Central Federal District, 119017, Russia",
+        "latitude": 55.7413613,
+        "longitude": 37.6202196,
+        "licence": "Data © OpenStreetMap contributors, ODbL 1.0"
+      }
+    },
+    {
+      "canonicalNodeId": "bolshoi-theatre",
+      "label": "Большой театр",
+      "address": "Москва, Театральная площадь, 1",
+      "officialAddressSource": "https://bolshoi.ru/media/about/files/%D0%9F%D0%95%D0%A0%D0%95%D0%9E%D0%A4%D0%9E%D0%A0%D0%9C%D0%9B%D0%95%D0%9D%D0%98%D0%95%20%D0%9A%D0%9E%D0%A0%D0%A0%D0%95%D0%9A%D0%A2%D0%9D%D0%9E%D0%95.pdf",
+      "geocoder": {
+        "providerId": "openstreetmap-nominatim",
+        "queryUrl": "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&countrycodes=ru&q=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0%2C%20%D0%91%D0%BE%D0%BB%D1%8C%D1%88%D0%BE%D0%B9%20%D1%82%D0%B5%D0%B0%D1%82%D1%80",
+        "placeId": 195382655,
+        "osmType": "node",
+        "osmId": 6061084593,
+        "displayName": "Bolshoi Theatre, 1, Театральная площадь, 2, Tverskoy District, Moscow, Central Federal District, 125009, Russia",
+        "latitude": 55.7601296,
+        "longitude": 37.6186118,
+        "licence": "Data © OpenStreetMap contributors, ODbL 1.0"
+      }
+    }
+  ]
+}
