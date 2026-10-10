@@ -19,6 +19,14 @@ export type DayReplacementAdmission =
   | 'routing-unverified'
   | 'routing-impossible';
 
+export type DayReplacementRouteRequirement = {
+  direction: 'inbound' | 'outbound';
+  fromNodeId: string;
+  toNodeId: string;
+  departureAt: string;
+  mustArriveBy: string;
+};
+
 export type DayReplacementProposal = {
   schemaVersion: typeof DAY_REPLACEMENT_PROPOSAL_SCHEMA_VERSION;
   id: string;
@@ -40,6 +48,10 @@ export type DayReplacementProposal = {
     operationalStatus: LiveDestinationProjectionEntity['operationalStatus'];
     openingState: LiveDestinationProjectionEntity['openingState'];
     evidenceRef: string;
+  };
+  routeRequirements: {
+    inbound?: DayReplacementRouteRequirement;
+    outbound?: DayReplacementRouteRequirement;
   };
   inboundRoute?: CitywideRouteFeasibilityDecision;
   outboundRoute?: CitywideRouteFeasibilityDecision;
@@ -290,25 +302,47 @@ export function buildDayReplacementProposals(input: {
 
   const proposals = candidates.map((entity): DayReplacementProposal => {
     const destinationNodeId = entity.canonicalDestinationNodeId!;
-    const inboundRoute = previous
+    const inboundRequirement =
+      previous?.destinationNodeId && previous.endsAt
+        ? {
+            direction: 'inbound' as const,
+            fromNodeId: previous.destinationNodeId,
+            toNodeId: destinationNodeId,
+            departureAt: previous.endsAt,
+            mustArriveBy: input.disruption.affectedItem.startsAt
+          }
+        : undefined;
+
+    const outboundRequirement =
+      nextFixed?.destinationNodeId && nextFixed.startsAt
+        ? {
+            direction: 'outbound' as const,
+            fromNodeId: destinationNodeId,
+            toNodeId: nextFixed.destinationNodeId,
+            departureAt: input.disruption.affectedItem.endsAt,
+            mustArriveBy: nextFixed.startsAt
+          }
+        : undefined;
+
+    const inboundRoute = inboundRequirement
       ? routeFor({
           routingProjection: input.routingProjection,
-          fromId: previous.destinationNodeId,
-          toId: destinationNodeId,
-          departureAt: previous.endsAt,
-          mustArriveBy: input.disruption.affectedItem.startsAt,
+          fromId: inboundRequirement.fromNodeId,
+          toId: inboundRequirement.toNodeId,
+          departureAt: inboundRequirement.departureAt,
+          mustArriveBy: inboundRequirement.mustArriveBy,
           preferredModes: input.preferredTravelModes,
           safeBufferMinutes: input.safeTravelBufferMinutes
         })
       : undefined;
 
-    const outboundRoute = nextFixed
+    const outboundRoute = outboundRequirement
       ? routeFor({
           routingProjection: input.routingProjection,
-          fromId: destinationNodeId,
-          toId: nextFixed.destinationNodeId,
-          departureAt: input.disruption.affectedItem.endsAt,
-          mustArriveBy: nextFixed.startsAt,
+          fromId: outboundRequirement.fromNodeId,
+          toId: outboundRequirement.toNodeId,
+          departureAt: outboundRequirement.departureAt,
+          mustArriveBy: outboundRequirement.mustArriveBy,
           preferredModes: input.preferredTravelModes,
           safeBufferMinutes: input.safeTravelBufferMinutes
         })
@@ -342,6 +376,10 @@ export function buildDayReplacementProposals(input: {
         operationalStatus: entity.operationalStatus,
         openingState: entity.openingState,
         evidenceRef: sourceEvidenceRef(entity)
+      },
+      routeRequirements: {
+        ...(inboundRequirement ? { inbound: inboundRequirement } : {}),
+        ...(outboundRequirement ? { outbound: outboundRequirement } : {})
       },
       ...(inboundRoute ? { inboundRoute } : {}),
       ...(outboundRoute ? { outboundRoute } : {}),
