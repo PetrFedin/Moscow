@@ -13,6 +13,7 @@ import type {
 import type { PersonalTrip, PersonalTripItem } from './personalTrip.ts';
 
 export const DAY_REPLACEMENT_PROPOSAL_SCHEMA_VERSION = 1 as const;
+export const DAY_REPLACEMENT_ROUTE_CLOCK_SKEW_MS = 60_000 as const;
 
 export type DayReplacementAdmission =
   | 'executable'
@@ -443,7 +444,7 @@ export function acceptDayReplacementProposal(input: {
     if (
       !Number.isFinite(observedAtMs)
       || !Number.isFinite(expiresAtMs)
-      || acceptedAtMs < observedAtMs
+      || acceptedAtMs < observedAtMs - DAY_REPLACEMENT_ROUTE_CLOCK_SKEW_MS
       || acceptedAtMs >= expiresAtMs
     ) {
       throw new Error('Replacement route evidence is stale');
