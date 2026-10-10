@@ -8,6 +8,7 @@ import {
 import type { RealProviderAdmission } from './realProviderAdmission.ts';
 
 export const VALHALLA_ROUTING_ADAPTER_VERSION = 1 as const;
+export const VALHALLA_DEFAULT_BASE_URL = 'https://valhalla1.openstreetmap.de' as const;
 export const VALHALLA_PROVIDER_ID = 'valhalla' as const;
 export const VALHALLA_ADAPTER_ID = 'valhalla-route-v1' as const;
 
