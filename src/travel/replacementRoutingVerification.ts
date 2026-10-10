@@ -129,9 +129,11 @@ export async function verifyDayReplacementProposalRouting(input: {
     observations
   };
 
+  const projectionAsOf = new Date(generatedAtMs).toISOString();
+
   return {
     status: 'verified',
-    projection: projectCitywideRoutingFeed(feed, input.nowIso),
+    projection: projectCitywideRoutingFeed(feed, projectionAsOf),
     rawResponseSha256,
     geometryEvidenceRefs: [...geometryEvidenceRefs].sort()
   };
