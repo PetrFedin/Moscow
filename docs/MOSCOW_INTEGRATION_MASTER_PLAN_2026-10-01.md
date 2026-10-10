@@ -2918,6 +2918,18 @@ Required route:
 
 `Tretyakov Gallery, Lavrushinsky 10 -> Bolshoi Theatre`
 
+Real production proof:
+
+`evidence/routing/replacement-current-route-2026-10-10.json`
+
+Observed result:
+
+- walking duration: 36 minutes;
+- distance: 2781 metres;
+- available window before the fixed Bolshoi commitment: 300 minutes;
+- verified buffer: 264 minutes;
+- feasibility: SAFE.
+
 Expected sequence:
 
 `REPLAN REQUIRED -> SOURCE-BACKED candidate -> ROUTING UNVERIFIED -> Verify route -> EXECUTABLE -> Accept replacement`
