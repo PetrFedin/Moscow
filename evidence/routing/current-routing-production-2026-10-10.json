@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "kind": "current-routing-production-evidence",
+  "capturedAt": "2026-10-10T21:52:50.891Z",
+  "application": {
+    "repository": "PetrFedin/Moscow",
+    "mainSha": "840248491bb67f9e5f8b6f0c11e88a2ff5fd9dcb",
+    "renderServiceId": "srv-dakkd0lg1s2s73ckof9g",
+    "renderDeployId": "dep-db5b6dbrjlhs73d2da40",
+    "endpoint": "https://moscow-mobile-preview.onrender.com/routing/walk"
+  },
+  "request": {
+    "mode": "walk",
+    "from": {
+      "id": "pushkin-museum",
+      "latitude": 55.7472,
+      "longitude": 37.6054
+    },
+    "to": {
+      "id": "bolshoi-theatre",
+      "latitude": 55.7601,
+      "longitude": 37.6186
+    }
+  },
+  "provider": {
+    "id": "valhalla",
+    "baseUrl": "https://valhalla1.openstreetmap.de",
+    "routeUrl": "https://valhalla1.openstreetmap.de/route"
+  },
+  "result": {
+    "durationMinutes": 25,
+    "distanceMeters": 1813,
+    "rawResponseSha256": "4a4a7dbaf85bf4446a59788dd2c74e7db05384c934f3dd6c49409f677e53ef90",
+    "observedAt": "2026-10-10T21:52:50.891Z",
+    "expiresAt": "2026-10-10T22:07:50.891Z"
+  },
+  "serverProof": {
+    "event": "current-routing-provider-fetch-succeeded",
+    "durationMs": 34,
+    "deployStatus": "succeeded"
+  },
+  "truthBoundary": {
+    "realProductionHttpsCall": true,
+    "realProviderCall": true,
+    "exactEndpointPairBound": true,
+    "freshnessBound": true,
+    "safeToReuseAfterExpiry": false
+  }
+}
