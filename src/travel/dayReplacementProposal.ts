@@ -428,6 +428,27 @@ export function acceptDayReplacementProposal(input: {
   if (input.proposal.admission !== 'executable' || !input.proposal.routingVerified) {
     throw new Error('Replacement proposal is not executable');
   }
+
+  const requiredRouteDecisions = [
+    input.proposal.routeRequirements.inbound ? input.proposal.inboundRoute : undefined,
+    input.proposal.routeRequirements.outbound ? input.proposal.outboundRoute : undefined
+  ];
+
+  for (const decision of requiredRouteDecisions) {
+    if (!decision || decision.status === 'unknown' || !decision.observedAt || !decision.expiresAt) {
+      throw new Error('Replacement route evidence is incomplete');
+    }
+    const observedAtMs = Date.parse(decision.observedAt);
+    const expiresAtMs = Date.parse(decision.expiresAt);
+    if (
+      !Number.isFinite(observedAtMs)
+      || !Number.isFinite(expiresAtMs)
+      || acceptedAtMs < observedAtMs
+      || acceptedAtMs >= expiresAtMs
+    ) {
+      throw new Error('Replacement route evidence is stale');
+    }
+  }
   if (
     input.trip.updatedAt !== input.disruption.baselineUpdatedAt
     || input.proposal.baselineUpdatedAt !== input.disruption.baselineUpdatedAt
