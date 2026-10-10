@@ -20,6 +20,12 @@ import {
   buildTretyakovProgrammeAdapter,
   TRETYAKOV_PROGRAMME_SOURCE_URL
 } from '../src/integrations/tretyakovProgrammeAdapter.ts';
+import {
+  buildValhallaRoutingFeed,
+  buildValhallaWalkingRequest,
+  normalizeValhallaWalkingRoute,
+  VALHALLA_DEFAULT_BASE_URL
+} from '../src/integrations/valhallaRoutingAdapter.ts';
 import { projectLiveDestinationFeed } from '../src/travel/liveDestinationAuthority.ts';
 import { runLiveCityRefreshRuntime } from '../src/travel/liveCityRefreshRuntime.ts';
 import {
@@ -37,11 +43,25 @@ const PROVIDER_FETCH_TIMEOUT_MS = Math.max(
   5_000,
   Number(process.env.LIVE_CITY_PROVIDER_FETCH_TIMEOUT_MS || 20_000)
 );
+const ROUTING_PROVIDER_FETCH_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.ROUTING_PROVIDER_FETCH_TIMEOUT_MS || 15_000)
+);
+const ROUTING_OBSERVATION_TTL_MS = Math.max(
+  60_000,
+  Number(process.env.ROUTING_OBSERVATION_TTL_MS || 15 * 60_000)
+);
 const REFRESH_MODE = process.env.LIVE_CITY_REFRESH_MODE?.trim() === 'push'
   ? 'push'
   : 'pull';
 const venueUrl = process.env.TRETYAKOV_LIVE_URL?.trim() || TRETYAKOV_NEW_SOURCE_URL;
 const programmeUrl = process.env.TRETYAKOV_PROGRAMME_URL?.trim() || TRETYAKOV_PROGRAMME_SOURCE_URL;
+const valhallaBaseUrl = process.env.VALHALLA_URL?.trim() || VALHALLA_DEFAULT_BASE_URL;
+const valhallaRouteUrl = valhallaBaseUrl.replace(/\/$/, '') + '/route';
+const valhallaClientId = process.env.VALHALLA_CLIENT_ID?.trim() || 'moscow-city-journey-os';
+if (!/^https:\/\//i.test(valhallaBaseUrl)) {
+  throw new Error('VALHALLA_URL must use HTTPS');
+}
 const SERVE_WEB_DIST = process.env.SERVE_WEB_DIST === '1';
 const WEB_DIST_DIR = path.resolve(process.env.WEB_DIST_DIR?.trim() || 'dist');
 const SNAPSHOT_CACHE_PATH = path.resolve(
@@ -94,6 +114,141 @@ function readBody(req, maxBytes = 5 * 1024 * 1024) {
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
+}
+
+
+function routingRequestError(message) {
+  const error = new Error(message);
+  error.code = 'ROUTING_REQUEST_INVALID';
+  return error;
+}
+
+function routingText(url, key) {
+  const value = url.searchParams.get(key)?.trim() || '';
+  if (!value || value.length > 160) {
+    throw routingRequestError(`Invalid routing query: ${key}`);
+  }
+  return value;
+}
+
+function routingNumber(url, key, min, max) {
+  const raw = url.searchParams.get(key);
+  const value = raw === null ? Number.NaN : Number(raw);
+  if (!Number.isFinite(value) || value < min || value > max) {
+    throw routingRequestError(`Invalid routing query: ${key}`);
+  }
+  return value;
+}
+
+function walkingRouteEndpoints(url) {
+  const from = {
+    id: routingText(url, 'fromId'),
+    latitude: routingNumber(url, 'fromLat', -90, 90),
+    longitude: routingNumber(url, 'fromLon', -180, 180)
+  };
+  const to = {
+    id: routingText(url, 'toId'),
+    latitude: routingNumber(url, 'toLat', -90, 90),
+    longitude: routingNumber(url, 'toLon', -180, 180)
+  };
+  if (from.id === to.id) {
+    throw routingRequestError('Routing endpoints must differ');
+  }
+  return { from, to };
+}
+
+async function currentWalkingRoutingSnapshot(url) {
+  const { from, to } = walkingRouteEndpoints(url);
+  const fetchedAt = new Date().toISOString();
+  const startedAtMs = Date.now();
+  const request = buildValhallaWalkingRequest(from, to);
+
+  console.log(JSON.stringify({
+    event: 'current-routing-provider-fetch-started',
+    providerId: 'valhalla',
+    fromId: from.id,
+    toId: to.id,
+    fetchedAt,
+    timeoutMs: ROUTING_PROVIDER_FETCH_TIMEOUT_MS
+  }));
+
+  try {
+    const response = await fetch(valhallaRouteUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-client-id': valhallaClientId
+      },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(ROUTING_PROVIDER_FETCH_TIMEOUT_MS)
+    });
+    const rawText = await response.text();
+    if (!response.ok) {
+      throw new Error(`Valhalla HTTP ${response.status}: ${rawText.slice(0, 240)}`);
+    }
+
+    let raw;
+    try {
+      raw = JSON.parse(rawText);
+    } catch {
+      throw new Error('Valhalla response JSON is invalid');
+    }
+
+    const expiresAt = new Date(
+      Date.parse(fetchedAt) + ROUTING_OBSERVATION_TTL_MS
+    ).toISOString();
+    const observation = normalizeValhallaWalkingRoute({
+      raw,
+      sourceUrl: valhallaRouteUrl,
+      from,
+      to,
+      fetchedAt,
+      expiresAt,
+      observationId: `valhalla:${from.id}:${to.id}:walk:${fetchedAt}`
+    });
+    const generatedAt = new Date().toISOString();
+    const feed = buildValhallaRoutingFeed({
+      sourceUrl: valhallaBaseUrl,
+      generatedAt,
+      observations: [observation]
+    });
+    const rawResponseSha256 = sha256(rawText);
+
+    console.log(JSON.stringify({
+      event: 'current-routing-provider-fetch-succeeded',
+      providerId: 'valhalla',
+      fromId: from.id,
+      toId: to.id,
+      durationMinutes: observation.durationMinutes,
+      distanceMeters: observation.distanceMeters,
+      rawResponseSha256,
+      durationMs: Date.now() - startedAtMs
+    }));
+
+    return {
+      schemaVersion: 1,
+      kind: 'citywide-routing-current-snapshot',
+      destinationId: 'moscow',
+      fetchedAt,
+      rawResponseSha256,
+      request: {
+        mode: 'walk',
+        from,
+        to
+      },
+      feed
+    };
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: 'current-routing-provider-fetch-failed',
+      providerId: 'valhalla',
+      fromId: from.id,
+      toId: to.id,
+      durationMs: Date.now() - startedAtMs,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+    throw error;
+  }
 }
 
 const MIME_BY_EXT = new Map([
@@ -451,6 +606,30 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, currentSnapshot, 'public, max-age=60, stale-while-revalidate=120');
   }
 
+
+  if (req.method === 'GET' && url.pathname === '/routing/walk') {
+    try {
+      const snapshot = await currentWalkingRoutingSnapshot(url);
+      return json(res, 200, snapshot, 'no-store');
+    } catch (error) {
+      const code = error && typeof error === 'object' ? error.code : undefined;
+      if (code === 'ROUTING_REQUEST_INVALID') {
+        return json(res, 400, {
+          ok: false,
+          error: error instanceof Error ? error.message : 'invalid-routing-request'
+        });
+      }
+      const timeout = error instanceof Error
+        && (error.name === 'TimeoutError' || /timed? ?out/i.test(error.message));
+      return json(res, timeout ? 504 : 502, {
+        ok: false,
+        error: timeout
+          ? 'routing-provider-timeout'
+          : 'routing-provider-unavailable'
+      });
+    }
+  }
+
   if (req.method === 'PUT' && url.pathname === '/live-city/publish') {
     if (REFRESH_MODE !== 'push') return json(res, 404, { ok: false });
 
@@ -549,6 +728,12 @@ server.listen(PORT, '0.0.0.0', () => {
     venueUrl,
     programmeUrl,
     providerFetchTimeoutMs: PROVIDER_FETCH_TIMEOUT_MS,
+    routingProvider: {
+      id: 'valhalla',
+      baseUrl: valhallaBaseUrl,
+      fetchTimeoutMs: ROUTING_PROVIDER_FETCH_TIMEOUT_MS,
+      observationTtlMs: ROUTING_OBSERVATION_TTL_MS
+    },
     publishAudience: LIVE_CITY_PUBLISH_AUDIENCE,
     serveWebDist: SERVE_WEB_DIST,
     webDistDir: SERVE_WEB_DIST ? WEB_DIST_DIR : null,
