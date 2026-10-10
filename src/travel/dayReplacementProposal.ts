@@ -431,8 +431,12 @@ export function acceptDayReplacementProposal(input: {
   }
 
   const requiredRouteDecisions = [
-    input.proposal.routeRequirements.inbound ? input.proposal.inboundRoute : undefined,
-    input.proposal.routeRequirements.outbound ? input.proposal.outboundRoute : undefined
+    ...(input.proposal.routeRequirements.inbound
+      ? [input.proposal.inboundRoute]
+      : []),
+    ...(input.proposal.routeRequirements.outbound
+      ? [input.proposal.outboundRoute]
+      : [])
   ];
 
   for (const decision of requiredRouteDecisions) {
