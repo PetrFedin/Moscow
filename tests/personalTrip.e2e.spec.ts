@@ -1017,6 +1017,11 @@ test('source-backed replacement becomes executable after current route verificat
 
   await page.getByText('Принять замену', { exact: true }).click();
 
+  const replacementError = page.getByTestId('replacement-action-error');
+  if (await replacementError.count()) {
+    throw new Error(`Replacement acceptance UI error: ${await replacementError.textContent()}`);
+  }
+
   await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toHaveCount(0);
 
   const stored = await page.evaluate(() => JSON.parse(
