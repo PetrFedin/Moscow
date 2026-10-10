@@ -2608,3 +2608,108 @@ Browser acceptance for this layer:
 Next strict transition:
 
 `disruption detection PASS -> source-backed replacement candidates -> route feasibility around fixed commitments -> explicit acceptance -> continuation`.
+
+
+## Source-backed Replacement Proposal v1 — IMPLEMENTING
+
+This layer starts only after a current live disruption has already entered the existing Journey Runtime as `replan-required`.
+
+Authority chain:
+
+`replan-required -> fresh live candidate -> routing feasibility -> executable proposal -> explicit acceptance -> PersonalTrip replacement`
+
+### Candidate admission
+
+A replacement candidate must:
+
+- come from the current live destination projection;
+- be fresh and `journeyEligible=true`;
+- have a canonical destination node;
+- differ from the affected destination node;
+- not already exist as another planned destination in the same day;
+- belong to the same experience family as the affected item.
+
+No generative or unsourced alternative is admitted.
+
+### Routing feasibility
+
+The candidate retains the affected item's user-allocated time block.
+
+Required route legs are checked around that block:
+
+- previous scheduled destination -> replacement candidate;
+- replacement candidate -> next fixed commitment.
+
+Routing uses the existing Citywide Routing Authority.
+
+Admission states:
+
+- `executable` — all required route legs have fresh verified observations and fit the available windows;
+- `routing-unverified` — source-backed candidate exists, but at least one required route leg has no verified current observation;
+- `routing-impossible` — a fresh verified route exceeds the available time window.
+
+`tight` remains executable because the verified route still fits, but the UI must expose the tight status and buffer.
+
+### Fixed commitment discipline
+
+Unrelated fixed tickets/reservations remain exact.
+
+Before acceptance, the authority re-checks:
+
+- item identity;
+- scheduled start/end;
+- confirmed commitment;
+- verification mode.
+
+If any preserved fixed commitment changed, acceptance fails.
+
+If the affected item itself is fixed or carries a commitment, this v1 flow is blocked. It requires a separate cancellation/reschedule handling flow instead of silent replacement.
+
+### Explicit acceptance
+
+A proposal may mutate PersonalTrip only when:
+
+- admission is `executable`;
+- routing is verified where required;
+- PersonalTrip `updatedAt` still matches the disruption/proposal baseline;
+- the affected item still matches the disrupted destination and interval;
+- fixed commitments remain unchanged.
+
+Acceptance changes only the affected item:
+
+- title;
+- kind;
+- source -> provider;
+- destinationNodeId.
+
+The original user-allocated time block remains unchanged.
+
+The authority emits an acceptance receipt with:
+
+- proposal/disruption IDs;
+- source evidence reference;
+- route observation IDs;
+- before/after affected item state;
+- proof that fixed commitments were preserved.
+
+### UI behavior
+
+The replacement card distinguishes:
+
+- `SOURCE + ROUTE / EXECUTABLE`;
+- `SOURCE ONLY / ROUTING UNVERIFIED`;
+- `ROUTING IMPOSSIBLE`.
+
+The **Accept replacement** action is rendered only for executable proposals.
+
+Browser acceptance must prove that a source-backed candidate without route evidence stays visible but cannot be accepted.
+
+### Current production boundary
+
+The live-city publication contour already supplies current destination truth.
+
+A replaceable current routing projection is still required before production disruptions with fixed commitments can become executable replacements automatically.
+
+Until then, production replacement UI must fail closed at `ROUTING UNVERIFIED`.
+
+**Next strict transition:** replacement authority PASS -> current routing publication/loader -> executable browser acceptance -> continuation.

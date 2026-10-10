@@ -8,6 +8,11 @@ import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestination
 import { buildDayComposerProjection } from '../../travel/dayComposer';
 import { buildDayComposerDisruptionCases } from '../../travel/dayComposerDisruption';
 import {
+  acceptDayReplacementProposal,
+  buildDayReplacementProposals,
+  type DayReplacementProposal
+} from '../../travel/dayReplacementProposal';
+import {
   projectValhallaRealSmokeReplay,
   valhallaRealSmokeReplayContext,
   VALHALLA_REAL_SMOKE_ENDPOINTS
@@ -48,6 +53,7 @@ import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
 import DayComposerCard from './DayComposerCard';
 import LiveDisruptionCard from './LiveDisruptionCard';
+import ReplacementProposalCard from './ReplacementProposalCard';
 
 export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
 
@@ -56,6 +62,7 @@ type Props = {
   savedIds: string[];
   visitedIds: string[];
   currentLiveDestinationProjection?: ReturnType<typeof import('../../travel/liveDestinationAuthority').projectLiveDestinationFeed>;
+  currentRoutingProjection?: ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed>;
   onOpenPlace: (placeId: string) => void;
 };
 
@@ -198,6 +205,7 @@ export default function PersonalTripPlanner({
   savedIds,
   visitedIds,
   currentLiveDestinationProjection,
+  currentRoutingProjection,
   onOpenPlace
 }: Props) {
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
@@ -361,6 +369,43 @@ export default function PersonalTripPlanner({
     () => dayComposer ? buildDayComposerDisruptionCases(dayComposer) : [],
     [dayComposer]
   );
+
+  const replacementProposalSets = useMemo(() => {
+    if (!trip || !dayComposer || !liveProjection || liveDisruptions.length === 0) return [];
+    const routingProjection = replayRoutingProjection ?? currentRoutingProjection;
+    return liveDisruptions.map((disruption) => buildDayReplacementProposals({
+      trip,
+      dayProjection: dayComposer,
+      disruption,
+      liveProjection,
+      ...(routingProjection ? { routingProjection } : {})
+    }));
+  }, [
+    trip,
+    dayComposer,
+    liveProjection,
+    liveDisruptions,
+    replayRoutingProjection,
+    currentRoutingProjection
+  ]);
+
+  const acceptReplacement = (proposal: DayReplacementProposal) => {
+    if (!trip) return;
+    const disruption = liveDisruptions.find((item) => item.id === proposal.disruptionId);
+    if (!disruption) return;
+
+    try {
+      const accepted = acceptDayReplacementProposal({
+        trip,
+        disruption,
+        proposal,
+        acceptedAt: new Date().toISOString()
+      });
+      setTrip(accepted.trip);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
+    }
+  };
 
   const openAddPreset = (preset: 'place' | 'restaurant' | 'ticket' | 'reservation' | 'event') => {
     setFormError('');
@@ -629,6 +674,12 @@ export default function PersonalTripPlanner({
       <LiveDisruptionCard
         disruptions={liveDisruptions}
         language={language}
+      />
+
+      <ReplacementProposalCard
+        sets={replacementProposalSets}
+        language={language}
+        onAccept={acceptReplacement}
       />
 
       <DayReplanCard
