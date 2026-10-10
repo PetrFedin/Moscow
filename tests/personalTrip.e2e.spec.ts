@@ -896,7 +896,7 @@ test('source-backed replacement becomes executable after current route verificat
     expect(requestUrl.searchParams.get('toLon')).toBe('37.6186118');
 
     const now = new Date();
-    const observedAt = now.toISOString();
+    const observedAt = new Date(now.getTime() - 5_000).toISOString();
     const expiresAt = new Date(now.getTime() + 15 * 60_000).toISOString();
 
     await route.fulfill({
