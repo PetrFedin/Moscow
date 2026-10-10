@@ -302,3 +302,50 @@ test('stale baseline blocks acceptance even for an executable proposal', () => {
     acceptedAt: '2026-10-10T06:13:00.000Z'
   }), /baseline is stale/);
 });
+
+
+test('acceptance tolerates bounded routing clock skew but rejects evidence too far in the future', () => {
+  const { trip, live, dayProjection, disruption } = context();
+  const proposal = buildDayReplacementProposals({
+    trip,
+    dayProjection,
+    disruption,
+    liveProjection: live,
+    routingProjection: routingProjection()
+  }).proposals[0]!;
+
+  const withinSkew = structuredClone(proposal);
+  if (withinSkew.inboundRoute) {
+    withinSkew.inboundRoute.observedAt = '2026-10-10T06:11:30.000Z';
+    withinSkew.inboundRoute.expiresAt = '2026-10-10T06:39:00.000Z';
+  }
+  if (withinSkew.outboundRoute) {
+    withinSkew.outboundRoute.observedAt = '2026-10-10T06:11:30.000Z';
+    withinSkew.outboundRoute.expiresAt = '2026-10-10T06:39:00.000Z';
+  }
+
+  const accepted = acceptDayReplacementProposal({
+    trip,
+    disruption,
+    proposal: withinSkew,
+    acceptedAt: '2026-10-10T06:11:00.000Z'
+  });
+  assert.equal(accepted.trip.items.find((item) => item.id === 'affected')?.destinationNodeId, 'candidate-museum');
+
+  const outsideSkew = structuredClone(proposal);
+  if (outsideSkew.inboundRoute) {
+    outsideSkew.inboundRoute.observedAt = '2026-10-10T06:12:01.000Z';
+    outsideSkew.inboundRoute.expiresAt = '2026-10-10T06:39:00.000Z';
+  }
+  if (outsideSkew.outboundRoute) {
+    outsideSkew.outboundRoute.observedAt = '2026-10-10T06:12:01.000Z';
+    outsideSkew.outboundRoute.expiresAt = '2026-10-10T06:39:00.000Z';
+  }
+
+  assert.throws(() => acceptDayReplacementProposal({
+    trip,
+    disruption,
+    proposal: outsideSkew,
+    acceptedAt: '2026-10-10T06:11:00.000Z'
+  }), /route evidence is stale/);
+});
