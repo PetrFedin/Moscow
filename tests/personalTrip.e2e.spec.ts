@@ -666,3 +666,138 @@ test('current live disruption surfaces replan-required without moving fixed comm
   expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
   expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
 });
+
+
+test('source-backed replacement stays blocked in browser until routing around fixed commitment is verified', async ({ page }) => {
+  await page.addInitScript(() => {
+    (globalThis as { __MOSCOW_LIVE_CITY_SNAPSHOT_URL__?: string })
+      .__MOSCOW_LIVE_CITY_SNAPSHOT_URL__ = 'https://live-city.test/live-city/current.json';
+  });
+
+  await page.route('https://live-city.test/live-city/current.json', async (route) => {
+    const now = Date.now();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        kind: 'live-city-current-snapshot',
+        destinationId: 'moscow',
+        refreshedAt: new Date(now).toISOString(),
+        mergedFeed: {
+          schemaVersion: 1,
+          destinationId: 'moscow',
+          generatedAt: new Date(now).toISOString(),
+          providers: [{
+            id: 'affected-source',
+            name: 'Affected Source',
+            relationship: 'official',
+            capabilities: ['inventory', 'operational-status'],
+            sourceUrl: 'https://example.org/affected',
+            attributionRu: 'Источник',
+            attributionEn: 'Source',
+            attributionZh: '来源'
+          }, {
+            id: 'candidate-source',
+            name: 'Candidate Source',
+            relationship: 'official',
+            capabilities: ['inventory', 'operational-status'],
+            sourceUrl: 'https://example.org/candidate',
+            attributionRu: 'Источник',
+            attributionEn: 'Source',
+            attributionZh: '来源'
+          }],
+          entities: [{
+            id: 'affected-live',
+            providerEntityId: 'affected-museum',
+            providerId: 'affected-source',
+            canonicalDestinationNodeId: 'affected-museum',
+            kind: 'museum',
+            titleRu: 'Закрывшийся музей',
+            titleEn: 'Closed museum',
+            titleZh: '关闭的博物馆',
+            tags: ['museum'],
+            sourceUrl: 'https://example.org/affected/museum',
+            observedAt: new Date(now - 30_000).toISOString(),
+            expiresAt: new Date(now + 20 * 60_000).toISOString(),
+            operationalStatus: 'closed'
+          }, {
+            id: 'candidate-live',
+            providerEntityId: 'candidate-museum',
+            providerId: 'candidate-source',
+            canonicalDestinationNodeId: 'candidate-museum',
+            kind: 'museum',
+            titleRu: 'Музей-кандидат',
+            titleEn: 'Candidate museum',
+            titleZh: '候选博物馆',
+            tags: ['museum'],
+            sourceUrl: 'https://example.org/candidate/museum',
+            observedAt: new Date(now - 20_000).toISOString(),
+            expiresAt: new Date(now + 20 * 60_000).toISOString(),
+            operationalStatus: 'open'
+          }]
+        }
+      })
+    });
+  });
+
+  const date = moscowNowParts().date;
+  await page.goto('/');
+
+  await page.evaluate((dayDate) => {
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion: 1,
+      id: 'personal-trip:replacement-unverified',
+      destinationId: 'moscow',
+      title: 'Replacement candidate trip',
+      startDate: dayDate,
+      endDate: dayDate,
+      days: [dayDate],
+      items: [{
+        id: 'affected',
+        dayDate,
+        title: 'Закрывшийся музей',
+        kind: 'museum',
+        source: 'provider',
+        destinationNodeId: 'affected-museum',
+        plannedStartAt: dayDate + 'T12:00:00+03:00',
+        plannedEndAt: dayDate + 'T14:00:00+03:00',
+        status: 'planned'
+      }, {
+        id: 'fixed-theatre',
+        dayDate,
+        title: 'Большой театр · фиксированный билет',
+        kind: 'theatre',
+        source: 'manual',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T22:00:00+03:00',
+        status: 'planned',
+        commitment: {
+          kind: 'ticket',
+          status: 'confirmed',
+          verification: 'user-declared',
+          reference: 'USER-TICKET'
+        }
+      }],
+      visits: [],
+      createdAt: new Date(now).toISOString(),
+      updatedAt: new Date(now).toISOString()
+    }));
+  }, date);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toBeVisible();
+  await expect(page.getByText('SOURCE-BACKED REPLACEMENT · V1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей-кандидат', { exact: true })).toBeVisible();
+  await expect(page.getByText('ROUTING UNVERIFIED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Нужна проверка маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText('Принять замену', { exact: true })).toHaveCount(0);
+
+  const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(stored.items.find((item: { id: string }) => item.id === 'affected').destinationNodeId).toBe('affected-museum');
+  expect(stored.items.find((item: { id: string }) => item.id === 'fixed-theatre').plannedStartAt)
+    .toBe(date + 'T19:00:00+03:00');
+});
