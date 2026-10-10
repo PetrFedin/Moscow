@@ -109,8 +109,7 @@ function liveGeometry(
       officialAddressSource: entity.sourceUrl,
       providerId: entity.providerId,
       evidenceRef:
-        entity.evidenceRef
-        ?? `current-live-geometry:${encodeURIComponent(entity.providerId)}:${encodeURIComponent(entity.observedAt)}:${encodeURIComponent(entity.sourceUrl)}`
+        `current-live-geometry:${encodeURIComponent(entity.providerId)}:${encodeURIComponent(entity.observedAt)}:${encodeURIComponent(entity.sourceUrl)}`
     }
   });
 }
