@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "kind": "replacement-current-routing-production-evidence",
+  "capturedAt": "2026-10-10T21:59:00.641Z",
+  "application": {
+    "repository": "PetrFedin/Moscow",
+    "routingAuthorityMainSha": "840248491bb67f9e5f8b6f0c11e88a2ff5fd9dcb",
+    "endpoint": "https://moscow-mobile-preview.onrender.com/routing/walk"
+  },
+  "geometryEvidenceRef": "evidence/geometry/replacement-geometry-v1.json",
+  "request": {
+    "mode": "walk",
+    "from": {
+      "id": "tretyakov-aleksey-bogolyubov-neva-bosporus",
+      "latitude": 55.7413613,
+      "longitude": 37.6202196
+    },
+    "to": {
+      "id": "bolshoi-theatre",
+      "latitude": 55.7601296,
+      "longitude": 37.6186118
+    }
+  },
+  "provider": {
+    "id": "valhalla",
+    "sourceUrl": "https://valhalla1.openstreetmap.de/route"
+  },
+  "result": {
+    "durationMinutes": 36,
+    "distanceMeters": 2781,
+    "rawResponseSha256": "780faa175faf8071786eab90b56bf1e550e6b335ce3fc147c7ba957d276b6691",
+    "observedAt": "2026-10-10T21:59:00.641Z",
+    "expiresAt": "2026-10-10T22:14:00.641Z"
+  },
+  "replacementWindow": {
+    "candidateEndsAt": "14:00 Europe/Moscow",
+    "fixedBolshoiStartsAt": "19:00 Europe/Moscow",
+    "availableMinutes": 300,
+    "requiredTravelMinutes": 36,
+    "bufferMinutes": 264,
+    "feasibility": "safe"
+  },
+  "truthBoundary": {
+    "realProductionHttpsCall": true,
+    "realProviderCall": true,
+    "sourceBackedGeometry": true,
+    "freshnessBound": true,
+    "safeToReuseAfterExpiry": false
+  }
+}

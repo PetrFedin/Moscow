@@ -13,6 +13,9 @@ import {
   type DayReplacementProposal
 } from '../../travel/dayReplacementProposal';
 import {
+  verifyDayReplacementProposalRouting
+} from '../../travel/replacementRoutingVerification';
+import {
   projectValhallaRealSmokeReplay,
   valhallaRealSmokeReplayContext,
   VALHALLA_REAL_SMOKE_ENDPOINTS
@@ -63,6 +66,7 @@ type Props = {
   visitedIds: string[];
   currentLiveDestinationProjection?: ReturnType<typeof import('../../travel/liveDestinationAuthority').projectLiveDestinationFeed>;
   currentRoutingProjection?: ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed>;
+  currentRoutingAuthorityUrl?: string;
   onOpenPlace: (placeId: string) => void;
 };
 
@@ -206,6 +210,7 @@ export default function PersonalTripPlanner({
   visitedIds,
   currentLiveDestinationProjection,
   currentRoutingProjection,
+  currentRoutingAuthorityUrl,
   onOpenPlace
 }: Props) {
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
@@ -226,6 +231,11 @@ export default function PersonalTripPlanner({
   const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [replacementActionError, setReplacementActionError] = useState('');
+  const [verifiedReplacementRoutingProjection, setVerifiedReplacementRoutingProjection] = useState<
+    ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed> | null
+  >(null);
+  const [verifyingProposalId, setVerifyingProposalId] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY)
@@ -372,7 +382,11 @@ export default function PersonalTripPlanner({
 
   const replacementProposalSets = useMemo(() => {
     if (!trip || !dayComposer || !liveProjection || liveDisruptions.length === 0) return [];
-    const routingProjection = replayRoutingProjection ?? currentRoutingProjection;
+    const routingProjection =
+      replayRoutingProjection
+      ?? currentRoutingProjection
+      ?? verifiedReplacementRoutingProjection
+      ?? undefined;
     return liveDisruptions.map((disruption) => buildDayReplacementProposals({
       trip,
       dayProjection: dayComposer,
@@ -386,8 +400,43 @@ export default function PersonalTripPlanner({
     liveProjection,
     liveDisruptions,
     replayRoutingProjection,
-    currentRoutingProjection
+    currentRoutingProjection,
+    verifiedReplacementRoutingProjection
   ]);
+
+  const verifyReplacementRouting = async (proposal: DayReplacementProposal) => {
+    if (!currentRoutingAuthorityUrl || !liveProjection) {
+      setReplacementActionError('current-routing-authority-unavailable');
+      return;
+    }
+
+    setReplacementActionError('');
+    setVerifyingProposalId(proposal.id);
+    try {
+      const verification = await verifyDayReplacementProposalRouting({
+        proposal,
+        authorityUrl: currentRoutingAuthorityUrl,
+        liveEntities: liveProjection.entities,
+        nowIso: new Date().toISOString()
+      });
+
+      if (verification.status === 'blocked') {
+        setReplacementActionError(
+          verification.blocker === 'geometry-missing'
+            ? `geometry-missing:${verification.missingNodeIds.join(',')}`
+            : 'replacement-routing-blocked'
+        );
+        return;
+      }
+
+      setVerifiedReplacementRoutingProjection(verification.projection);
+      setReplacementActionError('');
+    } catch (error) {
+      setReplacementActionError(error instanceof Error ? error.message : 'replacement-routing-verification-failed');
+    } finally {
+      setVerifyingProposalId(null);
+    }
+  };
 
   const acceptReplacement = (proposal: DayReplacementProposal) => {
     if (!trip) return;
@@ -402,8 +451,10 @@ export default function PersonalTripPlanner({
         acceptedAt: new Date().toISOString()
       });
       setTrip(accepted.trip);
+      setVerifiedReplacementRoutingProjection(null);
+      setReplacementActionError('');
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
+      setReplacementActionError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
     }
   };
 
@@ -680,6 +731,9 @@ export default function PersonalTripPlanner({
         sets={replacementProposalSets}
         language={language}
         onAccept={acceptReplacement}
+        onVerifyRouting={verifyReplacementRouting}
+        verifyingProposalId={verifyingProposalId}
+        actionError={replacementActionError}
       />
 
       <DayReplanCard
