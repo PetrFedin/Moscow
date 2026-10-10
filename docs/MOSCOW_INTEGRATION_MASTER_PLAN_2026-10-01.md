@@ -2816,3 +2816,136 @@ Expired route evidence becomes `stale` and `verified=false`.
 - production proof requires a real call through the deployed Moscow endpoint.
 
 **Next strict transition:** current routing authority quality PASS -> merge -> production deploy -> real current route proof -> geometry resolver -> executable replacement browser acceptance -> continuation.
+
+
+## Geometry Authority + Verified Replacement Acceptance v1 — IMPLEMENTING
+
+Production current routing is admitted on exact `main@840248491bb67f9e5f8b6f0c11e88a2ff5fd9dcb`.
+
+Real production proof:
+
+`evidence/routing/current-routing-production-2026-10-10.json`
+
+The remaining gap between a source-backed candidate and an executable replacement is canonical geometry.
+
+### Geometry evidence discipline
+
+A route endpoint may use coordinates only when geometry is source-backed.
+
+Geometry sources in v1:
+
+1. fresh live-provider geometry when the current provider explicitly supplies latitude/longitude;
+2. admitted canonical geometry facts that bind:
+   - an official address source;
+   - an independent geocoder result;
+   - a canonical destination node ID;
+   - an evidence reference.
+
+No coordinate may be inferred from place name, remembered manually, or generated from straight-line assumptions.
+
+Initial admitted geometry facts:
+
+- `tretyakov-aleksey-bogolyubov-neva-bosporus`;
+- `bolshoi-theatre`.
+
+Evidence:
+
+`evidence/geometry/replacement-geometry-v1.json`
+
+### Route requirements are owned by the replacement authority
+
+Every source-backed proposal now exposes canonical route requirements:
+
+- direction;
+- fromNodeId;
+- toNodeId;
+- departureAt;
+- mustArriveBy.
+
+The UI does not reconstruct schedule semantics independently.
+
+### Explicit route verification
+
+For a `ROUTING UNVERIFIED` proposal the user may request **Verify route**.
+
+Flow:
+
+`proposal route requirement -> canonical geometry -> current Moscow /routing/walk -> exact-pair snapshot -> fresh routing projection -> proposal recomputation`
+
+If any required node lacks geometry evidence:
+
+`geometry-missing -> proposal remains non-acceptable`
+
+No provider request is sent.
+
+### Executable admission
+
+After current route verification, the existing replacement authority recomputes the proposal.
+
+A proposal becomes `EXECUTABLE` only when every required route leg is:
+
+- current;
+- verified;
+- bound to the exact endpoint IDs/coordinates;
+- `safe` or `tight`;
+- still inside its provider expiry window.
+
+### Acceptance freshness recheck
+
+Explicit acceptance re-checks every required route decision against `acceptedAt`.
+
+If route evidence has expired between verification and button press:
+
+`accept -> rejected: route evidence stale`
+
+Therefore an old UI state cannot silently apply an expired route.
+
+### First executable proof scenario
+
+The browser admission scenario is:
+
+`New Tretyakov current truth -> CLOSED`
+
+replacement candidate:
+
+`Alexey Bogolyubov. From the Neva to the Bosphorus`
+
+fixed commitment:
+
+`Bolshoi Theatre ticket 19:00–22:00`
+
+Required route:
+
+`Tretyakov Gallery, Lavrushinsky 10 -> Bolshoi Theatre`
+
+Expected sequence:
+
+`REPLAN REQUIRED -> SOURCE-BACKED candidate -> ROUTING UNVERIFIED -> Verify route -> EXECUTABLE -> Accept replacement`
+
+After acceptance:
+
+- affected item changes to the source-backed candidate;
+- affected time block remains unchanged;
+- fixed Bolshoi ticket remains byte-for-byte on its original interval and commitment;
+- disruption disappears because the replacement now points to fresh eligible current truth;
+- PersonalTrip continues from the accepted state.
+
+### Replaceable routing configuration
+
+Client routing authority configuration:
+
+1. runtime override `globalThis.__MOSCOW_CURRENT_ROUTING_URL__`;
+2. optional `EXPO_PUBLIC_CURRENT_ROUTING_URL`;
+3. otherwise derive `/routing/walk` from the already configured current-live HTTPS origin.
+
+### Acceptance
+
+- geometry registry contract tests GREEN;
+- current-live geometry overrides static geometry when explicitly supplied;
+- missing geometry fails closed before any route fetch;
+- browser proves unverified candidate cannot be accepted;
+- browser proves current route verification can promote candidate to executable;
+- explicit acceptance changes only affected item and preserves fixed commitments;
+- production Valhalla proof remains independent from deterministic browser fixture.
+
+**Next strict transition:** geometry/acceptance quality PASS -> merge -> exact-main production deploy -> production executable route pair proof for replacement geometry -> post-accept continuation UX / acceptance receipt surface.
