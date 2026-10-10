@@ -2713,3 +2713,106 @@ A replaceable current routing projection is still required before production dis
 Until then, production replacement UI must fail closed at `ROUTING UNVERIFIED`.
 
 **Next strict transition:** replacement authority PASS -> current routing publication/loader -> executable browser acceptance -> continuation.
+
+
+## Current Routing Authority v1 — IMPLEMENTING
+
+The replacement proposal layer is admitted, but production proposals must remain `ROUTING UNVERIFIED` until current route evidence is available.
+
+This layer publishes current walking-route truth on demand through the existing Moscow HTTPS authority.
+
+### Authority chain
+
+`client route pair -> Moscow routing endpoint -> admitted Valhalla provider -> raw response SHA-256 -> normalized CitywideRoutingFeed -> client projection -> replacement feasibility`
+
+No separate itinerary or routing state store is introduced.
+
+### Production endpoint
+
+The co-located production authority exposes:
+
+`GET /routing/walk`
+
+Required query parameters:
+
+- `fromId`
+- `fromLat`
+- `fromLon`
+- `toId`
+- `toLat`
+- `toLon`
+
+The client cannot provide a provider URL. The server uses only the configured/admitted Valhalla base URL.
+
+### Provider contour
+
+Default admitted provider:
+
+`https://valhalla1.openstreetmap.de`
+
+Runtime override:
+
+`VALHALLA_URL`
+
+The server reuses:
+
+- `buildValhallaWalkingRequest`;
+- `normalizeValhallaWalkingRoute`;
+- `buildValhallaRoutingFeed`.
+
+Provider call:
+
+`POST <VALHALLA_URL>/route`
+
+Default provider timeout:
+
+`15s`
+
+Default normalized observation TTL:
+
+`15 min`
+
+### Current routing snapshot contract
+
+Every successful response contains:
+
+- request pair and coordinates;
+- `fetchedAt`;
+- raw response SHA-256;
+- exactly one normalized walking observation;
+- validated `CitywideRoutingFeed`.
+
+The snapshot parser requires the normalized observation endpoints to match the exact requested pair.
+
+A route for another pair cannot be substituted.
+
+### Client
+
+The current routing client:
+
+- accepts HTTPS authority URLs only;
+- builds the bounded route query;
+- validates the snapshot contract;
+- verifies returned request coordinates/IDs against the caller request;
+- projects freshness against the client clock.
+
+Expired route evidence becomes `stale` and `verified=false`.
+
+### Fail-closed behavior
+
+- invalid query -> HTTP 400;
+- provider timeout -> HTTP 504;
+- provider/schema failure -> HTTP 502;
+- no fallback travel time;
+- no straight-line estimate;
+- no route evidence after expiry;
+- source-backed replacement remains visible but non-acceptable when current routing is unavailable.
+
+### Acceptance
+
+- contract tests bind route evidence to the exact pair;
+- stale observation loses verification;
+- insecure authority URL is rejected;
+- production proof requires a real call through the deployed Moscow endpoint.
+
+**Next strict transition:** current routing authority quality PASS -> merge -> production deploy -> real current route proof -> geometry resolver -> executable replacement browser acceptance -> continuation.
