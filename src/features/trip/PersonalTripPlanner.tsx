@@ -231,6 +231,7 @@ export default function PersonalTripPlanner({
   const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [replacementActionError, setReplacementActionError] = useState('');
   const [verifiedReplacementRoutingProjection, setVerifiedReplacementRoutingProjection] = useState<
     ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed> | null
   >(null);
@@ -405,11 +406,11 @@ export default function PersonalTripPlanner({
 
   const verifyReplacementRouting = async (proposal: DayReplacementProposal) => {
     if (!currentRoutingAuthorityUrl || !liveProjection) {
-      setFormError('current-routing-authority-unavailable');
+      setReplacementActionError('current-routing-authority-unavailable');
       return;
     }
 
-    setFormError('');
+    setReplacementActionError('');
     setVerifyingProposalId(proposal.id);
     try {
       const verification = await verifyDayReplacementProposalRouting({
@@ -420,7 +421,7 @@ export default function PersonalTripPlanner({
       });
 
       if (verification.status === 'blocked') {
-        setFormError(
+        setReplacementActionError(
           verification.blocker === 'geometry-missing'
             ? `geometry-missing:${verification.missingNodeIds.join(',')}`
             : 'replacement-routing-blocked'
@@ -429,8 +430,9 @@ export default function PersonalTripPlanner({
       }
 
       setVerifiedReplacementRoutingProjection(verification.projection);
+      setReplacementActionError('');
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'replacement-routing-verification-failed');
+      setReplacementActionError(error instanceof Error ? error.message : 'replacement-routing-verification-failed');
     } finally {
       setVerifyingProposalId(null);
     }
@@ -450,9 +452,9 @@ export default function PersonalTripPlanner({
       });
       setTrip(accepted.trip);
       setVerifiedReplacementRoutingProjection(null);
-      setFormError('');
+      setReplacementActionError('');
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
+      setReplacementActionError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
     }
   };
 
@@ -731,6 +733,7 @@ export default function PersonalTripPlanner({
         onAccept={acceptReplacement}
         onVerifyRouting={verifyReplacementRouting}
         verifyingProposalId={verifyingProposalId}
+        actionError={replacementActionError}
       />
 
       <DayReplanCard
