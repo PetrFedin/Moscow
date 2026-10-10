@@ -945,8 +945,8 @@ test('source-backed replacement becomes executable after current route verificat
               longitude: 37.6186118
             },
             mode: 'walk',
-            durationMinutes: 25,
-            distanceMeters: 1900,
+            durationMinutes: 36,
+            distanceMeters: 2781,
             observedAt,
             expiresAt,
             sourceUrl: 'https://valhalla1.openstreetmap.de/route'
@@ -1012,7 +1012,7 @@ test('source-backed replacement becomes executable after current route verificat
   await page.getByText('Проверить маршрут', { exact: true }).click();
 
   await expect(page.getByText('EXECUTABLE', { exact: true })).toBeVisible();
-  await expect(page.getByText(/OUT · SAFE · 25 мин/)).toBeVisible();
+  await expect(page.getByText(/OUT · SAFE · 36 мин/)).toBeVisible();
   await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
 
   await page.getByText('Принять замену', { exact: true }).click();
