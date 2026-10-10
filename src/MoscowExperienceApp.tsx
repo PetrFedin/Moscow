@@ -60,6 +60,30 @@ function currentLiveSnapshotUrl() {
     || undefined;
 }
 
+function currentRoutingAuthorityUrl() {
+  const runtimeOverride = (globalThis as {
+    __MOSCOW_CURRENT_ROUTING_URL__?: string;
+  }).__MOSCOW_CURRENT_ROUTING_URL__?.trim();
+
+  const explicit =
+    runtimeOverride
+    || process.env.EXPO_PUBLIC_CURRENT_ROUTING_URL?.trim();
+  if (explicit) return explicit;
+
+  const liveUrl = currentLiveSnapshotUrl();
+  if (!liveUrl) return undefined;
+
+  try {
+    const url = new URL(liveUrl);
+    url.pathname = '/routing/walk';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 const copy = {
   ru: {
     discover: 'Открыть', map: 'Карта', walk: 'Прогулка', trip: 'Поездка', savedTab: 'Моя Москва',
@@ -907,6 +931,7 @@ export default function MoscowExperienceApp() {
               savedIds={savedIds}
               visitedIds={visitedIds}
               currentLiveDestinationProjection={currentLiveResult?.projection}
+              currentRoutingAuthorityUrl={currentRoutingAuthorityUrl()}
               onOpenPlace={(id) => {
                 selectPlace(id);
                 setTab('discover');
