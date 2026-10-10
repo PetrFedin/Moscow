@@ -780,8 +780,8 @@ test('source-backed replacement stays blocked in browser until routing around fi
         }
       }],
       visits: [],
-      createdAt: new Date(now).toISOString(),
-      updatedAt: new Date(now).toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }));
   }, date);
 
