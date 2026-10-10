@@ -16,6 +16,7 @@ import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
 import CitywideDiscoveryCard from './features/destination/CitywideDiscoveryCard';
+import MoscowDiscoverLanding from './features/destination/MoscowDiscoverLanding';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
@@ -142,6 +143,8 @@ const evidenceLabel = {
 export default function MoscowExperienceApp() {
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
+  const [exploreToolsOpen, setExploreToolsOpen] = useState(false);
+  const [heritageStoryOpen, setHeritageStoryOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('romanov-chambers');
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
@@ -174,6 +177,7 @@ export default function MoscowExperienceApp() {
   const recapTrackedRef = useRef(new Set<string>());
 
   const ui = copy[language];
+  const tabIcons: Record<Tab, string> = { discover: '✦', map: '⌖', walk: '↝', trip: '▦', saved: '♡' };
   const tabLabels: Record<Tab, string> = {
     discover: ui.discover,
     map: ui.map,
@@ -572,7 +576,7 @@ export default function MoscowExperienceApp() {
       <StatusBar style="light" />
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.brand}>MOSCOW · CITY OS</Text>
+          <Text style={styles.brand}>{tr(language, 'МОСКВА · ВАШ ПУТЕВОДИТЕЛЬ', 'MOSCOW · YOUR CITY GUIDE', '莫斯科 · 城市指南')}</Text>
           <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
         </View>
         <PhysicalPressable
@@ -625,94 +629,19 @@ export default function MoscowExperienceApp() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {tab === 'discover' && (
             <>
-              <View style={styles.hero}>
-                <Text style={styles.kicker}>{ui.cityTime}</Text>
-                <Text style={styles.heroTitle}>{ui.hero}</Text>
-                <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => setTab('trip')}>
-                  <Text style={styles.primaryText}>{ui.start}</Text>
-                </PhysicalPressable>
-              </View>
-
-              <CitywideDiscoveryCard
+              <MoscowDiscoverLanding
                 language={language}
-                onPlan={() => setTab('trip')}
+                savedCount={savedIds.length}
+                visitedCount={visitedIds.length}
+                featuredPlaces={pilotPlaces.map(({ id, title, district }) => ({ id, title, district }))}
+                onStartTrip={() => setTab('trip')}
+                onOpenMap={() => setTab('map')}
+                onOpenWalk={openWalkFromHero}
+                onOpenPlace={(id) => { selectPlace(id); setHeritageStoryOpen(true); }}
+                onShowPlanningTools={() => setExploreToolsOpen((value) => !value)}
+                planningToolsOpen={exploreToolsOpen}
               />
-
-              <View style={styles.citywideBoundary}>
-                <Text style={styles.kicker}>
-                  {tr(language, 'ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', 'SEPARATE HERITAGE LAYER', '独立历史体验层')}
-                </Text>
-                <Text style={styles.citywideBoundaryTitle}>
-                  {tr(language, 'Исторические маршруты — часть Москвы, а не весь продукт', 'Historic routes are one part of Moscow, not the whole product', '历史路线只是莫斯科体验的一部分')}
-                </Text>
-                <Text style={styles.citywideBoundaryBody}>
-                  {tr(
-                    language,
-                    'Полевые 3D/AR-проверки продолжают жить как отдельный evidence-контур. Они больше не являются входом в городской planner и не блокируют рестораны, театры, музеи, выставки, события и многодневные поездки.',
-                    'Field 3D/AR verification remains a separate evidence lane. It no longer defines the city planner or blocks restaurants, theatres, museums, exhibitions, events and multi-day trips.',
-                    '现场3D/AR验证继续作为独立证据层存在，不再定义整个城市规划体验。'
-                  )}
-                </Text>
-                <PhysicalPressable
-                  style={styles.secondary}
-                  contentStyle={styles.center}
-                  onPress={openWalkFromHero}
-                >
-                  <Text style={styles.secondaryText}>
-                    {tr(language, 'Открыть историческую прогулку', 'Open historic walk', '打开历史路线')}
-                  </Text>
-                </PhysicalPressable>
-              </View>
-
-              <PhysicalPressable
-                style={styles.secondary}
-                contentStyle={styles.center}
-                onPress={() => setTab('trip')}
-                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
-              >
-                <Text style={styles.secondaryText}>
-                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
-                </Text>
-              </PhysicalPressable>
-
-              <NearbyNow
-                language={language}
-                visitedIds={visitedIds}
-                onOpenPlace={(id) => {
-                  void trackTouristEvent({ event: 'nearby_open', placeId: id, language });
-                  selectPlace(id);
-                  setTab('discover');
-                }}
-                onStartFreeWalk={(plan) => startTouristPlan(plan, 'nearby')}
-              />
-
-              <TouristRoutePlanner
-                language={language}
-                mustSeeIds={savedIds}
-                onPreview={previewTouristPlan}
-                onStart={(plan) => startTouristPlan(plan, 'planner')}
-              />
-
-              <Text style={styles.sectionTitle}>{ui.places}</Text>
-              {pilotPlaces.map((place, index) => (
-                <PhysicalPressable
-                  key={place.id}
-                  style={[styles.placeCard, place.id === selectedId && styles.placeCardActive]}
-                  contentStyle={styles.placeCardContent}
-                  onPress={() => selectPlace(place.id)}
-                  accessibilityLabel={place.title}
-                >
-                  <View style={styles.placeNumber}><Text style={styles.placeNumberText}>{String(index + 1).padStart(2, '0')}</Text></View>
-                  <View style={styles.placeCopy}>
-                    <Text style={styles.placeTitle}>{place.title}</Text>
-                    <Text style={styles.placeSubtitle}>{place.subtitle}</Text>
-                    <Text style={styles.placeMeta}>{place.district} · {place.experienceMinutes} min</Text>
-                  </View>
-                </PhysicalPressable>
-              ))}
-
-              {selected && (
+              {heritageStoryOpen && selected && (
                 <View style={styles.storyCard}>
                   <View style={styles.storyHeader}>
                     <View style={styles.storyHeaderCopy}>
@@ -806,6 +735,93 @@ export default function MoscowExperienceApp() {
                     </PhysicalPressable>
                   ))}
                 </View>
+              )}
+              {exploreToolsOpen && (
+                <>
+                  <View style={styles.planningToolsHeading}>
+                    <Text style={styles.planningToolsEyebrow}>{tr(language, 'ДОПОЛНИТЕЛЬНО', 'MORE TO EXPLORE', '更多功能')}</Text>
+                    <Text style={styles.planningToolsTitle}>{tr(language, 'Планирование и маршруты', 'Planning and routes', '行程和路线')}</Text>
+                  </View>
+              <CitywideDiscoveryCard
+                language={language}
+                onPlan={() => setTab('trip')}
+              />
+
+              <View style={styles.citywideBoundary}>
+                <Text style={styles.kicker}>
+                  {tr(language, 'ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', 'SEPARATE HERITAGE LAYER', '独立历史体验层')}
+                </Text>
+                <Text style={styles.citywideBoundaryTitle}>
+                  {tr(language, 'Исторические маршруты — часть Москвы, а не весь продукт', 'Historic routes are one part of Moscow, not the whole product', '历史路线只是莫斯科体验的一部分')}
+                </Text>
+                <Text style={styles.citywideBoundaryBody}>
+                  {tr(
+                    language,
+                    'Полевые 3D/AR-проверки продолжают жить как отдельный evidence-контур. Они больше не являются входом в городской planner и не блокируют рестораны, театры, музеи, выставки, события и многодневные поездки.',
+                    'Field 3D/AR verification remains a separate evidence lane. It no longer defines the city planner or blocks restaurants, theatres, museums, exhibitions, events and multi-day trips.',
+                    '现场3D/AR验证继续作为独立证据层存在，不再定义整个城市规划体验。'
+                  )}
+                </Text>
+                <PhysicalPressable
+                  style={styles.secondary}
+                  contentStyle={styles.center}
+                  onPress={openWalkFromHero}
+                >
+                  <Text style={styles.secondaryText}>
+                    {tr(language, 'Открыть историческую прогулку', 'Open historic walk', '打开历史路线')}
+                  </Text>
+                </PhysicalPressable>
+              </View>
+
+              <PhysicalPressable
+                style={styles.secondary}
+                contentStyle={styles.center}
+                onPress={() => setTab('trip')}
+                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
+              >
+                <Text style={styles.secondaryText}>
+                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
+                </Text>
+              </PhysicalPressable>
+
+              <NearbyNow
+                language={language}
+                visitedIds={visitedIds}
+                onOpenPlace={(id) => {
+                  void trackTouristEvent({ event: 'nearby_open', placeId: id, language });
+                  selectPlace(id);
+                  setTab('discover');
+                }}
+                onStartFreeWalk={(plan) => startTouristPlan(plan, 'nearby')}
+              />
+
+              <TouristRoutePlanner
+                language={language}
+                mustSeeIds={savedIds}
+                onPreview={previewTouristPlan}
+                onStart={(plan) => startTouristPlan(plan, 'planner')}
+              />
+
+              <Text style={styles.sectionTitle}>{ui.places}</Text>
+              {pilotPlaces.map((place, index) => (
+                <PhysicalPressable
+                  key={place.id}
+                  style={[styles.placeCard, place.id === selectedId && styles.placeCardActive]}
+                  contentStyle={styles.placeCardContent}
+                  onPress={() => selectPlace(place.id)}
+                  accessibilityLabel={place.title}
+                >
+                  <View style={styles.placeNumber}><Text style={styles.placeNumberText}>{String(index + 1).padStart(2, '0')}</Text></View>
+                  <View style={styles.placeCopy}>
+                    <Text style={styles.placeTitle}>{place.title}</Text>
+                    <Text style={styles.placeSubtitle}>{place.subtitle}</Text>
+                    <Text style={styles.placeMeta}>{place.district} · {place.experienceMinutes} min</Text>
+                  </View>
+                </PhysicalPressable>
+              ))}
+
+
+                </>
               )}
             </>
           )}
@@ -969,7 +985,8 @@ export default function MoscowExperienceApp() {
 
       <View style={styles.nav}>
         {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
-          <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
+          <PhysicalPressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} accessibilityLabel={tabLabels[item]} style={[styles.navItem, tab === item && styles.navItemActive]} contentStyle={styles.navContent} hapticEvent="none" onPress={() => setTab(item)}>
+            <Text style={[styles.navIcon, tab === item && styles.navIconActive]}>{tabIcons[item]}</Text>
             <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
           </PhysicalPressable>
         ))}
@@ -1016,15 +1033,15 @@ export default function MoscowExperienceApp() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#090b0d' },
+  root: { flex: 1, backgroundColor: '#101716' },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  header: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#292d33' },
+  header: { paddingHorizontal: 22, paddingTop: 11, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#273330' },
   headerCopy: { flex: 1 },
-  brand: { color: '#979aa2', fontSize: 9, letterSpacing: 2, fontWeight: '900' },
-  headerTitle: { color: '#f7f3eb', fontSize: 27, fontWeight: '900', marginTop: 2 },
+  brand: { color: '#b9a487', fontSize: 9, letterSpacing: 1.5, fontWeight: '700' },
+  headerTitle: { color: '#f7f3eb', fontSize: 25, fontWeight: '700', marginTop: 3 },
   language: { width: 48, height: 44, borderRadius: 22, backgroundColor: '#20242a' },
   languageText: { color: '#e7c98f', fontSize: 11, fontWeight: '900' },
-  content: { padding: 18, paddingBottom: 120 },
+  content: { padding: 18, paddingBottom: 132, alignSelf: 'center', width: '100%', maxWidth: 900 },
   hero: { borderRadius: 27, padding: 22, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#31353b', marginBottom: 22 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginBottom: 7 },
   heroTitle: { color: '#fff8ea', fontSize: 29, lineHeight: 35, fontWeight: '900' },
@@ -1088,6 +1105,9 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: '#d7bb84' },
   pauseWalk: { minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#444a51', marginTop: 12 },
   pauseWalkText: { color: '#a7abb1', fontSize: 9, fontWeight: '900' },
+  planningToolsHeading: { marginTop: 18, marginBottom: 14, paddingHorizontal: 3 },
+  planningToolsEyebrow: { color: '#bba77e', fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
+  planningToolsTitle: { color: '#f5efe5', fontSize: 23, fontWeight: '700', marginTop: 5 },
   citywideBoundary: {
     marginTop: 14,
     marginBottom: 18,
@@ -1116,10 +1136,14 @@ const styles = StyleSheet.create({
   statLabel: { color: '#858b93', fontSize: 8, lineHeight: 11, marginTop: 2 },
   empty: { borderRadius: 20, borderWidth: 1, borderColor: '#30353b', backgroundColor: '#14171b', padding: 20 },
   emptyText: { color: '#999ea6', textAlign: 'center' },
-  nav: { position: 'absolute', left: 10, right: 10, bottom: 8, minHeight: 67, borderRadius: 23, backgroundColor: 'rgba(18,21,25,0.97)', borderWidth: 1, borderColor: '#343941', flexDirection: 'row', padding: 6 },
-  navItem: { flex: 1, borderRadius: 17 },
-  navText: { color: '#7d828a', fontSize: 9, fontWeight: '900', textAlign: 'center' },
-  navTextActive: { color: '#e9cb91' },
+  nav: { position: 'absolute', left: 12, right: 12, bottom: 10, minHeight: 76, borderRadius: 25, backgroundColor: 'rgba(24,33,31,0.98)', borderWidth: 1, borderColor: '#3a4842', flexDirection: 'row', padding: 7, alignSelf: 'center', maxWidth: 700 },
+  navItem: { flex: 1, borderRadius: 18, minHeight: 58 },
+  navItemActive: { backgroundColor: '#33473d' },
+  navContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, gap: 3 },
+  navIcon: { color: '#a2a9a3', fontSize: 22, fontWeight: '500', lineHeight: 25 },
+  navIconActive: { color: '#f0d4a0' },
+  navText: { color: '#b1bab1', fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  navTextActive: { color: '#f7e9d1', fontWeight: '700' },
   spatialRoot: { flex: 1, backgroundColor: '#000' },
   back3d: { position: 'absolute', left: 16, bottom: 24, minHeight: 44, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14 },
   back3dText: { color: '#e5c78d', fontSize: 10, fontWeight: '900' }
