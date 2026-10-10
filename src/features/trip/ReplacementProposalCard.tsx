@@ -44,13 +44,15 @@ export default function ReplacementProposalCard({
   language,
   onAccept,
   onVerifyRouting,
-  verifyingProposalId
+  verifyingProposalId,
+  actionError
 }: {
   sets: DayReplacementProposalSet[];
   language: AppLanguage;
   onAccept: (proposal: DayReplacementProposal) => void;
   onVerifyRouting?: (proposal: DayReplacementProposal) => void;
   verifyingProposalId?: string | null;
+  actionError?: string;
 }) {
   if (sets.length === 0) return null;
 
@@ -68,6 +70,13 @@ export default function ReplacementProposalCard({
           '候选项只来自当前来源事实。只有验证必要路线并保持固定门票/预订不变后，才能确认替换。'
         )}
       </Text>
+
+      {actionError ? (
+        <View style={styles.errorBox} testID="replacement-action-error">
+          <Text style={styles.errorTitle}>REPLACEMENT ACTION BLOCKED</Text>
+          <Text style={styles.errorText}>{actionError}</Text>
+        </View>
+      ) : null}
 
       {sets.map((set) => (
         <View key={set.disruptionId} style={styles.set}>
@@ -173,6 +182,9 @@ const styles = StyleSheet.create({
   kicker: { color: '#99b8a7', fontSize: 7.5, fontWeight: '900', letterSpacing: 1 },
   title: { color: '#edf1ed', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 5 },
   body: { color: '#8f9f96', fontSize: 8.5, lineHeight: 13, marginTop: 5 },
+  errorBox: { borderRadius: 10, borderWidth: 1, borderColor: '#69483e', backgroundColor: '#251715', padding: 8, marginTop: 9 },
+  errorTitle: { color: '#e2a08f', fontSize: 7, fontWeight: '900', letterSpacing: 0.6 },
+  errorText: { color: '#c8a79e', fontSize: 8, lineHeight: 12, marginTop: 3 },
   set: { marginTop: 10 },
   blocked: { color: '#b89a75', fontSize: 8.5, lineHeight: 13 },
   proposal: {
