@@ -68,7 +68,7 @@ function liveProjection(status: 'closed' | 'open' | 'rescheduled') {
       id: 'tretyakov-official',
       name: 'Государственная Третьяковская галерея',
       relationship: 'official',
-      capabilities: ['inventory', 'operational-status', 'opening-hours'],
+      capabilities: ['inventory', 'operational-status', 'opening-hours', 'event-schedule'],
       sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
       attributionRu: 'Источник',
       attributionEn: 'Source',
@@ -87,7 +87,13 @@ function liveProjection(status: 'closed' | 'open' | 'rescheduled') {
       sourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/novaya-tretyakovka/',
       observedAt: '2026-10-10T06:09:00.000Z',
       expiresAt: '2026-10-10T06:39:00.000Z',
-      operationalStatus: status
+      operationalStatus: status,
+      ...(status === 'rescheduled'
+        ? {
+            startsAt: '2026-10-10T12:30:00+03:00',
+            endsAt: '2026-10-10T14:30:00+03:00'
+          }
+        : {})
     }]
   }, '2026-10-10T06:10:00.000Z');
 }
