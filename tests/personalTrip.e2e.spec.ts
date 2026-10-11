@@ -1056,7 +1056,8 @@ test('source-backed replacement becomes executable after current route verificat
   await page.reload();
   await ensureRussian(page);
   await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Новая Третьяковка → Алексей Боголюбов/)).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
   const persisted = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
   expect(persisted.replacementReceipts).toHaveLength(1);
