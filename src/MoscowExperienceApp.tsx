@@ -230,6 +230,7 @@ export default function MoscowExperienceApp() {
         setLensOpacity(parsed.lensOpacity);
         setLensVisible(parsed.lensVisible);
         setSelectedId(parsed.selectedId);
+        setHeritageStoryOpen(parsed.heritageStoryOpen === true);
         setTab(parsed.tab);
         setTimeValue(parsed.timeValue);
         setEra(parsed.era);
@@ -333,10 +334,11 @@ export default function MoscowExperienceApp() {
       routeCompletedStopIds,
       routeFinished,
       missionDoneIds,
-      walkAutoAudio
+      walkAutoAudio,
+      heritageStoryOpen
     };
     AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+  }, [era, hydrated, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -345,6 +347,7 @@ export default function MoscowExperienceApp() {
       if (nextEra) setEra(nextEra);
     }
     setSelectedId(id);
+    setHeritageStoryOpen(true);
     setMapSheetState('preview');
   };
 
