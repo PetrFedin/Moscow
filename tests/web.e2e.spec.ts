@@ -215,3 +215,25 @@ test('companion moment: curated walk shows real stops and requires explicit star
   });
   expect(routeAfterReload).toEqual(routeBeforeReload);
 });
+
+test('city directory selection requires consent and stays a place, never a provider ticket', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Найдите повод выйти в город', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Третьяковская галерея' }).click();
+  await expect(page.getByRole('button', { name: 'Проверить официальный сайт' })).toBeVisible();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  await expect(page.getByText(/После создания поездки подтвердите добавление/)).toBeVisible();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-14');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('Добавить в выбранный день?', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Подтвердить добавление места' }).click();
+  await expect(page.getByText('Добавить в выбранный день?', { exact: true })).toHaveCount(0);
+  const snapshot = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  const museum = snapshot.items.find((item: {title:string}) => item.title === 'Третьяковская галерея');
+  expect(museum).toBeTruthy();
+  expect(museum.commitment).toBeUndefined();
+  expect(museum.kind).toBe('museum');
+  await page.reload();
+  await expect(page.getByText('Третьяковская галерея', { exact: true }).first()).toBeVisible();
+});
