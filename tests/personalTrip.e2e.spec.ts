@@ -60,6 +60,10 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Я был здесь', { exact: true }).click();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать заметку: Большой театр · мой билет' }).click();
+  await page.getByLabel('Текст личной заметки').fill('Запомнилась атмосфера этого вечера.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 
   await page.reload();
   await ensureRussian(page);
@@ -67,6 +71,7 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 });
 
 
@@ -245,6 +250,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
   await page.getByText('Изменить', { exact: true }).click();
 
@@ -265,6 +271,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await page.reload();
   await ensureRussian(page);
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
   await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
 });
@@ -306,6 +313,7 @@ test('Day Replan requires explicit apply and preserves fixed booking', async ({ 
   await page.getByPlaceholder('21:00').fill('15:00');
   await page.getByText('Добавить в день', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Пересобрать остаток дня', { exact: true })).toBeVisible();
   await page.getByText('Предложить', { exact: true }).click();
 
@@ -1042,4 +1050,21 @@ test('source-backed replacement becomes executable after current route verificat
   expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
   expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
   expect(fixed.commitment.reference).toBe('USER-TICKET');
+
+  expect(stored.replacementReceipts).toHaveLength(1);
+  expect(stored.replacementReceipts[0].before.title).toBe('Новая Третьяковка');
+  expect(stored.replacementReceipts[0].after.title).toBe('Алексей Боголюбов. От Невы до Босфора');
+  expect(stored.replacementReceipts[0].fixedCommitmentsPreserved).toBe(true);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+  const persisted = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(persisted.replacementReceipts).toHaveLength(1);
+  expect(persisted.items.find((item: { id: string }) => item.id === 'fixed-theatre').commitment.reference).toBe('USER-TICKET');
 });

@@ -10,6 +10,7 @@ import {
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
+  updateTripVisitNote,
   summarizePersonalTrip,
   syncRouteCompletedVisits
 } from '../src/travel/personalTrip.ts';
@@ -190,4 +191,23 @@ test('serialized trip can be parsed without upgrading manual evidence', () => {
 
   const restored = parsePersonalTrip(JSON.stringify(trip));
   assert.equal(restored.items[0]?.commitment?.verification, 'user-declared');
+});
+
+test('private visit note survives roundtrip, can be cleared and never upgrades evidence', () => {
+  const visitTrip = recordTripVisit({
+    trip: baseTrip(), visitId: 'visit-note', dayDate: '2026-10-02',
+    visitedAt: now, title: 'Палаты Романовых', evidence: 'user-confirmed', updatedAt: now
+  });
+  const noted = updateTripVisitNote({
+    trip: visitTrip, visitId: 'visit-note',
+    note: '  Красивый фасад и интересная история.  ', updatedAt: '2026-10-02T10:00:00.000Z'
+  });
+  assert.equal(visitTrip.visits[0]?.note, undefined);
+  assert.equal(noted.visits[0]?.note, 'Красивый фасад и интересная история.');
+  assert.equal(noted.visits[0]?.evidence, 'user-confirmed');
+  assert.equal(parsePersonalTrip(JSON.stringify(noted)).visits[0]?.note, noted.visits[0]?.note);
+  const cleared = updateTripVisitNote({ trip: noted, visitId: 'visit-note', note: '   ', updatedAt: '2026-10-02T11:00:00.000Z' });
+  assert.equal(cleared.visits[0]?.note, undefined);
+  assert.throws(() => updateTripVisitNote({trip: noted,visitId:'visit-note',note:'X'.repeat(2001),updatedAt:now}),/2000/);
+  assert.throws(() => parsePersonalTrip(JSON.stringify({...noted,visits:[{...noted.visits[0],note:123}]})),/Invalid visit note/);
 });
