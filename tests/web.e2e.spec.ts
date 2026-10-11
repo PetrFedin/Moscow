@@ -192,7 +192,26 @@ test('companion moment: curated walk shows real stops and requires explicit star
   await page.getByRole('button', { name: 'Выбрать эту прогулку' }).click();
   await expect(page.getByText(/Новая прогулка заменит текущую активную прогулку/)).toBeVisible();
   await page.getByRole('button', { name: 'Подтвердить запуск прогулки' }).click();
-  await expect(page.getByText(/Палаты бояр Романовых/).first()).toBeVisible();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', { exact: true })).toBeVisible();
+  const routeBeforeReload = await page.evaluate(() => {
+    const values = Object.entries(window.localStorage);
+    const match = values.find(([key]) => key.includes('experience'));
+    if (!match) return null;
+    try {
+      const parsed = JSON.parse(match[1]);
+      return { tab: parsed.tab, routeStopIds: parsed.routeStopIds, routeStep: parsed.routeStep };
+    } catch { return null; }
+  });
+  expect(routeBeforeReload?.tab).toBe('walk');
+  expect(routeBeforeReload?.routeStopIds?.length).toBeGreaterThan(0);
+  expect(routeBeforeReload?.routeStep).toBe(0);
   await page.reload();
-  await expect(page.getByText(/Палаты бояр Романовых/).first()).toBeVisible();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', { exact: true })).toBeVisible();
+  const routeAfterReload = await page.evaluate(() => {
+    const match = Object.entries(window.localStorage).find(([key]) => key.includes('experience'));
+    if (!match) return null;
+    const parsed = JSON.parse(match[1]);
+    return { tab: parsed.tab, routeStopIds: parsed.routeStopIds, routeStep: parsed.routeStep };
+  });
+  expect(routeAfterReload).toEqual(routeBeforeReload);
 });
