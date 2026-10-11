@@ -711,12 +711,11 @@ export default function PersonalTripPlanner({
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
-      {tripToolsOpen && <>
-      <TripPreferencesCard
+      {tripToolsOpen && <TripPreferencesCard
         trip={trip}
         language={language}
         onUpdate={setTrip}
-      />
+      />}
 
       <TouristTodayCard
         trip={trip}
@@ -741,14 +740,12 @@ export default function PersonalTripPlanner({
         actionError={replacementActionError}
       />
 
-      <DayReplanCard
+      {tripToolsOpen && <DayReplanCard
         trip={trip}
         dayDate={selectedDay}
         language={language}
         onUpdate={setTrip}
-      />
-
-      </>}
+      />}
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
@@ -767,7 +764,7 @@ export default function PersonalTripPlanner({
         ))}
       </View>
 
-      {tripToolsOpen && dayComposer && (
+      {dayComposer && (
         <DayComposerCard
           projection={dayComposer}
           language={language}
