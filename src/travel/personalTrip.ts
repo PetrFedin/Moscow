@@ -47,6 +47,8 @@ export type PersonalTripVisit = {
   destinationNodeId?: string;
   evidence: 'user-confirmed' | 'route-completed' | 'provider-receipt' | 'proximity';
   evidenceRef?: string;
+  /** Private local-first note entered voluntarily by the traveler. */
+  note?: string;
 };
 
 export type TripPace = 'relaxed' | 'balanced' | 'intensive';
@@ -467,6 +469,24 @@ export function recordTripVisit(input: {
   return touch(next, input.updatedAt);
 }
 
+/** A note never upgrades user-confirmed attendance to provider-verified. */
+export function updateTripVisitNote(input: {
+  trip: PersonalTrip;
+  visitId: string;
+  note: string;
+  updatedAt: string;
+}): PersonalTrip {
+  parseIso(input.updatedAt);
+  if (!input.trip.visits.some((visit) => visit.id === input.visitId)) throw new Error('Visit not found');
+  const normalized = input.note.trim();
+  if (normalized.length > 2000) throw new Error('Visit note exceeds 2000 characters');
+  const next = clone(input.trip);
+  const visit = next.visits.find((candidate) => candidate.id === input.visitId)!;
+  if (normalized) visit.note = normalized;
+  else delete visit.note;
+  return touch(next, input.updatedAt);
+}
+
 export function syncRouteCompletedVisits(input: {
   trip: PersonalTrip;
   pkg: DestinationPackage;
@@ -604,6 +624,9 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   for (const visit of trip.visits) {
     assertTripDay(trip, visit.dayDate);
     parseIso(visit.visitedAt);
+    if (visit.note !== undefined && (typeof visit.note !== 'string' || visit.note.length > 2000)) {
+      throw new Error('Invalid visit note');
+    }
   }
   return clone(trip);
 }
