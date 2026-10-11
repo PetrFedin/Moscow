@@ -5,6 +5,7 @@ import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
+import type { CuratedMoscowPlace } from '../../travel/curatedMoscowPlaces';
 import { buildDayComposerProjection } from '../../travel/dayComposer';
 import { buildDayComposerDisruptionCases } from '../../travel/dayComposerDisruption';
 import {
@@ -71,6 +72,8 @@ type Props = {
   currentRoutingProjection?: ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed>;
   currentRoutingAuthorityUrl?: string;
   onOpenPlace: (placeId: string) => void;
+  selectedDirectoryPlace?: CuratedMoscowPlace | null;
+  onDirectoryPlaceHandled?: () => void;
 };
 
 type CommitmentChoice = 'none' | 'ticket' | 'reservation';
@@ -214,7 +217,9 @@ export default function PersonalTripPlanner({
   currentLiveDestinationProjection,
   currentRoutingProjection,
   currentRoutingAuthorityUrl,
-  onOpenPlace
+  onOpenPlace,
+  selectedDirectoryPlace,
+  onDirectoryPlaceHandled
 }: Props) {
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -525,6 +530,30 @@ export default function PersonalTripPlanner({
     }));
   };
 
+  const addDirectoryPlace = () => {
+    if (!trip || !selectedDirectoryPlace) return;
+    if (trip.items.some((item) => item.dayDate === selectedDay && item.title === selectedDirectoryPlace.titleRu)) {
+      setFormError('Это место уже добавлено в выбранный день');
+      return;
+    }
+    try {
+      setFormError('');
+      const at = new Date().toISOString();
+      setTrip(addManualTripItem({
+        trip,
+        itemId: itemId('directory'),
+        dayDate: selectedDay,
+        title: selectedDirectoryPlace.titleRu,
+        kind: selectedDirectoryPlace.kind === 'park' ? 'activity' : selectedDirectoryPlace.kind,
+        updatedAt: at,
+        note: selectedDirectoryPlace.addressRu + ' · ' + selectedDirectoryPlace.officialUrl
+      }));
+      onDirectoryPlaceHandled?.();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'place-add-failed');
+    }
+  };
+
   const addManual = () => {
     if (!trip || !manualTitle.trim()) return;
     const now = new Date().toISOString();
@@ -651,6 +680,7 @@ export default function PersonalTripPlanner({
           )}
         </Text>
 
+        {selectedDirectoryPlace && <Text style={styles.body}>{tr(language,'После создания поездки подтвердите добавление: ','After creating a trip, confirm this place: ','创建行程后确认添加：') + selectedDirectoryPlace.titleRu}</Text>}
         <Text style={styles.label}>{tr(language, 'ДАТА ПРИЕЗДА', 'ARRIVAL DATE', '抵达日期')}</Text>
         <TextInput
           value={startDateInput}
@@ -704,6 +734,17 @@ export default function PersonalTripPlanner({
         </PhysicalPressable>
       </View>
 
+      {selectedDirectoryPlace && <View style={styles.directoryConfirm}>
+        <Text style={styles.directoryTitle}>{tr(language,'Добавить в выбранный день?','Add to selected day?','添加到选定日期？')}</Text>
+        <Text style={styles.directoryBody}>{selectedDirectoryPlace.titleRu} · {selectedDirectoryPlace.addressRu}</Text>
+        <Text style={styles.directoryBody}>{tr(language,'Это место, не билет и не бронь. Время и часы работы не проверены.','A saved place, not a ticket or reservation. Hours and times are unverified.','只是保存地点，不代表已购票或预订。')}</Text>
+        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} onPress={addDirectoryPlace}>
+          <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
+        </PhysicalPressable>
+        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Отменить выбор места','Cancel place selection','取消选点')} style={styles.reset} contentStyle={styles.center} onPress={onDirectoryPlaceHandled}>
+          <Text style={styles.resetText}>{tr(language,'Отмена','Cancel','取消')}</Text>
+        </PhysicalPressable>
+      </View>}
       <TouristTodayCard
         trip={trip}
         language={language}
@@ -1121,6 +1162,9 @@ export default function PersonalTripPlanner({
 }
 
 const styles = StyleSheet.create({
+  directoryConfirm: { borderWidth: 1, borderColor: '#8b9e80', borderRadius: 20, padding: 16, marginVertical: 12, backgroundColor: '#293c30' },
+  directoryTitle: { color: '#fff3e0', fontSize: 20, fontWeight: '700' },
+  directoryBody: { color: '#d7e4d4', fontSize: 13, lineHeight: 20, marginTop: 8 },
   root: { borderRadius: 26, borderWidth: 1, borderColor: '#343a42', backgroundColor: '#101318', padding: 18, marginBottom: 24 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.35, fontWeight: '900' },
