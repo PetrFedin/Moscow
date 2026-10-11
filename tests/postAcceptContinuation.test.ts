@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { buildPostAcceptContinuation } from '../src/travel/postAcceptContinuation.ts';
 import type { PersonalTrip } from '../src/travel/personalTrip.ts';
 import type { DayReplacementAcceptanceReceipt } from '../src/travel/dayReplacementProposal.ts';
@@ -24,15 +25,15 @@ describe('post-accept continuation', () => {
   it('identifies the next fixed commitment without mutation', () => {
     const original = JSON.stringify(trip);
     const result = buildPostAcceptContinuation({ trip, receipt });
-    expect(result.nextItem?.id).toBe('theatre');
-    expect(result.remainingItemIds).toEqual(['museum', 'theatre']);
-    expect(result.preservedCommitmentItemIds).toEqual(['theatre']);
-    expect(JSON.stringify(trip)).toBe(original);
+    assert.equal(result.nextItem?.id, 'theatre');
+    assert.deepEqual(result.remainingItemIds, ['museum', 'theatre']);
+    assert.deepEqual(result.preservedCommitmentItemIds, ['theatre']);
+    assert.equal(JSON.stringify(trip), original);
   });
   it('fails closed on a changed trip revision', () => {
-    expect(() => buildPostAcceptContinuation({trip: {...trip, updatedAt: '2026-10-10T10:05:00.000Z'}, receipt})).toThrow(/exact accepted trip revision/);
+    assert.throws(() => buildPostAcceptContinuation({trip: {...trip, updatedAt: '2026-10-10T10:05:00.000Z'}, receipt}), /exact accepted trip revision/);
   });
   it('fails closed if the accepted item changed', () => {
-    expect(() => buildPostAcceptContinuation({trip: {...trip, items: [{...trip.items[0]!, destinationNodeId: 'unverified'}, trip.items[1]!]}, receipt})).toThrow(/no longer matches/);
+    assert.throws(() => buildPostAcceptContinuation({trip: {...trip, items: [{...trip.items[0]!, destinationNodeId: 'unverified'}, trip.items[1]!]}, receipt}), /no longer matches/);
   });
 });
