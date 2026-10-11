@@ -26,6 +26,8 @@ export type PersistedExperienceState = {
   routeFinished: boolean;
   missionDoneIds: string[];
   walkAutoAudio: boolean;
+  // Optional for existing v4 snapshots; absent snapshots default to the closed editorial story.
+  heritageStoryOpen?: boolean;
 };
 
 export const EXPERIENCE_STORAGE_KEY = 'moscow:v4:experience';
@@ -135,6 +137,9 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     routeCompletedStopIds,
     routeFinished,
     missionDoneIds: missionArray(input.missionDoneIds),
-    walkAutoAudio: typeof input.walkAutoAudio === 'boolean' ? input.walkAutoAudio : defaultState.walkAutoAudio
+    walkAutoAudio: typeof input.walkAutoAudio === 'boolean' ? input.walkAutoAudio : defaultState.walkAutoAudio,
+    ...(typeof input.heritageStoryOpen === 'boolean'
+      ? { heritageStoryOpen: input.heritageStoryOpen }
+      : {})
   };
 }
