@@ -181,3 +181,18 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
   await page.getByRole('button', { name: 'Открыть историческую прогулку' }).click();
   await expect(page.getByText('WALK · 01', { exact: true })).toBeVisible();
 });
+
+test('companion moment: curated walk shows real stops and requires explicit start confirmation', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await expect(page.getByText('Чем займёмся прямо сейчас?', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Главное за полчаса' }).click();
+  await expect(page.getByText(/редакционная оценка, не подтверждённая навигация/)).toBeVisible();
+  await expect(page.getByText('Палаты бояр Романовых', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Выбрать эту прогулку' }).click();
+  await expect(page.getByText(/Новая прогулка заменит текущую активную прогулку/)).toBeVisible();
+  await page.getByRole('button', { name: 'Подтвердить запуск прогулки' }).click();
+  await expect(page.getByText('Палаты бояр Романовых', { exact: true }).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Палаты бояр Романовых', { exact: true }).first()).toBeVisible();
+});
