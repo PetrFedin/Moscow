@@ -451,6 +451,7 @@ export default function PersonalTripPlanner({
         acceptedAt: new Date().toISOString()
       });
       setTrip(accepted.trip);
+      setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
     } catch (error) {
@@ -1097,12 +1098,42 @@ export default function PersonalTripPlanner({
         </>
       )}
 
+      {(trip.replacementReceipts ?? []).length > 0 && (
+        <View style={styles.receiptPanel}>
+          <Text style={styles.receiptHeading}>{tr(language, 'История изменений маршрута', 'Itinerary change history', '行程变更记录')}</Text>
+          {[...(trip.replacementReceipts ?? [])].reverse().map((receipt) => {
+            const nextFixed = trip.items
+              .filter((item) => item.status === 'planned'
+                && item.id !== receipt.affectedItemId
+                && item.commitment?.status === 'confirmed'
+                && item.plannedStartAt
+                && Date.parse(item.plannedStartAt) >= Date.parse(receipt.after.plannedEndAt))
+              .sort((a, b) => Date.parse(a.plannedStartAt!) - Date.parse(b.plannedStartAt!))[0];
+            return (
+              <View key={receipt.proposalId} style={styles.receiptCard}>
+                <Text style={styles.receiptTitle}>{receipt.before.title} → {receipt.after.title}</Text>
+                <Text style={styles.receiptText}>{tr(language, 'Принято', 'Accepted', '已接受')}: {receipt.acceptedAt}</Text>
+                <Text style={styles.receiptText}>{tr(language, 'Причина', 'Reason', '原因')}: {receipt.disruptionReason ?? tr(language, 'Изменение подтверждено вами', 'User-confirmed change', '用户确认变更')}</Text>
+                <Text style={styles.receiptText}>{tr(language, 'Источник', 'Source', '来源')}: {receipt.sourceProviderName ?? receipt.sourceEvidenceRef}</Text>
+                <Text style={styles.receiptText}>{tr(language, 'Фиксированные билеты сохранены', 'Fixed tickets preserved', '固定门票保持不变')}</Text>
+                {nextFixed && <Text style={styles.receiptNext}>{tr(language, 'Следующий билет или бронь', 'Next fixed commitment', '下一项固定安排')}: {timeLabel(nextFixed.plannedStartAt)} · {nextFixed.title}</Text>}
+              </View>
+            );
+          })}
+        </View>
+      )}
       <MoscowPassportCard trip={trip} language={language} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  receiptPanel: { marginTop: 20, marginBottom: 16, gap: 12 },
+  receiptHeading: { color: '#f4efe6', fontSize: 19, fontWeight: '700' },
+  receiptCard: { backgroundColor: '#1f2c27', borderColor: '#456451', borderWidth: 1, borderRadius: 16, padding: 16, gap: 7 },
+  receiptTitle: { color: '#f3ecda', fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  receiptText: { color: '#cad5cc', fontSize: 12, lineHeight: 19 },
+  receiptNext: { color: '#f2d6a0', fontSize: 13, fontWeight: '700', marginTop: 5 },
   root: { borderRadius: 26, borderWidth: 1, borderColor: '#343a42', backgroundColor: '#101318', padding: 18, marginBottom: 24 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.35, fontWeight: '900' },
