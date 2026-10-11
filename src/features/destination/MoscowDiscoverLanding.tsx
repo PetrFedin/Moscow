@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   root: { marginBottom: 18 },
   hero: { minHeight: 420, justifyContent: 'space-between', overflow: 'hidden', borderRadius: 30, backgroundColor: '#283e3e', padding: 23 },
   heroImage: { borderRadius: 30 },
-  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12,21,23,0.57)' },
+  heroShade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(12,21,23,0.57)' },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   eyebrow: { color: '#fff5df', fontSize: 10, letterSpacing: 1.6, fontWeight: '700' },
   heroWeather: { color: '#f4e3be', fontSize: 10, fontWeight: '500', maxWidth: 138, textAlign: 'right' },
