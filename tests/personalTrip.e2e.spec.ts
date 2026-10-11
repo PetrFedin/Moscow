@@ -142,6 +142,12 @@ test('Tourist Today surfaces the active booking without upgrading manual verific
   await page.getByText('Добавить в день', { exact: true }).click();
 
   await expect(page.getByText('СЕЙЧАС ПО ПЛАНУ', { exact: true })).toBeVisible();
+  // Today is the primary trip surface and shows the active state before secondary diagnostics.
+  const todayTop = await page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true }).boundingBox();
+  const composerTop = await page.getByText('DAY COMPOSER · V2', { exact: true }).boundingBox();
+  expect(todayTop).not.toBeNull();
+  expect(composerTop).not.toBeNull();
+  if (todayTop && composerTop) expect(todayTop.y).toBeLessThan(composerTop.y);
   await expect(page.getByText('Ужин · активная бронь', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
