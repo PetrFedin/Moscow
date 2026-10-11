@@ -508,9 +508,7 @@ export function acceptDayReplacementProposal(input: {
 
   assertFixedCommitmentsUnchanged(next, input.disruption);
 
-  return {
-    trip: next,
-    receipt: {
+  const receipt: DayReplacementAcceptanceReceipt = {
       schemaVersion: DAY_REPLACEMENT_PROPOSAL_SCHEMA_VERSION,
       proposalId: input.proposal.id,
       disruptionId: input.disruption.id,
@@ -530,10 +528,11 @@ export function acceptDayReplacementProposal(input: {
         input.proposal.inboundRoute?.routeObservationId,
         input.proposal.outboundRoute?.routeObservationId
       ].filter((value): value is string => Boolean(value)),
-      fixedCommitmentsPreserved: true as const,
+      fixedCommitmentsPreserved: true,
       disruptionReason: input.disruption.disruption.reason,
       sourceProviderName: input.proposal.candidate.providerName,
       sourceUrl: input.proposal.candidate.sourceUrl
-    } satisfies DayReplacementAcceptanceReceipt
   };
+  next.replacementReceipts = [...(next.replacementReceipts ?? []), receipt];
+  return { trip: next, receipt };
 }
