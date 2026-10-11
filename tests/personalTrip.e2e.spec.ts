@@ -60,6 +60,10 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Я был здесь', { exact: true }).click();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать заметку: Большой театр · мой билет' }).click();
+  await page.getByLabel('Текст личной заметки').fill('Запомнилась атмосфера этого вечера.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 
   await page.reload();
   await ensureRussian(page);
@@ -67,6 +71,7 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 });
 
 
