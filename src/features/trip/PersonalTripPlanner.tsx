@@ -450,10 +450,7 @@ export default function PersonalTripPlanner({
         proposal,
         acceptedAt: new Date().toISOString()
       });
-      setTrip({
-        ...accepted.trip,
-        replacementReceipts: [...(trip.replacementReceipts ?? []), accepted.receipt]
-      });
+      setTrip(accepted.trip);
       setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
