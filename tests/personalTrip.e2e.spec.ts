@@ -266,6 +266,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await page.reload();
   await ensureRussian(page);
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
   await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
 });
