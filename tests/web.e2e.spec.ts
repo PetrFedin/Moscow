@@ -195,7 +195,7 @@ test('companion moment: curated walk shows real stops and requires explicit star
   await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', { exact: true })).toBeVisible();
   const routeBeforeReload = await page.evaluate(() => {
     const values = Object.entries(window.localStorage);
-    const match = values.find(([key]) => key.includes('experience'));
+    const match = values.find(([key]) => key === 'moscow:v4:experience');
     if (!match) return null;
     try {
       const parsed = JSON.parse(match[1]);
@@ -208,7 +208,7 @@ test('companion moment: curated walk shows real stops and requires explicit star
   await page.reload();
   await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', { exact: true })).toBeVisible();
   const routeAfterReload = await page.evaluate(() => {
-    const match = Object.entries(window.localStorage).find(([key]) => key.includes('experience'));
+    const match = Object.entries(window.localStorage).find(([key]) => key === 'moscow:v4:experience');
     if (!match) return null;
     const parsed = JSON.parse(match[1]);
     return { tab: parsed.tab, routeStopIds: parsed.routeStopIds, routeStep: parsed.routeStep };
