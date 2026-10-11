@@ -657,6 +657,31 @@ export default function MoscowExperienceApp() {
                   </View>
                   <Text style={styles.storyBody}>{selected.shortStory}</Text>
 
+                  <Text style={styles.relatedHeading}>
+                    {tr(language, 'Продолжить по Варварке', 'Continue along Varvarka', '继续探索瓦尔瓦尔卡')}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.relatedScroll}
+                    contentContainerStyle={styles.relatedList}
+                    accessibilityLabel={tr(language, 'Другие исторические места', 'Other historic places', '其他历史景点')}
+                  >
+                    {pilotPlaces.filter((place) => place.id !== selected.id).map((place) => (
+                      <PhysicalPressable
+                        key={place.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={place.title}
+                        style={styles.relatedPlace}
+                        contentStyle={styles.relatedPlaceContent}
+                        onPress={() => selectPlace(place.id)}
+                      >
+                        <Text numberOfLines={2} style={styles.relatedName}>{place.title}</Text>
+                        <Text style={styles.relatedArrow}>↗</Text>
+                      </PhysicalPressable>
+                    ))}
+                  </ScrollView>
+
                   {selected.periods.length > 0 && selectedExperience.timeMachine === 'ready' && (
                     <View style={styles.timeCard}>
                       <View style={styles.timeTop}>
@@ -1069,6 +1094,13 @@ const styles = StyleSheet.create({
   storyHeaderCopy: { flex: 1 },
   storyTitle: { color: '#fff8ea', fontSize: 24, lineHeight: 29, fontWeight: '900' },
   storyBody: { color: '#b1b4ba', fontSize: 14, lineHeight: 21, marginTop: 9, marginBottom: 16 },
+  relatedHeading: { color: '#e4d5ba', fontSize: 12, fontWeight: '700', marginBottom: 9 },
+  relatedScroll: { marginBottom: 17 },
+  relatedList: { gap: 8, paddingRight: 10 },
+  relatedPlace: { minWidth: 152, maxWidth: 188, minHeight: 57, borderRadius: 13, backgroundColor: '#242d2b', borderWidth: 1, borderColor: '#46534b' },
+  relatedPlaceContent: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  relatedName: { flex: 1, color: '#f5ead6', fontSize: 11, lineHeight: 15, fontWeight: '700' },
+  relatedArrow: { color: '#d9c18f', fontSize: 17 },
   saveIcon: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: '#484e56' },
   saveIconText: { color: '#e3c17d', fontSize: 25 },
   timeCard: { borderRadius: 19, backgroundColor: '#101318', borderWidth: 1, borderColor: '#333840', padding: 14, marginBottom: 18 },
