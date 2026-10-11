@@ -12,7 +12,7 @@ async function ensureRussian(page: import('@playwright/test').Page) {
 
 test('resident journey: two objects → time → lens → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('MOSCOW · CITY OS')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
   await ensureRussian(page);
 
   await page.getByText('Карта', { exact: true }).last().click();
@@ -158,7 +158,8 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
   await page.goto('/');
   await ensureRussian(page);
 
-  await expect(page.getByText('МОСКВА · ГОРОДСКАЯ ОПЕРАЦИОННАЯ СИСТЕМА', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
   await expect(page.getByText('Спланируйте Москву под себя', { exact: true })).toBeVisible();
   await expect(page.getByText('MOSCOW CITY PLANNER', { exact: true })).toBeVisible();
   await expect(page.getByText('Соберите свой день в Москве', { exact: true })).toBeVisible();
@@ -172,6 +173,7 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
   await expect(page.getByText('МОЯ ПОЕЗДКА', { exact: true })).toBeVisible();
 
   await page.getByText('Открыть', { exact: true }).last().click();
+  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
   await expect(page.getByText('ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Открыть историческую прогулку' }).click();
   await expect(page.getByText('WALK · 01', { exact: true })).toBeVisible();
