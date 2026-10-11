@@ -173,7 +173,10 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
   await expect(page.getByText('МОЯ ПОЕЗДКА', { exact: true })).toBeVisible();
 
   await page.getByText('Открыть', { exact: true }).last().click();
-  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
+  // Disclosure state is retained when returning from My Trip; do not toggle it closed.
+  if (!(await page.getByText('ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', { exact: true }).isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
+  }
   await expect(page.getByText('ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Открыть историческую прогулку' }).click();
   await expect(page.getByText('WALK · 01', { exact: true })).toBeVisible();
