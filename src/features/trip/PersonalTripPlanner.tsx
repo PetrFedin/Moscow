@@ -704,6 +704,14 @@ export default function PersonalTripPlanner({
         </PhysicalPressable>
       </View>
 
+      <TouristTodayCard
+        trip={trip}
+        language={language}
+        visitedIds={visitedIds}
+        onOpenPlace={onOpenPlace}
+        onManageTrip={() => setTripToolsOpen(true)}
+      />
+
       {summary && (
         <View style={styles.metrics}>
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.dayCount}</Text><Text style={styles.metricLabel}>{tr(language, 'дней', 'days', '天')}</Text></View>
@@ -722,12 +730,7 @@ export default function PersonalTripPlanner({
         onUpdate={setTrip}
       />}
 
-      <TouristTodayCard
-        trip={trip}
-        language={language}
-        visitedIds={visitedIds}
-        onOpenPlace={onOpenPlace}
-      />
+
 
       <BookingWalletCard trip={trip} language={language} />
 
