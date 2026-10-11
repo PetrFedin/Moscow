@@ -6,6 +6,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  useWindowDimensions,
   StyleSheet,
   Text,
   View
@@ -142,6 +143,7 @@ const evidenceLabel = {
 } as const;
 
 export default function MoscowExperienceApp() {
+  const { width: viewportWidth } = useWindowDimensions();
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
   const [exploreToolsOpen, setExploreToolsOpen] = useState(false);
@@ -1013,7 +1015,7 @@ export default function MoscowExperienceApp() {
         </ScrollView>
       )}
 
-      <View style={styles.nav}>
+      <View style={[styles.nav, { width: Math.min(700, Math.max(280, viewportWidth - 24)), left: Math.max(12, (viewportWidth - Math.min(700, viewportWidth - 24)) / 2) }]}>
         {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
           <PhysicalPressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} accessibilityLabel={tabLabels[item]} style={[styles.navItem, tab === item && styles.navItemActive]} contentStyle={styles.navContent} hapticEvent="none" onPress={() => setTab(item)}>
             <Text style={[styles.navIcon, tab === item && styles.navIconActive]}>{tabIcons[item]}</Text>
@@ -1173,7 +1175,7 @@ const styles = StyleSheet.create({
   statLabel: { color: '#858b93', fontSize: 8, lineHeight: 11, marginTop: 2 },
   empty: { borderRadius: 20, borderWidth: 1, borderColor: '#30353b', backgroundColor: '#14171b', padding: 20 },
   emptyText: { color: '#999ea6', textAlign: 'center' },
-  nav: { position: 'absolute', left: 12, right: 12, bottom: 10, minHeight: 76, borderRadius: 25, backgroundColor: 'rgba(24,33,31,0.98)', borderWidth: 1, borderColor: '#3a4842', flexDirection: 'row', padding: 7, alignSelf: 'center', maxWidth: 700 },
+  nav: { position: 'absolute', bottom: 10, minHeight: 76, borderRadius: 25, backgroundColor: 'rgba(24,33,31,0.98)', borderWidth: 1, borderColor: '#3a4842', flexDirection: 'row', padding: 7, maxWidth: 700 },
   navItem: { flex: 1, borderRadius: 18, minHeight: 58 },
   navItemActive: { backgroundColor: '#33473d' },
   navContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, gap: 3 },
