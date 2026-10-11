@@ -160,7 +160,7 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
 
   await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
   await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
-  await expect(page.getByText('Спланируйте Москву под себя', { exact: true })).toBeVisible();
+  await expect(page.getByText('Планирование и маршруты', { exact: true })).toBeVisible();
   await expect(page.getByText('MOSCOW CITY PLANNER', { exact: true })).toBeVisible();
   await expect(page.getByText('Соберите свой день в Москве', { exact: true })).toBeVisible();
 
