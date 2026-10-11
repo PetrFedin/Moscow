@@ -18,6 +18,8 @@ import { pilotRoute, places, type Place } from './data/places';
 import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
 import CitywideDiscoveryCard from './features/destination/CitywideDiscoveryCard';
 import MoscowDiscoverLanding from './features/destination/MoscowDiscoverLanding';
+import CuratedMoscowDirectory from './features/destination/CuratedMoscowDirectory';
+import type { CuratedMoscowPlace } from './travel/curatedMoscowPlaces';
 import MoscowMomentFinder from './features/destination/MoscowMomentFinder';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
@@ -147,6 +149,7 @@ export default function MoscowExperienceApp() {
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
   const [exploreToolsOpen, setExploreToolsOpen] = useState(false);
+  const [chosenDirectoryPlace, setChosenDirectoryPlace] = useState<CuratedMoscowPlace | null>(null);
   const [heritageStoryOpen, setHeritageStoryOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('romanov-chambers');
   const [savedIds, setSavedIds] = useState<string[]>([]);
@@ -648,6 +651,7 @@ export default function MoscowExperienceApp() {
                 planningToolsOpen={exploreToolsOpen}
               />
               <MoscowMomentFinder language={language} savedIds={savedIds} onStartWalk={(plan) => startTouristPlan(plan, 'planner')} />
+              <CuratedMoscowDirectory language={language} onRequestAdd={(place)=>{setChosenDirectoryPlace(place);setTab('trip');}} />
               {heritageStoryOpen && selected && (
                 <View style={styles.storyCard}>
                   <View style={styles.storyHeader}>
@@ -976,6 +980,8 @@ export default function MoscowExperienceApp() {
           {tab === 'trip' && (
             <PersonalTripPlanner
               language={language}
+              selectedDirectoryPlace={chosenDirectoryPlace}
+              onDirectoryPlaceHandled={() => setChosenDirectoryPlace(null)}
               savedIds={savedIds}
               visitedIds={visitedIds}
               currentLiveDestinationProjection={currentLiveResult?.projection}
