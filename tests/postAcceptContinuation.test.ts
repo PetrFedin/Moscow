@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildPostAcceptContinuation } from '../src/travel/postAcceptContinuation.ts';
-import type { PersonalTrip } from '../src/travel/personalTrip.ts';
+import { parsePersonalTrip, type PersonalTrip } from '../src/travel/personalTrip.ts';
 import type { DayReplacementAcceptanceReceipt } from '../src/travel/dayReplacementProposal.ts';
 
 const acceptedAt = '2026-10-10T10:00:00.000Z';
@@ -35,5 +35,25 @@ describe('post-accept continuation', () => {
   });
   it('fails closed if the accepted item changed', () => {
     assert.throws(() => buildPostAcceptContinuation({trip: {...trip, items: [{...trip.items[0]!, destinationNodeId: 'unverified'}, trip.items[1]!]}, receipt}), /no longer matches/);
+  });
+});
+
+describe('replacement receipt persistence', () => {
+  it('round-trips accepted history with fixed theatre commitment untouched', () => {
+    const record = { ...trip, replacementReceipts: [receipt] };
+    const restored = parsePersonalTrip(JSON.stringify(record));
+    assert.deepEqual(restored.replacementReceipts, [receipt]);
+    assert.deepEqual(restored.items.find(item => item.id === 'theatre'), trip.items.find(item => item.id === 'theatre'));
+    restored.replacementReceipts![0]!.routeObservationIds.push('mutated');
+    assert.deepEqual(receipt.routeObservationIds, ['route-proof']);
+  });
+  it('loads legacy trip snapshots without acceptance history', () => {
+    const restored = parsePersonalTrip(JSON.stringify(trip));
+    assert.equal(restored.replacementReceipts, undefined);
+  });
+  it('rejects duplicate, malformed or forged receipt history', () => {
+    assert.throws(() => parsePersonalTrip(JSON.stringify({ ...trip, replacementReceipts: [receipt, receipt] })), /Duplicate replacement acceptance receipt/);
+    assert.throws(() => parsePersonalTrip(JSON.stringify({ ...trip, replacementReceipts: [{ ...receipt, fixedCommitmentsPreserved: false }] })), /Invalid replacement acceptance receipt/);
+    assert.throws(() => parsePersonalTrip(JSON.stringify({ ...trip, replacementReceipts: 'corrupt' })), /Invalid replacement receipt collection/);
   });
 });
