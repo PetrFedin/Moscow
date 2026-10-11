@@ -146,3 +146,19 @@ test('Chinese language choice survives persistence and Russian remains default a
   assert.equal(nextLanguage('en'), 'zh');
   assert.equal(nextLanguage('zh'), 'ru');
 });
+
+
+test('editorial story state survives reload without breaking legacy v4 snapshots', () => {
+  const open = normalizeExperienceSnapshot({
+    selectedId: 'old-english-court',
+    heritageStoryOpen: true
+  });
+  assert.equal(open.selectedId, 'old-english-court');
+  assert.equal(open.heritageStoryOpen, true);
+  const closed = normalizeExperienceSnapshot({ heritageStoryOpen: false });
+  assert.equal(closed.heritageStoryOpen, false);
+  const legacy = normalizeExperienceSnapshot({ selectedId: 'romanov-chambers' });
+  assert.equal(legacy.heritageStoryOpen, undefined);
+  const malformed = normalizeExperienceSnapshot({ heritageStoryOpen: 'true' });
+  assert.equal(malformed.heritageStoryOpen, undefined);
+});
