@@ -245,6 +245,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
   await page.getByText('Изменить', { exact: true }).click();
 
@@ -306,6 +307,7 @@ test('Day Replan requires explicit apply and preserves fixed booking', async ({ 
   await page.getByPlaceholder('21:00').fill('15:00');
   await page.getByText('Добавить в день', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Пересобрать остаток дня', { exact: true })).toBeVisible();
   await page.getByText('Предложить', { exact: true }).click();
 
