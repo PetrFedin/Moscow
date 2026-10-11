@@ -38,6 +38,7 @@ import {
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
+  updateTripVisitNote,
   summarizePersonalTrip,
   syncRouteCompletedVisits,
   type PersonalTrip,
@@ -50,6 +51,8 @@ import {
 } from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
+import TripJourneyOverview from './TripJourneyOverview';
+import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
@@ -219,6 +222,7 @@ export default function PersonalTripPlanner({
   const [startDateInput, setStartDateInput] = useState(localDateOnly());
   const [durationDays, setDurationDays] = useState<(typeof durationOptions)[number]>(3);
   const [manualOpen, setManualOpen] = useState(false);
+  const [tripToolsOpen, setTripToolsOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
   const [manualTime, setManualTime] = useState('19:00');
@@ -451,6 +455,7 @@ export default function PersonalTripPlanner({
         acceptedAt: new Date().toISOString()
       });
       setTrip(accepted.trip);
+      setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
     } catch (error) {
@@ -699,6 +704,14 @@ export default function PersonalTripPlanner({
         </PhysicalPressable>
       </View>
 
+      <TouristTodayCard
+        trip={trip}
+        language={language}
+        visitedIds={visitedIds}
+        onOpenPlace={onOpenPlace}
+        onManageTrip={() => setTripToolsOpen(true)}
+      />
+
       {summary && (
         <View style={styles.metrics}>
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.dayCount}</Text><Text style={styles.metricLabel}>{tr(language, 'дней', 'days', '天')}</Text></View>
@@ -707,18 +720,17 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
-      <TripPreferencesCard
+      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+
+      <TripAcceptanceHistoryCard trip={trip} language={language} />
+
+      {tripToolsOpen && <TripPreferencesCard
         trip={trip}
         language={language}
         onUpdate={setTrip}
-      />
+      />}
 
-      <TouristTodayCard
-        trip={trip}
-        language={language}
-        visitedIds={visitedIds}
-        onOpenPlace={onOpenPlace}
-      />
+
 
       <BookingWalletCard trip={trip} language={language} />
 
@@ -736,12 +748,12 @@ export default function PersonalTripPlanner({
         actionError={replacementActionError}
       />
 
-      <DayReplanCard
+      {tripToolsOpen && <DayReplanCard
         trip={trip}
         dayDate={selectedDay}
         language={language}
         onUpdate={setTrip}
-      />
+      />}
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
@@ -1097,7 +1109,13 @@ export default function PersonalTripPlanner({
         </>
       )}
 
-      <MoscowPassportCard trip={trip} language={language} />
+      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={(visitId, note) => {
+        try {
+          setTrip(updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() }));
+        } catch {
+          setFormError('visit-note-save-failed');
+        }
+      }} />
     </View>
   );
 }

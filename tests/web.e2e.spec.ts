@@ -12,7 +12,7 @@ async function ensureRussian(page: import('@playwright/test').Page) {
 
 test('resident journey: two objects → time → lens → 3D → spatial → interruptible portal demo → back', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('MOSCOW · CITY OS')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
   await ensureRussian(page);
 
   await page.getByText('Карта', { exact: true }).last().click();
@@ -158,8 +158,9 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
   await page.goto('/');
   await ensureRussian(page);
 
-  await expect(page.getByText('МОСКВА · ГОРОДСКАЯ ОПЕРАЦИОННАЯ СИСТЕМА', { exact: true })).toBeVisible();
-  await expect(page.getByText('Спланируйте Москву под себя', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
+  await expect(page.getByText('Планирование и маршруты', { exact: true })).toBeVisible();
   await expect(page.getByText('MOSCOW CITY PLANNER', { exact: true })).toBeVisible();
   await expect(page.getByText('Соберите свой день в Москве', { exact: true })).toBeVisible();
 
@@ -172,7 +173,45 @@ test('citywide planner is the primary Moscow entry and heritage is a secondary l
   await expect(page.getByText('МОЯ ПОЕЗДКА', { exact: true })).toBeVisible();
 
   await page.getByText('Открыть', { exact: true }).last().click();
+  // Disclosure state is retained when returning from My Trip; do not toggle it closed.
+  if (!(await page.getByText('ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', { exact: true }).isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
+  }
   await expect(page.getByText('ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Открыть историческую прогулку' }).click();
   await expect(page.getByText('WALK · 01', { exact: true })).toBeVisible();
+});
+
+test('companion moment: curated walk shows real stops and requires explicit start confirmation', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await expect(page.getByText('Чем займёмся прямо сейчас?', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Главное за полчаса' }).click();
+  await expect(page.getByText(/редакционная оценка, не подтверждённая навигация/)).toBeVisible();
+  await expect(page.getByText(/Палаты бояр Романовых/).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Выбрать эту прогулку' }).click();
+  await expect(page.getByText(/Новая прогулка заменит текущую активную прогулку/)).toBeVisible();
+  await page.getByRole('button', { name: 'Подтвердить запуск прогулки' }).click();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', { exact: true })).toBeVisible();
+  const routeBeforeReload = await page.evaluate(() => {
+    const values = Object.entries(window.localStorage);
+    const match = values.find(([key]) => key === 'moscow:v4:experience');
+    if (!match) return null;
+    try {
+      const parsed = JSON.parse(match[1]);
+      return { tab: parsed.tab, routeStopIds: parsed.routeStopIds, routeStep: parsed.routeStep };
+    } catch { return null; }
+  });
+  expect(routeBeforeReload?.tab).toBe('walk');
+  expect(routeBeforeReload?.routeStopIds?.length).toBeGreaterThan(0);
+  expect(routeBeforeReload?.routeStep).toBe(0);
+  await page.reload();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', { exact: true })).toBeVisible();
+  const routeAfterReload = await page.evaluate(() => {
+    const match = Object.entries(window.localStorage).find(([key]) => key === 'moscow:v4:experience');
+    if (!match) return null;
+    const parsed = JSON.parse(match[1]);
+    return { tab: parsed.tab, routeStopIds: parsed.routeStopIds, routeStep: parsed.routeStep };
+  });
+  expect(routeAfterReload).toEqual(routeBeforeReload);
 });

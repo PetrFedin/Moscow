@@ -278,6 +278,15 @@ test('explicit acceptance replaces only the affected item and preserves the fixe
   assert.equal(affected.plannedStartAt, '2026-10-10T12:00:00+03:00');
   assert.equal(affected.plannedEndAt, '2026-10-10T14:00:00+03:00');
   assert.deepEqual(fixedAfter, fixedBefore);
+  assert.equal(accepted.trip.replacementReceipts?.length, 1);
+  assert.deepEqual(accepted.trip.replacementReceipts?.[0], accepted.receipt);
+  assert.equal(trip.replacementReceipts, undefined);
+  assert.throws(() => acceptDayReplacementProposal({
+    trip: accepted.trip,
+    disruption,
+    proposal,
+    acceptedAt: '2026-10-10T06:12:00.000Z'
+  }), /already accepted/);
   assert.equal(accepted.receipt.fixedCommitmentsPreserved, true);
   assert.deepEqual(
     accepted.receipt.routeObservationIds.sort(),
