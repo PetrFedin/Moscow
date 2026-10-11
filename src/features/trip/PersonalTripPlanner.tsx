@@ -50,6 +50,7 @@ import {
 } from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
+import TripJourneyOverview from './TripJourneyOverview';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
@@ -219,6 +220,7 @@ export default function PersonalTripPlanner({
   const [startDateInput, setStartDateInput] = useState(localDateOnly());
   const [durationDays, setDurationDays] = useState<(typeof durationOptions)[number]>(3);
   const [manualOpen, setManualOpen] = useState(false);
+  const [tripToolsOpen, setTripToolsOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
   const [manualTime, setManualTime] = useState('19:00');
@@ -707,6 +709,9 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
+      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+
+      {tripToolsOpen && <>
       <TripPreferencesCard
         trip={trip}
         language={language}
@@ -743,6 +748,8 @@ export default function PersonalTripPlanner({
         onUpdate={setTrip}
       />
 
+      </>}
+
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
         {trip.days.map((day, index) => (
@@ -760,7 +767,7 @@ export default function PersonalTripPlanner({
         ))}
       </View>
 
-      {dayComposer && (
+      {tripToolsOpen && dayComposer && (
         <DayComposerCard
           projection={dayComposer}
           language={language}
