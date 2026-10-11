@@ -17,6 +17,7 @@ import { pilotRoute, places, type Place } from './data/places';
 import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
 import CitywideDiscoveryCard from './features/destination/CitywideDiscoveryCard';
 import MoscowDiscoverLanding from './features/destination/MoscowDiscoverLanding';
+import MoscowMomentFinder from './features/destination/MoscowMomentFinder';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
@@ -644,6 +645,7 @@ export default function MoscowExperienceApp() {
                 onShowPlanningTools={() => setExploreToolsOpen((value) => !value)}
                 planningToolsOpen={exploreToolsOpen}
               />
+              <MoscowMomentFinder language={language} savedIds={savedIds} onStartWalk={(plan) => startTouristPlan(plan, 'planner')} />
               {heritageStoryOpen && selected && (
                 <View style={styles.storyCard}>
                   <View style={styles.storyHeader}>
