@@ -38,6 +38,7 @@ import {
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
+  updateTripVisitNote,
   summarizePersonalTrip,
   syncRouteCompletedVisits,
   type PersonalTrip,
@@ -1105,7 +1106,13 @@ export default function PersonalTripPlanner({
         </>
       )}
 
-      <MoscowPassportCard trip={trip} language={language} />
+      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={(visitId, note) => {
+        try {
+          setTrip(updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() }));
+        } catch {
+          setFormError('visit-note-save-failed');
+        }
+      }} />
     </View>
   );
 }
