@@ -1045,4 +1045,20 @@ test('source-backed replacement becomes executable after current route verificat
   expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
   expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
   expect(fixed.commitment.reference).toBe('USER-TICKET');
+
+  expect(stored.replacementReceipts).toHaveLength(1);
+  expect(stored.replacementReceipts[0].before.title).toBe('Новая Третьяковка');
+  expect(stored.replacementReceipts[0].after.title).toBe('Алексей Боголюбов. От Невы до Босфора');
+  expect(stored.replacementReceipts[0].fixedCommitmentsPreserved).toBe(true);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Новая Третьяковка → Алексей Боголюбов/)).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+  const persisted = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(persisted.replacementReceipts).toHaveLength(1);
+  expect(persisted.items.find((item: { id: string }) => item.id === 'fixed-theatre').commitment.reference).toBe('USER-TICKET');
 });

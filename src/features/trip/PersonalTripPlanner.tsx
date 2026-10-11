@@ -51,6 +51,7 @@ import {
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
+import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
@@ -453,6 +454,7 @@ export default function PersonalTripPlanner({
         acceptedAt: new Date().toISOString()
       });
       setTrip(accepted.trip);
+      setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
     } catch (error) {
@@ -710,6 +712,8 @@ export default function PersonalTripPlanner({
       )}
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+
+      <TripAcceptanceHistoryCard trip={trip} language={language} />
 
       {tripToolsOpen && <TripPreferencesCard
         trip={trip}

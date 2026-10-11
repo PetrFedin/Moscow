@@ -1,5 +1,6 @@
 import type { DestinationPackage, ExperienceNode, ExperienceNodeKind } from './destinationPackage.ts';
 import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
+import type { DayReplacementAcceptanceReceipt } from './dayReplacementProposal.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -96,6 +97,8 @@ export type PersonalTrip = {
   items: PersonalTripItem[];
   visits: PersonalTripVisit[];
   preferences?: PersonalTripPreferences;
+  /** Locally append-only user acceptance records, persisted in the same trip snapshot. */
+  replacementReceipts?: DayReplacementAcceptanceReceipt[];
   createdAt: string;
   updatedAt: string;
 };
@@ -189,6 +192,14 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
     visits: trip.visits.map((visit) => ({ ...visit })),
+    ...(trip.replacementReceipts ? {
+      replacementReceipts: trip.replacementReceipts.map((receipt) => ({
+        ...receipt,
+        before: { ...receipt.before },
+        after: { ...receipt.after },
+        routeObservationIds: [...receipt.routeObservationIds]
+      }))
+    } : {}),
     ...(trip.preferences ? {
       preferences: {
         ...trip.preferences,
@@ -546,6 +557,41 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   if (!Array.isArray(parsed.items) || !Array.isArray(parsed.visits)) throw new Error('Invalid Personal Trip collections');
   if (!parsed.createdAt || !parsed.updatedAt) throw new Error('Invalid Personal Trip timestamps');
   if (parsed.preferences) validatePersonalTripPreferences(parsed.preferences);
+  if (parsed.replacementReceipts !== undefined) {
+    if (!Array.isArray(parsed.replacementReceipts)) throw new Error('Invalid replacement receipt collection');
+    const seenProposals = new Set<string>();
+    for (const receipt of parsed.replacementReceipts) {
+      if (!receipt || typeof receipt !== 'object'
+        || receipt.schemaVersion !== 1
+        || receipt.fixedCommitmentsPreserved !== true
+        || !receipt.proposalId?.trim()
+        || !receipt.disruptionId?.trim()
+        || !receipt.affectedItemId?.trim()
+        || !receipt.sourceEvidenceRef?.trim()
+        || !receipt.before?.title?.trim()
+        || !receipt.before?.kind
+        || !receipt.after?.title?.trim()
+        || !receipt.after?.kind
+        || !receipt.after?.destinationNodeId?.trim()
+        || !receipt.after?.plannedStartAt
+        || !receipt.after?.plannedEndAt
+        || !Array.isArray(receipt.routeObservationIds)
+        || !receipt.routeObservationIds.every((id) => typeof id === 'string' && id.trim().length > 0)
+        || (receipt.disruptionReason !== undefined && !['closed', 'cancelled', 'rescheduled', 'stale'].includes(receipt.disruptionReason))
+        || (receipt.sourceUrl !== undefined && (typeof receipt.sourceUrl !== 'string' || !/^https:\/\//.test(receipt.sourceUrl)))
+        || (receipt.sourceProviderName !== undefined && (typeof receipt.sourceProviderName !== 'string' || !receipt.sourceProviderName.trim()))) {
+        throw new Error('Invalid replacement acceptance receipt');
+      }
+      parseIso(receipt.acceptedAt);
+      parseIso(receipt.baselineUpdatedAt);
+      parseIso(receipt.after.plannedStartAt);
+      parseIso(receipt.after.plannedEndAt);
+      if (receipt.before.plannedStartAt) parseIso(receipt.before.plannedStartAt);
+      if (receipt.before.plannedEndAt) parseIso(receipt.before.plannedEndAt);
+      if (seenProposals.has(receipt.proposalId)) throw new Error('Duplicate replacement acceptance receipt');
+      seenProposals.add(receipt.proposalId);
+    }
+  }
   parseIso(parsed.createdAt);
   parseIso(parsed.updatedAt);
 
