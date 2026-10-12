@@ -309,3 +309,20 @@ test('restaurant discovery filters venues and never creates a table reservation'
   const restored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
   expect(restored.items.some((item: {catalogPlaceId?: string}) => item.catalogPlaceId === 'cafe-pushkin-tverskoy')).toBe(true);
 });
+
+test('catalog favorites survive reload and can become a planned visit later', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Кафе Пушкинъ' }).click();
+  await page.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  await page.getByRole('tab', { name: 'Моя Москва' }).click();
+  await expect(page.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Добавить сохранённое место в поездку' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
+  const experience = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}'));
+  expect(experience.savedIds).toContain('cafe-pushkin-tverskoy');
+  await page.getByRole('button', { name: 'Добавить сохранённое место в поездку' }).click();
+  await expect(page.getByText(/После создания поездки подтвердите добавление/)).toBeVisible();
+  await expect(page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true })).toHaveCount(0);
+});
