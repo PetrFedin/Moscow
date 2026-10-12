@@ -409,7 +409,8 @@ export function addCuratedMoscowPlaceToTrip(input: {
     throw new Error('Curated Moscow place requires a canonical ID and HTTPS official source');
   }
   if (input.trip.items.some((item) => item.dayDate === input.dayDate
-    && item.catalogPlaceId === input.place.id && item.status !== 'cancelled')) {
+    && (item.catalogPlaceId === input.place.id || (!item.catalogPlaceId && item.title === input.place.titleRu))
+    && item.status !== 'cancelled')) {
     throw new Error('Curated Moscow place already in the selected day');
   }
   const next = clone(input.trip);
@@ -660,7 +661,7 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
     if (item.catalogPlaceId !== undefined) {
       if (typeof item.catalogPlaceId !== 'string' || !item.catalogPlaceId.trim()
         || typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl)
-        || item.commitment) {
+) {
         throw new Error('Invalid curated trip place metadata');
       }
     }
