@@ -288,7 +288,7 @@ test('today links the curated venue to its official source without a fake ticket
 test('restaurant discovery filters venues and never creates a table reservation', async ({ page }) => {
   await page.goto('/');
   await ensureRussian(page);
-  await page.getByRole('button', { name: 'Рестораны' }).click();
+  await page.getByRole('button', { name: 'Рестораны', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Кафе Пушкинъ' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ресторан «Воронеж»' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Большой театр' })).toHaveCount(0);
