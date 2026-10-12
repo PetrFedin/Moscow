@@ -153,6 +153,17 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
               onPress={() => onOpenPlace(current.destinationNodeId!)}
             ><Text style={styles.heroActionText}>{tr(language, 'Открыть место', 'Explore this place', '查看地点')} →</Text></PhysicalPressable>
           ) : null}
+          {current.officialSourceUrl ? (
+            <PhysicalPressable
+              accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Открыть официальный сайт текущего места', 'Open current place official site', '打开当前地点官网')}
+              style={styles.heroAction}
+              contentStyle={styles.center}
+              onPress={() => { void Linking.openURL(current.officialSourceUrl!).catch(() => undefined); }}
+            >
+              <Text style={styles.heroActionText}>{tr(language, 'Официальный сайт', 'Official website', '官方网站')} ↗</Text>
+            </PhysicalPressable>
+          ) : null}
           {current.commitment?.externalUrl ? (
             <PhysicalPressable
               style={styles.heroAction}
@@ -217,6 +228,15 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
               contentStyle={styles.center}
               onPress={() => onOpenPlace(state.nextItem!.destinationNodeId!)}
             ><Text style={styles.linkButtonText}>{tr(language, 'Открыть следующий пункт', 'Open next stop', '打开下一站')} →</Text></PhysicalPressable>
+          ) : null}
+          {state.nextItem.officialSourceUrl ? (
+            <PhysicalPressable
+              accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Открыть официальный сайт следующего места', 'Open next place official site', '打开下一站官网')}
+              style={styles.linkButton}
+              contentStyle={styles.center}
+              onPress={() => { void Linking.openURL(state.nextItem!.officialSourceUrl!).catch(() => undefined); }}
+            ><Text style={styles.linkButtonText}>{tr(language, 'Официальный сайт следующего места', 'Next place official site', '下一站官网')} ↗</Text></PhysicalPressable>
           ) : null}
         </View>
       ) : null}
