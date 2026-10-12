@@ -229,6 +229,7 @@ export default function PersonalTripPlanner({
   const [durationDays, setDurationDays] = useState<(typeof durationOptions)[number]>(3);
   const [manualOpen, setManualOpen] = useState(false);
   const [tripToolsOpen, setTripToolsOpen] = useState(false);
+  const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
   const [manualTime, setManualTime] = useState('19:00');
@@ -720,20 +721,45 @@ export default function PersonalTripPlanner({
         <PhysicalPressable
           style={styles.reset}
           contentStyle={styles.center}
-          onPress={() => {
-            setTrip(null);
-            AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY).catch(() => undefined);
-          }}
+          onPress={() => setResetConfirmationOpen(true)}
         >
           <Text style={styles.resetText}>{tr(language, 'Новая', 'New', '新行程')}</Text>
         </PhysicalPressable>
       </View>
 
+      {resetConfirmationOpen && (
+        <View style={styles.dangerPanel}>
+          <Text style={styles.dangerTitle}>{tr(language, 'Создать новую поездку?', 'Start a new trip?', '创建新的行程？')}</Text>
+          <Text style={styles.dangerBody}>{tr(language,
+            'Текущие билеты, маршруты, заметки, посещения и история замен хранятся только на этом устройстве. Если продолжить, они будут удалены без восстановления.',
+            'Tickets, routes, notes, visits and accepted changes are currently stored only on this device. Continuing deletes them without recovery.',
+            '当前门票、路线、笔记和到访记录仅保存在此设备上。继续将永久清除。')}</Text>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Удалить текущую поездку и начать новую', 'Delete current trip and start a new one', '删除当前行程并重新开始')}
+            style={styles.dangerButton}
+            contentStyle={styles.center}
+            onPress={() => {
+              void AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY)
+                .then(() => { setTrip(null); setResetConfirmationOpen(false); onDirectoryPlaceHandled?.(); })
+                .catch(() => setFormError('trip-reset-storage-error'));
+            }}
+          ><Text style={styles.dangerButtonText}>{tr(language, 'Удалить поездку', 'Delete trip', '删除行程')}</Text></PhysicalPressable>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Отменить удаление поездки', 'Keep current trip', '保留当前行程')}
+            style={styles.reset}
+            contentStyle={styles.center}
+            onPress={() => setResetConfirmationOpen(false)}
+          ><Text style={styles.resetText}>{tr(language, 'Сохранить мою поездку', 'Keep my trip', '保留行程')}</Text></PhysicalPressable>
+        </View>
+      )}
       {selectedDirectoryPlace && <View style={styles.directoryConfirm}>
         <Text style={styles.directoryTitle}>{tr(language,'Добавить в выбранный день?','Add to selected day?','添加到选定日期？')}</Text>
         <Text style={styles.directoryBody}>{language === 'ru' ? selectedDirectoryPlace.titleRu : selectedDirectoryPlace.titleEn} · {selectedDirectoryPlace.addressRu}</Text>
         <Text style={styles.directoryBody}>{tr(language,'Выбранный день','Selected day','选择的日期')}: {selectedDay}</Text>
         <Text style={styles.directoryBody}>{tr(language,'Это место, не билет и не бронь. Время и часы работы не проверены.','A saved place, not a ticket or reservation. Hours and times are unverified.','只是保存地点，不代表已购票或预订。')}</Text>
+        {formError ? <Text style={styles.directoryError}>{formError}</Text> : null}
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} onPress={addDirectoryPlace}>
           <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
         </PhysicalPressable>
@@ -1158,6 +1184,12 @@ export default function PersonalTripPlanner({
 }
 
 const styles = StyleSheet.create({
+  dangerPanel: { padding: 17, backgroundColor: '#392c29', borderWidth: 1, borderColor: '#916157', borderRadius: 18, marginVertical: 12, gap: 9 },
+  dangerTitle: { color: '#fff3e8', fontSize: 19, fontWeight: '700' },
+  dangerBody: { color: '#f5d7ce', fontSize: 13, lineHeight: 20 },
+  dangerButton: { minHeight: 48, backgroundColor: '#8b463b', borderRadius: 12 },
+  dangerButtonText: { color: '#fff7f2', fontWeight: '700', fontSize: 13 },
+  directoryError: { color: '#f6ba9f', fontSize: 12, lineHeight: 18, marginTop: 6 },
   directoryConfirm: { borderWidth: 1, borderColor: '#8b9e80', borderRadius: 20, padding: 16, marginVertical: 12, backgroundColor: '#293c30' },
   directoryTitle: { color: '#fff3e0', fontSize: 20, fontWeight: '700' },
   directoryBody: { color: '#d7e4d4', fontSize: 13, lineHeight: 20, marginTop: 8 },
