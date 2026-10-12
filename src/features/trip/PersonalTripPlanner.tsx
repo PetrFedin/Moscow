@@ -774,6 +774,7 @@ export default function PersonalTripPlanner({
         language={language}
         visitedIds={visitedIds}
         onOpenPlace={onOpenPlace}
+        onDiscover={onDiscover}
         onManageTrip={() => setTripToolsOpen(true)}
       />
 
