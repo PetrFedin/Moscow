@@ -989,6 +989,7 @@ export default function MoscowExperienceApp() {
               language={language}
               selectedDirectoryPlace={chosenDirectoryPlace}
               onDirectoryPlaceHandled={() => setChosenDirectoryPlace(null)}
+              onDiscover={() => setTab('discover')}
               savedIds={savedIds}
               visitedIds={visitedIds}
               currentLiveDestinationProjection={currentLiveResult?.projection}
