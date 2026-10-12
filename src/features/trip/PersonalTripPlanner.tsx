@@ -33,6 +33,7 @@ import {
 } from '../../travel/liveProgrammeEvidenceReplay';
 import {
   addDestinationNodeToTrip,
+  addCuratedMoscowPlaceToTrip,
   addManualTripItem,
   createPersonalTrip,
   getUnseenDestinationNodes,
@@ -532,21 +533,15 @@ export default function PersonalTripPlanner({
 
   const addDirectoryPlace = () => {
     if (!trip || !selectedDirectoryPlace) return;
-    if (trip.items.some((item) => item.dayDate === selectedDay && item.title === selectedDirectoryPlace.titleRu)) {
-      setFormError('Это место уже добавлено в выбранный день');
-      return;
-    }
     try {
       setFormError('');
       const at = new Date().toISOString();
-      setTrip(addManualTripItem({
+      setTrip(addCuratedMoscowPlaceToTrip({
         trip,
+        place: selectedDirectoryPlace,
         itemId: itemId('directory'),
         dayDate: selectedDay,
-        title: selectedDirectoryPlace.titleRu,
-        kind: selectedDirectoryPlace.kind === 'park' ? 'activity' : selectedDirectoryPlace.kind,
-        updatedAt: at,
-        note: selectedDirectoryPlace.addressRu + ' · ' + selectedDirectoryPlace.officialUrl
+        updatedAt: at
       }));
       onDirectoryPlaceHandled?.();
     } catch (error) {
@@ -736,7 +731,8 @@ export default function PersonalTripPlanner({
 
       {selectedDirectoryPlace && <View style={styles.directoryConfirm}>
         <Text style={styles.directoryTitle}>{tr(language,'Добавить в выбранный день?','Add to selected day?','添加到选定日期？')}</Text>
-        <Text style={styles.directoryBody}>{selectedDirectoryPlace.titleRu} · {selectedDirectoryPlace.addressRu}</Text>
+        <Text style={styles.directoryBody}>{language === 'ru' ? selectedDirectoryPlace.titleRu : selectedDirectoryPlace.titleEn} · {selectedDirectoryPlace.addressRu}</Text>
+        <Text style={styles.directoryBody}>{tr(language,'Выбранный день','Selected day','选择的日期')}: {selectedDay}</Text>
         <Text style={styles.directoryBody}>{tr(language,'Это место, не билет и не бронь. Время и часы работы не проверены.','A saved place, not a ticket or reservation. Hours and times are unverified.','只是保存地点，不代表已购票或预订。')}</Text>
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} onPress={addDirectoryPlace}>
           <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
