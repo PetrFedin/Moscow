@@ -220,6 +220,7 @@ export default function PersonalTripPlanner({
   currentRoutingProjection,
   currentRoutingAuthorityUrl,
   onOpenPlace,
+  onDiscover,
   selectedDirectoryPlace,
   onDirectoryPlaceHandled
 }: Props) {
