@@ -18,7 +18,8 @@ export default function CuratedMoscowDirectory({language,onRequestAdd}:{language
       ['all', tr(language,'Все места','All places','全部地点')],
       ['museum', tr(language,'Музеи','Museums','博物馆')],
       ['theatre', tr(language,'Театры','Theatres','剧院')],
-      ['park', tr(language,'Парки','Parks','公园')]
+      ['park', tr(language,'Парки','Parks','公园')],
+      ['restaurant', tr(language,'Рестораны','Restaurants','餐厅')]
     ] as const).map(([key,label])=>(
       <PhysicalPressable
         key={key}
