@@ -5,6 +5,7 @@ import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
+import type { CuratedMoscowPlace } from '../../travel/curatedMoscowPlaces';
 import { buildDayComposerProjection } from '../../travel/dayComposer';
 import { buildDayComposerDisruptionCases } from '../../travel/dayComposerDisruption';
 import {
@@ -32,12 +33,14 @@ import {
 } from '../../travel/liveProgrammeEvidenceReplay';
 import {
   addDestinationNodeToTrip,
+  addCuratedMoscowPlaceToTrip,
   addManualTripItem,
   createPersonalTrip,
   getUnseenDestinationNodes,
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
+  updateTripVisitNote,
   summarizePersonalTrip,
   syncRouteCompletedVisits,
   type PersonalTrip,
@@ -50,6 +53,8 @@ import {
 } from '../../travel/tripScheduler';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
+import TripJourneyOverview from './TripJourneyOverview';
+import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripPreferencesCard from './TripPreferencesCard';
@@ -68,6 +73,9 @@ type Props = {
   currentRoutingProjection?: ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed>;
   currentRoutingAuthorityUrl?: string;
   onOpenPlace: (placeId: string) => void;
+  onDiscover: () => void;
+  selectedDirectoryPlace?: CuratedMoscowPlace | null;
+  onDirectoryPlaceHandled?: () => void;
 };
 
 type CommitmentChoice = 'none' | 'ticket' | 'reservation';
@@ -211,7 +219,10 @@ export default function PersonalTripPlanner({
   currentLiveDestinationProjection,
   currentRoutingProjection,
   currentRoutingAuthorityUrl,
-  onOpenPlace
+  onOpenPlace,
+  onDiscover,
+  selectedDirectoryPlace,
+  onDirectoryPlaceHandled
 }: Props) {
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -219,6 +230,8 @@ export default function PersonalTripPlanner({
   const [startDateInput, setStartDateInput] = useState(localDateOnly());
   const [durationDays, setDurationDays] = useState<(typeof durationOptions)[number]>(3);
   const [manualOpen, setManualOpen] = useState(false);
+  const [tripToolsOpen, setTripToolsOpen] = useState(false);
+  const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
   const [manualTime, setManualTime] = useState('19:00');
@@ -451,6 +464,7 @@ export default function PersonalTripPlanner({
         acceptedAt: new Date().toISOString()
       });
       setTrip(accepted.trip);
+      setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
     } catch (error) {
@@ -518,6 +532,24 @@ export default function PersonalTripPlanner({
       dayDate: selectedDay,
       updatedAt: now
     }));
+  };
+
+  const addDirectoryPlace = () => {
+    if (!trip || !selectedDirectoryPlace) return;
+    try {
+      setFormError('');
+      const at = new Date().toISOString();
+      setTrip(addCuratedMoscowPlaceToTrip({
+        trip,
+        place: selectedDirectoryPlace,
+        itemId: itemId('directory'),
+        dayDate: selectedDay,
+        updatedAt: at
+      }));
+      onDirectoryPlaceHandled?.();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'place-add-failed');
+    }
   };
 
   const addManual = () => {
@@ -646,6 +678,7 @@ export default function PersonalTripPlanner({
           )}
         </Text>
 
+        {selectedDirectoryPlace && <Text style={styles.body}>{tr(language,'После создания поездки подтвердите добавление: ','After creating a trip, confirm this place: ','创建行程后确认添加：') + selectedDirectoryPlace.titleRu}</Text>}
         <Text style={styles.label}>{tr(language, 'ДАТА ПРИЕЗДА', 'ARRIVAL DATE', '抵达日期')}</Text>
         <TextInput
           value={startDateInput}
@@ -690,14 +723,60 @@ export default function PersonalTripPlanner({
         <PhysicalPressable
           style={styles.reset}
           contentStyle={styles.center}
-          onPress={() => {
-            setTrip(null);
-            AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY).catch(() => undefined);
-          }}
+          onPress={() => setResetConfirmationOpen(true)}
         >
           <Text style={styles.resetText}>{tr(language, 'Новая', 'New', '新行程')}</Text>
         </PhysicalPressable>
       </View>
+
+      {resetConfirmationOpen && (
+        <View style={styles.dangerPanel}>
+          <Text style={styles.dangerTitle}>{tr(language, 'Создать новую поездку?', 'Start a new trip?', '创建新的行程？')}</Text>
+          <Text style={styles.dangerBody}>{tr(language,
+            'Текущие билеты, маршруты, заметки, посещения и история замен хранятся только на этом устройстве. Если продолжить, они будут удалены без восстановления.',
+            'Tickets, routes, notes, visits and accepted changes are currently stored only on this device. Continuing deletes them without recovery.',
+            '当前门票、路线、笔记和到访记录仅保存在此设备上。继续将永久清除。')}</Text>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Удалить текущую поездку и начать новую', 'Delete current trip and start a new one', '删除当前行程并重新开始')}
+            style={styles.dangerButton}
+            contentStyle={styles.center}
+            onPress={() => {
+              void AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY)
+                .then(() => { setTrip(null); setResetConfirmationOpen(false); onDirectoryPlaceHandled?.(); })
+                .catch(() => setFormError('trip-reset-storage-error'));
+            }}
+          ><Text style={styles.dangerButtonText}>{tr(language, 'Удалить поездку', 'Delete trip', '删除行程')}</Text></PhysicalPressable>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Отменить удаление поездки', 'Keep current trip', '保留当前行程')}
+            style={styles.reset}
+            contentStyle={styles.center}
+            onPress={() => setResetConfirmationOpen(false)}
+          ><Text style={styles.resetText}>{tr(language, 'Сохранить мою поездку', 'Keep my trip', '保留行程')}</Text></PhysicalPressable>
+        </View>
+      )}
+      {selectedDirectoryPlace && <View style={styles.directoryConfirm}>
+        <Text style={styles.directoryTitle}>{tr(language,'Добавить в выбранный день?','Add to selected day?','添加到选定日期？')}</Text>
+        <Text style={styles.directoryBody}>{language === 'ru' ? selectedDirectoryPlace.titleRu : selectedDirectoryPlace.titleEn} · {selectedDirectoryPlace.addressRu}</Text>
+        <Text style={styles.directoryBody}>{tr(language,'Выбранный день','Selected day','选择的日期')}: {selectedDay}</Text>
+        <Text style={styles.directoryBody}>{tr(language,'Это место, не билет и не бронь. Время и часы работы не проверены.','A saved place, not a ticket or reservation. Hours and times are unverified.','只是保存地点，不代表已购票或预订。')}</Text>
+        {formError ? <Text style={styles.directoryError}>{formError}</Text> : null}
+        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} onPress={addDirectoryPlace}>
+          <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
+        </PhysicalPressable>
+        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Отменить выбор места','Cancel place selection','取消选点')} style={styles.reset} contentStyle={styles.center} onPress={onDirectoryPlaceHandled}>
+          <Text style={styles.resetText}>{tr(language,'Отмена','Cancel','取消')}</Text>
+        </PhysicalPressable>
+      </View>}
+      <TouristTodayCard
+        trip={trip}
+        language={language}
+        visitedIds={visitedIds}
+        onOpenPlace={onOpenPlace}
+        onDiscover={onDiscover}
+        onManageTrip={() => setTripToolsOpen(true)}
+      />
 
       {summary && (
         <View style={styles.metrics}>
@@ -707,18 +786,17 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
-      <TripPreferencesCard
+      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+
+      <TripAcceptanceHistoryCard trip={trip} language={language} />
+
+      {tripToolsOpen && <TripPreferencesCard
         trip={trip}
         language={language}
         onUpdate={setTrip}
-      />
+      />}
 
-      <TouristTodayCard
-        trip={trip}
-        language={language}
-        visitedIds={visitedIds}
-        onOpenPlace={onOpenPlace}
-      />
+
 
       <BookingWalletCard trip={trip} language={language} />
 
@@ -736,12 +814,12 @@ export default function PersonalTripPlanner({
         actionError={replacementActionError}
       />
 
-      <DayReplanCard
+      {tripToolsOpen && <DayReplanCard
         trip={trip}
         dayDate={selectedDay}
         language={language}
         onUpdate={setTrip}
-      />
+      />}
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
       <View style={styles.dayChips}>
@@ -1097,12 +1175,27 @@ export default function PersonalTripPlanner({
         </>
       )}
 
-      <MoscowPassportCard trip={trip} language={language} />
+      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={(visitId, note) => {
+        try {
+          setTrip(updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() }));
+        } catch {
+          setFormError('visit-note-save-failed');
+        }
+      }} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  dangerPanel: { padding: 17, backgroundColor: '#392c29', borderWidth: 1, borderColor: '#916157', borderRadius: 18, marginVertical: 12, gap: 9 },
+  dangerTitle: { color: '#fff3e8', fontSize: 19, fontWeight: '700' },
+  dangerBody: { color: '#f5d7ce', fontSize: 13, lineHeight: 20 },
+  dangerButton: { minHeight: 48, backgroundColor: '#8b463b', borderRadius: 12 },
+  dangerButtonText: { color: '#fff7f2', fontWeight: '700', fontSize: 13 },
+  directoryError: { color: '#f6ba9f', fontSize: 12, lineHeight: 18, marginTop: 6 },
+  directoryConfirm: { borderWidth: 1, borderColor: '#8b9e80', borderRadius: 20, padding: 16, marginVertical: 12, backgroundColor: '#293c30' },
+  directoryTitle: { color: '#fff3e0', fontSize: 20, fontWeight: '700' },
+  directoryBody: { color: '#d7e4d4', fontSize: 13, lineHeight: 20, marginTop: 8 },
   root: { borderRadius: 26, borderWidth: 1, borderColor: '#343a42', backgroundColor: '#101318', padding: 18, marginBottom: 24 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.35, fontWeight: '900' },
