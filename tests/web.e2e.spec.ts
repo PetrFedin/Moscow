@@ -284,3 +284,28 @@ test('today links the curated venue to its official source without a fake ticket
   await page.reload();
   await expect(page.getByRole('button', { name: 'Открыть официальный сайт следующего места' })).toBeVisible();
 });
+
+test('restaurant discovery filters venues and never creates a table reservation', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Рестораны' }).click();
+  await expect(page.getByRole('button', { name: 'Кафе Пушкинъ' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ресторан «Воронеж»' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Большой театр' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Кафе Пушкинъ' }).click();
+  await expect(page.getByRole('button', { name: 'Найти адрес на карте' })).toBeVisible();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-14');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить добавление места' }).click();
+  const trip = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  const restaurant = trip.items.find((item: {catalogPlaceId?: string}) => item.catalogPlaceId === 'cafe-pushkin-tverskoy');
+  expect(restaurant).toBeTruthy();
+  expect(restaurant.kind).toBe('food');
+  expect(restaurant.commitment).toBeUndefined();
+  expect(restaurant.officialSourceUrl).toBe('https://cafe-pushkin.ru/');
+  await page.reload();
+  const restored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(restored.items.some((item: {catalogPlaceId?: string}) => item.catalogPlaceId === 'cafe-pushkin-tverskoy')).toBe(true);
+});
