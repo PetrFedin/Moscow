@@ -47,6 +47,7 @@ export default function MoscowDiscoverLanding({
     <View style={styles.root}>
       <ImageBackground
         source={{ uri: MOSCOW_CITY_HERO_IMAGE }}
+        resizeMode="cover"
         imageStyle={styles.heroImage}
         style={styles.hero}
         accessibilityLabel={tr(language, 'Вид на Красную площадь из парка Зарядье', 'Red Square seen from Zaryadye Park', '从扎里亚季耶公园看红场')}
@@ -176,8 +177,9 @@ export default function MoscowDiscoverLanding({
 
 const styles = StyleSheet.create({
   root: { marginBottom: 18 },
-  hero: { minHeight: 420, justifyContent: 'space-between', overflow: 'hidden', borderRadius: 30, backgroundColor: '#283e3e', padding: 23 },
-  heroImage: { borderRadius: 30 },
+  // ImageBackground needs explicit layout dimensions: minHeight alone can leave its internal image a thin strip on Web.
+  hero: { height: 420, minHeight: 420, justifyContent: 'space-between', overflow: 'hidden', borderRadius: 30, backgroundColor: '#283e3e', padding: 23 }, 
+  heroImage: { borderRadius: 30, width: '100%', height: '100%' },
   heroShade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(12,21,23,0.57)' },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   eyebrow: { color: '#fff5df', fontSize: 10, letterSpacing: 1.6, fontWeight: '700' },
