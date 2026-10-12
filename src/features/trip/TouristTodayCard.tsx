@@ -14,6 +14,7 @@ type Props = {
   visitedIds: string[];
   onOpenPlace: (placeId: string) => void;
   onManageTrip: () => void;
+  onDiscover: () => void;
 };
 
 function timeLabel(value?: string) {
@@ -56,7 +57,7 @@ function countdownLabel(language: AppLanguage, minutes: number) {
   );
 }
 
-export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, onManageTrip }: Props) {
+export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, onManageTrip, onDiscover }: Props) {
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
   useEffect(() => {
@@ -116,6 +117,51 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
           contentStyle={styles.center}
           onPress={onManageTrip}
         ><Text style={styles.heroActionText}>{tr(language, 'Управлять поездкой', 'Manage my trip', '管理我的行程')} →</Text></PhysicalPressable>
+      </View>
+    );
+  }
+
+  // An empty itinerary is not a completed itinerary.
+  if (state.remainingItems.length === 0 && state.completedItems.length === 0) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.heading}>
+          <View style={styles.headingCopy}>
+            <Text style={styles.kicker}>{tr(language, 'СЕГОДНЯ В МОСКВЕ', 'TODAY IN MOSCOW', '今天在莫斯科')}</Text>
+            <Text style={styles.clock}>{clockLabel(language, nowIso)} MSK · {state.dayDate}</Text>
+          </View>
+        </View>
+        <View style={styles.emptyDay}>
+          <Text style={styles.emptyEyebrow}>{tr(language, 'ВАШ ДЕНЬ НАЧИНАЕТСЯ ЗДЕСЬ', 'YOUR DAY STARTS HERE', '您的行程从这里开始')}</Text>
+          <Text style={styles.emptyTitle}>{tr(language, 'Пока нет планов на сегодня', 'No stops planned for today', '今天还没有行程')}</Text>
+          <Text style={styles.emptyBody}>
+            {tr(
+              language,
+              'Выберите музей, прогулку, ресторан или парк. Место появится в плане без вымышленного билета или брони.',
+              'Choose a museum, walk, restaurant or park. Your plan will not invent a ticket or reservation.',
+              '选择博物馆、漫步、餐厅或公园；不会自动生成门票或预订。'
+            )}
+          </Text>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Найти первое место', 'Find my first place', '寻找第一个地点')}
+            style={styles.heroAction}
+            contentStyle={styles.center}
+            onPress={onDiscover}
+          ><Text style={styles.heroActionText}>{tr(language, 'Найти первое место', 'Find my first place', '寻找第一个地点')} →</Text></PhysicalPressable>
+        </View>
+        {unseen.length > 0 && (
+          <View style={styles.unseen}>
+            <Text style={styles.eyebrow}>{tr(language, 'ИДЕИ ДЛЯ ПЕРВОГО ОТКРЫТИЯ', 'IDEAS FOR YOUR FIRST STOP', '第一站灵感')}</Text>
+            <Text style={styles.unseenHint}>{tr(language, 'Историческая подборка для вдохновения. Реальная доступность пока не проверена.', 'Historic inspiration only; current availability is not checked.', '历史景点推荐；当前开放状态尚未核验。')}</Text>
+            {unseen.map(node => (
+              <PhysicalPressable key={node.id} style={styles.unseenRow} contentStyle={styles.unseenContent} onPress={() => onOpenPlace(node.id)}>
+                <Text style={styles.unseenTitle}>{nodeTitle(language, node)}</Text>
+                <Text style={styles.unseenArrow}>→</Text>
+              </PhysicalPressable>
+            ))}
+          </View>
+        )}
       </View>
     );
   }
@@ -326,6 +372,10 @@ const styles = StyleSheet.create({
   progressLabel: { color: '#777168', fontSize: 7.5, marginTop: 1 },
   hero: { borderRadius: 19, backgroundColor: '#f4eee1', borderWidth: 1, borderColor: '#e8d9bd', padding: 17, marginTop: 15 },
   heroMuted: { borderRadius: 17, backgroundColor: '#1a1815', borderWidth: 1, borderColor: '#32302c', padding: 13, marginTop: 13 },
+  emptyDay: { borderRadius: 19, backgroundColor: '#f4eee1', borderWidth: 1, borderColor: '#e7d7b9', padding: 17, marginTop: 15 },
+  emptyEyebrow: { color: '#7a6039', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  emptyTitle: { color: '#20382e', fontSize: 21, fontWeight: '700', lineHeight: 27, marginTop: 11 },
+  emptyBody: { color: '#475d4b', fontSize: 13, lineHeight: 20, marginTop: 9 },
   eyebrow: { color: '#cda974', fontSize: 10, fontWeight: '700', letterSpacing: 0.85 },
   heroTitle: { color: '#25392d', fontSize: 22, fontWeight: '700', marginTop: 7, lineHeight: 28 },
   heroMeta: { color: '#516557', fontSize: 12, marginTop: 6 },
