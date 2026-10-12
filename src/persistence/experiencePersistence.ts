@@ -1,4 +1,5 @@
 import { pilotRoute, places } from '../data/places.ts';
+import { curatedMoscowPlaces } from '../travel/curatedMoscowPlaces.ts';
 import type { AppLanguage } from '../i18n/index.ts';
 import { modelEraFromTimeIndex } from '../spatial/placeExperienceRegistry.ts';
 import { buildTouristRoutePlan, type TouristInterest, type TouristTimeBudget } from '../features/planning/touristPlanner.ts';
@@ -33,6 +34,7 @@ export type PersistedExperienceState = {
 export const EXPERIENCE_STORAGE_KEY = 'moscow:v4:experience';
 
 const validPlaceIds = new Set(places.map((place) => place.id));
+const validSavedIds = new Set([...validPlaceIds, ...curatedMoscowPlaces.map((place) => place.id)]);
 const validTabs = new Set<PersistedTab>(['discover', 'map', 'walk', 'trip', 'saved']);
 
 const defaultState: PersistedExperienceState = {
@@ -59,6 +61,11 @@ const defaultState: PersistedExperienceState = {
 function stringArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string' && validPlaceIds.has(item));
+}
+
+function savedPlaceArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item): item is string => typeof item === 'string' && validSavedIds.has(item)))];
 }
 
 function missionArray(value: unknown) {
@@ -116,7 +123,7 @@ export function normalizeExperienceSnapshot(raw: unknown): PersistedExperienceSt
     && routeStopIds.every((id) => routeCompletedStopIds.includes(id));
 
   return {
-    savedIds: stringArray(input.savedIds),
+    savedIds: savedPlaceArray(input.savedIds),
     visitedIds: stringArray(input.visitedIds),
     routeStep,
     language: input.language === 'en' || input.language === 'ru' || input.language === 'zh' ? input.language : defaultState.language,
