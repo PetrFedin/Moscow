@@ -5,7 +5,7 @@ import { tr } from '../../i18n';
 import { curatedMoscowPlaces, type CuratedMoscowCategory, type CuratedMoscowPlace } from '../../travel/curatedMoscowPlaces';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
-export default function CuratedMoscowDirectory({language,onRequestAdd}:{language:AppLanguage;onRequestAdd:(place:CuratedMoscowPlace)=>void}){
+export default function CuratedMoscowDirectory({language,onRequestAdd,savedIds,onToggleSaved}:{language:AppLanguage;onRequestAdd:(place:CuratedMoscowPlace)=>void;savedIds:string[];onToggleSaved:(placeId:string)=>void}){
  const [selected,setSelected]=useState<string|null>(null);
  const [category,setCategory]=useState<'all'|CuratedMoscowCategory>('all');
  const filteredPlaces=curatedMoscowPlaces.filter(place=>category==='all'||place.kind===category);
@@ -52,6 +52,16 @@ export default function CuratedMoscowDirectory({language,onRequestAdd}:{language
       style={styles.link} contentStyle={styles.linkInner}
       onPress={()=>{void Linking.openURL('https://yandex.ru/maps/?text='+encodeURIComponent('Москва, '+place.addressRu)).catch(()=>undefined);}}
     ><Text style={styles.linkText}>{tr(language,'Найти адрес на карте','Find address on map','在地图中查找地址')} ↗</Text></PhysicalPressable>
+    <PhysicalPressable
+      accessibilityRole="button"
+      accessibilityLabel={savedIds.includes(place.id)
+        ? tr(language,'Убрать место из избранного','Remove place from favorites','从收藏中移除')
+        : tr(language,'Сохранить место в избранное','Save place to favorites','收藏地点')}
+      style={styles.link} contentStyle={styles.linkInner}
+      onPress={()=>onToggleSaved(place.id)}
+    ><Text style={styles.linkText}>{savedIds.includes(place.id)
+      ? tr(language,'★ В избранном','★ Saved','★ 已收藏')
+      : tr(language,'☆ Сохранить на потом','☆ Save for later','☆ 稍后收藏')}</Text></PhysicalPressable>
     <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Добавить место в поездку','Add place to trip','添加到行程')} style={styles.action} contentStyle={styles.linkInner} onPress={()=>onRequestAdd(place)}>
       <Text style={styles.actionText}>{tr(language,'Выбрать для поездки →','Choose for my trip →','添加到行程 →')}</Text>
     </PhysicalPressable>
