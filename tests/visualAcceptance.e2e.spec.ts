@@ -40,6 +40,8 @@ for (const viewport of [
     await page.getByText('1', { exact: true }).click();
     await page.getByText('Создать поездку', { exact: true }).click();
     await expect(page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true })).toBeVisible();
+    await expect(page.getByText('Пока нет планов на сегодня', { exact: true })).toBeVisible();
+    await expect(page.getByText('План на сегодня выполнен', { exact: true })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-today.png'), fullPage: true });
   });
 }
