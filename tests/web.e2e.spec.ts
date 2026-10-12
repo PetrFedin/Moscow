@@ -326,3 +326,26 @@ test('catalog favorites survive reload and can become a planned visit later', as
   await expect(page.getByText(/После создания поездки подтвердите добавление/)).toBeVisible();
   await expect(page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true })).toHaveCount(0);
 });
+
+test('empty Today offers discovery instead of claiming the itinerary is finished', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const date = await page.evaluate(() => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const find = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+    return find('year') + '-' + find('month') + '-' + find('day');
+  });
+  await page.getByPlaceholder('2026-10-02').fill(date);
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('Пока нет планов на сегодня', { exact: true })).toBeVisible();
+  await expect(page.getByText('План на сегодня выполнен', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/мин по вашему расписанию/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Найти первое место' }).click();
+  await expect(page.getByText('Найдите повод выйти в город', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Моя поездка в Москву', { exact: true })).toBeVisible();
+});
