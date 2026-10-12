@@ -1,6 +1,7 @@
 import type { DestinationPackage, ExperienceNode, ExperienceNodeKind } from './destinationPackage.ts';
 import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
 import type { DayReplacementAcceptanceReceipt } from './dayReplacementProposal.ts';
+import type { CuratedMoscowPlace } from './curatedMoscowPlaces.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -29,6 +30,9 @@ export type PersonalTripItem = {
   kind: PersonalTripItemKind;
   source: PersonalTripItemSource;
   destinationNodeId?: string;
+  /** Canonical ID of a user-selected editorial venue; not a reservation. */
+  catalogPlaceId?: string;
+  officialSourceUrl?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
   status: 'planned' | 'completed' | 'skipped' | 'cancelled';
@@ -391,6 +395,40 @@ export function addManualTripItem(input: {
   return touch(next, input.updatedAt);
 }
 
+/** Add an editorial venue as a user-selected place, never as a purchased ticket or reservation. */
+export function addCuratedMoscowPlaceToTrip(input: {
+  trip: PersonalTrip;
+  place: CuratedMoscowPlace;
+  itemId: string;
+  dayDate: string;
+  updatedAt: string;
+}): PersonalTrip {
+  assertTripDay(input.trip, input.dayDate);
+  assertUniqueItemId(input.trip, input.itemId);
+  if (!input.place.id.trim() || !/^https:\/\//i.test(input.place.officialUrl)) {
+    throw new Error('Curated Moscow place requires a canonical ID and HTTPS official source');
+  }
+  if (input.trip.items.some((item) => item.dayDate === input.dayDate
+    && item.catalogPlaceId === input.place.id && item.status !== 'cancelled')) {
+    throw new Error('Curated Moscow place already in the selected day');
+  }
+  const next = clone(input.trip);
+  const kind: PersonalTripItemKind =
+    input.place.kind === 'park' ? 'activity' : input.place.kind === 'restaurant' ? 'food' : input.place.kind;
+  next.items.push({
+    id: input.itemId,
+    dayDate: input.dayDate,
+    title: input.place.titleRu,
+    kind,
+    source: 'manual',
+    catalogPlaceId: input.place.id,
+    officialSourceUrl: input.place.officialUrl,
+    note: input.place.addressRu,
+    status: 'planned'
+  });
+  return touch(next, input.updatedAt);
+}
+
 export function attachTripCommitment(input: {
   trip: PersonalTrip;
   itemId: string;
@@ -619,6 +657,17 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   for (const item of trip.items) {
     assertTripDay(trip, item.dayDate);
     if (!item.id?.trim() || !item.title?.trim()) throw new Error('Invalid Personal Trip item');
+    if (item.catalogPlaceId !== undefined) {
+      if (typeof item.catalogPlaceId !== 'string' || !item.catalogPlaceId.trim()
+        || typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl)
+        || item.commitment) {
+        throw new Error('Invalid curated trip place metadata');
+      }
+    }
+    if (item.officialSourceUrl !== undefined
+      && (typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl))) {
+      throw new Error('Invalid trip place source URL');
+    }
     if (item.commitment) validateCommitment(item.commitment);
   }
   for (const visit of trip.visits) {
