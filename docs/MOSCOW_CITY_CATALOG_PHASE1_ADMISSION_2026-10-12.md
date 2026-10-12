@@ -48,3 +48,13 @@ The public web export now hides pilot and WOW buttons unless demo is explicitly 
 
 ### Known P0/P1 restrictions
 Do not use venue photos without a license/rights registry. Do not assert open-now, distance, route minutes, exact venue entrance or available dining tables until provider/direction evidence is tested. External map handoff searches by address and is **not** a route proof. Do not claim full personal-trip cross-device backup: Local-first storage may be erased if user starts a new trip.
+
+### User discovery and favorites (continuation)
+
+A traveler can now select museums, theatre, parks or restaurants, filter categories, inspect dated address evidence, open the official venue page, search the address on an external map, bookmark a place in My Moscow, or explicitly add it to a day. A bookmark is not a visit; a planned venue is not a ticket; and an external map query is not a verified walking route.
+
+Persist saved catalog IDs in the existing `moscow:v4:experience` snapshot with a category-specific validation set. This MUST NOT expand valid IDs for historical route stops, spatial experiences or visited evidence: only pilot IDs remain admissible to those subsystems.
+
+On desktop Discover uses an editorial two-column layout; on phone and tablet the content remains stacked. The trip-reset control requires an explicit irreversible-deletion confirmation, because a local-only trip can contain user-declared tickets, acceptance receipts and private visit notes.
+
+Automated QA includes today-active screenshots, catalog detail screenshots, formal visit vs favorites preservation, delayed booking separation, exact venue ID replay, and consented itinerary reset. No real-photo upload, restaurant reservation, new paid maps provider or provider-verified ticket has been implemented by these changes.
