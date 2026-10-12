@@ -234,6 +234,53 @@ test('city directory selection requires consent and stays a place, never a provi
   expect(museum).toBeTruthy();
   expect(museum.commitment).toBeUndefined();
   expect(museum.kind).toBe('museum');
+  expect(museum.catalogPlaceId).toBe('tretyakov-lavrushinsky');
+  expect(museum.officialSourceUrl).toContain('/for-visitors/museums/istoricheskoe-zdanie/');
+  expect(museum.source).toBe('manual');
   await page.reload();
   await expect(page.getByText('Третьяковская галерея', { exact: true }).first()).toBeVisible();
+});
+
+test('delete-trip is a deliberate two-step action; cancellation retains the trip', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-14');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await page.getByText('Новая', { exact: true }).click();
+  await expect(page.getByText('Создать новую поездку?', { exact: true })).toBeVisible();
+  const before = await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
+  expect(before).toBeTruthy();
+  await page.getByRole('button', { name: 'Отменить удаление поездки' }).click();
+  await expect(page.getByText('Создать новую поездку?', { exact: true })).toHaveCount(0);
+  const preserved = await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
+  expect(preserved).toBe(before);
+  await page.getByText('Новая', { exact: true }).click();
+  await page.getByRole('button', { name: 'Удалить текущую поездку и начать новую' }).click();
+  await expect(page.getByPlaceholder('2026-10-02')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'))).toBeNull();
+});
+
+test('today links the curated venue to its official source without a fake ticket', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Третьяковская галерея' }).click();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  const today = await page.evaluate(() => {
+    const fields = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const item = (type: string) => fields.find(v => v.type === type)?.value ?? '';
+    return item('year') + '-' + item('month') + '-' + item('day');
+  });
+  await page.getByPlaceholder('2026-10-02').fill(today);
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить добавление места' }).click();
+  await expect(page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Открыть официальный сайт следующего места' })).toBeVisible();
+  await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Открыть официальный сайт следующего места' })).toBeVisible();
 });
