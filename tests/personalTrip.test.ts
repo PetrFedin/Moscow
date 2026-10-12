@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addDestinationNodeToTrip,
+  addCuratedMoscowPlaceToTrip,
   addManualTripItem,
   attachTripCommitment,
   createPersonalTrip,
@@ -15,6 +16,7 @@ import {
   syncRouteCompletedVisits
 } from '../src/travel/personalTrip.ts';
 import { moscowVarvarkaDestinationPackage } from '../src/travel/moscowDestinationPackage.ts';
+import { curatedMoscowPlaces } from '../src/travel/curatedMoscowPlaces.ts';
 
 const now = '2026-10-02T09:00:00.000Z';
 
@@ -210,4 +212,52 @@ test('private visit note survives roundtrip, can be cleared and never upgrades e
   assert.equal(cleared.visits[0]?.note, undefined);
   assert.throws(() => updateTripVisitNote({trip: noted,visitId:'visit-note',note:'X'.repeat(2001),updatedAt:now}),/2000/);
   assert.throws(() => parsePersonalTrip(JSON.stringify({...noted,visits:[{...noted.visits[0],note:123}]})),/Invalid visit note/);
+});
+
+test('curated Moscow venue stores canonical identity and official source without inventing a booking', () => {
+  const museum = curatedMoscowPlaces.find((place) => place.id === 'tretyakov-lavrushinsky');
+  assert.ok(museum);
+  const selected = addCuratedMoscowPlaceToTrip({
+    trip: baseTrip(),
+    place: museum,
+    itemId: 'selected-tretyakov',
+    dayDate: '2026-10-03',
+    updatedAt: now
+  });
+  assert.equal(selected.items[0]?.catalogPlaceId, museum.id);
+  assert.equal(selected.items[0]?.officialSourceUrl, museum.officialUrl);
+  assert.equal(selected.items[0]?.source, 'manual');
+  assert.equal(selected.items[0]?.commitment, undefined);
+  assert.deepEqual(parsePersonalTrip(JSON.stringify(selected)).items[0], selected.items[0]);
+
+  assert.throws(() => addCuratedMoscowPlaceToTrip({
+    trip: selected,
+    place: museum,
+    itemId: 'duplicate-tretyakov',
+    dayDate: '2026-10-03',
+    updatedAt: now
+  }), /already in the selected day/);
+
+  // A later user-supplied booking is a separate action, not a side effect of picking the place.
+  const laterTicket = attachTripCommitment({
+    trip: selected,
+    itemId: 'selected-tretyakov',
+    commitment: {kind: 'ticket', status: 'confirmed', verification: 'user-declared'},
+    updatedAt: '2026-10-02T10:00:00.000Z'
+  });
+  assert.equal(parsePersonalTrip(JSON.stringify(laterTicket)).items[0]?.commitment?.verification, 'user-declared');
+  assert.equal(selected.items[0]?.commitment, undefined);
+
+  const anotherDay = addCuratedMoscowPlaceToTrip({
+    trip: selected,
+    place: museum,
+    itemId: 'different-day-tretyakov',
+    dayDate: '2026-10-04',
+    updatedAt: now
+  });
+  assert.equal(anotherDay.items.length, 2);
+
+  assert.throws(() => parsePersonalTrip(JSON.stringify({
+    ...selected, items: [{ ...selected.items[0], catalogPlaceId: 'broken', officialSourceUrl: 'http://not-secure.test' }]
+  })), /Invalid curated trip place metadata/);
 });
