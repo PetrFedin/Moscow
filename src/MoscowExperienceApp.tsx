@@ -146,6 +146,7 @@ const evidenceLabel = {
 
 export default function MoscowExperienceApp() {
   const { width: viewportWidth } = useWindowDimensions();
+  const wideDiscover = viewportWidth >= 1180;
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
   const [exploreToolsOpen, setExploreToolsOpen] = useState(false);
@@ -635,9 +636,11 @@ export default function MoscowExperienceApp() {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.content, wideDiscover && styles.wideContent]} showsVerticalScrollIndicator={false}>
           {tab === 'discover' && (
             <>
+              <View style={wideDiscover ? styles.desktopDiscoverLead : undefined}>
+                <View style={wideDiscover ? styles.desktopDiscoverPrimary : undefined}>
               <MoscowDiscoverLanding
                 language={language}
                 savedCount={savedIds.length}
@@ -650,7 +653,11 @@ export default function MoscowExperienceApp() {
                 onShowPlanningTools={() => setExploreToolsOpen((value) => !value)}
                 planningToolsOpen={exploreToolsOpen}
               />
-              <MoscowMomentFinder language={language} savedIds={savedIds} onStartWalk={(plan) => startTouristPlan(plan, 'planner')} />
+                </View>
+                <View style={wideDiscover ? styles.desktopDiscoverSecondary : undefined}>
+                  <MoscowMomentFinder language={language} savedIds={savedIds} onStartWalk={(plan) => startTouristPlan(plan, 'planner')} />
+                </View>
+              </View>
               <CuratedMoscowDirectory language={language} onRequestAdd={(place)=>{setChosenDirectoryPlace(place);setTab('trip');}} />
               {heritageStoryOpen && selected && (
                 <View style={styles.storyCard}>
@@ -1080,6 +1087,10 @@ const styles = StyleSheet.create({
   language: { width: 48, height: 44, borderRadius: 22, backgroundColor: '#20242a' },
   languageText: { color: '#e7c98f', fontSize: 11, fontWeight: '900' },
   content: { padding: 18, paddingBottom: 132, alignSelf: 'center', width: '100%', maxWidth: 900 },
+  wideContent: { maxWidth: 1260, paddingHorizontal: 27 },
+  desktopDiscoverLead: { flexDirection: 'row', alignItems: 'flex-start', gap: 24 },
+  desktopDiscoverPrimary: { flex: 1.18, minWidth: 0 },
+  desktopDiscoverSecondary: { flex: 0.82, minWidth: 0, paddingTop: 8 },
   hero: { borderRadius: 27, padding: 22, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#31353b', marginBottom: 22 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginBottom: 7 },
   heroTitle: { color: '#fff8ea', fontSize: 29, lineHeight: 35, fontWeight: '900' },
