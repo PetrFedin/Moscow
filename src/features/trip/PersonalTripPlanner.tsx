@@ -73,6 +73,7 @@ type Props = {
   currentRoutingProjection?: ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed>;
   currentRoutingAuthorityUrl?: string;
   onOpenPlace: (placeId: string) => void;
+  onDiscover: () => void;
   selectedDirectoryPlace?: CuratedMoscowPlace | null;
   onDirectoryPlaceHandled?: () => void;
 };
