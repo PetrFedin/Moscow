@@ -19,7 +19,7 @@ import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsRepo
 import CitywideDiscoveryCard from './features/destination/CitywideDiscoveryCard';
 import MoscowDiscoverLanding from './features/destination/MoscowDiscoverLanding';
 import CuratedMoscowDirectory from './features/destination/CuratedMoscowDirectory';
-import type { CuratedMoscowPlace } from './travel/curatedMoscowPlaces';
+import { curatedMoscowPlace, type CuratedMoscowPlace } from './travel/curatedMoscowPlaces';
 import MoscowMomentFinder from './features/destination/MoscowMomentFinder';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
@@ -658,7 +658,7 @@ export default function MoscowExperienceApp() {
                   <MoscowMomentFinder language={language} savedIds={savedIds} onStartWalk={(plan) => startTouristPlan(plan, 'planner')} />
                 </View>
               </View>
-              <CuratedMoscowDirectory language={language} onRequestAdd={(place)=>{setChosenDirectoryPlace(place);setTab('trip');}} />
+              <CuratedMoscowDirectory language={language} savedIds={savedIds} onToggleSaved={toggleSaved} onRequestAdd={(place)=>{setChosenDirectoryPlace(place);setTab('trip');}} />
               {heritageStoryOpen && selected && (
                 <View style={styles.storyCard}>
                   <View style={styles.storyHeader}>
@@ -1016,7 +1016,25 @@ export default function MoscowExperienceApp() {
                 <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
                 const place = localizedPlaces.find((item) => item.id === id);
-                if (!place) return null;
+                if (!place) {
+                  const curated = curatedMoscowPlace(id);
+                  if (!curated) return null;
+                  return (
+                    <View key={id} style={styles.placeCard}>
+                      <View style={styles.savedCatalogContent}>
+                        <Text style={styles.placeTitle}>{language === 'ru' ? curated.titleRu : curated.titleEn}</Text>
+                        <Text style={styles.placeSubtitle}>{curated.addressRu}</Text>
+                        <Text style={styles.placeSubtitle}>{tr(language,'Сохранено вами · наличие билетов и бронирований не проверено','Saved by you · tickets and bookings unverified','您已收藏 · 门票与预订未验证')}</Text>
+                        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Добавить сохранённое место в поездку','Add saved place to trip','将收藏地点添加到行程')} style={styles.savedCatalogAction} contentStyle={styles.center} onPress={() => { setChosenDirectoryPlace(curated); setTab('trip'); }}>
+                          <Text style={styles.savedCatalogActionText}>{tr(language,'Добавить в поездку','Add to trip','添加到行程')} →</Text>
+                        </PhysicalPressable>
+                        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Убрать сохранённое место','Remove saved place','移除收藏')} style={styles.savedCatalogRemove} contentStyle={styles.center} onPress={() => toggleSaved(id)}>
+                          <Text style={styles.savedCatalogRemoveText}>{tr(language,'Убрать из избранного','Remove from favorites','取消收藏')}</Text>
+                        </PhysicalPressable>
+                      </View>
+                    </View>
+                  );
+                }
                 return (
                   <PhysicalPressable key={id} style={styles.placeCard} contentStyle={styles.placeCardContent} onPress={() => { selectPlace(id); setTab('discover'); }}>
                     <View style={styles.placeCopy}><Text style={styles.placeTitle}>{place.title}</Text><Text style={styles.placeSubtitle}>{place.district}</Text></View>
@@ -1102,6 +1120,11 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.42 },
   sectionTitle: { color: '#f4efe6', fontSize: 21, fontWeight: '900', marginBottom: 12 },
   placeCard: { minHeight: 82, borderRadius: 20, borderWidth: 1, borderColor: '#292e34', backgroundColor: '#14171b', marginBottom: 10 },
+  savedCatalogContent: { padding: 16, gap: 8 },
+  savedCatalogAction: { minHeight: 48, backgroundColor: '#e7d7b8', borderRadius: 12, marginTop: 7 },
+  savedCatalogActionText: { color: '#23372c', fontSize: 13, fontWeight: '700' },
+  savedCatalogRemove: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#57675e' },
+  savedCatalogRemoveText: { color: '#d7dfd4', fontSize: 12, fontWeight: '600' },
   placeCardActive: { borderColor: '#9f855a', backgroundColor: '#181713' },
   placeCardContent: { flexDirection: 'row', alignItems: 'center', padding: 14 },
   placeNumber: { width: 39, height: 39, borderRadius: 20, backgroundColor: '#24282e', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
