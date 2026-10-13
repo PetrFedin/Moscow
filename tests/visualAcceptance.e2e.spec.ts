@@ -129,5 +129,20 @@ for (const viewport of [
     await expect(passport.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
     await expect(passport.getByText('Ужин на Пятницкой', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-filtered-viewport.png') });
+
+    const ideas = page.getByTestId('moscow-next-discoveries');
+    await expect(ideas.getByText('Что добавить в поездку?', { exact: true })).toBeVisible();
+    await ideas.getByText('Что добавить в поездку?', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-discovery-header-viewport.png') });
+
+    await ideas.getByRole('button', { name: 'Идеи: Рестораны' }).click();
+    const restaurantAdd = ideas.getByRole('button', {
+      name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+    });
+    await expect(restaurantAdd).toBeVisible();
+    await restaurantAdd.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-discovery-action-viewport.png') });
+    const overflowing = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    expect(overflowing, 'No horizontal body overflow after discovery').toBe(false);
   });
 }
