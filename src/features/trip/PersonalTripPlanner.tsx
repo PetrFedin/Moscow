@@ -59,6 +59,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripArchivePanel from './TripArchivePanel';
 import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
+import MoscowNextDiscoveriesCard from './MoscowNextDiscoveriesCard';
 import TripBackupPanel from './TripBackupPanel';
 import { createPersonalTripBackup, mergePersonalTripBackup, parsePersonalTripBackup, previewPersonalTripBackup } from '../../travel/personalTripBackup';
 import {
@@ -261,6 +262,7 @@ export default function PersonalTripPlanner({
   const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [discoveryActionError, setDiscoveryActionError] = useState('');
   const [replacementActionError, setReplacementActionError] = useState('');
   const [verifiedReplacementRoutingProjection, setVerifiedReplacementRoutingProjection] = useState<
     ReturnType<typeof import('../../travel/citywideRoutingAuthority').projectCitywideRoutingFeed> | null
@@ -585,6 +587,28 @@ export default function PersonalTripPlanner({
       onDirectoryPlaceHandled?.();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'place-add-failed');
+    }
+  };
+
+  const addSuggestedPlace = (place: CuratedMoscowPlace) => {
+    if (!trip || !trip.days.includes(selectedDay) || !archiveReady || archiveError) {
+      setDiscoveryActionError(tr(language, 'История поездок пока недоступна.', 'Trip history is not available.', '旅行历史记录暂不可用。'));
+      return;
+    }
+    try {
+      const updated = addCuratedMoscowPlaceToTrip({
+        trip,
+        place,
+        itemId: itemId('discovery'),
+        dayDate: selectedDay,
+        updatedAt: new Date().toISOString()
+      });
+      setTrip(updated);
+      setDiscoveryActionError('');
+    } catch {
+      setDiscoveryActionError(tr(language, 'Это место уже есть в выбранном дне или его не удалось добавить.',
+        'This place is already in the day or could not be added.',
+        '此地点已在当日计划中，或无法添加。'));
     }
   };
 
@@ -992,6 +1016,16 @@ export default function PersonalTripPlanner({
           </PhysicalPressable>
         ))}
       </View>
+
+      <MoscowNextDiscoveriesCard
+        trip={trip}
+        archive={archive}
+        archiveReady={archiveReady && !archiveError}
+        dayDate={selectedDay}
+        language={language}
+        onAddPlace={addSuggestedPlace}
+        addError={discoveryActionError}
+      />
 
       {dayComposer && (
         <DayComposerCard
