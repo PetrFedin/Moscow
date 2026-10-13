@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { AppLanguage } from '../../i18n';
@@ -237,6 +237,7 @@ export default function PersonalTripPlanner({
   const [archive, setArchive] = useState<PersonalTripArchive>(emptyPersonalTripArchive());
   const [archiveReady, setArchiveReady] = useState(false);
   const [archiveError, setArchiveError] = useState('');
+  const activeWritesRef = useRef<Promise<void>>(Promise.resolve());
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
   const [startDateInput, setStartDateInput] = useState(localDateOnly());
@@ -287,7 +288,13 @@ export default function PersonalTripPlanner({
 
   useEffect(() => {
     if (!hydrated || !trip) return;
-    AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, JSON.stringify(trip)).catch(() => undefined);
+    const snapshot = JSON.stringify(trip);
+    // Serialize writes to the active key; archive/reset must wait for the last snapshot.
+    const pending = activeWritesRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, snapshot));
+    activeWritesRef.current = pending;
+    void pending.catch(() => setFormError('trip-local-save-failed'));
   }, [hydrated, trip]);
 
   useEffect(() => {
@@ -669,6 +676,7 @@ export default function PersonalTripPlanner({
     }
     try {
       const nextArchive = archivePersonalTrip(archive, trip);
+      await activeWritesRef.current.catch(() => undefined);
       // Write the recoverable snapshot before clearing the active trip.
       await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
       await AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY);
@@ -695,6 +703,7 @@ export default function PersonalTripPlanner({
     try {
       // Preserve all changes in the current trip before restoring an older itinerary.
       const nextArchive = trip ? archivePersonalTrip(archive, trip) : archive;
+      await activeWritesRef.current.catch(() => undefined);
       await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
       await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, JSON.stringify(saved));
       setArchive(nextArchive);
@@ -837,7 +846,8 @@ export default function PersonalTripPlanner({
             style={styles.dangerButton}
             contentStyle={styles.center}
             onPress={() => {
-              void AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY)
+              void activeWritesRef.current.catch(() => undefined)
+                .then(() => AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY))
                 .then(() => { setTrip(null); setResetConfirmationOpen(false); onDirectoryPlaceHandled?.(); })
                 .catch(() => setFormError('trip-reset-storage-error'));
             }}
