@@ -775,6 +775,7 @@ export default function PersonalTripPlanner({
         visitedIds={visitedIds}
         onOpenPlace={onOpenPlace}
         onDiscover={onDiscover}
+        onMarkVisited={markVisited}
         onManageTrip={() => setTripToolsOpen(true)}
       />
 
