@@ -699,6 +699,7 @@ export default function PersonalTripPlanner({
       await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, JSON.stringify(saved));
       setArchive(nextArchive);
       setTrip(saved);
+      onDirectoryPlaceHandled?.();
       setSelectedDay(saved.days.includes(moscowDateOnly()) ? moscowDateOnly() : saved.days[0] ?? saved.startDate);
       setResetConfirmationOpen(false);
       setTripToolsOpen(false);
@@ -804,6 +805,7 @@ export default function PersonalTripPlanner({
         </PhysicalPressable>
       </View>
 
+      {archiveError ? <Text style={styles.formError}>{tr(language, 'Локальный архив недоступен. Не удаляйте поездку до резервного сохранения.', 'Local trip archive is unavailable. Do not delete this trip before saving a backup.', '本地行程归档不可用。请先备份再删除行程。')}</Text> : null}
       {resetConfirmationOpen && (
         <View style={styles.dangerPanel}>
           <Text style={styles.dangerTitle}>{tr(language, 'Создать новую поездку?', 'Start a new trip?', '创建新的行程？')}</Text>
@@ -816,6 +818,7 @@ export default function PersonalTripPlanner({
             accessibilityLabel={tr(language, 'Архивировать текущую поездку и начать новую', 'Archive current trip and start a new one', '存档当前行程并开始新行程')}
             style={styles.archiveButton}
             contentStyle={styles.center}
+            disabled={!archiveReady || Boolean(archiveError)}
             onPress={() => { void archiveAndCreateNew(); }}
           ><Text style={styles.archiveButtonText}>{tr(language, 'Сохранить в архив и начать новую', 'Archive and start new', '存档并开始新行程')}</Text></PhysicalPressable>
           <Text style={styles.dangerBody}>{tr(language,
