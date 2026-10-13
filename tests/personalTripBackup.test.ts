@@ -82,6 +82,8 @@ test('backup rejects oversized payload, wrong version, duplicate active identity
   assert.throws(() => parsePersonalTripBackup(JSON.stringify(duplicate)), /two versions/);
   const forged = JSON.parse(valid);
   forged.activeTrip.items[0].commitment.verification = 'provider-confirmed';
+  assert.throws(() => parsePersonalTripBackup(JSON.stringify(forged)), /requires provider/);
+  forged.activeTrip.items[0].commitment.provider = 'Unverified third party';
   assert.throws(() => parsePersonalTripBackup(JSON.stringify(forged)), /requires receipt evidence/);
 });
 
