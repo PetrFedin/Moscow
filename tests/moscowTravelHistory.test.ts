@@ -129,3 +129,20 @@ test('day grouping sorts newest date first and preserves all visit records', () 
   assert.deepEqual(days.map((day) => day.dayDate), ['2026-10-13', '2026-01-02']);
   assert.equal(days.reduce((count, day) => count + day.entries.length, 0), 2);
 });
+
+test('unrecognized destination IDs cannot certify a known place or merge visits', () => {
+  const forged = (id: string) => recordTripVisit({
+    trip: make(id), visitId: 'visit-' + id, dayDate: date,
+    title: 'Без подтверждённого ID', kind: 'museum',
+    destinationNodeId: 'unadmitted-place-not-in-package',
+    evidence: 'user-confirmed', visitedAt: at, updatedAt: at
+  });
+  const history = buildMoscowTravelHistory({
+    activeTrip: forged('trip-one'),
+    archive: archivePersonalTrip(emptyPersonalTripArchive(), forged('trip-two'))
+  });
+  assert.equal(history.visitCount, 2);
+  assert.equal(history.knownPlaceCount, 0);
+  assert.equal(history.unknownIdentityVisitCount, 2);
+  assert.ok(history.entries.every((entry) => entry.knownPlaceId === undefined));
+});
