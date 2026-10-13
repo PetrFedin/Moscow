@@ -82,7 +82,7 @@ export default function MoscowTravelHistoryCard({ activeTrip, archive, language,
   if (history.tripCount < 2 && history.visitCount === 0) return null;
 
   return (
-    <View style={styles.root}>
+    <View testID="moscow-passport-v2-card" style={styles.root}>
       <Text style={styles.kicker}>{tr(language, 'ЛИЧНАЯ МОСКВА', 'MY MOSCOW', '我的莫斯科')}</Text>
       <Text style={styles.title}>{tr(language, 'История всех поездок', 'All journeys history', '全部旅程历史')}</Text>
       <Text style={styles.hint}>{tr(language,
