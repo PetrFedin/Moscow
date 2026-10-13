@@ -36,6 +36,20 @@ test('semantic categories distinguish where the tourist ate, saw and went out', 
   assert.equal(passportCategoryForKind('event'), 'culture');
   assert.equal(passportCategoryForKind('stay'), 'stay');
   assert.equal(passportCategoryForKind('transport'), 'transport');
+  assert.equal(passportCategoryForKind('gallery'), 'saw');
+  assert.equal(passportCategoryForKind('historical-site'), 'saw');
+  assert.equal(passportCategoryForKind('landmark'), 'saw');
+  assert.equal(passportCategoryForKind('park'), 'saw');
+  assert.equal(passportCategoryForKind('restaurant'), 'ate');
+  assert.equal(passportCategoryForKind('cafe'), 'ate');
+  assert.equal(passportCategoryForKind('nightlife'), 'nightlife');
+  assert.equal(passportCategoryForKind('exhibition'), 'culture');
+  assert.equal(passportCategoryForKind('cinema'), 'culture');
+  assert.equal(passportCategoryForKind('concert'), 'culture');
+  assert.equal(passportCategoryForKind('market'), 'shopping');
+  assert.equal(passportCategoryForKind('wellness'), 'activity');
+  assert.equal(passportCategoryForKind('sport'), 'activity');
+  assert.equal(passportCategoryForKind('kids'), 'activity');
 });
 
 test('manual restaurant visit carries food kind into the passport without changing evidence', () => {

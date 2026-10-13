@@ -60,6 +60,10 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Я был здесь', { exact: true }).click();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать заметку: Большой театр · мой билет' }).click();
+  await page.getByLabel('Текст личной заметки').fill('Запомнилась атмосфера этого вечера.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 
   await page.reload();
   await ensureRussian(page);
@@ -67,6 +71,7 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 });
 
 
@@ -137,6 +142,12 @@ test('Tourist Today surfaces the active booking without upgrading manual verific
   await page.getByText('Добавить в день', { exact: true }).click();
 
   await expect(page.getByText('СЕЙЧАС ПО ПЛАНУ', { exact: true })).toBeVisible();
+  // Today is the primary trip surface and shows the active state before secondary diagnostics.
+  const todayTop = await page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true }).boundingBox();
+  const composerTop = await page.getByText('DAY COMPOSER · V2', { exact: true }).boundingBox();
+  expect(todayTop).not.toBeNull();
+  expect(composerTop).not.toBeNull();
+  if (todayTop && composerTop) expect(todayTop.y).toBeLessThan(composerTop.y);
   await expect(page.getByText('Ужин · активная бронь', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
@@ -245,6 +256,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
   await page.getByText('Изменить', { exact: true }).click();
 
@@ -265,6 +277,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await page.reload();
   await ensureRussian(page);
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
   await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
 });
@@ -306,6 +319,7 @@ test('Day Replan requires explicit apply and preserves fixed booking', async ({ 
   await page.getByPlaceholder('21:00').fill('15:00');
   await page.getByText('Добавить в день', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Пересобрать остаток дня', { exact: true })).toBeVisible();
   await page.getByText('Предложить', { exact: true }).click();
 
@@ -1042,4 +1056,93 @@ test('source-backed replacement becomes executable after current route verificat
   expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
   expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
   expect(fixed.commitment.reference).toBe('USER-TICKET');
+
+  expect(stored.replacementReceipts).toHaveLength(1);
+  expect(stored.replacementReceipts[0].before.title).toBe('Новая Третьяковка');
+  expect(stored.replacementReceipts[0].after.title).toBe('Алексей Боголюбов. От Невы до Босфора');
+  expect(stored.replacementReceipts[0].fixedCommitmentsPreserved).toBe(true);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+  const persisted = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(persisted.replacementReceipts).toHaveLength(1);
+  expect(persisted.items.find((item: { id: string }) => item.id === 'fixed-theatre').commitment.reference).toBe('USER-TICKET');
+});
+
+
+test('Moscow Passport 2.0 filters cross-trip diary by category, notes and inclusive dates', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const active = {
+      schemaVersion: 1,
+      id: 'passport-autumn',
+      destinationId: 'moscow',
+      title: 'Осенняя Москва',
+      startDate: '2026-10-13', endDate: '2026-10-13', days: ['2026-10-13'],
+      items: [],
+      visits: [{
+        id: 'autumn-dinner', dayDate: '2026-10-13',
+        visitedAt: '2026-10-13T18:30:00+03:00',
+        title: 'Ужин на Тверской', kind: 'food',
+        evidence: 'user-confirmed', note: 'Интересное меню'
+      }],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T18:35:00.000Z'
+    };
+    const previous = {
+      schemaVersion: 1, id: 'passport-summer', destinationId: 'moscow',
+      title: 'Летняя Москва',
+      startDate: '2026-06-05', endDate: '2026-06-05', days: ['2026-06-05'],
+      items: [],
+      visits: [{
+        id: 'summer-museum', dayDate: '2026-06-05',
+        visitedAt: '2026-06-05T12:10:00+03:00',
+        title: 'Музей на Варварке', kind: 'museum',
+        destinationNodeId: 'romanov-chambers',
+        evidence: 'user-confirmed', note: 'Исторический двор'
+      }],
+      createdAt: '2026-06-05T08:00:00.000Z',
+      updatedAt: '2026-06-05T12:15:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(active));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [previous]
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('История всех поездок', { exact: true })).toBeVisible();
+  await expect(page.getByText('2', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Показать историю посещений по всем поездкам' }).click();
+  await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ужин на Тверской', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Фильтр категории: Где ел' }).click();
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Фильтр категории: Все' }).click();
+  const search = page.getByLabel('Поиск по истории Москвы');
+  await search.fill('исторический двор');
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toBeVisible();
+
+  await search.fill('');
+  await page.getByLabel('Дата посещения с').fill('2026-06-05');
+  await page.getByLabel('Дата посещения по').fill('2026-06-05');
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await page.getByLabel('Дата посещения с').fill('2026-02-30');
+  await expect(page.getByText(/Проверьте даты: формат/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Сбросить фильтры истории' }).click();
+  await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
 });
