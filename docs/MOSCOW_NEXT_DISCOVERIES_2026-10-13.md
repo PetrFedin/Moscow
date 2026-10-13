@@ -22,6 +22,13 @@ The initial pool is exactly the currently admitted seven `curatedMoscowPlaces` e
 
 This recommendation rail neither changes the recorded verification class of historical visits nor promotes a plain import to a provider receipt. It does not collect raw locations, transmit private notes or create any new infrastructure.
 
+## Cross-surface consistency and safety follow-up
+- PersonalTripPlanner now combines accepted canonical destination IDs from all local trips with existing walk visited IDs. TouristToday and the historic route's unseen rail use the combined list, avoiding a previously visited heritage node being advertised again as new.
+- `addCuratedMoscowPlaceToTrip` deduplicates curated stops only by their canonical catalog ID, not by free-text title. This prevents two unrelated venues with similar names being collapsed. Same catalog venue remains restricted once per active day.
+- Suggestion insertion uses a functional React state update guarded by trip identity and selected day, preventing rapid taps on different cards from overwriting each other's state.
+- P0 local crash-safe archive and import acceptance is tracked in issue #173.
+- P1 expansion of the official-source, rights-safe Moscow directory is tracked in issue #174.
+
 ## Release gates
 1. Exact-head CI on the new PR: contracts, typecheck, all three build exports, browser E2E and three viewport screenshots.
 2. Manual screenshots inspection: no text clipping, horizontally overflowing chips or hidden action buttons.
