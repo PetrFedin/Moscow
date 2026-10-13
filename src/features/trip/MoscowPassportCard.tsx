@@ -94,7 +94,7 @@ export default function MoscowPassportCard({ trip, language, onSaveVisitNote }: 
   const nonEmpty = passportNonEmptyCategories(passport);
 
   return (
-    <View style={styles.root}>
+    <View testID="moscow-single-trip-passport" style={styles.root}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
           <Text style={styles.kicker}>{tr(language, 'МОЯ ИСТОРИЯ МОСКВЫ', 'MY MOSCOW HISTORY', '我的莫斯科足迹')}</Text>
