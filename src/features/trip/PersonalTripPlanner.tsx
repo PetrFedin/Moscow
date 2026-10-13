@@ -596,14 +596,27 @@ export default function PersonalTripPlanner({
       return;
     }
     try {
-      const updated = addCuratedMoscowPlaceToTrip({
-        trip,
-        place,
-        itemId: itemId('discovery'),
-        dayDate: selectedDay,
-        updatedAt: new Date().toISOString()
+      const newId = itemId('discovery');
+      const updatedAt = new Date().toISOString();
+      // Validate the visible snapshot before scheduling the React update.
+      // Apply to the most recent state so rapid taps on different cards cannot
+      // silently replace another suggestion added in the same render frame.
+      addCuratedMoscowPlaceToTrip({
+        trip, place, itemId: newId, dayDate: selectedDay, updatedAt
       });
-      setTrip(updated);
+      setTrip((current) => {
+        if (!current || current.id !== trip.id || !current.days.includes(selectedDay)) {
+          return current;
+        }
+        try {
+          return addCuratedMoscowPlaceToTrip({
+            trip: current, place, itemId: newId, dayDate: selectedDay, updatedAt
+          });
+        } catch {
+          // A duplicate click after a successful first update is idempotent.
+          return current;
+        }
+      });
       setDiscoveryActionError('');
     } catch {
       setDiscoveryActionError(tr(language, 'Это место уже есть в выбранном дне или его не удалось добавить.',
