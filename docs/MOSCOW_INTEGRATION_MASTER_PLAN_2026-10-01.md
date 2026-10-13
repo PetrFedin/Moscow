@@ -776,6 +776,20 @@ Guardrails:
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
 
+#### Moscow Passport 2.0 — DRAFT / NOT RELEASED (2026-10-13)
+
+Current development lane: Draft PR #170 -> Passport filters branch; evidence and details:
+`docs/MOSCOW_PASSPORT_V2_FILTERS_AND_IDENTITIES_2026-10-13.md`.
+
+- Local multi-trip journal joins active itinerary and validated archived snapshots, with active trip revision taking precedence by ID.
+- Visit records and unique identified places are separate metrics; only admitted destination/catalog IDs may deduplicate places.
+- No free-text name matching, unadmitted destination ID promotion, or invented proof of physical visits.
+- Search covers saved place/title/trip/note; filter by semantic category and explicit valid ISO-day range; journal groups newest day first.
+- Catalogue taxonomy now covers restaurant/cafe, gallery/exhibition, cinema/concert, park/landmark and other citywide kinds.
+- Requirements before release: exact-head quality/contract/browser/mobile visual checks, recovery/fault-injection for archive storage and independent review.
+- No new external provider PASS or spatial Phase 0 unlock; no paid resources, cloud sync, location tracking, or photo capture in this lane.
+
+
 
 ### Trip Booking Wallet — IMPLEMENTING (#110)
 
