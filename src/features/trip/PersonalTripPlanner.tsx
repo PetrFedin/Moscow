@@ -59,6 +59,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripArchivePanel from './TripArchivePanel';
 import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
+import { buildMoscowTravelHistory } from '../../travel/moscowTravelHistory';
 import MoscowNextDiscoveriesCard from './MoscowNextDiscoveriesCard';
 import TripBackupPanel from './TripBackupPanel';
 import { createPersonalTripBackup, mergePersonalTripBackup, parsePersonalTripBackup, previewPersonalTripBackup } from '../../travel/personalTripBackup';
@@ -331,15 +332,27 @@ export default function PersonalTripPlanner({
     () => trip && trip.days.includes(selectedDay) ? personalTripDayItems(trip, selectedDay) : [],
     [selectedDay, trip]
   );
+  const knownVisitedNodeIds = useMemo(() => {
+    // A stored visit from any past trip is not a fresh destination recommendation.
+    // Only canonical DestinationPackage identities qualify; text notes do not.
+    if (!archiveReady || archiveError) return visitedIds;
+    const history = buildMoscowTravelHistory({ activeTrip: trip, archive });
+    const fromPreviousTrips = history.entries.flatMap((entry) => (
+      entry.knownPlaceId?.startsWith('destination:')
+        ? [entry.knownPlaceId.slice('destination:'.length)]
+        : []
+    ));
+    return [...new Set([...visitedIds, ...fromPreviousTrips])];
+  }, [trip, archive, archiveReady, archiveError, visitedIds]);
   const unseen = useMemo(
-    () => trip
+    () => trip && archiveReady && !archiveError
       ? getUnseenDestinationNodes({
           pkg: moscowVarvarkaDestinationPackage,
           trip,
-          visitedDestinationNodeIds: visitedIds
+          visitedDestinationNodeIds: knownVisitedNodeIds
         })
       : [],
-    [trip, visitedIds]
+    [trip, knownVisitedNodeIds, archiveReady, archiveError]
   );
   const savedNodes = useMemo(
     () => moscowVarvarkaDestinationPackage.nodes.filter((node) => savedIds.includes(node.id)),
@@ -958,7 +971,7 @@ export default function PersonalTripPlanner({
       <TouristTodayCard
         trip={trip}
         language={language}
-        visitedIds={visitedIds}
+        visitedIds={knownVisitedNodeIds}
         onOpenPlace={onOpenPlace}
         onDiscover={onDiscover}
         onMarkVisited={markVisited}
@@ -1358,7 +1371,7 @@ export default function PersonalTripPlanner({
           <View style={styles.sectionTop}>
             <View>
               <Text style={styles.kicker}>{tr(language, 'ЧТО ЕЩЁ УВИДЕТЬ', 'WHAT ELSE TO SEE', '还可以去哪里')}</Text>
-              <Text style={styles.sectionTitle}>{tr(language, 'Ещё не в плане и не посещено', 'Not planned or visited yet', '尚未计划或到访')}</Text>
+              <Text style={styles.sectionTitle}>{tr(language, 'Нет в плане и известных записях посещений', 'Not in plan or identified visit records', '未列入计划或已识别到访记录')}</Text>
             </View>
           </View>
           <View style={styles.quickList}>
@@ -1366,7 +1379,7 @@ export default function PersonalTripPlanner({
               <View key={node.id} style={styles.quickRow}>
                 <PhysicalPressable style={styles.quickCopy} contentStyle={styles.quickCopyContent} onPress={() => onOpenPlace(node.id)}>
                   <Text style={styles.quickTitle}>{nodeTitle(language, node)}</Text>
-                  <Text style={styles.quickMeta}>{tr(language, 'Проверенное место из Moscow Destination', 'Source-backed Moscow place', '莫斯科目的地中的已验证地点')}</Text>
+                  <Text style={styles.quickMeta}>{tr(language, 'Из исторического справочника · часы работы не проверены', 'From the heritage directory · hours unverified', '来自历史地点目录 · 开放时间未核验')}</Text>
                 </PhysicalPressable>
                 <PhysicalPressable style={styles.addButton} contentStyle={styles.center} onPress={() => addNode(node.id)}>
                   <Text style={styles.addButtonText}>+</Text>
