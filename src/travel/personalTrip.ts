@@ -409,7 +409,7 @@ export function addCuratedMoscowPlaceToTrip(input: {
     throw new Error('Curated Moscow place requires a canonical ID and HTTPS official source');
   }
   if (input.trip.items.some((item) => item.dayDate === input.dayDate
-    && (item.catalogPlaceId === input.place.id || (!item.catalogPlaceId && item.title === input.place.titleRu))
+    && item.catalogPlaceId === input.place.id
     && item.status !== 'cancelled')) {
     throw new Error('Curated Moscow place already in the selected day');
   }
