@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import PhysicalPressable from '../../ui/PhysicalPressable';
 
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
@@ -14,6 +15,7 @@ import type { PersonalTrip, PersonalTripVisit } from '../../travel/personalTrip'
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
+  onSaveVisitNote?: (visitId: string, note: string) => void;
 };
 
 const categoryLabel: Record<AppLanguage, Record<MoscowPassportCategory, string>> = {
@@ -79,7 +81,9 @@ function categorySymbol(category: MoscowPassportCategory) {
   }
 }
 
-export default function MoscowPassportCard({ trip, language }: Props) {
+export default function MoscowPassportCard({ trip, language, onSaveVisitNote }: Props) {
+  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
   const passport = useMemo(
     () => buildMoscowPassport({ trip, pkg: moscowVarvarkaDestinationPackage }),
     [trip]
@@ -149,6 +153,47 @@ export default function MoscowPassportCard({ trip, language }: Props) {
                   <Text style={styles.entryMeta}>
                     {categoryLabel[language][entry.category]} · {evidenceLabel(language, entry.visit.evidence)}
                   </Text>
+                  {entry.visit.note ? <Text style={styles.note}>{entry.visit.note}</Text> : null}
+                  {onSaveVisitNote && (
+                    <PhysicalPressable
+                      accessibilityRole="button"
+                      accessibilityLabel={tr(language, 'Редактировать заметку: ', 'Edit visit note: ', '编辑到访笔记：') + entry.visit.title}
+                      onPress={() => {
+                        setEditingVisitId(entry.visit.id);
+                        setDraft(entry.visit.note ?? '');
+                      }}
+                      style={styles.noteAction}
+                      contentStyle={styles.noteActionContent}
+                    >
+                      <Text style={styles.noteActionText}>{tr(language, 'Моя заметка', 'My note', '我的笔记')}</Text>
+                    </PhysicalPressable>
+                  )}
+                  {editingVisitId === entry.visit.id && onSaveVisitNote && (
+                    <View style={styles.editor}>
+                      <TextInput
+                        multiline
+                        accessibilityLabel={tr(language, 'Текст личной заметки', 'Private visit note', '私人到访笔记')}
+                        placeholder={tr(language, 'Что запомнилось?', 'What stood out?', '有什么值得记住？')}
+                        placeholderTextColor="#8c9990"
+                        value={draft}
+                        onChangeText={setDraft}
+                        maxLength={2000}
+                        style={styles.noteInput}
+                      />
+                      <PhysicalPressable
+                        accessibilityRole="button"
+                        accessibilityLabel={tr(language, 'Сохранить заметку', 'Save visit note', '保存笔记')}
+                        style={styles.noteAction}
+                        contentStyle={styles.noteActionContent}
+                        onPress={() => {
+                          onSaveVisitNote(entry.visit.id, draft);
+                          setEditingVisitId(null);
+                        }}
+                      >
+                        <Text style={styles.noteActionText}>{tr(language, 'Сохранить', 'Save', '保存')}</Text>
+                      </PhysicalPressable>
+                    </View>
+                  )}
                 </View>
               </View>
             ))}
@@ -169,6 +214,12 @@ export default function MoscowPassportCard({ trip, language }: Props) {
 }
 
 const styles = StyleSheet.create({
+  note: { color: '#d8e2d7', fontSize: 12, lineHeight: 18, marginTop: 8 },
+  noteAction: { borderWidth: 1, borderColor: '#496b54', borderRadius: 11, marginTop: 8, alignSelf: 'flex-start' },
+  noteActionContent: { paddingHorizontal: 12, paddingVertical: 10 },
+  noteActionText: { color: '#e9d0a0', fontSize: 12, fontWeight: '700' },
+  editor: { gap: 5, marginTop: 7 },
+  noteInput: { backgroundColor: '#202b24', color: '#f4f2e8', borderRadius: 12, borderWidth: 1, borderColor: '#516958', minHeight: 72, padding: 12, textAlignVertical: 'top' },
   root: { borderRadius: 22, borderWidth: 1, borderColor: '#333b38', backgroundColor: '#111614', padding: 15, marginTop: 18 },
   heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   headingCopy: { flex: 1, minWidth: 0 },

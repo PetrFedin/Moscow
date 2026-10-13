@@ -8,6 +8,7 @@ test('tourist can build a time-and-interest route and keep it after reload', asy
     await enButton.first().click();
   }
 
+  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
   await expect(page.getByText('ПРОГУЛКА ПОД МЕНЯ', { exact: true })).toBeVisible();
   await page.getByLabel('30 мин').click();
   await page.getByLabel('Торговая Москва').click();
@@ -30,6 +31,7 @@ test('saved must-see influences a new plan but the active route is frozen after 
     await enButton.first().click();
   }
 
+  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
   await page.getByRole('button', { name: 'Старый Английский двор' }).first().click();
   await page.getByLabel('Сохранить').click();
 
