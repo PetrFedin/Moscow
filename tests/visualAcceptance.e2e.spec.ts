@@ -115,11 +115,19 @@ for (const viewport of [
     await expect(page.getByText('История всех поездок', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Показать историю посещений по всем поездкам' }).click();
     const passport = page.getByTestId('moscow-passport-v2-card');
+    // Viewport snapshots after scrolling the actual app container: a tall
+    // component screenshot can include blank pixels below the clipped scroll area.
+    await passport.getByText('Найдено посещений: 2', { exact: true }).scrollIntoViewIfNeeded();
     await expect(passport.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
-    await passport.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-diary.png') });
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-filters-viewport.png') });
+    await passport.getByText('Исторические интерьеры', { exact: true }).scrollIntoViewIfNeeded();
+    await expect(passport.getByText('Исторические интерьеры', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-entries-viewport.png') });
 
     await page.getByRole('button', { name: 'Фильтр категории: Где ел' }).click();
+    await passport.getByText('Найдено посещений: 1', { exact: true }).scrollIntoViewIfNeeded();
     await expect(passport.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
-    await passport.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-filtered.png') });
+    await expect(passport.getByText('Ужин на Пятницкой', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-filtered-viewport.png') });
   });
 }
