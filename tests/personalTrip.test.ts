@@ -261,3 +261,23 @@ test('curated Moscow venue stores canonical identity and official source without
     ...selected, items: [{ ...selected.items[0], catalogPlaceId: 'broken', officialSourceUrl: 'http://not-secure.test' }]
   })), /Invalid curated trip place metadata/);
 });
+
+
+test('curated place is not rejected solely because a manual stop uses the same title', () => {
+  const museum = curatedMoscowPlaces.find((place) => place.id === 'tretyakov-lavrushinsky');
+  assert.ok(museum);
+  const manual = addManualTripItem({
+    trip: baseTrip(), itemId: 'manual-same-title',
+    dayDate: '2026-10-03', title: museum.titleRu,
+    kind: 'museum', updatedAt: now
+  });
+  const curated = addCuratedMoscowPlaceToTrip({
+    trip: manual, place: museum,
+    itemId: 'curated-distinct-identity',
+    dayDate: '2026-10-03', updatedAt: now
+  });
+  assert.equal(curated.items.length, 2);
+  assert.equal(curated.items[0]?.catalogPlaceId, undefined);
+  assert.equal(curated.items[1]?.catalogPlaceId, museum.id);
+  assert.equal(curated.items[1]?.commitment, undefined);
+});
