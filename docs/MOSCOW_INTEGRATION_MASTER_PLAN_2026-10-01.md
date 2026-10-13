@@ -776,6 +776,21 @@ Guardrails:
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
 
+#### Next Discoveries — DRAFT IMPLEMENTATION (2026-10-13)
+
+The repeat-trip product loop extends Passport v2:
+`past known visit identities -> selected future trip day -> source-backed eligible ideas -> explicit add -> personal plan`.
+
+- `src/travel/moscowNextDiscoveries.ts` selects only admitted curated venue IDs, excluding visited identities across archived + active trips and currently planned catalog places.
+- `src/features/trip/MoscowNextDiscoveriesCard.tsx` adds category controls, official source links, address/source timestamps and a selected-day Add control.
+- Free-text historic visits are not assumed to be the same place by title; an unknown identity cannot prove "never seen".
+- Past category counts provide transparent editorial ordering, never an inferred preference.
+- Every added suggestion remains a plain planned stop with **no** inferred ticket, reservation, price, opening state, schedule or provider verification.
+- Tests: `tests/moscowNextDiscoveries.test.ts`, `tests/personalTrip.e2e.spec.ts`, responsive `tests/visualAcceptance.e2e.spec.ts`.
+- Details / remaining safeguards: `docs/MOSCOW_NEXT_DISCOVERIES_2026-10-13.md`.
+- Release still requires exact-head CI, manual visual QA, failure testing and independent review. This layer does not affect field verification or provider PASS.
+
+
 #### Moscow Passport 2.0 — DRAFT / NOT RELEASED (2026-10-13)
 
 Current development lane: Draft PR #170 -> Passport filters branch; evidence and details:
