@@ -1,4 +1,5 @@
 import { moscowVarvarkaDestinationPackage } from './moscowDestinationPackage.ts';
+import { curatedMoscowPlaces } from './curatedMoscowPlaces.ts';
 import {
   passportCategoryForKind,
   resolveVisitKind,
@@ -54,11 +55,16 @@ export type MoscowHistoryDay = {
   entries: MoscowHistoryEntry[];
 };
 
+const knownDestinationIds = new Set(moscowVarvarkaDestinationPackage.nodes.map((node) => node.id));
+const knownCatalogIds = new Set(curatedMoscowPlaces.map((place) => place.id));
+
 function placeIdentity(trip: PersonalTrip, visit: PersonalTripVisit): string | undefined {
   const linkedItem = visit.itemId ? trip.items.find((item) => item.id === visit.itemId) : undefined;
   const nodeId = visit.destinationNodeId ?? linkedItem?.destinationNodeId;
-  if (nodeId?.trim()) return `destination:${nodeId}`;
-  if (linkedItem?.catalogPlaceId?.trim()) return `catalog:${linkedItem.catalogPlaceId}`;
+  if (nodeId && knownDestinationIds.has(nodeId)) return `destination:${nodeId}`;
+  if (linkedItem?.catalogPlaceId && knownCatalogIds.has(linkedItem.catalogPlaceId)) {
+    return `catalog:${linkedItem.catalogPlaceId}`;
+  }
   // Same title/address is NOT reliable enough to merge separate manual entries.
   return undefined;
 }
@@ -83,6 +89,7 @@ export function buildMoscowTravelHistory(input: {
   for (const trip of trips.values()) {
     for (const visit of trip.visits) {
       const kind = resolveVisitKind({ trip, visit, pkg: moscowVarvarkaDestinationPackage });
+      const knownPlaceId = placeIdentity(trip, visit);
       entries.push({
         key: JSON.stringify([trip.id, visit.id]),
         tripId: trip.id,
@@ -93,7 +100,7 @@ export function buildMoscowTravelHistory(input: {
         kind,
         category: passportCategoryForKind(kind),
         evidence: visit.evidence,
-        ...(placeIdentity(trip, visit) ? { knownPlaceId: placeIdentity(trip, visit) } : {}),
+        ...(knownPlaceId ? { knownPlaceId } : {}),
         ...(visit.note ? { note: visit.note } : {})
       });
     }
