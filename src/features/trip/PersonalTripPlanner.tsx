@@ -58,6 +58,8 @@ import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripArchivePanel from './TripArchivePanel';
+import TripBackupPanel from './TripBackupPanel';
+import { createPersonalTripBackup, mergePersonalTripBackup, parsePersonalTripBackup, previewPersonalTripBackup } from '../../travel/personalTripBackup';
 import {
   PERSONAL_TRIP_ARCHIVE_STORAGE_KEY,
   emptyPersonalTripArchive,
@@ -237,6 +239,7 @@ export default function PersonalTripPlanner({
   const [archive, setArchive] = useState<PersonalTripArchive>(emptyPersonalTripArchive());
   const [archiveReady, setArchiveReady] = useState(false);
   const [archiveError, setArchiveError] = useState('');
+  const [backupBusy, setBackupBusy] = useState(false);
   const activeWritesRef = useRef<Promise<void>>(Promise.resolve());
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
@@ -718,6 +721,44 @@ export default function PersonalTripPlanner({
     }
   };
 
+  const exportTripBackup = async (): Promise<string> => {
+    if (!hydrated || !archiveReady || archiveError) throw new Error('Archive not ready');
+    // Resolve any queued active writes before producing a portable snapshot.
+    await activeWritesRef.current;
+    return createPersonalTripBackup({ activeTrip: trip, archive, exportedAt: new Date().toISOString() });
+  };
+
+  const importTripBackup = async (raw: string): Promise<{ imported: number; skipped: number }> => {
+    if (!hydrated || !archiveReady || archiveError || backupBusy) throw new Error('Archive not ready');
+    setBackupBusy(true);
+    try {
+      const incoming = parsePersonalTripBackup(raw);
+      await activeWritesRef.current;
+      // A fresh read avoids overwriting another successful local archive change.
+      const savedRaw = await AsyncStorage.getItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY);
+      const onDisk = savedRaw ? parsePersonalTripArchive(savedRaw) : emptyPersonalTripArchive();
+      const merged = mergePersonalTripBackup({ backup: incoming, activeTrip: trip, archive: onDisk });
+      if (merged.imported) {
+        await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(merged.archive));
+        setArchive(merged.archive);
+      }
+      return { imported: merged.imported, skipped: merged.skipped };
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const backupPanel = (
+    <TripBackupPanel
+      language={language}
+      busy={backupBusy || !archiveReady || !hydrated || Boolean(archiveError)}
+      error={archiveError ? 'local-archive-unavailable' : ''}
+      onExport={exportTripBackup}
+      onPreview={previewPersonalTripBackup}
+      onImport={importTripBackup}
+    />
+  );
+
   const markVisited = (tripItemId: string) => {
     if (!trip) return;
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
@@ -791,6 +832,7 @@ export default function PersonalTripPlanner({
         {archiveReady && !archiveError && (
           <TripArchivePanel archive={archive} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
         )}
+        {backupPanel}
       </View>
     );
   }
@@ -898,6 +940,7 @@ export default function PersonalTripPlanner({
       {archiveReady && !archiveError && (
         <TripArchivePanel archive={archive} activeTripId={trip.id} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
       )}
+      {backupPanel}
 
       {tripToolsOpen && <TripPreferencesCard
         trip={trip}
