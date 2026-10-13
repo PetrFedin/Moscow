@@ -279,10 +279,10 @@ test('today links the curated venue to its official source without a fake ticket
   await page.getByText('Создать поездку', { exact: true }).click();
   await page.getByRole('button', { name: 'Подтвердить добавление места' }).click();
   await expect(page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Открыть официальный сайт следующего места' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Открыть официальный источник' })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Открыть официальный сайт следующего места' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Открыть официальный источник' })).toBeVisible();
 });
 
 test('restaurant discovery filters venues and never creates a table reservation', async ({ page }) => {
