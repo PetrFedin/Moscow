@@ -57,6 +57,15 @@ import TripJourneyOverview from './TripJourneyOverview';
 import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
+import TripArchivePanel from './TripArchivePanel';
+import {
+  PERSONAL_TRIP_ARCHIVE_STORAGE_KEY,
+  emptyPersonalTripArchive,
+  parsePersonalTripArchive,
+  archivePersonalTrip,
+  archivedPersonalTrip,
+  type PersonalTripArchive
+} from '../../travel/personalTripArchive';
 import TripPreferencesCard from './TripPreferencesCard';
 import DayReplanCard from './DayReplanCard';
 import DayComposerCard from './DayComposerCard';
@@ -225,6 +234,9 @@ export default function PersonalTripPlanner({
   onDirectoryPlaceHandled
 }: Props) {
   const [trip, setTrip] = useState<PersonalTrip | null>(null);
+  const [archive, setArchive] = useState<PersonalTripArchive>(emptyPersonalTripArchive());
+  const [archiveReady, setArchiveReady] = useState(false);
+  const [archiveError, setArchiveError] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
   const [startDateInput, setStartDateInput] = useState(localDateOnly());
@@ -264,6 +276,13 @@ export default function PersonalTripPlanner({
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY)
+      .then((raw) => setArchive(raw ? parsePersonalTripArchive(raw) : emptyPersonalTripArchive()))
+      .catch(() => setArchiveError('archive-load-failed'))
+      .finally(() => setArchiveReady(true));
   }, []);
 
   useEffect(() => {
@@ -637,6 +656,52 @@ export default function PersonalTripPlanner({
     }
   };
 
+  const archiveAndCreateNew = async () => {
+    if (!trip || !archiveReady || archiveError) {
+      setFormError('trip-archive-not-ready');
+      return;
+    }
+    try {
+      const nextArchive = archivePersonalTrip(archive, trip);
+      // Write the recoverable snapshot before clearing the active trip.
+      await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
+      await AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY);
+      setArchive(nextArchive);
+      setTrip(null);
+      setResetConfirmationOpen(false);
+      onDirectoryPlaceHandled?.();
+      setFormError('');
+    } catch {
+      setFormError('trip-archive-write-failed');
+    }
+  };
+
+  const openPreviousTrip = async (tripIdToOpen: string) => {
+    if (!archiveReady || archiveError) {
+      setFormError('trip-archive-not-ready');
+      return;
+    }
+    const saved = archivedPersonalTrip(archive, tripIdToOpen);
+    if (!saved) {
+      setFormError('archived-trip-not-found');
+      return;
+    }
+    try {
+      // Preserve all changes in the current trip before restoring an older itinerary.
+      const nextArchive = trip ? archivePersonalTrip(archive, trip) : archive;
+      await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
+      await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, JSON.stringify(saved));
+      setArchive(nextArchive);
+      setTrip(saved);
+      setSelectedDay(saved.days.includes(moscowDateOnly()) ? moscowDateOnly() : saved.days[0] ?? saved.startDate);
+      setResetConfirmationOpen(false);
+      setTripToolsOpen(false);
+      setFormError('');
+    } catch {
+      setFormError('archived-trip-restore-failed');
+    }
+  };
+
   const markVisited = (tripItemId: string) => {
     if (!trip) return;
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
@@ -706,6 +771,10 @@ export default function PersonalTripPlanner({
         <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={createTrip}>
           <Text style={styles.primaryText}>{tr(language, 'Создать поездку', 'Create trip', '创建行程')}</Text>
         </PhysicalPressable>
+        {archiveError ? <Text style={styles.formError}>{tr(language,'Историю поездок не удалось прочитать. Архивация заблокирована, чтобы не потерять данные.','Trip history could not be read. Archiving is disabled to protect your data.','无法读取行程历史。为保护数据，归档已禁用。')}</Text> : null}
+        {archiveReady && !archiveError && (
+          <TripArchivePanel archive={archive} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
+        )}
       </View>
     );
   }
@@ -733,9 +802,17 @@ export default function PersonalTripPlanner({
         <View style={styles.dangerPanel}>
           <Text style={styles.dangerTitle}>{tr(language, 'Создать новую поездку?', 'Start a new trip?', '创建新的行程？')}</Text>
           <Text style={styles.dangerBody}>{tr(language,
-            'Текущие билеты, маршруты, заметки, посещения и история замен хранятся только на этом устройстве. Если продолжить, они будут удалены без восстановления.',
-            'Tickets, routes, notes, visits and accepted changes are currently stored only on this device. Continuing deletes them without recovery.',
-            '当前门票、路线、笔记和到访记录仅保存在此设备上。继续将永久清除。')}</Text>
+            'Можно сохранить текущую поездку в архиве этого устройства или удалить её. Без облачной синхронизации история не восстановится на другом устройстве.',
+            'You may archive the trip on this device or delete it. Without cloud sync, the history will not appear on another device.',
+            '可在此设备存档或删除行程。没有云同步就无法在其他设备恢复。')}</Text>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Архивировать текущую поездку и начать новую', 'Archive current trip and start a new one', '存档当前行程并开始新行程')}
+            style={styles.archiveButton}
+            contentStyle={styles.center}
+            onPress={() => { void archiveAndCreateNew(); }}
+          ><Text style={styles.archiveButtonText}>{tr(language, 'Сохранить в архив и начать новую', 'Archive and start new', '存档并开始新行程')}</Text></PhysicalPressable>
+          <Text style={styles.dangerBody}>{tr(language, 'Удаление ниже безвозвратно удалит активную поездку с этого устройства.', 'Deleting below irreversibly removes the active trip from this device.', '以下操作将永久删除此设备上的当前行程。')}</Text>
           <PhysicalPressable
             accessibilityRole="button"
             accessibilityLabel={tr(language, 'Удалить текущую поездку и начать новую', 'Delete current trip and start a new one', '删除当前行程并重新开始')}
@@ -790,6 +867,9 @@ export default function PersonalTripPlanner({
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
       <TripAcceptanceHistoryCard trip={trip} language={language} />
+      {archiveReady && !archiveError && (
+        <TripArchivePanel archive={archive} activeTripId={trip.id} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
+      )}
 
       {tripToolsOpen && <TripPreferencesCard
         trip={trip}
@@ -1189,6 +1269,8 @@ export default function PersonalTripPlanner({
 
 const styles = StyleSheet.create({
   dangerPanel: { padding: 17, backgroundColor: '#392c29', borderWidth: 1, borderColor: '#916157', borderRadius: 18, marginVertical: 12, gap: 9 },
+  archiveButton: { borderRadius: 12, minHeight: 49, backgroundColor: '#e7d8b4' },
+  archiveButtonText: { color: '#284131', fontSize: 13, fontWeight: '700' },
   dangerTitle: { color: '#fff3e8', fontSize: 19, fontWeight: '700' },
   dangerBody: { color: '#f5d7ce', fontSize: 13, lineHeight: 20 },
   dangerButton: { minHeight: 48, backgroundColor: '#8b463b', borderRadius: 12 },
