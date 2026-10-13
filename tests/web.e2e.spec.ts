@@ -349,3 +349,55 @@ test('empty Today offers discovery instead of claiming the itinerary is finished
   await page.getByRole('tab', { name: 'Поездка' }).click();
   await expect(page.getByText('Моя поездка в Москву', { exact: true })).toBeVisible();
 });
+
+test('Today keeps the next untimed visit visible beside a fixed ticket; explicit check-in survives reload', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-13T08:00:00.000Z') });
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Третьяковская галерея' }).click();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-13');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить добавление места' }).click();
+  await expect(page.getByRole('button', { name: 'Открыть официальный источник' })).toBeVisible();
+
+  await page.evaluate(() => {
+    const key = 'moscow:v1:personal-trip';
+    const value = JSON.parse(window.localStorage.getItem(key) || '{}');
+    value.items.push({
+      id: 'today-fixed-theatre', dayDate: '2026-10-13',
+      title: 'Большой театр · мой билет', kind: 'theatre', source: 'manual',
+      status: 'planned',
+      plannedStartAt: '2026-10-13T19:00:00+03:00',
+      plannedEndAt: '2026-10-13T21:00:00+03:00',
+      commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared', reference: 'USER-QR-LOCAL' }
+    });
+    window.localStorage.setItem(key, JSON.stringify(value));
+  });
+  await page.reload();
+
+  await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toBeVisible();
+  await expect(page.getByText('ИДЕЯ ДЛЯ СЛЕДУЮЩЕЙ ОСТАНОВКИ', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Найти адрес на карте' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Открыть официальный источник' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Отметить, что я был здесь' })).toBeVisible();
+  await expect(page.getByText('Добавлено вами · статус провайдера не проверен', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Отметить, что я был здесь' }).click();
+  await expect(page.getByText(/Запись будет добавлена как ваша личная отметка/)).toBeVisible();
+  await page.getByRole('button', { name: 'Отменить отметку посещения' }).click();
+  const before = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(before.visits).toHaveLength(0);
+  expect(before.items.find((item: {id:string}) => item.id === 'today-fixed-theatre').commitment.reference).toBe('USER-QR-LOCAL');
+
+  await page.getByRole('button', { name: 'Отметить, что я был здесь' }).click();
+  await page.getByRole('button', { name: 'Подтвердить личное посещение' }).click();
+  await expect(page.getByText('УЖЕ СЕГОДНЯ', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').visits.length)).toBe(1);
+  await page.reload();
+  await expect(page.getByText('УЖЕ СЕГОДНЯ', { exact: true })).toBeVisible();
+  const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(stored.visits[0].evidence).toBe('user-confirmed');
+  expect(stored.items.find((item: {id:string}) => item.id === 'today-fixed-theatre').commitment.reference).toBe('USER-QR-LOCAL');
+});
