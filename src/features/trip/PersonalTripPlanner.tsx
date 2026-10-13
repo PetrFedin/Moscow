@@ -58,6 +58,7 @@ import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import TripArchivePanel from './TripArchivePanel';
+import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
 import TripBackupPanel from './TripBackupPanel';
 import { createPersonalTripBackup, mergePersonalTripBackup, parsePersonalTripBackup, previewPersonalTripBackup } from '../../travel/personalTripBackup';
 import {
@@ -832,7 +833,8 @@ export default function PersonalTripPlanner({
         {archiveReady && !archiveError && (
           <TripArchivePanel archive={archive} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
         )}
-        {backupPanel}
+        <MoscowTravelHistoryCard activeTrip={trip} archive={archive} language={language} onOpenTrip={(id) => { void openPreviousTrip(id); }} />
+      {backupPanel}
       </View>
     );
   }
@@ -940,6 +942,7 @@ export default function PersonalTripPlanner({
       {archiveReady && !archiveError && (
         <TripArchivePanel archive={archive} activeTripId={trip.id} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
       )}
+      <MoscowTravelHistoryCard activeTrip={trip} archive={archive} language={language} onOpenTrip={(id) => { void openPreviousTrip(id); }} />
       {backupPanel}
 
       {tripToolsOpen && <TripPreferencesCard
