@@ -1074,3 +1074,75 @@ test('source-backed replacement becomes executable after current route verificat
   expect(persisted.replacementReceipts).toHaveLength(1);
   expect(persisted.items.find((item: { id: string }) => item.id === 'fixed-theatre').commitment.reference).toBe('USER-TICKET');
 });
+
+
+test('Moscow Passport 2.0 filters cross-trip diary by category, notes and inclusive dates', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const active = {
+      schemaVersion: 1,
+      id: 'passport-autumn',
+      destinationId: 'moscow',
+      title: 'Осенняя Москва',
+      startDate: '2026-10-13', endDate: '2026-10-13', days: ['2026-10-13'],
+      items: [],
+      visits: [{
+        id: 'autumn-dinner', dayDate: '2026-10-13',
+        visitedAt: '2026-10-13T18:30:00+03:00',
+        title: 'Ужин на Тверской', kind: 'food',
+        evidence: 'user-confirmed', note: 'Интересное меню'
+      }],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T18:35:00.000Z'
+    };
+    const previous = {
+      schemaVersion: 1, id: 'passport-summer', destinationId: 'moscow',
+      title: 'Летняя Москва',
+      startDate: '2026-06-05', endDate: '2026-06-05', days: ['2026-06-05'],
+      items: [],
+      visits: [{
+        id: 'summer-museum', dayDate: '2026-06-05',
+        visitedAt: '2026-06-05T12:10:00+03:00',
+        title: 'Музей на Варварке', kind: 'museum',
+        destinationNodeId: 'romanov-chambers',
+        evidence: 'user-confirmed', note: 'Исторический двор'
+      }],
+      createdAt: '2026-06-05T08:00:00.000Z',
+      updatedAt: '2026-06-05T12:15:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(active));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [previous]
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('История всех поездок', { exact: true })).toBeVisible();
+  await expect(page.getByText('2', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Показать историю посещений по всем поездкам' }).click();
+  await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ужин на Тверской', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Фильтр категории: Где ел' }).click();
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Фильтр категории: Все' }).click();
+  const search = page.getByLabel('Поиск по истории Москвы');
+  await search.fill('исторический двор');
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toBeVisible();
+
+  await search.fill('');
+  await page.getByLabel('Дата посещения с').fill('2026-06-05');
+  await page.getByLabel('Дата посещения по').fill('2026-06-05');
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await page.getByLabel('Дата посещения с').fill('2026-02-30');
+  await expect(page.getByText(/Проверьте даты: формат/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Сбросить фильтры истории' }).click();
+  await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
+});
