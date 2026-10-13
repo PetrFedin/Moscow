@@ -69,5 +69,9 @@ for (const viewport of [
     await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toBeVisible();
     await expect(page.getByText('ИДЕЯ ДЛЯ СЛЕДУЮЩЕЙ ОСТАНОВКИ', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-today-with-ticket-and-next.png'), fullPage: true });
+    await page.getByText('Новая', { exact: true }).click();
+    await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
+    await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-trip-archive.png'), fullPage: true });
   });
 }
