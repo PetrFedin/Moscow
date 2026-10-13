@@ -101,9 +101,11 @@ export function deriveTouristTodayState(input: {
     return start <= now && now < end;
   });
 
-  const nextItem = remainingItems.find((item) =>
-    item.plannedStartAt ? itemStart(item) > now : false
-  ) ?? remainingItems.find((item) => !item.plannedStartAt);
+  // Unscheduled ideas must not disappear just because a fixed ticket exists later.
+  // They are a possible next stop, not a verified routing/availability recommendation.
+  const nextItem = remainingItems.find((item) => !item.plannedStartAt && !item.commitment)
+    ?? remainingItems.find((item) => item.plannedStartAt ? itemStart(item) > now : false)
+    ?? remainingItems.find((item) => !item.plannedStartAt);
 
   const nextCommitment = remainingItems
     .filter(isConfirmedCommitment)
