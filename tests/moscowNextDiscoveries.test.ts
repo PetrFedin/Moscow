@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { curatedMoscowPlaces } from '../src/travel/curatedMoscowPlaces.ts';
+import { moscowVarvarkaDestinationPackage } from '../src/travel/moscowDestinationPackage.ts';
+import { buildMoscowTravelHistory } from '../src/travel/moscowTravelHistory.ts';
 import { buildMoscowNextDiscoveries } from '../src/travel/moscowNextDiscoveries.ts';
 import {
   addCuratedMoscowPlaceToTrip,
   addManualTripItem,
   createPersonalTrip,
+  getUnseenDestinationNodes,
   recordTripVisit
 } from '../src/travel/personalTrip.ts';
 import { archivePersonalTrip, emptyPersonalTripArchive } from '../src/travel/personalTripArchive.ts';
@@ -133,4 +136,28 @@ test('invalid trip day, interest or limit fails closed and never mutates input',
   }), /Unsupported/);
   assert.equal(current.items.length, 0);
   assert.equal(archive.trips.length, 0);
+});
+
+
+test('historical canonical visit stays excluded from the Today heritage next-stop rail', () => {
+  const past = recordTripVisit({
+    trip: trip('past-varvarka', '2026-06-05'),
+    visitId: 'visited-romanov', dayDate: '2026-06-05',
+    title: 'Палаты бояр Романовых', kind: 'heritage',
+    destinationNodeId: 'romanov-chambers',
+    evidence: 'user-confirmed', visitedAt: '2026-06-05T12:00:00+03:00',
+    updatedAt: at
+  });
+  const current = trip('autumn-moscow');
+  const archive = archivePersonalTrip(emptyPersonalTripArchive(), past);
+  const history = buildMoscowTravelHistory({ activeTrip: current, archive });
+  const visitedIds = history.entries.flatMap((entry) => entry.knownPlaceId?.startsWith('destination:')
+    ? [entry.knownPlaceId.slice('destination:'.length)] : []);
+  const newStops = getUnseenDestinationNodes({
+    pkg: moscowVarvarkaDestinationPackage,
+    trip: current,
+    visitedDestinationNodeIds: visitedIds
+  });
+  assert.ok(visitedIds.includes('romanov-chambers'));
+  assert.ok(!newStops.some((node) => node.id === 'romanov-chambers'));
 });
