@@ -294,11 +294,17 @@ export default function PersonalTripPlanner({
     if (!hydrated || !trip || visitedIds.length === 0) return;
     const today = moscowDateOnly();
     if (!trip.days.includes(today)) return;
+    // Historic global walk-progress IDs belong to My Moscow, not to every newly opened trip.
+    // Only synchronize nodes explicitly scheduled into this exact trip and day.
+    const boundIds = visitedIds.filter((nodeId) => trip.items.some((item) =>
+      item.destinationNodeId === nodeId && item.dayDate === today
+    ));
+    if (!boundIds.length) return;
 
     const synced = syncRouteCompletedVisits({
       trip,
       pkg: moscowVarvarkaDestinationPackage,
-      destinationNodeIds: visitedIds,
+      destinationNodeIds: boundIds,
       dayDate: today,
       at: new Date().toISOString(),
       idForNode: (nodeId) => itemId(`route-visit:${nodeId}`)
@@ -812,7 +818,16 @@ export default function PersonalTripPlanner({
             contentStyle={styles.center}
             onPress={() => { void archiveAndCreateNew(); }}
           ><Text style={styles.archiveButtonText}>{tr(language, 'Сохранить в архив и начать новую', 'Archive and start new', '存档并开始新行程')}</Text></PhysicalPressable>
-          <Text style={styles.dangerBody}>{tr(language, 'Удаление ниже безвозвратно удалит активную поездку с этого устройства.', 'Deleting below irreversibly removes the active trip from this device.', '以下操作将永久删除此设备上的当前行程。')}</Text>
+          <Text style={styles.dangerBody}>{tr(language,
+            'Удаление ниже удалит активную версию с этого устройства. Ранее архивированные версии останутся в истории.',
+            'Deleting below removes the active copy on this device. Previously archived versions remain in history.',
+            '删除将移除本设备上的当前副本，已有存档仍会保留。')}</Text>
+          {formError.startsWith('trip-archive-') || formError.startsWith('archived-trip-') ? (
+            <Text style={styles.dangerBody}>{tr(language,
+              'Не удалось сохранить или восстановить историю. Проверьте свободное место и повторите действие — текущая поездка пока сохранена.',
+              'Could not save or restore history. Check local storage and retry; the active trip is still preserved.',
+              '无法保存或恢复行程历史。请检查存储空间后重试；当前行程仍被保留。')}</Text>
+          ) : null}
           <PhysicalPressable
             accessibilityRole="button"
             accessibilityLabel={tr(language, 'Удалить текущую поездку и начать новую', 'Delete current trip and start a new one', '删除当前行程并重新开始')}
