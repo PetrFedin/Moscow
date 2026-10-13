@@ -16,6 +16,7 @@ test('experience resume survives browser reload without resetting place, time or
 
   // Prove a non-default place/time survives reload.
   await page.getByRole('button', { name: 'Старый Английский двор' }).first().click();
+  await expect(page.getByText('МАШИНА ВРЕМЕНИ', { exact: true })).toBeVisible();
   let slider = page.getByRole('slider', { name: 'Выберите историческую эпоху' });
   await slider.focus();
   await slider.press('ArrowRight');

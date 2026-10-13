@@ -32,7 +32,8 @@ export default function MoscowDemoShell() {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const language = detectLanguage();
   const romanov = useMemo(() => places.find((place) => place.id === 'romanov-chambers'), []);
-  const demoEnabled = __DEV__ || Platform.OS === 'web' || process.env.EXPO_PUBLIC_DEMO_MODE === '1';
+  // Demo controls are opt-in for exported web builds; they must not cover the tourist navigation.
+  const demoEnabled = __DEV__ || process.env.EXPO_PUBLIC_DEMO_MODE === '1';
 
   useEffect(() => {
     if (!demoEnabled) return;
