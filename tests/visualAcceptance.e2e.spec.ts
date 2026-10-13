@@ -7,6 +7,8 @@ for (const viewport of [
 ]) {
   test('visual proof / ' + viewport.name + ': discover, moment and trip', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    // Stable Moscow local time makes all three device screenshots comparable.
+    await page.clock.install({ time: new Date('2026-10-13T08:00:00.000Z') });
     await page.goto('/');
     await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Открыть сценарий городского пилота и сотрудничества' })).toHaveCount(0);
@@ -43,5 +45,29 @@ for (const viewport of [
     await expect(page.getByText('Пока нет планов на сегодня', { exact: true })).toBeVisible();
     await expect(page.getByText('План на сегодня выполнен', { exact: true })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-today.png'), fullPage: true });
+    // UI-only fixture: venue is not open-now proof, ticket is explicitly user declared.
+    await page.evaluate(() => {
+      const key = 'moscow:v1:personal-trip';
+      const trip = JSON.parse(window.localStorage.getItem(key) || '{}');
+      const dayDate = trip.days[0];
+      trip.items.push({
+        id: 'visual-venue', dayDate, source: 'manual', kind: 'museum',
+        catalogPlaceId: 'tretyakov-lavrushinsky',
+        officialSourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/istoricheskoe-zdanie/',
+        title: 'Третьяковская галерея', note: 'Лаврушинский пер., 10', status: 'planned'
+      });
+      trip.items.push({
+        id: 'visual-ticket', dayDate, source: 'manual', kind: 'theatre',
+        title: 'Большой театр · мой билет', status: 'planned',
+        plannedStartAt: '2026-10-13T19:00:00+03:00',
+        plannedEndAt: '2026-10-13T21:00:00+03:00',
+        commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared', reference: 'VISUAL-TEST-LOCAL' }
+      });
+      window.localStorage.setItem(key, JSON.stringify(trip));
+    });
+    await page.reload();
+    await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toBeVisible();
+    await expect(page.getByText('ИДЕЯ ДЛЯ СЛЕДУЮЩЕЙ ОСТАНОВКИ', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-today-with-ticket-and-next.png'), fullPage: true });
   });
 }
