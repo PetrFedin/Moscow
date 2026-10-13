@@ -45,7 +45,8 @@ function interestForPlace(place: CuratedMoscowPlace): Exclude<MoscowDiscoveryInt
 
 function kindForPlace(place: CuratedMoscowPlace): PersonalTripItemKind {
   if (place.kind === 'restaurant') return 'food';
-  if (place.kind === 'park') return 'park';
+  // Match the persisted curated-place mapping in addCuratedMoscowPlaceToTrip.
+  if (place.kind === 'park') return 'activity';
   return place.kind;
 }
 
