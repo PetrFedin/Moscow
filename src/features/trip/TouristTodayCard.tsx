@@ -7,6 +7,7 @@ import { getUnseenDestinationNodes, type PersonalTrip } from '../../travel/perso
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 import { deriveTouristTodayState, minutesUntilItem, todayProgress } from '../../travel/touristToday';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import TodayStopActions from './TodayStopActions';
 
 type Props = {
   trip: PersonalTrip;
@@ -15,6 +16,7 @@ type Props = {
   onOpenPlace: (placeId: string) => void;
   onManageTrip: () => void;
   onDiscover: () => void;
+  onMarkVisited: (itemId: string) => void;
 };
 
 function timeLabel(value?: string) {
@@ -57,7 +59,7 @@ function countdownLabel(language: AppLanguage, minutes: number) {
   );
 }
 
-export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, onManageTrip, onDiscover }: Props) {
+export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, onManageTrip, onDiscover, onMarkVisited }: Props) {
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
   useEffect(() => {
@@ -190,26 +192,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
           <Text style={styles.heroMeta}>
             {(timeLabel(current.plannedStartAt) ?? '') + '–' + (timeLabel(current.plannedEndAt) ?? '')}
           </Text>
-          {current.destinationNodeId ? (
-            <PhysicalPressable
-              accessibilityRole="button"
-              accessibilityLabel={tr(language, 'Открыть текущее место', 'Open current place', '打开当前地点')}
-              style={styles.heroAction}
-              contentStyle={styles.center}
-              onPress={() => onOpenPlace(current.destinationNodeId!)}
-            ><Text style={styles.heroActionText}>{tr(language, 'Открыть место', 'Explore this place', '查看地点')} →</Text></PhysicalPressable>
-          ) : null}
-          {current.officialSourceUrl ? (
-            <PhysicalPressable
-              accessibilityRole="button"
-              accessibilityLabel={tr(language, 'Открыть официальный сайт текущего места', 'Open current place official site', '打开当前地点官网')}
-              style={styles.heroAction}
-              contentStyle={styles.center}
-              onPress={() => { void Linking.openURL(current.officialSourceUrl!).catch(() => undefined); }}
-            >
-              <Text style={styles.heroActionText}>{tr(language, 'Официальный сайт', 'Official website', '官方网站')} ↗</Text>
-            </PhysicalPressable>
-          ) : null}
+          <TodayStopActions key={current.id} item={current} language={language} onMarkVisited={onMarkVisited} onOpenPlace={onOpenPlace} />
           {current.commitment?.externalUrl ? (
             <PhysicalPressable
               style={styles.heroAction}
@@ -259,31 +242,20 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
             </PhysicalPressable>
           ) : null}
         </View>
-      ) : state.nextItem ? (
+      ) : null}
+
+      {state.nextItem && state.nextItem.id !== state.nextCommitment?.id ? (
         <View style={styles.nextBlock}>
-          <Text style={styles.eyebrow}>{tr(language, 'ДАЛЬШЕ', 'NEXT', '接下来')}</Text>
+          <Text style={styles.eyebrow}>{state.nextItem.plannedStartAt
+            ? tr(language, 'ДАЛЬШЕ', 'NEXT', '接下来')
+            : tr(language, 'ИДЕЯ ДЛЯ СЛЕДУЮЩЕЙ ОСТАНОВКИ', 'POSSIBLE NEXT STOP', '下一站的建议')}</Text>
           <Text style={styles.nextTitle}>{state.nextItem.title}</Text>
           <Text style={styles.nextMeta}>
-            {timeLabel(state.nextItem.plannedStartAt) ?? tr(language, 'без фиксированного времени', 'no fixed time', '无固定时间')}
+            {timeLabel(state.nextItem.plannedStartAt) ?? tr(language, 'Без фиксированного времени · доступность не проверена', 'No fixed time · availability not verified', '无固定时间 · 尚未核验开放状态')}
           </Text>
-          {state.nextItem.destinationNodeId ? (
-            <PhysicalPressable
-              accessibilityRole="button"
-              accessibilityLabel={tr(language, 'Открыть следующий пункт', 'Open next stop', '打开下一站')}
-              style={styles.linkButton}
-              contentStyle={styles.center}
-              onPress={() => onOpenPlace(state.nextItem!.destinationNodeId!)}
-            ><Text style={styles.linkButtonText}>{tr(language, 'Открыть следующий пункт', 'Open next stop', '打开下一站')} →</Text></PhysicalPressable>
-          ) : null}
-          {state.nextItem.officialSourceUrl ? (
-            <PhysicalPressable
-              accessibilityRole="button"
-              accessibilityLabel={tr(language, 'Открыть официальный сайт следующего места', 'Open next place official site', '打开下一站官网')}
-              style={styles.linkButton}
-              contentStyle={styles.center}
-              onPress={() => { void Linking.openURL(state.nextItem!.officialSourceUrl!).catch(() => undefined); }}
-            ><Text style={styles.linkButtonText}>{tr(language, 'Официальный сайт следующего места', 'Next place official site', '下一站官网')} ↗</Text></PhysicalPressable>
-          ) : null}
+          <View style={styles.stopActionsLight}>
+            <TodayStopActions key={state.nextItem.id} item={state.nextItem} language={language} onMarkVisited={onMarkVisited} onOpenPlace={onOpenPlace} />
+          </View>
         </View>
       ) : null}
 
@@ -383,6 +355,7 @@ const styles = StyleSheet.create({
   heroAction: { minHeight: 48, borderRadius: 12, backgroundColor: '#274437', marginTop: 13 },
   heroActionText: { color: '#fff8ed', fontSize: 14, fontWeight: '700' },
   nextBlock: { borderRadius: 17, borderWidth: 1, borderColor: '#506152', backgroundColor: '#26382e', padding: 15, marginTop: 12 },
+  stopActionsLight: { marginTop: 12, padding: 13, borderRadius: 14, backgroundColor: '#f4eee1' },
   nextTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   countdown: { color: '#dfbd7c', fontSize: 8.5, fontWeight: '900' },
   nextTitle: { color: '#faf1dd', fontSize: 17, fontWeight: '700', marginTop: 7 },
