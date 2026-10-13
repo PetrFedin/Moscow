@@ -401,3 +401,40 @@ test('Today keeps the next untimed visit visible beside a fixed ticket; explicit
   expect(stored.visits[0].evidence).toBe('user-confirmed');
   expect(stored.items.find((item: {id:string}) => item.id === 'today-fixed-theatre').commitment.reference).toBe('USER-QR-LOCAL');
 });
+
+test('multiple journeys survive archive, new trip and subsequent resume on the same device', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-13');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const first = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(first.days).toEqual(['2026-10-13']);
+
+  await page.getByText('Новая', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' })).toBeVisible();
+  await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder('2026-10-02')).toBeVisible();
+  const history = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'));
+  expect(history.schemaVersion).toBe(1);
+  expect(history.trips).toHaveLength(1);
+  expect(history.trips[0].id).toBe(first.id);
+
+  await page.getByPlaceholder('2026-10-02').fill('2026-10-20');
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const second = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(second.id).not.toBe(first.id);
+  await page.getByRole('button', { name: 'Открыть архивную поездку: 2026-10-13' }).click();
+  await expect(page.getByText('2026-10-13 → 2026-10-13', { exact: true })).toBeVisible();
+  const active = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(active.id).toBe(first.id);
+  const restoredArchive = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'));
+  expect(restoredArchive.trips.some((item: {id:string}) => item.id === second.id)).toBe(true);
+  await page.reload();
+  const persisted = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(persisted.id).toBe(first.id);
+  await expect(page.getByRole('button', { name: 'Открыть архивную поездку: 2026-10-20' })).toBeVisible();
+});
