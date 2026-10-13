@@ -1146,3 +1146,92 @@ test('Moscow Passport 2.0 filters cross-trip diary by category, notes and inclus
   await page.getByRole('button', { name: 'Сбросить фильтры истории' }).click();
   await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
 });
+
+
+test('Next Discoveries uses past venue IDs, adds source-backed idea to selected day without booking', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const current = {
+      schemaVersion: 1, id: 'discovery-current', destinationId: 'moscow',
+      title: 'Осень в Москве', startDate: '2026-10-13', endDate: '2026-10-14',
+      days: ['2026-10-13', '2026-10-14'],
+      items: [{
+        id: 'already-planned-park', dayDate: '2026-10-13',
+        title: 'Парк Горького', kind: 'park', source: 'manual',
+        catalogPlaceId: 'gorky-park', officialSourceUrl: 'https://parkgorkogo.ru/contacts/',
+        status: 'planned'
+      }],
+      visits: [],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    };
+    const past = {
+      schemaVersion: 1, id: 'discovery-past', destinationId: 'moscow',
+      title: 'Летняя Москва', startDate: '2026-06-05', endDate: '2026-06-05',
+      days: ['2026-06-05'],
+      items: [{
+        id: 'visited-art', dayDate: '2026-06-05',
+        title: 'Третьяковская галерея', kind: 'museum', source: 'manual',
+        catalogPlaceId: 'tretyakov-lavrushinsky',
+        officialSourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/istoricheskoe-zdanie/',
+        status: 'completed'
+      }],
+      visits: [{
+        id: 'visited-art-record', itemId: 'visited-art', dayDate: '2026-06-05',
+        title: 'Третьяковская галерея', kind: 'museum',
+        visitedAt: '2026-06-05T12:00:00+03:00', evidence: 'user-confirmed'
+      }],
+      createdAt: '2026-06-05T08:00:00.000Z',
+      updatedAt: '2026-06-05T12:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(current));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [past]
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+
+  const discoveries = page.getByTestId('moscow-next-discoveries');
+  await expect(discoveries.getByText('Что добавить в поездку?', { exact: true })).toBeVisible();
+  await expect(discoveries.getByText(/Это не подтверждение, что вы никогда здесь не были/)).toBeVisible();
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Третьяковская галерея'
+  })).toHaveCount(0);
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Парк Горького'
+  })).toHaveCount(0);
+
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(discoveries.getByText('Добавление в день: 2026-10-14', { exact: true })).toBeVisible();
+  await discoveries.getByRole('button', { name: 'Идеи: Рестораны' }).click();
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  })).toBeVisible();
+  await discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  }).click();
+
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  })).toHaveCount(0);
+  await expect.poll(async () => await page.evaluate(() => {
+    const raw = window.localStorage.getItem('moscow:v1:personal-trip');
+    const trip = raw ? JSON.parse(raw) : { items: [] };
+    return trip.items.filter((item: { catalogPlaceId?: string }) => item.catalogPlaceId === 'cafe-pushkin-tverskoy').length;
+  })).toBe(1);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const trip = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  const added = trip.items.find((item: { catalogPlaceId?: string }) => item.catalogPlaceId === 'cafe-pushkin-tverskoy');
+  expect(added?.dayDate).toBe('2026-10-14');
+  expect(added?.commitment).toBeUndefined();
+  expect(added?.plannedStartAt).toBeUndefined();
+  expect(added?.officialSourceUrl).toBe('https://cafe-pushkin.ru/');
+  await expect(page.getByTestId('moscow-next-discoveries').getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  })).toHaveCount(0);
+});
