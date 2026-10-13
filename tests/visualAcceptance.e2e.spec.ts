@@ -73,5 +73,53 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
     await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-trip-archive.png'), fullPage: true });
+
+    // Passport v2 visual proof uses two local user-declared visits, never a live provider claim.
+    await page.evaluate(() => {
+      const current = {
+        schemaVersion: 1, id: 'visual-passport-current', destinationId: 'moscow',
+        title: 'Москва осенью', startDate: '2026-10-13', endDate: '2026-10-13',
+        days: ['2026-10-13'],
+        items: [{
+          id: 'dinner-plan', dayDate: '2026-10-13', source: 'manual',
+          title: 'Ужин на Пятницкой', kind: 'food', status: 'completed'
+        }],
+        visits: [{
+          id: 'visual-dinner', itemId: 'dinner-plan', dayDate: '2026-10-13',
+          visitedAt: '2026-10-13T19:00:00+03:00',
+          title: 'Ужин на Пятницкой', kind: 'food',
+          evidence: 'user-confirmed', note: 'Интересное меню, приятная атмосфера'
+        }],
+        createdAt: '2026-10-13T08:00:00.000Z',
+        updatedAt: '2026-10-13T19:15:00.000Z'
+      };
+      const past = {
+        schemaVersion: 1, id: 'visual-passport-past', destinationId: 'moscow',
+        title: 'Прогулка по старой Москве', startDate: '2026-06-05', endDate: '2026-06-05',
+        days: ['2026-06-05'], items: [],
+        visits: [{
+          id: 'visual-romanov', dayDate: '2026-06-05',
+          visitedAt: '2026-06-05T13:00:00+03:00',
+          title: 'Палаты бояр Романовых', kind: 'heritage', destinationNodeId: 'romanov-chambers',
+          evidence: 'user-confirmed', note: 'Исторические интерьеры'
+        }],
+        createdAt: '2026-06-05T08:00:00.000Z',
+        updatedAt: '2026-06-05T13:10:00.000Z'
+      };
+      window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(current));
+      window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+        schemaVersion: 1, trips: [past]
+      }));
+    });
+    await page.reload();
+    await expect(page.getByText('История всех поездок', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Показать историю посещений по всем поездкам' }).click();
+    const passport = page.getByTestId('moscow-passport-v2-card');
+    await expect(passport.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
+    await passport.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-diary.png') });
+
+    await page.getByRole('button', { name: 'Фильтр категории: Где ел' }).click();
+    await expect(passport.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+    await passport.screenshot({ path: testInfo.outputPath(viewport.name + '-passport-v2-filtered.png') });
   });
 }
