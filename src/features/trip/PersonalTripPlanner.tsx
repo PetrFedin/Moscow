@@ -64,6 +64,12 @@ import MoscowNextDiscoveriesCard from './MoscowNextDiscoveriesCard';
 import TripBackupPanel from './TripBackupPanel';
 import { createPersonalTripBackup, mergePersonalTripBackup, parsePersonalTripBackup, previewPersonalTripBackup } from '../../travel/personalTripBackup';
 import {
+  PERSONAL_TRIP_ACTIVE_STORAGE_KEY,
+  PERSONAL_TRIP_TRANSACTION_STORAGE_KEY,
+  readRecoveredTripStorage,
+  transactTripStorage
+} from '../../travel/personalTripTransaction';
+import {
   PERSONAL_TRIP_ARCHIVE_STORAGE_KEY,
   emptyPersonalTripArchive,
   parsePersonalTripArchive,
@@ -77,7 +83,7 @@ import DayComposerCard from './DayComposerCard';
 import LiveDisruptionCard from './LiveDisruptionCard';
 import ReplacementProposalCard from './ReplacementProposalCard';
 
-export const PERSONAL_TRIP_STORAGE_KEY = 'moscow:v1:personal-trip';
+export const PERSONAL_TRIP_STORAGE_KEY = PERSONAL_TRIP_ACTIVE_STORAGE_KEY;
 
 type Props = {
   language: AppLanguage;
@@ -243,6 +249,9 @@ export default function PersonalTripPlanner({
   const [archiveReady, setArchiveReady] = useState(false);
   const [archiveError, setArchiveError] = useState('');
   const [backupBusy, setBackupBusy] = useState(false);
+  const [storageBusy, setStorageBusy] = useState(false);
+  const [recoveryNotice, setRecoveryNotice] = useState(false);
+  const storageOperationRef = useRef(false);
   const activeWritesRef = useRef<Promise<void>>(Promise.resolve());
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
@@ -271,38 +280,49 @@ export default function PersonalTripPlanner({
   const [verifyingProposalId, setVerifyingProposalId] = useState<string | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const restored = parsePersonalTrip(raw);
-        setTrip(restored);
-        setSelectedDay(
-          restored.days.includes(localDateOnly())
-            ? localDateOnly()
-            : restored.days[0] ?? restored.startDate
-        );
+    // Hydrate BOTH keys together after replaying an interrupted journal. A
+    // corrupt journal or conflicting foreign edit must block the UI, not cause
+    // an apparently empty trip to overwrite user records.
+    readRecoveredTripStorage(AsyncStorage)
+      .then(({ activeTrip, archive: savedArchive, recovered }) => {
+        setArchive(savedArchive);
+        setTrip(activeTrip);
+        setRecoveryNotice(recovered);
+        if (activeTrip) {
+          setSelectedDay(
+            activeTrip.days.includes(localDateOnly())
+              ? localDateOnly()
+              : activeTrip.days[0] ?? activeTrip.startDate
+          );
+        }
       })
-      .catch(() => undefined)
-      .finally(() => setHydrated(true));
+      .catch(() => setArchiveError('trip-storage-recovery-blocked'))
+      .finally(() => {
+        setHydrated(true);
+        setArchiveReady(true);
+      });
   }, []);
 
   useEffect(() => {
-    AsyncStorage.getItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY)
-      .then((raw) => setArchive(raw ? parsePersonalTripArchive(raw) : emptyPersonalTripArchive()))
-      .catch(() => setArchiveError('archive-load-failed'))
-      .finally(() => setArchiveReady(true));
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated || !trip) return;
+    if (!hydrated || !trip || archiveError || storageOperationRef.current) return;
     const snapshot = JSON.stringify(trip);
-    // Serialize writes to the active key; archive/reset must wait for the last snapshot.
-    const pending = activeWritesRef.current
-      .catch(() => undefined)
-      .then(() => AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, snapshot));
+    // Ordered active writes are checked on read-back; never swallow a failure
+    // and never autosave over a pending archive/switch/import journal.
+    const pending = activeWritesRef.current.then(async () => {
+      if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
+        throw new Error('An unfinished trip transaction blocks autosave');
+      }
+      await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, snapshot);
+      if (await AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY) !== snapshot) {
+        throw new Error('Trip autosave read-back failed');
+      }
+    });
     activeWritesRef.current = pending;
-    void pending.catch(() => setFormError('trip-local-save-failed'));
-  }, [hydrated, trip]);
+    void pending.catch(() => {
+      setFormError('trip-local-save-failed');
+      setArchiveError('trip-local-save-failed');
+    });
+  }, [hydrated, trip, archiveError]);
 
   useEffect(() => {
     if (!hydrated || !trip || visitedIds.length === 0) return;
@@ -551,6 +571,7 @@ export default function PersonalTripPlanner({
   };
 
   const createTrip = () => {
+    if (!hydrated || !archiveReady || archiveError || storageOperationRef.current) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
     const createdAt = new Date().toISOString();
     try {
@@ -723,86 +744,154 @@ export default function PersonalTripPlanner({
     }
   };
 
+  const beginStorageOperation = () => {
+    if (!hydrated || !archiveReady || archiveError || storageOperationRef.current) return false;
+    storageOperationRef.current = true;
+    setStorageBusy(true);
+    return true;
+  };
+
+  const endStorageOperation = () => {
+    storageOperationRef.current = false;
+    setStorageBusy(false);
+  };
+
   const archiveAndCreateNew = async () => {
-    if (!trip || !archiveReady || archiveError) {
+    if (!trip || !beginStorageOperation()) {
       setFormError('trip-archive-not-ready');
       return;
     }
     try {
-      const nextArchive = archivePersonalTrip(archive, trip);
-      await activeWritesRef.current.catch(() => undefined);
-      // Write the recoverable snapshot before clearing the active trip.
-      await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
-      await AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY);
-      setArchive(nextArchive);
+      await activeWritesRef.current;
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'archive',
+        id: 'archive:' + trip.id + ':' + new Date().toISOString(),
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (!activeTrip) throw new Error('Active trip disappeared');
+          return {
+            activeTrip: null,
+            archive: archivePersonalTrip(savedArchive, activeTrip),
+            result: activeTrip.id
+          };
+        }
+      });
+      setArchive(outcome.archive);
       setTrip(null);
       setResetConfirmationOpen(false);
       onDirectoryPlaceHandled?.();
       setFormError('');
     } catch {
       setFormError('trip-archive-write-failed');
+      setArchiveError('trip-storage-recovery-required');
+    } finally {
+      endStorageOperation();
     }
   };
 
   const openPreviousTrip = async (tripIdToOpen: string) => {
-    if (!archiveReady || archiveError) {
+    if (!beginStorageOperation()) {
       setFormError('trip-archive-not-ready');
       return;
     }
-    const saved = archivedPersonalTrip(archive, tripIdToOpen);
-    if (!saved) {
-      setFormError('archived-trip-not-found');
-      return;
-    }
     try {
-      // Preserve all changes in the current trip before restoring an older itinerary.
-      const nextArchive = trip ? archivePersonalTrip(archive, trip) : archive;
-      await activeWritesRef.current.catch(() => undefined);
-      await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
-      await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, JSON.stringify(saved));
-      setArchive(nextArchive);
-      setTrip(saved);
+      await activeWritesRef.current;
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'switch',
+        id: 'switch:' + tripIdToOpen + ':' + new Date().toISOString(),
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          const requested = archivedPersonalTrip(savedArchive, tripIdToOpen);
+          if (!requested) throw new Error('Archived trip not found');
+          return {
+            activeTrip: requested,
+            archive: activeTrip
+              ? archivePersonalTrip(savedArchive, activeTrip)
+              : savedArchive,
+            result: requested.id
+          };
+        }
+      });
+      const nextTrip = outcome.activeTrip;
+      if (!nextTrip) throw new Error('Recovered trip missing');
+      setArchive(outcome.archive);
+      setTrip(nextTrip);
       onDirectoryPlaceHandled?.();
-      setSelectedDay(saved.days.includes(moscowDateOnly()) ? moscowDateOnly() : saved.days[0] ?? saved.startDate);
+      setSelectedDay(nextTrip.days.includes(moscowDateOnly())
+        ? moscowDateOnly()
+        : nextTrip.days[0] ?? nextTrip.startDate);
       setResetConfirmationOpen(false);
       setTripToolsOpen(false);
       setFormError('');
     } catch {
       setFormError('archived-trip-restore-failed');
+      setArchiveError('trip-storage-recovery-required');
+    } finally {
+      endStorageOperation();
     }
   };
 
   const exportTripBackup = async (): Promise<string> => {
-    if (!hydrated || !archiveReady || archiveError) throw new Error('Archive not ready');
-    // Resolve any queued active writes before producing a portable snapshot.
+    if (!hydrated || !archiveReady || archiveError || storageOperationRef.current) {
+      throw new Error('Archive not ready');
+    }
     await activeWritesRef.current;
-    return createPersonalTripBackup({ activeTrip: trip, archive, exportedAt: new Date().toISOString() });
+    const saved = await readRecoveredTripStorage(AsyncStorage);
+    if (JSON.stringify(saved.activeTrip) !== JSON.stringify(trip)) {
+      throw new Error('Active trip not yet durably saved');
+    }
+    return createPersonalTripBackup({
+      activeTrip: saved.activeTrip, archive: saved.archive, exportedAt: new Date().toISOString()
+    });
   };
 
   const importTripBackup = async (raw: string): Promise<{ imported: number; skipped: number }> => {
-    if (!hydrated || !archiveReady || archiveError || backupBusy) throw new Error('Archive not ready');
+    if (!beginStorageOperation()) throw new Error('Archive not ready');
     setBackupBusy(true);
     try {
       const incoming = parsePersonalTripBackup(raw);
       await activeWritesRef.current;
-      // A fresh read avoids overwriting another successful local archive change.
-      const savedRaw = await AsyncStorage.getItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY);
-      const onDisk = savedRaw ? parsePersonalTripArchive(savedRaw) : emptyPersonalTripArchive();
-      const merged = mergePersonalTripBackup({ backup: incoming, activeTrip: trip, archive: onDisk });
-      if (merged.imported) {
-        await AsyncStorage.setItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, JSON.stringify(merged.archive));
-        setArchive(merged.archive);
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'import',
+        id: 'import:' + new Date().toISOString(),
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          const merged = mergePersonalTripBackup({
+            backup: incoming, activeTrip, archive: savedArchive
+          });
+          return {
+            activeTrip,
+            archive: merged.archive,
+            result: { imported: merged.imported, skipped: merged.skipped }
+          };
+        }
+      });
+      setArchive(outcome.archive);
+      return outcome.result;
+    } catch (error) {
+      // Parse errors have no journal. If a journal exists (or its read fails),
+      // block further writes and recover on the next app start.
+      try {
+        if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
+          setArchiveError('trip-storage-recovery-required');
+        }
+      } catch {
+        setArchiveError('trip-storage-recovery-required');
       }
-      return { imported: merged.imported, skipped: merged.skipped };
+      throw error;
     } finally {
       setBackupBusy(false);
+      endStorageOperation();
     }
   };
 
   const backupPanel = (
     <TripBackupPanel
       language={language}
-      busy={backupBusy || !archiveReady || !hydrated || Boolean(archiveError)}
+      busy={backupBusy || storageBusy || !archiveReady || !hydrated || Boolean(archiveError)}
       error={archiveError ? 'local-archive-unavailable' : ''}
       onExport={exportTripBackup}
       onPreview={previewPersonalTripBackup}
@@ -832,7 +921,7 @@ export default function PersonalTripPlanner({
 
   if (!trip) {
     return (
-      <View style={styles.root}>
+      <View style={styles.root} pointerEvents={storageBusy || Boolean(archiveError) ? 'none' : 'auto'}>
         <Text style={styles.kicker}>{tr(language, 'МОЯ ПОЕЗДКА', 'MY TRIP', '我的行程')}</Text>
         <Text style={styles.title}>
           {tr(
@@ -890,7 +979,7 @@ export default function PersonalTripPlanner({
   }
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} pointerEvents={storageBusy || Boolean(archiveError) ? 'none' : 'auto'}>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
           <Text style={styles.kicker}>{tr(language, 'МОЯ ПОЕЗДКА', 'MY TRIP', '我的行程')}</Text>
