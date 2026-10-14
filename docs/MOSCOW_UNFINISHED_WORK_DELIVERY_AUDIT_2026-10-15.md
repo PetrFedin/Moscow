@@ -41,6 +41,8 @@
 5. `src/features/trip/PersonalTripPlanner.tsx`: initial create becomes journaled and must succeed before the UI shows the trip; edits serialize and verify prior durable active trip, so common stale-tab writes fail closed instead of silently replacing newer completed edits.
 6. Tests include `tripDayPresentation.test.ts`, browser cancellation/provenance/initial-create and two-tab concurrency checks, stale-edit rejection and interrupted-edit replay in `personalTripTransaction.test.ts`.
 7. Web Locks coordinate cooperating browser tabs on supported origins. This improves cross-tab safety without creating guaranteed multi-process atomic storage.
+8. `src/features/trip/BookingWalletCard.tsx` and `TouristTodayCard.tsx` now align provider-recorded language with trip-day truth; the wallet hides cancelled and skipped records, supports 52px actions and accessible text, and has a dedicated three-viewport visual fixture. Cancellations remain in the route history; a hidden upcoming booking is not deleted.
+9. `TripJourneyOverview.tsx` now calls the same `personalTripDayItems` projector as the trip editor, so explicitly reordered stops are not silently re-sorted by date/time. Fixed ticket data remains untouched; conflict detection remains a separate gate.
 
 ## 4. Important remaining storage risk
 
