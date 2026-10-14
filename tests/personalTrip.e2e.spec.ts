@@ -1408,3 +1408,50 @@ test('new trip is visible only with durable active state and no pending recovery
 function assertNotNull<T>(value: T | null): asserts value is T {
   expect(value).not.toBeNull();
 }
+
+
+test('two browser tabs creating different trips cannot silently overwrite a completed first write', async ({ page }) => {
+  const sibling = await page.context().newPage();
+  try {
+    await Promise.all([page.goto('/'), sibling.goto('/')]);
+    await Promise.all([ensureRussian(page), ensureRussian(sibling)]);
+    await Promise.all([
+      page.getByRole('tab', { name: 'Поездка' }).click(),
+      sibling.getByRole('tab', { name: 'Поездка' }).click()
+    ]);
+    await Promise.all([
+      expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible(),
+      expect(sibling.getByText('Соберите Москву по дням', { exact: true })).toBeVisible()
+    ]);
+    const oneDay = moscowDateOffset(1);
+    await Promise.all([
+      page.getByPlaceholder('2026-10-02').fill(oneDay),
+      sibling.getByPlaceholder('2026-10-02').fill(oneDay)
+    ]);
+    await Promise.all([
+      page.getByText('1', { exact: true }).click(),
+      sibling.getByText('1', { exact: true }).click()
+    ]);
+    await Promise.all([
+      page.getByText('Создать поездку', { exact: true }).click(),
+      sibling.getByText('Создать поездку', { exact: true }).click()
+    ]);
+    await expect.poll(async () => page.evaluate(() =>
+      window.localStorage.getItem('moscow:v1:personal-trip') !== null)).toBe(true);
+
+    // A loser may not adopt an unknown remote trip from another tab. It must
+    // fail closed and require an explicit reload while preserving the winner.
+    const aVisible = await page.getByText('День 1', { exact: true }).count();
+    const bVisible = await sibling.getByText('День 1', { exact: true }).count();
+    expect(aVisible + bVisible).toBe(1);
+    const activeBefore = await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
+    expect(activeBefore).not.toBeNull();
+    await page.reload();
+    await sibling.reload();
+    const activeAfter = await sibling.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
+    expect(activeAfter).toBe(activeBefore);
+    expect(JSON.parse(activeAfter!).items).toHaveLength(0);
+  } finally {
+    await sibling.close();
+  }
+});
