@@ -27,7 +27,7 @@ export default function BookingWalletCard({ trip, language }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <View style={styles.root}>
+    <View testID="travel-booking-wallet" style={styles.root}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
           <Text style={styles.kicker}>{tr(language, 'ПОЕЗДКА', 'TRIP', '行程')}</Text>
@@ -117,6 +117,8 @@ export default function BookingWalletCard({ trip, language }: Props) {
 
               {commitment.externalUrl ? (
                 <PhysicalPressable
+                  accessibilityRole="link"
+                  accessibilityLabel={tr(language, 'Открыть сохранённую ссылку на подтверждение: ', 'Open saved confirmation link: ', '打开已保存的确认链接：') + item.title}
                   style={styles.openButton}
                   contentStyle={styles.center}
                   onPress={() => { void Linking.openURL(commitment.externalUrl!); }}
