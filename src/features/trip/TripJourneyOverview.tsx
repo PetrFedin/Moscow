@@ -5,6 +5,7 @@ import { tr } from '../../i18n';
 import type { PersonalTrip, PersonalTripItem } from '../../travel/personalTrip';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { formatDestinationTime, requireAdmittedDestination } from '../../product/travelProductIdentity';
+import { dayStopPresentation, displayedUpcomingCommitments, type DayStopPresentation } from '../../travel/tripDayPresentation';
 
 function symbol(item: PersonalTripItem) {
   if (item.commitment?.kind === 'ticket') return '♫';
@@ -13,6 +14,26 @@ function symbol(item: PersonalTripItem) {
   if (['museum', 'gallery', 'exhibition'].includes(item.kind)) return '◇';
   return '⌖';
 }
+function stopStatusLabel(language: AppLanguage, state: DayStopPresentation): string {
+  switch (state) {
+    case 'cancelled': return tr(language, 'Отменено — запись сохранена', 'Cancelled — record retained', '已取消，保留记录');
+    case 'skipped': return tr(language, 'Пропущено в плане', 'Skipped in itinerary', '已跳过');
+    case 'visit-recorded': return tr(language, 'Вы отметили посещение', 'Marked as visited by you', '由您标记到访');
+    case 'completed-in-plan': return tr(language, 'Отмечено выполненным в плане — не проверено по месту',
+      'Marked complete in plan — attendance not verified', '计划标为完成，未验证到场');
+    case 'provider-confirmation-recorded': return tr(language,
+      'В записи указано подтверждение поставщика — здесь не перепроверено',
+      'Provider confirmation recorded — not reverified here', '记录标注供应商确认，本页未复核');
+    case 'user-declared-confirmation': return tr(language,
+      'Билет или бронь добавлены вами — поставщик не проверен',
+      'Ticket or booking added by you — provider not verified', '由您添加门票或预订，供应商未验证');
+    case 'reservation-held': return tr(language,
+      'Предварительное удержание — окончательное подтверждение не проверено',
+      'Held provisionally — final confirmation not verified', '暂时保留，未验证最终确认');
+    case 'planned': return tr(language, 'В вашем плане, не бронь', 'Planned stop, not a booking', '计划地点，并非预订');
+  }
+}
+
 export default function TripJourneyOverview({ trip, dayDate, language, onVisit, onOpenDetails }: {
   trip: PersonalTrip; dayDate: string; language: AppLanguage; onVisit: (id: string) => void; onOpenDetails: () => void;
 }) {
@@ -23,8 +44,10 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
   const items = trip.items.filter(item => item.dayDate === dayDate).sort((a,b) =>
     (a.plannedStartAt ?? '').localeCompare(b.plannedStartAt ?? '') || (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
   const visited = new Set(trip.visits.filter(v => v.dayDate === dayDate).map(v => v.itemId));
-  const next = items.find(item => item.status === 'planned' && !visited.has(item.id));
-  const bookings = items.filter(item => item.commitment);
+  const next = items.find(item => item.status === 'planned' && item.commitment?.status !== 'cancelled' && !visited.has(item.id));
+  const bookings = displayedUpcomingCommitments(items);
+  const activeStopCount = items.filter(item => item.status !== 'cancelled' && item.status !== 'skipped').length;
+  const recordedVisitCount = items.filter(item => visited.has(item.id)).length;
   return <View testID="travel-day-overview" style={styles.root}>
     <View style={styles.hero}>
       <Text style={styles.kicker}>{tr(language,
@@ -35,7 +58,7 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
         ? tr(language, 'Впереди ещё много интересного', 'More to discover today', '更多精彩在等你')
         : tr(language, 'Ваш день в ' + destination.display.ruPrepositional,
             'Your day in ' + destination.display.en, destination.display.zh + '的一天')}</Text>
-      <Text style={styles.summary}>{dayDate} · {items.length} {tr(language, 'мест в плане', 'planned stops', '个行程')} · {visited.size} {tr(language, 'отмечено как посещённые', 'marked as visited', '已标记到访')}</Text>
+      <Text style={styles.summary}>{dayDate} · {activeStopCount} {tr(language, 'действующих остановок', 'active planned stops', '个有效计划地点')} · {recordedVisitCount} {tr(language, 'отмечено как посещённые', 'marked as visited', '已标记到访')}</Text>
       {next && <View style={styles.nextCard}>
         <Text style={styles.nextLabel}>{tr(language, 'СЛЕДУЮЩАЯ ОСТАНОВКА', 'NEXT STOP', '下一站')} · {localTime(next.plannedStartAt)}</Text>
         <Text style={styles.nextTitle}>{next.title}</Text>
@@ -55,12 +78,12 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
         <View style={styles.stopCard}>
           <View style={styles.stopHeader}><Text style={styles.stopTime}>{localTime(item.plannedStartAt)}</Text>{item.commitment && <Text style={styles.bookingFlag}>{item.commitment.kind === 'ticket' ? tr(language,'Билет','Ticket','门票') : tr(language,'Бронь','Reservation','预订')}</Text>}</View>
           <Text style={styles.stopTitle}>{item.title}</Text>
-          <Text style={styles.stopSub}>{visited.has(item.id) ? tr(language,'Вы отметили посещение','Marked as visited','已到访') : item.commitment?.verification === 'provider-confirmed' ? tr(language,'Бронирование проверено','Booking verified','预订已确认') : item.commitment ? tr(language,'Добавлено вами','Added by you','手动添加') : tr(language,'В вашем плане','On your itinerary','已加入行程')}</Text>
+          <Text style={styles.stopSub}>{stopStatusLabel(language, dayStopPresentation(item, visited.has(item.id)))}</Text>
         </View>
       </View>)}
     {bookings.length > 0 && <View style={styles.ticketPanel}>
       <Text style={styles.ticketTitle}>{tr(language,'Ваши билеты и брони','Tickets & reservations','门票与预订')}</Text>
-      <Text style={styles.ticketText}>{bookings.length} {tr(language,'сохранено в этом дне. Детали доступны ниже.','saved for this day. Full details below.','条已保存，详细信息见下方。')}</Text>
+      <Text style={styles.ticketText}>{bookings.length} {tr(language,'не отменены в записях этого дня. Проверяйте оригинальные подтверждения.','not marked cancelled on this day. Check original confirmations.','条未标记取消，请核对原始确认。')}</Text>
     </View>}
     <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Настроить подробности поездки','Manage trip details','管理行程详情')} style={styles.detailsButton} contentStyle={styles.detailsContent} onPress={onOpenDetails}>
       <Text style={styles.detailsText}>{tr(language,'Управлять маршрутом и билетами','Manage route and tickets','管理路线与门票')}</Text><Text style={styles.detailsText}>↗</Text>
