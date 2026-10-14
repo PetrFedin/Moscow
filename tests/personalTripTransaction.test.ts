@@ -252,3 +252,53 @@ test('archive-only import never rewrites an unchanged active trip', async () => 
   assert.equal(storage.fault?.key, ACTIVE, 'Active write fault must remain unused');
 });
 
+
+
+test('journaled edit rejects a stale concurrent revision instead of erasing updated user notes', async () => {
+  const { storage, active } = seeded();
+  const firstEdit = { ...active, title: 'Новая редакция маршрута',
+    updatedAt: '2026-10-13T10:01:00.000Z' };
+  const result = await transactTripStorage({
+    storage, operation: 'edit', id: 'edit:first', expectedActiveTrip: active,
+    transform: ({ archive }) => ({ activeTrip: firstEdit, archive, result: true })
+  });
+  assert.equal(result.activeTrip?.title, firstEdit.title);
+  await assert.rejects(transactTripStorage({
+    storage, operation: 'edit', id: 'edit:stale', expectedActiveTrip: active,
+    transform: ({ archive }) => ({
+      activeTrip: { ...active, title: 'Устаревшая редакция', updatedAt: '2026-10-13T10:02:00.000Z' },
+      archive,
+      result: true
+    })
+  }), /changed or is not durably saved/);
+  assert.equal((await readRecoveredTripStorage(storage)).activeTrip?.title, firstEdit.title);
+  assert.equal(await storage.getItem(JOURNAL), null);
+});
+
+test('interrupted journaled active edit recovers user visit notes without editing archive', async () => {
+  const { storage, active, old } = seeded();
+  const updated = { ...active, title: 'После исправления', updatedAt: '2026-10-13T10:03:00.000Z' };
+  storage.fault = { key: ACTIVE, operation: 'set', when: 'after' };
+  await assert.rejects(transactTripStorage({
+    storage, operation: 'edit', id: 'edit:interrupt',
+    expectedActiveTrip: active,
+    transform: ({ archive }) => ({ activeTrip: updated, archive, result: true })
+  }), /Injected storage crash/);
+  const replayed = await readRecoveredTripStorage(storage);
+  assert.equal(replayed.recovered, true);
+  assert.equal(replayed.activeTrip?.title, updated.title);
+  assert.equal(replayed.activeTrip?.visits[0]?.note, 'Билет был куплен заранее');
+  assert.deepEqual(replayed.archive, old);
+  assert.equal(await storage.getItem(JOURNAL), null);
+});
+
+test('creating a trip is refused if another tab has already created an active one', async () => {
+  const { storage, active } = seeded();
+  await assert.rejects(transactTripStorage({
+    storage, operation: 'edit', id: 'create:wrong',
+    expectedActiveTrip: null,
+    transform: ({ archive }) => ({ activeTrip: base('overwritten'), archive, result: true })
+  }), /changed or is not durably saved/);
+  assert.deepEqual((await readRecoveredTripStorage(storage)).activeTrip, active);
+  assert.equal(await storage.getItem(JOURNAL), null);
+});
