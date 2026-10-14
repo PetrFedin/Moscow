@@ -202,7 +202,7 @@ test('Moscow Passport groups restaurant and theatre visits semantically', async 
 
   await expect(page.getByText('Moscow Passport', { exact: true })).toBeVisible();
   await expect(page.getByText('Где ел', { exact: true })).toBeVisible();
-  await expect(page.getByText('Культура', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('moscow-single-trip-passport').getByText('Культура', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Ресторан · тест дневника', { exact: true }).last()).toBeVisible();
   await expect(page.getByText('Театр · тест дневника', { exact: true }).last()).toBeVisible();
   await expect(page.getByText(/отмечено вами/).last()).toBeVisible();
