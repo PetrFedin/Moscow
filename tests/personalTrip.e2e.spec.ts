@@ -1380,3 +1380,31 @@ test('day timeline distinguishes cancelled booking from unverified and recorded 
     .getByText('В записи указано подтверждение поставщика — здесь не перепроверено', { exact: true })).toBeVisible();
   await expect(dayOverview.getByText(/2 не отменены в записях этого дня/)).toBeVisible();
 });
+
+
+test('new trip is visible only with durable active state and no pending recovery journal', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+  const image = await page.evaluate(() => ({
+    active: window.localStorage.getItem('moscow:v1:personal-trip'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  assertNotNull(image.active);
+  expect(image.journal).toBeNull();
+  const saved = JSON.parse(image.active!);
+  expect(saved.destinationId).toBe('moscow');
+  expect(saved.items).toHaveLength(0);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+});
+
+function assertNotNull<T>(value: T | null): asserts value is T {
+  expect(value).not.toBeNull();
+}
