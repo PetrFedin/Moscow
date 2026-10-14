@@ -69,6 +69,14 @@ for (const viewport of [
     await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toBeVisible();
     await expect(page.getByText('ИДЕЯ ДЛЯ СЛЕДУЮЩЕЙ ОСТАНОВКИ', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-today-with-ticket-and-next.png'), fullPage: true });
+    // Dedicated view captures actual visible editorial day timeline, not an
+    // invisible off-screen component inside a very tall fullPage screenshot.
+    const dayOverview = page.getByTestId('travel-day-overview');
+    await expect(dayOverview.getByText('Маршрут дня', { exact: true })).toBeVisible();
+    await dayOverview.getByText('Третьяковская галерея', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-editorial-day-viewport.png') });
+    const dayOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    expect(dayOverflow, 'Editorial day has no body horizontal overflow').toBe(false);
     await page.getByText('Новая', { exact: true }).click();
     await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
     await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
