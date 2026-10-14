@@ -75,7 +75,7 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
 });
 
 
-test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved to another day', async ({ page }) => {
+test('scheduler flags two fixed commitments and never silently moves a ticket to another day', async ({ page }) => {
   await page.goto('/');
   await ensureRussian(page);
 
@@ -105,13 +105,28 @@ test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved
   await expect(page.getByText('CONFLICT', { exact: true })).toBeVisible();
   await expect(page.getByText('ALTERNATIVE SLOTS', { exact: true })).toBeVisible();
 
-  await page.getByLabel('Перенести Театр · фиксированная бронь на следующий день').click();
-  await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Перенести Театр · фиксированная бронь на следующий день')).toHaveCount(0);
+  await expect(page.getByText('Дата и время билета или брони не меняются при переносе маршрута. Изменение оформляется у поставщика.', { exact: true }).first()).toBeVisible();
 
+  const before = await page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return saved.items.filter((item: { commitment?: unknown }) => item.commitment);
+  });
+  expect(before).toHaveLength(2);
   await page.getByText('День 2', { exact: true }).click();
-  await expect(page.getByText('Театр · фиксированная бронь', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/11:00–13:00/)).toBeVisible();
-  await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('travel-day-overview')
+    .getByText('Театр · фиксированная бронь', { exact: true })).toHaveCount(0);
+  await page.getByText('День 1', { exact: true }).click();
+  await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toBeVisible();
+  const after = await page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return saved.items.filter((item: { commitment?: unknown }) => item.commitment);
+  });
+  expect(after).toEqual(before);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByTestId('travel-day-overview')
+    .getByText('Театр · фиксированная бронь', { exact: true })).toBeVisible();
 });
 
 
