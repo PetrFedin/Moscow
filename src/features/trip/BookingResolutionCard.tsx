@@ -73,6 +73,8 @@ export default function BookingResolutionCard({
   const selected = bookings.find(item => item.id === selectedItemId) ?? bookings[0];
   const current = selected ? latestBookingResolution(trip, selected.id) : undefined;
   const active = current && bookingResolutionIsOpen(current) ? current : undefined;
+  const archivedCases = (trip.bookingResolutions ?? []).filter(c =>
+    c.itemId === selected?.id && !bookingResolutionIsOpen(c)).slice().reverse();
   const openCount = useMemo(
     () => (trip.bookingResolutions ?? []).filter(bookingResolutionIsOpen).length,
     [trip.bookingResolutions]
@@ -287,6 +289,25 @@ export default function BookingResolutionCard({
               </PhysicalPressable>
             </View>
           )}
+          {archivedCases.length > 0 ? (
+            <View testID="booking-resolution-history" style={styles.history}>
+              <Text style={styles.sectionTitle}>
+                {tr(language, 'Архив моих обращений', 'My past inquiry notes', '我的过往沟通记录')}
+              </Text>
+              {archivedCases.map(record => (
+                <View key={record.id} style={styles.archivedCase}>
+                  <Text style={styles.archivedTopic}>{topicName(language, record.topic)}</Text>
+                  {record.events.map(event => (
+                    <View key={event.id} style={styles.event}>
+                      <Text style={styles.eventTitle}>{eventName(language, event.kind)}</Text>
+                      <Text style={styles.eventTime}>{event.at.slice(0,16).replace('T',' ')} UTC</Text>
+                      {event.note ? <Text style={styles.eventNote}>{event.note}</Text> : null}
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
+          ) : null}
           {error ? <Text testID="booking-resolution-error" style={styles.error}>{error}</Text> : null}
           <Text style={styles.privacy}>{tr(language,
             'Заметки хранятся локально вместе с поездкой и входят в незашифрованный JSON-экспорт. Не записывайте банковские данные или секреты.',
@@ -339,5 +360,8 @@ const styles = StyleSheet.create({
     padding: 12, color: '#FFF8EC', fontSize: 15, textAlignVertical: 'top' },
   sourceDisclaimer: { fontSize: 13, lineHeight: 20, color: '#EADFC6', marginTop: 16 },
   privacy: { color: '#DFE4DA', fontSize: 12, lineHeight: 19, marginTop: 14 },
+  history: { borderTopWidth: 1, borderTopColor: '#698471', marginTop: 18, paddingTop: 8 },
+  archivedCase: { marginTop: 9, borderRadius: 13, borderWidth: 1, borderColor: '#688272', padding: 12 },
+  archivedTopic: { fontSize: 14, color: '#FFF3D9', fontWeight: '700' },
   error: { fontSize: 13, lineHeight: 20, color: '#FFCEB9', marginTop: 12 }
 });
