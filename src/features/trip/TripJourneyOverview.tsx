@@ -5,7 +5,7 @@ import { tr } from '../../i18n';
 import { personalTripDayItems, type PersonalTrip, type PersonalTripItem } from '../../travel/personalTrip';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { formatDestinationTime, requireAdmittedDestination } from '../../product/travelProductIdentity';
-import { dayStopPresentation, displayedUpcomingCommitments, type DayStopPresentation } from '../../travel/tripDayPresentation';
+import { dayStopPresentation, displayedUpcomingCommitments, countsAsScheduledOccupancy, isActivePlannedTripStop, type DayStopPresentation } from '../../travel/tripDayPresentation';
 
 function symbol(item: PersonalTripItem) {
   if (item.commitment?.kind === 'ticket') return '♫';
@@ -43,9 +43,9 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
   const localTime = (iso?: string) => formatDestinationTime(iso, trip.destinationId);
   const items = personalTripDayItems(trip, dayDate);
   const visited = new Set(trip.visits.filter(v => v.dayDate === dayDate).map(v => v.itemId));
-  const next = items.find(item => item.status === 'planned' && item.commitment?.status !== 'cancelled' && !visited.has(item.id));
+  const next = items.find(item => isActivePlannedTripStop(item) && !visited.has(item.id));
   const bookings = displayedUpcomingCommitments(items);
-  const activeStopCount = items.filter(item => item.status !== 'cancelled' && item.status !== 'skipped').length;
+  const activeStopCount = items.filter(countsAsScheduledOccupancy).length;
   const recordedVisitCount = items.filter(item => visited.has(item.id)).length;
   return <View testID="travel-day-overview" style={styles.root}>
     <View style={styles.hero}>
@@ -57,7 +57,7 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
         ? tr(language, 'Впереди ещё много интересного', 'More to discover today', '更多精彩在等你')
         : tr(language, 'Ваш день в ' + destination.display.ruPrepositional,
             'Your day in ' + destination.display.en, destination.display.zh + '的一天')}</Text>
-      <Text style={styles.summary}>{dayDate} · {activeStopCount} {tr(language, 'действующих остановок', 'active planned stops', '个有效计划地点')} · {recordedVisitCount} {tr(language, 'отмечено как посещённые', 'marked as visited', '已标记到访')}</Text>
+      <Text style={styles.summary}>{dayDate} · {activeStopCount} {tr(language, 'не отменённых остановок', 'non-cancelled stops', '个未取消地点')} · {recordedVisitCount} {tr(language, 'отмечено как посещённые', 'marked as visited', '已标记到访')}</Text>
       {next && <View style={styles.nextCard}>
         <Text style={styles.nextLabel}>{tr(language, 'СЛЕДУЮЩАЯ ОСТАНОВКА', 'NEXT STOP', '下一站')} · {localTime(next.plannedStartAt)}</Text>
         <Text style={styles.nextTitle}>{next.title}</Text>
@@ -75,7 +75,11 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
       <View key={item.id} testID={"trip-stop-" + item.id} style={styles.stop}>
         <View style={styles.track}><View style={[styles.dot, visited.has(item.id) && styles.doneDot]}><Text style={styles.dotText}>{symbol(item)}</Text></View>{index < items.length - 1 && <View style={styles.line}/>}</View>
         <View style={styles.stopCard}>
-          <View style={styles.stopHeader}><Text style={styles.stopTime}>{localTime(item.plannedStartAt)}</Text>{item.commitment && <Text style={styles.bookingFlag}>{item.commitment.kind === 'ticket' ? tr(language,'Билет','Ticket','门票') : tr(language,'Бронь','Reservation','预订')}</Text>}</View>
+          <View style={styles.stopHeader}><Text style={styles.stopTime}>{localTime(item.plannedStartAt)}</Text>{item.commitment && <Text style={styles.bookingFlag}>{item.status === 'cancelled' || item.commitment.status === 'cancelled'
+            ? tr(language, 'Отменено', 'Cancelled', '已取消')
+            : item.commitment.kind === 'ticket'
+              ? tr(language, 'Билет', 'Ticket', '门票')
+              : tr(language, 'Бронь', 'Reservation', '预订')}</Text>}</View>
           <Text style={styles.stopTitle}>{item.title}</Text>
           <Text style={styles.stopSub}>{stopStatusLabel(language, dayStopPresentation(item, visited.has(item.id)))}</Text>
         </View>
