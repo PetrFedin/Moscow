@@ -3,6 +3,7 @@ import {
   type PersonalTrip,
   type PersonalTripItem
 } from './personalTrip.ts';
+import { canMoveTripStopBetweenDays, isActivePlannedTripStop } from './tripDayPresentation.ts';
 
 export const PERSONAL_TRIP_REPLAN_SCHEMA_VERSION = 1 as const;
 
@@ -94,8 +95,11 @@ function cloneTrip(trip: PersonalTrip): PersonalTrip {
 }
 
 function isFixedCommitment(item: PersonalTripItem) {
-  return item.status === 'planned'
-    && item.commitment?.status === 'confirmed'
+  // A held reservation has no provider-confirmation guarantee, but it still
+  // has a supplier-scoped time that a schedule-only optimizer cannot change.
+  return isActivePlannedTripStop(item)
+    && item.commitment !== undefined
+    && item.commitment.status !== 'cancelled'
     && Boolean(item.plannedStartAt)
     && Boolean(item.plannedEndAt);
 }
@@ -198,8 +202,9 @@ export function buildPersonalTripReplanProposal(input: {
   });
 
   const flexible = dayItems
-    .filter((item) => item.status === 'planned')
-    .filter((item) => !isFixedCommitment(item))
+    // Only explicitly unbooked stops may be moved or unscheduled. This
+    // rejects cancelled, held and untimed booked commitments as well.
+    .filter(canMoveTripStopBetweenDays)
     .sort(itemSort);
 
   const placements: PersonalTripReplanPlacement[] = [];
@@ -351,7 +356,9 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     const item = trip.items.find((candidate) => candidate.id === placement.itemId);
     if (!item || item.dayDate !== proposal.dayDate) throw new Error(`Replan item not found in day: ${placement.itemId}`);
     if (item.status !== 'planned') throw new Error(`Replan item is not planned: ${placement.itemId}`);
-    if (isFixedCommitment(item)) throw new Error(`Replan cannot move fixed commitment: ${placement.itemId}`);
+    if (!canMoveTripStopBetweenDays(item)) {
+      throw new Error(`Replan cannot move booked or cancelled commitment: ${placement.itemId}`);
+    }
     const start = parseIso(placement.proposedStartAt, 'replan proposed start');
     const end = parseIso(placement.proposedEndAt, 'replan proposed end');
     if (end <= start) throw new Error(`Invalid replan interval: ${placement.itemId}`);
@@ -369,7 +376,9 @@ function assertProposalAgainstTrip(trip: PersonalTrip, proposal: PersonalTripRep
     const tripItem = trip.items.find((candidate) => candidate.id === item.itemId);
     if (!tripItem || tripItem.dayDate !== proposal.dayDate) throw new Error(`Unplaced item not found in day: ${item.itemId}`);
     if (tripItem.status !== 'planned') throw new Error(`Replan cannot unschedule resolved item: ${item.itemId}`);
-    if (isFixedCommitment(tripItem)) throw new Error(`Replan cannot unschedule fixed commitment: ${item.itemId}`);
+    if (!canMoveTripStopBetweenDays(tripItem)) {
+      throw new Error(`Replan cannot unschedule booked or cancelled commitment: ${item.itemId}`);
+    }
   }
 
   const dayStart = parseIso(dayBoundary(proposal.dayDate, preferences.dayStart));
@@ -448,7 +457,7 @@ export function applyPersonalTripReplanProposal(input: {
 
   const dayItems = next.items
     .filter((item) => item.dayDate === input.proposal.dayDate)
-    .filter((item) => item.status === 'planned')
+    .filter(isActivePlannedTripStop)
     .sort((a, b) => {
       const aStart = a.plannedStartAt ? parseIso(a.plannedStartAt) : Number.MAX_SAFE_INTEGER;
       const bStart = b.plannedStartAt ? parseIso(b.plannedStartAt) : Number.MAX_SAFE_INTEGER;
