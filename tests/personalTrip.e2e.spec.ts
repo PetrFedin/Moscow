@@ -236,7 +236,7 @@ test('Booking Wallet persists theatre booking details without provider upgrade',
   await expect(page.getByText(/Гостей · 2/).first()).toBeVisible();
   await expect(page.getByText(/Места · Партер · ряд 5 · места 11–12/).first()).toBeVisible();
   await expect(page.getByText(/Адрес: Театральная площадь, 1/).first()).toBeVisible();
-  await expect(page.getByText('Добавлено вами · провайдер не проверен', { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('travel-booking-wallet').getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
 
   await page.reload();
@@ -1344,7 +1344,7 @@ test('day timeline distinguishes cancelled booking from unverified and recorded 
           id: 'cancelled-ticket', dayDate, source: 'manual', title: 'Отменённый музей',
           kind: 'museum', status: 'planned',
           commitment: { kind: 'ticket', status: 'cancelled', verification: 'provider-confirmed',
-            provider: 'Example source', reference: 'CANCELLED-1' }
+            provider: 'Example source', reference: 'CANCELLED-1', receiptEvidenceRef: 'local-cancel-evidence' }
         },
         {
           id: 'user-ticket', dayDate, source: 'manual', title: 'Свой билет',
