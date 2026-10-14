@@ -1235,3 +1235,95 @@ test('Next Discoveries uses past venue IDs, adds source-backed idea to selected 
     name: 'Добавить место в выбранный день: Кафе Пушкинъ'
   })).toHaveCount(0);
 });
+
+
+test('unfinished trip archive journal recovers purchased-ticket notes before the trip UI hydrates', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const active = {
+      schemaVersion: 1, id: 'recovery-autumn', destinationId: 'moscow',
+      title: 'Осень и театр', startDate: '2026-10-13', endDate: '2026-10-13',
+      days: ['2026-10-13'],
+      items: [{
+        id: 'recovery-ticket', dayDate: '2026-10-13', kind: 'theatre',
+        source: 'manual', title: 'Большой театр · свой билет', status: 'completed',
+        commitment: {
+          kind: 'ticket', status: 'confirmed', verification: 'user-declared',
+          reference: 'TICKET-SAVED-42'
+        }
+      }],
+      visits: [{
+        id: 'recovery-visit', itemId: 'recovery-ticket',
+        dayDate: '2026-10-13', title: 'Большой театр',
+        kind: 'theatre', evidence: 'user-confirmed',
+        visitedAt: '2026-10-13T20:00:00+03:00',
+        note: 'Особенный вечер'
+      }],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T21:00:00.000Z'
+    };
+    const previous = { schemaVersion: 1, trips: [] };
+    const next = { schemaVersion: 1, trips: [active] };
+    const before = {
+      active: JSON.stringify(active), archive: JSON.stringify(previous)
+    };
+    const after = {
+      active: null, archive: JSON.stringify(next)
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', before.active);
+    // Emulate interruption after the archive was written but before active
+    // cleanup; replay is applied on next hydration, never by the test itself.
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', after.archive);
+    window.localStorage.setItem('moscow:v1:personal-trip-transaction', JSON.stringify({
+      schemaVersion: 1, operation: 'archive', id: 'recovery-browser-case',
+      before, after
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('После прерванной операции локальная история восстановлена и проверена.')).toBeVisible();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  const stored = await page.evaluate(() => ({
+    active: window.localStorage.getItem('moscow:v1:personal-trip'),
+    archive: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(stored.active).toBeNull();
+  expect(stored.journal).toBeNull();
+  expect(stored.archive.trips).toHaveLength(1);
+  expect(stored.archive.trips[0].items[0].commitment.reference).toBe('TICKET-SAVED-42');
+  expect(stored.archive.trips[0].visits[0].note).toBe('Особенный вечер');
+  expect(stored.archive.trips[0].items[0].commitment.verification).toBe('user-declared');
+});
+
+test('conflicting local transaction blocks trip editing without deleting unknown data', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const before = { active: null, archive: JSON.stringify({ schemaVersion: 1, trips: [] }) };
+    const after = { active: null, archive: JSON.stringify({ schemaVersion: 1, trips: [] }) };
+    const foreign = JSON.stringify({ schemaVersion: 1, trips: [{
+      schemaVersion: 1, id: 'foreign-journey', destinationId: 'moscow',
+      title: 'Третья поездка', startDate: '2026-10-13', endDate: '2026-10-13',
+      days: ['2026-10-13'], items: [], visits: [],
+      createdAt: '2026-10-13T09:00:00.000Z', updatedAt: '2026-10-13T09:00:00.000Z'
+    }] });
+    window.localStorage.removeItem('moscow:v1:personal-trip');
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', foreign);
+    window.localStorage.setItem('moscow:v1:personal-trip-transaction', JSON.stringify({
+      schemaVersion: 1, operation: 'archive', id: 'conflict-browser-case',
+      before, after
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText(/Локальное сохранение или восстановление не подтверждено/)).toBeVisible();
+  const persisted = await page.evaluate(() => ({
+    archive: window.localStorage.getItem('moscow:v1:personal-trip-archive'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(JSON.parse(persisted.archive || '{}').trips[0].id).toBe('foreign-journey');
+  expect(persisted.journal).not.toBeNull();
+});
+
