@@ -1476,3 +1476,48 @@ test('two browser tabs creating different trips cannot silently overwrite a comp
     await sibling.close();
   }
 });
+
+test('cancelled reservation remains in journey history but never appears as next stop or live booking', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowNowParts().date;
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'cancelled-today-guard',
+      destinationId: 'moscow', title: 'Отменённая бронь',
+      startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'cancelled-reservation', dayDate, source: 'manual',
+        title: 'Отменённый ужин', kind: 'food', status: 'planned',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T21:00:00+03:00',
+        commitment: {
+          kind: 'reservation', status: 'cancelled',
+          verification: 'user-declared', reference: 'CANCELLED-USER-REF'
+        }
+      }],
+      visits: [],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Пока нет планов на сегодня', { exact: true })).toBeVisible();
+  await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('travel-booking-wallet')).toHaveCount(0);
+  const itinerary = page.getByTestId('travel-day-overview');
+  await expect(itinerary.getByTestId('trip-stop-cancelled-reservation')
+    .getByText('Отменено — запись сохранена', { exact: true })).toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const saved = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items[0].commitment.reference).toBe('CANCELLED-USER-REF');
+  expect(saved.items[0].commitment.status).toBe('cancelled');
+});
