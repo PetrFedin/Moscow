@@ -1521,3 +1521,102 @@ test('cancelled reservation remains in journey history but never appears as next
   expect(saved.items[0].commitment.reference).toBe('CANCELLED-USER-REF');
   expect(saved.items[0].commitment.status).toBe('cancelled');
 });
+
+
+test('traveler records supplier inquiry without changing ticket, archives it, and recovers both after reload', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowDateOffset(1);
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'booking-inquiry-e2e', destinationId: 'moscow',
+      title: 'Мои билеты', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'fixed-theatre-ticket', dayDate, title: 'Мой билет', kind: 'theatre',
+        source: 'manual', status: 'planned',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T21:00:00+03:00',
+        commitment: {
+          kind: 'ticket', status: 'confirmed', verification: 'user-declared',
+          provider: 'Моя запись', reference: 'KEEP-BOOKED-DATE'
+        }
+      }, {
+        id: 'cancelled-table', dayDate, title: 'Отменённая бронь', kind: 'food',
+        source: 'manual', status: 'planned',
+        plannedStartAt: dayDate + 'T14:00:00+03:00',
+        plannedEndAt: dayDate + 'T15:00:00+03:00',
+        commitment: {
+          kind: 'reservation', status: 'cancelled', verification: 'user-declared',
+          reference: 'CANCELLED-RECORD'
+        }
+      }],
+      visits: [], createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+
+  const wallet = page.getByTestId('travel-booking-wallet');
+  await expect(wallet.getByText('Мой билет', { exact: true })).toBeVisible();
+  await expect(wallet.getByText('Отменённая бронь', { exact: true })).toHaveCount(0);
+  const immutableBefore = await page.evaluate(() => {
+    const raw = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.items;
+  });
+
+  await wallet.getByRole('button', {
+    name: 'Разобраться с билетом или бронью: Мой билет'
+  }).click();
+  const card = page.getByTestId('booking-resolution-card');
+  const selected = card.getByTestId('booking-resolution-selected-fixed-theatre-ticket');
+  await expect(selected.getByText('Мой билет', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Начать личную запись об обращении' }).click();
+  await expect(card.getByText('Моя история обращения', { exact: false })).toBeVisible();
+  await card.getByRole('button', { name: 'Я самостоятельно связался с поставщиком' }).click();
+  await card.getByTestId('booking-resolution-reply-input')
+    .fill('По телефону сказали сохранить оригинальный билет.');
+  await card.getByRole('button', { name: 'Сохранить мою заметку об ответе' }).click();
+  await expect(card.getByText('По телефону сказали сохранить оригинальный билет.', { exact: true })).toBeVisible();
+
+  await card.getByRole('button', { name: 'Архивировать моё обращение без изменения брони' }).click();
+  await expect(card.getByText('Архив моих обращений', { exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => {
+    const raw = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.bookingResolutions?.[0]?.events?.length ?? 0;
+  })).toBe(4);
+  const after = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(after.items).toEqual(immutableBefore);
+  expect(after.bookingResolutions[0].events.map((event: { kind: string }) => event.kind))
+    .toEqual(['opened', 'contact-self-reported', 'reply-self-reported', 'archived']);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const recovered = page.getByTestId('booking-resolution-card');
+  await recovered.getByRole('button', { name: 'Открыть помощь с билетами' }).click();
+  await expect(recovered.getByText('Архив моих обращений', { exact: true })).toBeVisible();
+  await expect(recovered.getByText('По телефону сказали сохранить оригинальный билет.', { exact: true })).toBeVisible();
+
+  await recovered.getByRole('button', { name: 'Выбрать обращение: Отменённая бронь' }).click();
+  await expect(recovered.getByTestId('booking-resolution-selected-cancelled-table')
+    .getByText('Отменённая бронь', { exact: true })).toBeVisible();
+  await recovered.getByRole('button', { name: 'Отмена / возврат' }).click();
+  await recovered.getByRole('button', { name: 'Начать личную запись об обращении' }).click();
+  await expect.poll(async () => page.evaluate(() => {
+    const raw = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.bookingResolutions?.length ?? 0;
+  })).toBe(2);
+  const saved = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items).toEqual(immutableBefore);
+  expect(saved.bookingResolutions[1].itemId).toBe('cancelled-table');
+  expect(saved.bookingResolutions[1].topic).toBe('cancel-refund');
+  await expect(page.getByTestId('travel-booking-wallet')
+    .getByText('Отменённая бронь', { exact: true })).toHaveCount(0);
+});
