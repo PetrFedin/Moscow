@@ -1327,3 +1327,56 @@ test('conflicting local transaction blocks trip editing without deleting unknown
   expect(persisted.journal).not.toBeNull();
 });
 
+
+
+test('day timeline distinguishes cancelled booking from unverified and recorded provider confirmation', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowDateOffset(1);
+  await page.evaluate((dayDate) => {
+    const local = {
+      schemaVersion: 1,
+      id: 'booking-ux-truth',
+      destinationId: 'moscow',
+      title: 'Мои билеты',
+      startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [
+        {
+          id: 'cancelled-ticket', dayDate, source: 'manual', title: 'Отменённый музей',
+          kind: 'museum', status: 'planned',
+          commitment: { kind: 'ticket', status: 'cancelled', verification: 'provider-confirmed',
+            provider: 'Example source', reference: 'CANCELLED-1' }
+        },
+        {
+          id: 'user-ticket', dayDate, source: 'manual', title: 'Свой билет',
+          kind: 'theatre', status: 'planned',
+          commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared',
+            reference: 'MY-RECEIPT-2' }
+        },
+        {
+          id: 'provider-ticket', dayDate, source: 'manual', title: 'Квитанция поставщика',
+          kind: 'theatre', status: 'planned',
+          commitment: { kind: 'ticket', status: 'confirmed', verification: 'provider-confirmed',
+            provider: 'Example source', reference: 'RECEIPT-3', receiptEvidenceRef: 'local-reference-only' }
+        }
+      ],
+      visits: [],
+      createdAt: '2026-10-13T10:00:00.000Z',
+      updatedAt: '2026-10-13T10:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(local));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const dayOverview = page.getByTestId('travel-day-overview');
+  await expect(dayOverview.getByTestId('trip-stop-cancelled-ticket')
+    .getByText('Отменено — запись сохранена', { exact: true })).toBeVisible();
+  await expect(dayOverview.getByTestId('trip-stop-user-ticket')
+    .getByText('Билет или бронь добавлены вами — поставщик не проверен', { exact: true })).toBeVisible();
+  await expect(dayOverview.getByTestId('trip-stop-provider-ticket')
+    .getByText('В записи указано подтверждение поставщика — здесь не перепроверено', { exact: true })).toBeVisible();
+  await expect(dayOverview.getByText(/2 не отменены в записях этого дня/)).toBeVisible();
+});
