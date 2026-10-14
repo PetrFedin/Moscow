@@ -23,7 +23,7 @@ export type TripStorageState = {
   archive: PersonalTripArchive;
 };
 
-export type TripStorageOperation = 'archive' | 'switch' | 'import';
+export type TripStorageOperation = 'archive' | 'switch' | 'import' | 'delete';
 
 type RawImage = {
   active: string | null;
@@ -86,7 +86,7 @@ function parseIntent(raw: string): TransactionIntent {
   if (raw.length > MAX_TRANSACTION_CHARACTERS * 4) throw new Error('Trip transaction is too large');
   const value = JSON.parse(raw) as Partial<TransactionIntent> | null;
   if (!value || value.schemaVersion !== PERSONAL_TRIP_TRANSACTION_VERSION
-    || !['archive', 'switch', 'import'].includes(value.operation as string)
+    || !['archive', 'switch', 'import', 'delete'].includes(value.operation as string)
     || typeof value.id !== 'string' || !value.id.trim()
     || !isRawImage(value.before) || !isRawImage(value.after)) {
     throw new Error('Unsupported or corrupted trip transaction');
@@ -193,7 +193,17 @@ export function transactTripStorage<T>(input: {
 
     await writeChecked(storage, PERSONAL_TRIP_TRANSACTION_STORAGE_KEY, JSON.stringify(intent));
     // Important: a failed archive operation must NEVER clear the active key.
+    // A concurrent writer can appear between our initial read and journal
+    // creation. Never knowingly overwrite an unexpected intermediate value.
+    const guardedArchive = await storage.getItem(PERSONAL_TRIP_ARCHIVE_STORAGE_KEY);
+    if (guardedArchive !== before.archive && guardedArchive !== after.archive) {
+      throw new Error('Trip transaction concurrent archive modification');
+    }
     await writeChecked(storage, PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, after.archive);
+    const guardedActive = await storage.getItem(PERSONAL_TRIP_ACTIVE_STORAGE_KEY);
+    if (guardedActive !== before.active && guardedActive !== after.active) {
+      throw new Error('Trip transaction concurrent active modification');
+    }
     await writeChecked(storage, PERSONAL_TRIP_ACTIVE_STORAGE_KEY, after.active);
     const completed = await readRawImage(storage);
     if (completed.archive !== after.archive || completed.active !== after.active) {
