@@ -50,7 +50,7 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
       <Text style={styles.sectionHint}>{tr(language, 'В хронологическом порядке', 'In time order', '按时间顺序')}</Text>
     </View>
     {items.length === 0 ? <View style={styles.empty}><Text style={styles.emptyText}>{tr(language, 'Начните с одного интересного места или добавьте билет.', 'Start with a place or add your ticket.', '添加地点或门票开始旅程。')}</Text></View> : items.map((item,index)=>
-      <View key={item.id} style={styles.stop}>
+      <View key={item.id} testID={"trip-stop-" + item.id} style={styles.stop}>
         <View style={styles.track}><View style={[styles.dot, visited.has(item.id) && styles.doneDot]}><Text style={styles.dotText}>{symbol(item)}</Text></View>{index < items.length - 1 && <View style={styles.line}/>}</View>
         <View style={styles.stopCard}>
           <View style={styles.stopHeader}><Text style={styles.stopTime}>{localTime(item.plannedStartAt)}</Text>{item.commitment && <Text style={styles.bookingFlag}>{item.commitment.kind === 'ticket' ? tr(language,'Билет','Ticket','门票') : tr(language,'Бронь','Reservation','预订')}</Text>}</View>
