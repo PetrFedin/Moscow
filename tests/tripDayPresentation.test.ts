@@ -4,7 +4,7 @@ import {
   dayStopPresentation,
   displayedUpcomingCommitments
 } from '../src/travel/tripDayPresentation.ts';
-import type { PersonalTripItem, PersonalTripCommitment } from '../src/travel/personalTrip.ts';
+import { createPersonalTrip, personalTripDayItems, type PersonalTripItem, type PersonalTripCommitment } from '../src/travel/personalTrip.ts';
 
 const confirmed: PersonalTripCommitment = {
   kind: 'ticket', status: 'confirmed',
@@ -61,4 +61,30 @@ test('selection never mutates ticket records or verification evidence', () => {
   const selected = displayedUpcomingCommitments(original);
   assert.deepEqual(selected.map(x => x.id), ['confirmed']);
   assert.equal(JSON.stringify(original), before);
+});
+
+test('day timeline honors user ordering without rewriting the fixed ticket or its time', () => {
+  const base = createPersonalTrip({
+    id: 'ordered', destinationId: 'moscow', title: 'Путешествие',
+    startDate: '2026-10-13', endDate: '2026-10-13',
+    createdAt: '2026-10-13T08:00:00.000Z'
+  });
+  const earlyTicket = item('early-fixed-ticket', {
+    plannedStartAt: '2026-10-13T10:00:00+03:00',
+    plannedEndAt: '2026-10-13T12:00:00+03:00',
+    commitment: confirmed,
+    displayOrder: 2
+  });
+  const latePlace = item('user-priority-place', {
+    kind: 'museum',
+    plannedStartAt: '2026-10-13T16:00:00+03:00',
+    displayOrder: 1
+  });
+  const trip = { ...base, items: [earlyTicket, latePlace] };
+  const before = JSON.stringify(trip);
+  const ordered = personalTripDayItems(trip, '2026-10-13');
+  assert.deepEqual(ordered.map(x => x.id), ['user-priority-place', 'early-fixed-ticket']);
+  assert.deepEqual(ordered[1]?.commitment, confirmed);
+  assert.equal(ordered[1]?.plannedStartAt, earlyTicket.plannedStartAt);
+  assert.equal(JSON.stringify(trip), before);
 });
