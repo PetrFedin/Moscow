@@ -3,6 +3,7 @@ import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
 import type { DayReplacementAcceptanceReceipt } from './dayReplacementProposal.ts';
 import type { CuratedMoscowPlace } from './curatedMoscowPlaces.ts';
 import { displayedUpcomingCommitments, isActivePlannedTripStop } from './tripDayPresentation.ts';
+import { validateBookingResolutions, type BookingResolutionCase } from './bookingResolution.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -106,6 +107,8 @@ export type PersonalTrip = {
   preferences?: PersonalTripPreferences;
   /** Locally append-only user acceptance records, persisted in the same trip snapshot. */
   replacementReceipts?: DayReplacementAcceptanceReceipt[];
+  /** Private traveler-authored contact notes; not a change to the provider booking. */
+  bookingResolutions?: BookingResolutionCase[];
   createdAt: string;
   updatedAt: string;
 };
@@ -199,6 +202,12 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
     visits: trip.visits.map((visit) => ({ ...visit })),
+    ...(trip.bookingResolutions ? {
+      bookingResolutions: trip.bookingResolutions.map((entry) => ({
+        ...entry,
+        events: entry.events.map(event => ({ ...event }))
+      }))
+    } : {}),
     ...(trip.replacementReceipts ? {
       replacementReceipts: trip.replacementReceipts.map((receipt) => ({
         ...receipt,
@@ -679,6 +688,9 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
       throw new Error('Invalid visit note');
     }
   }
+  // Reject forged/imported supplier replies and broken event trails without
+  // upgrading any commitment verification, receipt or actual booked time.
+  validateBookingResolutions(trip);
   return clone(trip);
 }
 
