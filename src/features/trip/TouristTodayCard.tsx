@@ -331,7 +331,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
 }
 
 const styles = StyleSheet.create({
-  root: { borderRadius: 25, borderWidth: 1, borderColor: '#576b58', backgroundColor: '#182c24', padding: 19, marginTop: 14, marginBottom: 16 },
+  root: { borderRadius: 25, borderWidth: 1, borderColor: '#576b58', backgroundColor: '#183C34', padding: 19, marginTop: 14, marginBottom: 16 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
   headingCopy: { flex: 1, minWidth: 0 },
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   progressBadge: { minWidth: 56, borderRadius: 13, backgroundColor: '#211d17', paddingVertical: 7, paddingHorizontal: 9, alignItems: 'center' },
   progressValue: { color: '#e2c488', fontSize: 15, fontWeight: '900' },
   progressLabel: { color: '#d8c7a1', fontSize: 11, marginTop: 3 },
-  hero: { borderRadius: 19, backgroundColor: '#f4eee1', borderWidth: 1, borderColor: '#e8d9bd', padding: 17, marginTop: 15 },
+  hero: { borderRadius: 19, backgroundColor: '#FFF9EE', borderWidth: 1, borderColor: '#E4DED0', padding: 18, marginTop: 15 },
   heroMuted: { borderRadius: 17, backgroundColor: '#1a1815', borderWidth: 1, borderColor: '#32302c', padding: 13, marginTop: 13 },
   emptyDay: { borderRadius: 19, backgroundColor: '#f4eee1', borderWidth: 1, borderColor: '#e7d7b9', padding: 17, marginTop: 15 },
   emptyEyebrow: { color: '#7a6039', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
