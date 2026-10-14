@@ -25,7 +25,7 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
   const visited = new Set(trip.visits.filter(v => v.dayDate === dayDate).map(v => v.itemId));
   const next = items.find(item => item.status === 'planned' && !visited.has(item.id));
   const bookings = items.filter(item => item.commitment);
-  return <View style={styles.root}>
+  return <View testID="travel-day-overview" style={styles.root}>
     <View style={styles.hero}>
       <Text style={styles.kicker}>{tr(language,
         'ВАШ ДЕНЬ В ' + destination.display.ruPrepositionalUpper,
