@@ -39,13 +39,22 @@ type TransactionIntent = {
 };
 
 /**
- * This lock serializes operations within one JS runtime only. It is NOT a
- * multi-tab or cross-device lock, nor is AsyncStorage an atomic database.
+ * Browser Web Locks coordinate cooperating tabs in the same storage origin.
+ * The local queue still serializes writes within one JS runtime (iOS/Android).
+ * Fallback remains non-atomic if Web Locks are unavailable; this is NOT a
+ * durable transactional database or cross-device lock.
  */
+const TRIP_STORAGE_WEB_LOCK_NAME = 'moscow-personal-trip-v1-exclusive';
 let serialTail: Promise<void> = Promise.resolve();
 
 function serialized<T>(operation: () => Promise<T>): Promise<T> {
-  const running = serialTail.then(operation);
+  const running = serialTail.then(() => {
+    // Navigator may not exist in Node or some native JS runtimes.
+    const webLocks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+    return webLocks?.request
+      ? webLocks.request(TRIP_STORAGE_WEB_LOCK_NAME, operation)
+      : operation();
+  });
   serialTail = running.then(() => undefined, () => undefined);
   return running;
 }
