@@ -198,7 +198,7 @@ test('foreign edits while the journal is pending block recovery without clobberi
   assert.ok(await storage.getItem(JOURNAL));
 });
 
-test('corrupt journal fails closed; never reset or silently discard the user's active trip', async () => {
+test('corrupt journal fails closed; never reset or silently discard the active trip', async () => {
   const { storage, active } = seeded();
   storage.data.set(JOURNAL, '{not json');
   await assert.rejects(readRecoveredTripStorage(storage));
