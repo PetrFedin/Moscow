@@ -14,6 +14,7 @@ import {
   type BookingResolutionTopic,
   type BookingResolutionEvent
 } from '../../travel/bookingResolution';
+import { requireAdmittedDestination } from '../../product/travelProductIdentity';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
 type Props = {
@@ -43,6 +44,32 @@ function eventName(language: AppLanguage, kind: BookingResolutionEvent['kind']) 
   return tr(language, 'Вы архивировали обращение', 'You archived this inquiry', '已归档');
 }
 
+function eventTimeLabel(language: AppLanguage, destinationId: string, iso: string) {
+  const locale = language === 'ru' ? 'ru-RU' : language === 'zh' ? 'zh-CN' : 'en-GB';
+  const timezone = requireAdmittedDestination(destinationId).timezone;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short'
+  }).format(new Date(iso));
+}
+
+function bookingRequestTemplate(
+  language: AppLanguage, title: string, topic: BookingResolutionTopic, reference?: string
+) {
+  const ref = reference
+    ? tr(language, 'Номер бронирования: ', 'Booking reference: ', '预订编号：') + reference + '. '
+    : '';
+  return tr(language,
+    'Здравствуйте! У меня вопрос по бронированию «' + title + '». ' + ref +
+      'Тема: ' + topicName(language, topic) + '. Уточните, пожалуйста, возможные варианты и условия. ' +
+      'Буду благодарен за письменное подтверждение ответа.',
+    'Hello! I have a question about my booking “' + title + '”. ' + ref +
+      'Topic: ' + topicName(language, topic) + '. Could you explain the available options and terms? ' +
+      'Please confirm your response in writing.',
+    '您好！关于预订“' + title + '”我有一个问题。' + ref +
+      '主题：' + topicName(language, topic) + '。请告知可用方案和条件，并提供书面答复。');
+}
+
 function uniqueId(prefix: string) {
   return prefix + ':' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 11);
 }
@@ -53,6 +80,7 @@ export default function BookingResolutionCard({
   const [selectedItemId, setSelectedItemId] = useState('');
   const [topic, setTopic] = useState<BookingResolutionTopic>('change-date');
   const [reply, setReply] = useState('');
+  const [showTemplate, setShowTemplate] = useState(false);
   const [error, setError] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(12);
 
@@ -169,7 +197,7 @@ export default function BookingResolutionCard({
                 accessibilityLabel={tr(language,'Выбрать обращение: ','Select inquiry for: ','选择相关预订：') + item.title}
                 style={[styles.choice, selected.id === item.id && styles.choiceActive]}
                 contentStyle={styles.choiceContent}
-                onPress={() => { setSelectedItemId(item.id); setReply(''); setError(''); }}
+                onPress={() => { setSelectedItemId(item.id); setReply(''); setShowTemplate(false); setError(''); }}
               >
                 <Text style={[styles.choiceText, selected.id === item.id && styles.choiceTextActive]}>
                   {item.title} · {item.dayDate}
@@ -247,10 +275,33 @@ export default function BookingResolutionCard({
               {active.events.map(event => (
                 <View key={event.id} style={styles.event}>
                   <Text style={styles.eventTitle}>{eventName(language, event.kind)}</Text>
-                  <Text style={styles.eventTime}>{event.at.slice(0,16).replace('T',' ')} UTC</Text>
+                  <Text style={styles.eventTime}>{eventTimeLabel(language, trip.destinationId, event.at)}</Text>
                   {event.note ? <Text style={styles.eventNote}>{event.note}</Text> : null}
                 </View>
               ))}
+              <PhysicalPressable accessibilityRole="button"
+                accessibilityLabel={showTemplate
+                  ? tr(language,'Скрыть пример запроса поставщику','Hide example supplier request','隐藏消息范本')
+                  : tr(language,'Показать пример запроса поставщику','Show example supplier request','显示消息范本')}
+                style={styles.secondary} contentStyle={styles.center}
+                onPress={() => setShowTemplate(shown => !shown)}>
+                <Text style={styles.secondaryText}>{showTemplate
+                  ? tr(language,'Скрыть пример сообщения','Hide message example','隐藏消息范本')
+                  : tr(language,'Пример сообщения поставщику','Message template for supplier','供应商消息范本')}</Text>
+              </PhysicalPressable>
+              {showTemplate ? (
+                <View style={styles.templateBox}>
+                  <Text style={styles.templateHint}>
+                    {tr(language,
+                      'Выделите текст и скопируйте вручную. Сообщение НЕ отправлено.',
+                      'Select and copy the text yourself. Nothing has been sent.',
+                      '请自行选择并复制文字；应用不会发送消息。')}
+                  </Text>
+                  <Text testID="booking-resolution-message-template" selectable style={styles.templateText}>
+                    {bookingRequestTemplate(language, selected.title, active.topic, selected.commitment?.reference)}
+                  </Text>
+                </View>
+              ) : null}
               <Text style={styles.sourceDisclaimer}>
                 {tr(language,
                   'Отметка контакта добавляется только после вашего реального обращения. Приложение ничего не отправляет.',
@@ -300,7 +351,7 @@ export default function BookingResolutionCard({
                   {record.events.map(event => (
                     <View key={event.id} style={styles.event}>
                       <Text style={styles.eventTitle}>{eventName(language, event.kind)}</Text>
-                      <Text style={styles.eventTime}>{event.at.slice(0,16).replace('T',' ')} UTC</Text>
+                      <Text style={styles.eventTime}>{eventTimeLabel(language, trip.destinationId, event.at)}</Text>
                       {event.note ? <Text style={styles.eventNote}>{event.note}</Text> : null}
                     </View>
                   ))}
@@ -358,6 +409,9 @@ const styles = StyleSheet.create({
   eventNote: { color: '#E5EEE5', fontSize: 14, lineHeight: 21, marginTop: 7 },
   input: { minHeight: 105, borderWidth: 1, borderColor: '#CAD8C8', borderRadius: 12,
     padding: 12, color: '#FFF8EC', fontSize: 15, textAlignVertical: 'top' },
+  templateBox: { backgroundColor: '#F6EFDF', padding: 14, borderRadius: 12, marginTop: 9 },
+  templateHint: { color: '#56685D', fontSize: 12, lineHeight: 18 },
+  templateText: { color: '#1C3B30', fontSize: 14, lineHeight: 22, marginTop: 8 },
   sourceDisclaimer: { fontSize: 13, lineHeight: 20, color: '#EADFC6', marginTop: 16 },
   privacy: { color: '#DFE4DA', fontSize: 12, lineHeight: 19, marginTop: 14 },
   history: { borderTopWidth: 1, borderTopColor: '#698471', marginTop: 18, paddingTop: 8 },
