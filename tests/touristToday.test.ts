@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { addManualTripItem, createPersonalTrip, recordTripVisit } from '../src/travel/personalTrip.ts';
+import { addManualTripItem, addCuratedMoscowPlaceToTrip, createPersonalTrip, recordTripVisit } from '../src/travel/personalTrip.ts';
 import { deriveTouristTodayState, minutesUntilItem, todayProgress } from '../src/travel/touristToday.ts';
+import { curatedMoscowPlaces } from '../src/travel/curatedMoscowPlaces.ts';
 
 function trip() {
   return createPersonalTrip({
@@ -148,4 +149,39 @@ test('next commitment stays user-declared when that is all the trip knows', () =
   });
 
   assert.equal(state.nextCommitment?.commitment?.verification, 'user-declared');
+});
+
+test('a planned untimed stop remains visible beside a later fixed ticket, and check-in never rewrites the ticket', () => {
+  const venue = curatedMoscowPlaces.find((place) => place.id === 'tretyakov-lavrushinsky');
+  assert.ok(venue);
+  let value = addCuratedMoscowPlaceToTrip({
+    trip: trip(), place: venue, itemId: 'tretyakov', dayDate: '2026-10-02', updatedAt: '2026-10-01T13:00:00.000Z'
+  });
+  value = addManualTripItem({
+    trip: value, itemId: 'theatre', dayDate: '2026-10-02',
+    title: 'Большой театр · мой билет', kind: 'theatre', updatedAt: '2026-10-01T14:00:00.000Z',
+    plannedStartAt: '2026-10-02T19:00:00+03:00',
+    plannedEndAt: '2026-10-02T21:00:00+03:00',
+    commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared', reference: 'MY-TICKET-001' }
+  });
+  const before = value.items.find(item => item.id === 'theatre');
+  const state = deriveTouristTodayState({ trip: value, nowIso: '2026-10-02T07:00:00.000Z' });
+  assert.equal(state.currentItems.length, 0);
+  assert.equal(state.nextItem?.id, 'tretyakov');
+  assert.equal(state.nextItem?.plannedStartAt, undefined);
+  assert.equal(state.nextCommitment?.id, 'theatre');
+
+  const visited = recordTripVisit({
+    trip: value, visitId: 'my-tretyakov-visit', itemId: 'tretyakov',
+    dayDate: '2026-10-02', title: venue.titleRu, kind: 'museum',
+    visitedAt: '2026-10-02T07:05:00.000Z', updatedAt: '2026-10-02T07:05:00.000Z',
+    evidence: 'user-confirmed'
+  });
+  assert.deepEqual(visited.items.find(item => item.id === 'theatre'), before);
+  assert.equal(visited.visits[0]?.evidence, 'user-confirmed');
+  assert.equal(value.visits.length, 0);
+  const after = deriveTouristTodayState({ trip: visited, nowIso: '2026-10-02T07:06:00.000Z' });
+  assert.equal(after.nextItem?.id, 'theatre');
+  assert.equal(after.nextCommitment?.id, 'theatre');
+  assert.equal(after.visitsToday[0]?.title, venue.titleRu);
 });
