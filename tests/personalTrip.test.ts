@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addDestinationNodeToTrip,
+  addCuratedMoscowPlaceToTrip,
   addManualTripItem,
   attachTripCommitment,
   createPersonalTrip,
@@ -10,10 +11,12 @@ import {
   parsePersonalTrip,
   personalTripDayItems,
   recordTripVisit,
+  updateTripVisitNote,
   summarizePersonalTrip,
   syncRouteCompletedVisits
 } from '../src/travel/personalTrip.ts';
 import { moscowVarvarkaDestinationPackage } from '../src/travel/moscowDestinationPackage.ts';
+import { curatedMoscowPlaces } from '../src/travel/curatedMoscowPlaces.ts';
 
 const now = '2026-10-02T09:00:00.000Z';
 
@@ -190,4 +193,91 @@ test('serialized trip can be parsed without upgrading manual evidence', () => {
 
   const restored = parsePersonalTrip(JSON.stringify(trip));
   assert.equal(restored.items[0]?.commitment?.verification, 'user-declared');
+});
+
+test('private visit note survives roundtrip, can be cleared and never upgrades evidence', () => {
+  const visitTrip = recordTripVisit({
+    trip: baseTrip(), visitId: 'visit-note', dayDate: '2026-10-02',
+    visitedAt: now, title: 'Палаты Романовых', evidence: 'user-confirmed', updatedAt: now
+  });
+  const noted = updateTripVisitNote({
+    trip: visitTrip, visitId: 'visit-note',
+    note: '  Красивый фасад и интересная история.  ', updatedAt: '2026-10-02T10:00:00.000Z'
+  });
+  assert.equal(visitTrip.visits[0]?.note, undefined);
+  assert.equal(noted.visits[0]?.note, 'Красивый фасад и интересная история.');
+  assert.equal(noted.visits[0]?.evidence, 'user-confirmed');
+  assert.equal(parsePersonalTrip(JSON.stringify(noted)).visits[0]?.note, noted.visits[0]?.note);
+  const cleared = updateTripVisitNote({ trip: noted, visitId: 'visit-note', note: '   ', updatedAt: '2026-10-02T11:00:00.000Z' });
+  assert.equal(cleared.visits[0]?.note, undefined);
+  assert.throws(() => updateTripVisitNote({trip: noted,visitId:'visit-note',note:'X'.repeat(2001),updatedAt:now}),/2000/);
+  assert.throws(() => parsePersonalTrip(JSON.stringify({...noted,visits:[{...noted.visits[0],note:123}]})),/Invalid visit note/);
+});
+
+test('curated Moscow venue stores canonical identity and official source without inventing a booking', () => {
+  const museum = curatedMoscowPlaces.find((place) => place.id === 'tretyakov-lavrushinsky');
+  assert.ok(museum);
+  const selected = addCuratedMoscowPlaceToTrip({
+    trip: baseTrip(),
+    place: museum,
+    itemId: 'selected-tretyakov',
+    dayDate: '2026-10-03',
+    updatedAt: now
+  });
+  assert.equal(selected.items[0]?.catalogPlaceId, museum.id);
+  assert.equal(selected.items[0]?.officialSourceUrl, museum.officialUrl);
+  assert.equal(selected.items[0]?.source, 'manual');
+  assert.equal(selected.items[0]?.commitment, undefined);
+  assert.deepEqual(parsePersonalTrip(JSON.stringify(selected)).items[0], selected.items[0]);
+
+  assert.throws(() => addCuratedMoscowPlaceToTrip({
+    trip: selected,
+    place: museum,
+    itemId: 'duplicate-tretyakov',
+    dayDate: '2026-10-03',
+    updatedAt: now
+  }), /already in the selected day/);
+
+  // A later user-supplied booking is a separate action, not a side effect of picking the place.
+  const laterTicket = attachTripCommitment({
+    trip: selected,
+    itemId: 'selected-tretyakov',
+    commitment: {kind: 'ticket', status: 'confirmed', verification: 'user-declared'},
+    updatedAt: '2026-10-02T10:00:00.000Z'
+  });
+  assert.equal(parsePersonalTrip(JSON.stringify(laterTicket)).items[0]?.commitment?.verification, 'user-declared');
+  assert.equal(selected.items[0]?.commitment, undefined);
+
+  const anotherDay = addCuratedMoscowPlaceToTrip({
+    trip: selected,
+    place: museum,
+    itemId: 'different-day-tretyakov',
+    dayDate: '2026-10-04',
+    updatedAt: now
+  });
+  assert.equal(anotherDay.items.length, 2);
+
+  assert.throws(() => parsePersonalTrip(JSON.stringify({
+    ...selected, items: [{ ...selected.items[0], catalogPlaceId: 'broken', officialSourceUrl: 'http://not-secure.test' }]
+  })), /Invalid curated trip place metadata/);
+});
+
+
+test('curated place is not rejected solely because a manual stop uses the same title', () => {
+  const museum = curatedMoscowPlaces.find((place) => place.id === 'tretyakov-lavrushinsky');
+  assert.ok(museum);
+  const manual = addManualTripItem({
+    trip: baseTrip(), itemId: 'manual-same-title',
+    dayDate: '2026-10-03', title: museum.titleRu,
+    kind: 'museum', updatedAt: now
+  });
+  const curated = addCuratedMoscowPlaceToTrip({
+    trip: manual, place: museum,
+    itemId: 'curated-distinct-identity',
+    dayDate: '2026-10-03', updatedAt: now
+  });
+  assert.equal(curated.items.length, 2);
+  assert.equal(curated.items[0]?.catalogPlaceId, undefined);
+  assert.equal(curated.items[1]?.catalogPlaceId, museum.id);
+  assert.equal(curated.items[1]?.commitment, undefined);
 });
