@@ -97,6 +97,9 @@ export type DayReplacementAcceptanceReceipt = {
   sourceEvidenceRef: string;
   routeObservationIds: string[];
   fixedCommitmentsPreserved: true;
+  disruptionReason?: 'closed' | 'cancelled' | 'rescheduled' | 'stale';
+  sourceProviderName?: string;
+  sourceUrl?: string;
 };
 
 const CULTURE_KINDS = new Set([
@@ -424,6 +427,9 @@ export function acceptDayReplacementProposal(input: {
   proposal: DayReplacementProposal;
   acceptedAt: string;
 }) {
+  if (input.trip.replacementReceipts?.some((receipt) => receipt.proposalId === input.proposal.id)) {
+    throw new Error('Replacement already accepted');
+  }
   const acceptedAtMs = Date.parse(input.acceptedAt);
   if (!Number.isFinite(acceptedAtMs)) throw new Error('Replacement acceptance timestamp is invalid');
   if (input.proposal.admission !== 'executable' || !input.proposal.routingVerified) {
@@ -502,9 +508,7 @@ export function acceptDayReplacementProposal(input: {
 
   assertFixedCommitmentsUnchanged(next, input.disruption);
 
-  return {
-    trip: next,
-    receipt: {
+  const receipt: DayReplacementAcceptanceReceipt = {
       schemaVersion: DAY_REPLACEMENT_PROPOSAL_SCHEMA_VERSION,
       proposalId: input.proposal.id,
       disruptionId: input.disruption.id,
@@ -524,7 +528,11 @@ export function acceptDayReplacementProposal(input: {
         input.proposal.inboundRoute?.routeObservationId,
         input.proposal.outboundRoute?.routeObservationId
       ].filter((value): value is string => Boolean(value)),
-      fixedCommitmentsPreserved: true as const
-    } satisfies DayReplacementAcceptanceReceipt
+      fixedCommitmentsPreserved: true,
+      disruptionReason: input.disruption.disruption.reason,
+      sourceProviderName: input.proposal.candidate.providerName,
+      sourceUrl: input.proposal.candidate.sourceUrl
   };
+  next.replacementReceipts = [...(next.replacementReceipts ?? []), receipt];
+  return { trip: next, receipt };
 }

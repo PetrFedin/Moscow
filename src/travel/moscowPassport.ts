@@ -75,20 +75,34 @@ function emptyEvidenceCounts(): Record<PersonalTripVisit['evidence'], number> {
 export function passportCategoryForKind(kind: PersonalTripItemKind): MoscowPassportCategory {
   switch (kind) {
     case 'heritage':
+    case 'historical-site':
+    case 'landmark':
     case 'museum':
+    case 'gallery':
     case 'nature':
+    case 'park':
     case 'viewpoint':
       return 'saw';
     case 'food':
+    case 'restaurant':
+    case 'cafe':
       return 'ate';
     case 'bar':
+    case 'nightlife':
       return 'nightlife';
     case 'event':
     case 'theatre':
+    case 'cinema':
+    case 'concert':
+    case 'exhibition':
       return 'culture';
     case 'activity':
+    case 'wellness':
+    case 'sport':
+    case 'kids':
       return 'activity';
     case 'shopping':
+    case 'market':
       return 'shopping';
     case 'stay':
       return 'stay';

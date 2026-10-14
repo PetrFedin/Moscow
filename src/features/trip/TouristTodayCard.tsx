@@ -7,18 +7,26 @@ import { getUnseenDestinationNodes, type PersonalTrip } from '../../travel/perso
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 import { deriveTouristTodayState, minutesUntilItem, todayProgress } from '../../travel/touristToday';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import TodayStopActions from './TodayStopActions';
 
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
   visitedIds: string[];
   onOpenPlace: (placeId: string) => void;
+  onManageTrip: () => void;
+  onDiscover: () => void;
+  onMarkVisited: (itemId: string) => void;
 };
 
 function timeLabel(value?: string) {
-  if (!value) return null;
-  const match = /T(\d{2}:\d{2})/.exec(value);
-  return match?.[1] ?? null;
+  if (!value || !Number.isFinite(Date.parse(value))) return null;
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(new Date(value));
 }
 
 function clockLabel(language: AppLanguage, iso: string) {
@@ -51,7 +59,7 @@ function countdownLabel(language: AppLanguage, minutes: number) {
   );
 }
 
-export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace }: Props) {
+export default function TouristTodayCard({ trip, language, visitedIds, onOpenPlace, onManageTrip, onDiscover, onMarkVisited }: Props) {
   const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 
   useEffect(() => {
@@ -72,6 +80,12 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
 
   if (!state.tripActive) {
     const nextTripDay = trip.days.find((day) => day > state.dayDate);
+    const nextSavedTicket = trip.items
+      .filter((item) => item.status === 'planned'
+        && item.commitment?.status === 'confirmed'
+        && item.plannedStartAt
+        && Date.parse(item.plannedStartAt) > Date.parse(nowIso))
+      .sort((a, b) => Date.parse(a.plannedStartAt!) - Date.parse(b.plannedStartAt!))[0];
     return (
       <View style={styles.root}>
         <View style={styles.heading}>
@@ -86,8 +100,70 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
         <Text style={styles.body}>
           {nextTripDay
             ? tr(language, 'Следующий день поездки: ', 'Next trip day: ', '下一个行程日：') + nextTripDay
-            : tr(language, 'История поездки сохранена — откройте нужный день выше.', 'Your trip history is preserved — open any day above.', '行程记录已保存，可在上方打开任意一天。')}
+            : tr(language, 'История поездки сохранена — откройте нужный день ниже.', 'Your trip history is preserved — choose a day below.', '行程记录已保存，可在下方打开某一天。')}
         </Text>
+        {nextSavedTicket && (
+          <View style={styles.nextBlock}>
+            <Text style={styles.eyebrow}>{tr(language, 'БЛИЖАЙШИЙ БИЛЕТ / БРОНЬ', 'UPCOMING TICKET / BOOKING', '即将到来的门票 / 预订')}</Text>
+            <Text style={styles.nextTitle}>{nextSavedTicket.title}</Text>
+            <Text style={styles.nextMeta}>{nextSavedTicket.dayDate} · {timeLabel(nextSavedTicket.plannedStartAt)}</Text>
+            <Text style={styles.truth}>{nextSavedTicket.commitment?.verification === 'provider-confirmed'
+              ? tr(language, 'Подтверждение провайдера записано', 'Provider receipt recorded', '已记录供应商凭证')
+              : tr(language, 'Добавлено вами · статус провайдера не проверен', 'Added by you · provider status not verified', '由您添加 · 供应商状态未核验')}</Text>
+          </View>
+        )}
+        <PhysicalPressable
+          accessibilityRole="button"
+          accessibilityLabel={tr(language, 'Управлять поездкой', 'Manage my trip', '管理我的行程')}
+          style={styles.heroAction}
+          contentStyle={styles.center}
+          onPress={onManageTrip}
+        ><Text style={styles.heroActionText}>{tr(language, 'Управлять поездкой', 'Manage my trip', '管理我的行程')} →</Text></PhysicalPressable>
+      </View>
+    );
+  }
+
+  // An empty itinerary is not a completed itinerary.
+  if (state.remainingItems.length === 0 && state.completedItems.length === 0) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.heading}>
+          <View style={styles.headingCopy}>
+            <Text style={styles.kicker}>{tr(language, 'СЕГОДНЯ В МОСКВЕ', 'TODAY IN MOSCOW', '今天在莫斯科')}</Text>
+            <Text style={styles.clock}>{clockLabel(language, nowIso)} MSK · {state.dayDate}</Text>
+          </View>
+        </View>
+        <View style={styles.emptyDay}>
+          <Text style={styles.emptyEyebrow}>{tr(language, 'ВАШ ДЕНЬ НАЧИНАЕТСЯ ЗДЕСЬ', 'YOUR DAY STARTS HERE', '您的行程从这里开始')}</Text>
+          <Text style={styles.emptyTitle}>{tr(language, 'Пока нет планов на сегодня', 'No stops planned for today', '今天还没有行程')}</Text>
+          <Text style={styles.emptyBody}>
+            {tr(
+              language,
+              'Выберите музей, прогулку, ресторан или парк. Место появится в плане без вымышленного билета или брони.',
+              'Choose a museum, walk, restaurant or park. Your plan will not invent a ticket or reservation.',
+              '选择博物馆、漫步、餐厅或公园；不会自动生成门票或预订。'
+            )}
+          </Text>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Найти первое место', 'Find my first place', '寻找第一个地点')}
+            style={styles.heroAction}
+            contentStyle={styles.center}
+            onPress={onDiscover}
+          ><Text style={styles.heroActionText}>{tr(language, 'Найти первое место', 'Find my first place', '寻找第一个地点')} →</Text></PhysicalPressable>
+        </View>
+        {unseen.length > 0 && (
+          <View style={styles.unseen}>
+            <Text style={styles.eyebrow}>{tr(language, 'ИДЕИ ДЛЯ ПЕРВОГО ОТКРЫТИЯ', 'IDEAS FOR YOUR FIRST STOP', '第一站灵感')}</Text>
+            <Text style={styles.unseenHint}>{tr(language, 'Историческая подборка для вдохновения. Реальная доступность пока не проверена.', 'Historic inspiration only; current availability is not checked.', '历史景点推荐；当前开放状态尚未核验。')}</Text>
+            {unseen.map(node => (
+              <PhysicalPressable key={node.id} style={styles.unseenRow} contentStyle={styles.unseenContent} onPress={() => onOpenPlace(node.id)}>
+                <Text style={styles.unseenTitle}>{nodeTitle(language, node)}</Text>
+                <Text style={styles.unseenArrow}>→</Text>
+              </PhysicalPressable>
+            ))}
+          </View>
+        )}
       </View>
     );
   }
@@ -116,6 +192,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
           <Text style={styles.heroMeta}>
             {(timeLabel(current.plannedStartAt) ?? '') + '–' + (timeLabel(current.plannedEndAt) ?? '')}
           </Text>
+          <TodayStopActions key={current.id} item={current} language={language} onMarkVisited={onMarkVisited} onOpenPlace={onOpenPlace} />
           {current.commitment?.externalUrl ? (
             <PhysicalPressable
               style={styles.heroAction}
@@ -165,13 +242,20 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
             </PhysicalPressable>
           ) : null}
         </View>
-      ) : state.nextItem ? (
+      ) : null}
+
+      {state.nextItem && state.nextItem.id !== state.nextCommitment?.id ? (
         <View style={styles.nextBlock}>
-          <Text style={styles.eyebrow}>{tr(language, 'ДАЛЬШЕ', 'NEXT', '接下来')}</Text>
+          <Text style={styles.eyebrow}>{state.nextItem.plannedStartAt
+            ? tr(language, 'ДАЛЬШЕ', 'NEXT', '接下来')
+            : tr(language, 'ИДЕЯ ДЛЯ СЛЕДУЮЩЕЙ ОСТАНОВКИ', 'POSSIBLE NEXT STOP', '下一站的建议')}</Text>
           <Text style={styles.nextTitle}>{state.nextItem.title}</Text>
           <Text style={styles.nextMeta}>
-            {timeLabel(state.nextItem.plannedStartAt) ?? tr(language, 'без фиксированного времени', 'no fixed time', '无固定时间')}
+            {timeLabel(state.nextItem.plannedStartAt) ?? tr(language, 'Без фиксированного времени · доступность не проверена', 'No fixed time · availability not verified', '无固定时间 · 尚未核验开放状态')}
           </Text>
+          <View style={styles.stopActionsLight}>
+            <TodayStopActions key={state.nextItem.id} item={state.nextItem} language={language} onMarkVisited={onMarkVisited} onOpenPlace={onOpenPlace} />
+          </View>
         </View>
       ) : null}
 
@@ -247,45 +331,50 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
 }
 
 const styles = StyleSheet.create({
-  root: { borderRadius: 22, borderWidth: 1, borderColor: '#4a4030', backgroundColor: '#15120e', padding: 14, marginBottom: 16 },
+  root: { borderRadius: 25, borderWidth: 1, borderColor: '#576b58', backgroundColor: '#183C34', padding: 19, marginTop: 14, marginBottom: 16 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
   headingCopy: { flex: 1, minWidth: 0 },
-  kicker: { color: '#d0ad6d', fontSize: 8.5, fontWeight: '900', letterSpacing: 1.25 },
-  clock: { color: '#7f796e', fontSize: 8.5, marginTop: 4 },
-  title: { color: '#f5ede0', fontSize: 18, fontWeight: '900', marginTop: 12 },
-  body: { color: '#9e978c', fontSize: 10, lineHeight: 15, marginTop: 5 },
+  kicker: { color: '#e2bd82', fontSize: 13, fontWeight: '700', letterSpacing: 1.1 },
+  clock: { color: '#c0cec5', fontSize: 14, marginTop: 6 },
+  title: { color: '#fff4e3', fontSize: 23, fontWeight: '700', marginTop: 12 },
+  body: { color: '#c1d0c5', fontSize: 14, lineHeight: 20, marginTop: 7 },
   progressBadge: { minWidth: 56, borderRadius: 13, backgroundColor: '#211d17', paddingVertical: 7, paddingHorizontal: 9, alignItems: 'center' },
   progressValue: { color: '#e2c488', fontSize: 15, fontWeight: '900' },
-  progressLabel: { color: '#777168', fontSize: 7.5, marginTop: 1 },
-  hero: { borderRadius: 17, backgroundColor: '#231d14', borderWidth: 1, borderColor: '#685334', padding: 13, marginTop: 13 },
+  progressLabel: { color: '#d8c7a1', fontSize: 13, marginTop: 3 },
+  hero: { borderRadius: 19, backgroundColor: '#FFF9EE', borderWidth: 1, borderColor: '#E4DED0', padding: 18, marginTop: 15 },
   heroMuted: { borderRadius: 17, backgroundColor: '#1a1815', borderWidth: 1, borderColor: '#32302c', padding: 13, marginTop: 13 },
-  eyebrow: { color: '#927f5d', fontSize: 7.5, fontWeight: '900', letterSpacing: 1.05 },
-  heroTitle: { color: '#fff3dc', fontSize: 17, fontWeight: '900', marginTop: 5 },
-  heroMeta: { color: '#c0a978', fontSize: 9.5, marginTop: 4 },
-  heroMutedTitle: { color: '#bbb4a9', fontSize: 13, fontWeight: '800', marginTop: 5 },
-  heroAction: { minHeight: 38, borderRadius: 12, backgroundColor: '#d4b77e', marginTop: 10 },
-  heroActionText: { color: '#17130d', fontSize: 9, fontWeight: '900' },
-  nextBlock: { borderRadius: 16, borderWidth: 1, borderColor: '#34322f', backgroundColor: '#191816', padding: 12, marginTop: 9 },
+  emptyDay: { borderRadius: 19, backgroundColor: '#f4eee1', borderWidth: 1, borderColor: '#e7d7b9', padding: 17, marginTop: 15 },
+  emptyEyebrow: { color: '#7a6039', fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
+  emptyTitle: { color: '#20382e', fontSize: 21, fontWeight: '700', lineHeight: 27, marginTop: 11 },
+  emptyBody: { color: '#475d4b', fontSize: 14, lineHeight: 20, marginTop: 9 },
+  eyebrow: { color: '#cda974', fontSize: 12, fontWeight: '700', letterSpacing: 0.85 },
+  heroTitle: { color: '#25392d', fontSize: 22, fontWeight: '700', marginTop: 7, lineHeight: 28 },
+  heroMeta: { color: '#516557', fontSize: 14, marginTop: 6 },
+  heroMutedTitle: { color: '#bbb4a9', fontSize: 14, fontWeight: '800', marginTop: 5 },
+  heroAction: { minHeight: 52, borderRadius: 12, backgroundColor: '#274437', marginTop: 13 },
+  heroActionText: { color: '#fff8ed', fontSize: 15, fontWeight: '700' },
+  nextBlock: { borderRadius: 17, borderWidth: 1, borderColor: '#506152', backgroundColor: '#26382e', padding: 15, marginTop: 12 },
+  stopActionsLight: { marginTop: 12, padding: 13, borderRadius: 14, backgroundColor: '#f4eee1' },
   nextTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  countdown: { color: '#dfbd7c', fontSize: 8.5, fontWeight: '900' },
-  nextTitle: { color: '#eee7dc', fontSize: 14, fontWeight: '900', marginTop: 5 },
-  nextMeta: { color: '#9d9589', fontSize: 9, marginTop: 3 },
-  truth: { color: '#ad8d58', fontSize: 8.5, lineHeight: 12, marginTop: 5 },
-  linkButton: { minHeight: 36, borderRadius: 11, borderWidth: 1, borderColor: '#5c4d35', marginTop: 8 },
-  linkButtonText: { color: '#d7bb84', fontSize: 8.5, fontWeight: '900' },
+  countdown: { color: '#EAD4AA', fontSize: 13, lineHeight: 19, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
+  nextTitle: { color: '#faf1dd', fontSize: 17, fontWeight: '700', marginTop: 7 },
+  nextMeta: { color: '#c4d1c5', fontSize: 14, marginTop: 5 },
+  truth: { color: '#e8cf9c', fontSize: 13, lineHeight: 20, marginTop: 8 },
+  linkButton: { minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: '#8baa91', marginTop: 10 },
+  linkButtonText: { color: '#e9d5aa', fontSize: 14, fontWeight: '700' },
   freeWindow: { borderRadius: 16, backgroundColor: '#161b1c', borderWidth: 1, borderColor: '#314043', padding: 12, marginTop: 9 },
-  freeTime: { color: '#a9c7c1', fontSize: 13, fontWeight: '900' },
-  freeTitle: { color: '#d8e3df', fontSize: 10, fontWeight: '800', marginTop: 2 },
-  freeWarning: { color: '#758783', fontSize: 8.5, lineHeight: 12, marginTop: 4 },
+  freeTime: { color: '#a9c7c1', fontSize: 14, fontWeight: '900' },
+  freeTitle: { color: '#d8e3df', fontSize: 14, fontWeight: '700', marginTop: 3 },
+  freeWarning: { color: '#b0c2b8', fontSize: 13, lineHeight: 20, marginTop: 5 },
   warning: { borderRadius: 13, borderWidth: 1, borderColor: '#6e4a43', backgroundColor: '#241816', padding: 10, marginTop: 9 },
-  warningText: { color: '#d5a199', fontSize: 9, lineHeight: 13, fontWeight: '700' },
+  warningText: { color: '#e6b8ad', fontSize: 14, lineHeight: 21, fontWeight: '700' },
   visited: { borderTopWidth: 1, borderTopColor: '#2d2a25', marginTop: 12, paddingTop: 11 },
-  visitedText: { color: '#aab8aa', fontSize: 9.5, marginTop: 5 },
+  visitedText: { color: '#dce5da', fontSize: 14, marginTop: 6 },
   unseen: { borderTopWidth: 1, borderTopColor: '#2d2a25', marginTop: 12, paddingTop: 11 },
-  unseenHint: { color: '#78746c', fontSize: 8.5, lineHeight: 12, marginTop: 4, marginBottom: 6 },
-  unseenRow: { minHeight: 38, borderRadius: 11, backgroundColor: '#1b1916', marginTop: 5 },
+  unseenHint: { color: '#b9cbbf', fontSize: 14, lineHeight: 21, marginTop: 7, marginBottom: 10 },
+  unseenRow: { minHeight: 52, borderRadius: 12, backgroundColor: '#1b1916', marginTop: 7 },
   unseenContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 },
-  unseenTitle: { color: '#d5cec2', fontSize: 9.5, fontWeight: '800', flex: 1 },
-  unseenArrow: { color: '#b99a62', fontSize: 13, fontWeight: '900' }
+  unseenTitle: { color: '#f3e9d8', fontSize: 14, lineHeight: 20, fontWeight: '700', flex: 1 },
+  unseenArrow: { color: '#b99a62', fontSize: 14, fontWeight: '900' }
 });

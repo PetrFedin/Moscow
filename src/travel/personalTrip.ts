@@ -1,5 +1,7 @@
 import type { DestinationPackage, ExperienceNode, ExperienceNodeKind } from './destinationPackage.ts';
 import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
+import type { DayReplacementAcceptanceReceipt } from './dayReplacementProposal.ts';
+import type { CuratedMoscowPlace } from './curatedMoscowPlaces.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -28,6 +30,9 @@ export type PersonalTripItem = {
   kind: PersonalTripItemKind;
   source: PersonalTripItemSource;
   destinationNodeId?: string;
+  /** Canonical ID of a user-selected editorial venue; not a reservation. */
+  catalogPlaceId?: string;
+  officialSourceUrl?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
   status: 'planned' | 'completed' | 'skipped' | 'cancelled';
@@ -46,6 +51,8 @@ export type PersonalTripVisit = {
   destinationNodeId?: string;
   evidence: 'user-confirmed' | 'route-completed' | 'provider-receipt' | 'proximity';
   evidenceRef?: string;
+  /** Private local-first note entered voluntarily by the traveler. */
+  note?: string;
 };
 
 export type TripPace = 'relaxed' | 'balanced' | 'intensive';
@@ -96,6 +103,8 @@ export type PersonalTrip = {
   items: PersonalTripItem[];
   visits: PersonalTripVisit[];
   preferences?: PersonalTripPreferences;
+  /** Locally append-only user acceptance records, persisted in the same trip snapshot. */
+  replacementReceipts?: DayReplacementAcceptanceReceipt[];
   createdAt: string;
   updatedAt: string;
 };
@@ -189,6 +198,14 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
     visits: trip.visits.map((visit) => ({ ...visit })),
+    ...(trip.replacementReceipts ? {
+      replacementReceipts: trip.replacementReceipts.map((receipt) => ({
+        ...receipt,
+        before: { ...receipt.before },
+        after: { ...receipt.after },
+        routeObservationIds: [...receipt.routeObservationIds]
+      }))
+    } : {}),
     ...(trip.preferences ? {
       preferences: {
         ...trip.preferences,
@@ -378,6 +395,41 @@ export function addManualTripItem(input: {
   return touch(next, input.updatedAt);
 }
 
+/** Add an editorial venue as a user-selected place, never as a purchased ticket or reservation. */
+export function addCuratedMoscowPlaceToTrip(input: {
+  trip: PersonalTrip;
+  place: CuratedMoscowPlace;
+  itemId: string;
+  dayDate: string;
+  updatedAt: string;
+}): PersonalTrip {
+  assertTripDay(input.trip, input.dayDate);
+  assertUniqueItemId(input.trip, input.itemId);
+  if (!input.place.id.trim() || !/^https:\/\//i.test(input.place.officialUrl)) {
+    throw new Error('Curated Moscow place requires a canonical ID and HTTPS official source');
+  }
+  if (input.trip.items.some((item) => item.dayDate === input.dayDate
+    && item.catalogPlaceId === input.place.id
+    && item.status !== 'cancelled')) {
+    throw new Error('Curated Moscow place already in the selected day');
+  }
+  const next = clone(input.trip);
+  const kind: PersonalTripItemKind =
+    input.place.kind === 'park' ? 'activity' : input.place.kind === 'restaurant' ? 'food' : input.place.kind;
+  next.items.push({
+    id: input.itemId,
+    dayDate: input.dayDate,
+    title: input.place.titleRu,
+    kind,
+    source: 'manual',
+    catalogPlaceId: input.place.id,
+    officialSourceUrl: input.place.officialUrl,
+    note: input.place.addressRu,
+    status: 'planned'
+  });
+  return touch(next, input.updatedAt);
+}
+
 export function attachTripCommitment(input: {
   trip: PersonalTrip;
   itemId: string;
@@ -453,6 +505,24 @@ export function recordTripVisit(input: {
     if (item && item.status === 'planned') item.status = 'completed';
   }
 
+  return touch(next, input.updatedAt);
+}
+
+/** A note never upgrades user-confirmed attendance to provider-verified. */
+export function updateTripVisitNote(input: {
+  trip: PersonalTrip;
+  visitId: string;
+  note: string;
+  updatedAt: string;
+}): PersonalTrip {
+  parseIso(input.updatedAt);
+  if (!input.trip.visits.some((visit) => visit.id === input.visitId)) throw new Error('Visit not found');
+  const normalized = input.note.trim();
+  if (normalized.length > 2000) throw new Error('Visit note exceeds 2000 characters');
+  const next = clone(input.trip);
+  const visit = next.visits.find((candidate) => candidate.id === input.visitId)!;
+  if (normalized) visit.note = normalized;
+  else delete visit.note;
   return touch(next, input.updatedAt);
 }
 
@@ -546,6 +616,41 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   if (!Array.isArray(parsed.items) || !Array.isArray(parsed.visits)) throw new Error('Invalid Personal Trip collections');
   if (!parsed.createdAt || !parsed.updatedAt) throw new Error('Invalid Personal Trip timestamps');
   if (parsed.preferences) validatePersonalTripPreferences(parsed.preferences);
+  if (parsed.replacementReceipts !== undefined) {
+    if (!Array.isArray(parsed.replacementReceipts)) throw new Error('Invalid replacement receipt collection');
+    const seenProposals = new Set<string>();
+    for (const receipt of parsed.replacementReceipts) {
+      if (!receipt || typeof receipt !== 'object'
+        || receipt.schemaVersion !== 1
+        || receipt.fixedCommitmentsPreserved !== true
+        || !receipt.proposalId?.trim()
+        || !receipt.disruptionId?.trim()
+        || !receipt.affectedItemId?.trim()
+        || !receipt.sourceEvidenceRef?.trim()
+        || !receipt.before?.title?.trim()
+        || !receipt.before?.kind
+        || !receipt.after?.title?.trim()
+        || !receipt.after?.kind
+        || !receipt.after?.destinationNodeId?.trim()
+        || !receipt.after?.plannedStartAt
+        || !receipt.after?.plannedEndAt
+        || !Array.isArray(receipt.routeObservationIds)
+        || !receipt.routeObservationIds.every((id) => typeof id === 'string' && id.trim().length > 0)
+        || (receipt.disruptionReason !== undefined && !['closed', 'cancelled', 'rescheduled', 'stale'].includes(receipt.disruptionReason))
+        || (receipt.sourceUrl !== undefined && (typeof receipt.sourceUrl !== 'string' || !/^https:\/\//.test(receipt.sourceUrl)))
+        || (receipt.sourceProviderName !== undefined && (typeof receipt.sourceProviderName !== 'string' || !receipt.sourceProviderName.trim()))) {
+        throw new Error('Invalid replacement acceptance receipt');
+      }
+      parseIso(receipt.acceptedAt);
+      parseIso(receipt.baselineUpdatedAt);
+      parseIso(receipt.after.plannedStartAt);
+      parseIso(receipt.after.plannedEndAt);
+      if (receipt.before.plannedStartAt) parseIso(receipt.before.plannedStartAt);
+      if (receipt.before.plannedEndAt) parseIso(receipt.before.plannedEndAt);
+      if (seenProposals.has(receipt.proposalId)) throw new Error('Duplicate replacement acceptance receipt');
+      seenProposals.add(receipt.proposalId);
+    }
+  }
   parseIso(parsed.createdAt);
   parseIso(parsed.updatedAt);
 
@@ -553,11 +658,25 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   for (const item of trip.items) {
     assertTripDay(trip, item.dayDate);
     if (!item.id?.trim() || !item.title?.trim()) throw new Error('Invalid Personal Trip item');
+    if (item.catalogPlaceId !== undefined) {
+      if (typeof item.catalogPlaceId !== 'string' || !item.catalogPlaceId.trim()
+        || typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl)
+) {
+        throw new Error('Invalid curated trip place metadata');
+      }
+    }
+    if (item.officialSourceUrl !== undefined
+      && (typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl))) {
+      throw new Error('Invalid trip place source URL');
+    }
     if (item.commitment) validateCommitment(item.commitment);
   }
   for (const visit of trip.visits) {
     assertTripDay(trip, visit.dayDate);
     parseIso(visit.visitedAt);
+    if (visit.note !== undefined && (typeof visit.note !== 'string' || visit.note.length > 2000)) {
+      throw new Error('Invalid visit note');
+    }
   }
   return clone(trip);
 }

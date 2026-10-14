@@ -776,6 +776,63 @@ Guardrails:
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
 
+#### Market audit and multi-destination brand proposal — NOT RELEASED (2026-10-15)
+
+- Comprehensive *selected-market* review of RUSSPASS, 2GIS, Yandex Maps/Travel, Tripster, Sputnik8, Wanderlog, TripIt, Polarsteps, Mindtrip, Roadtrippers, and attraction booking alternatives, with vendor links and visual pattern references: `docs/DAYTERA_MARKET_COMPETITOR_UX_AUDIT_2026-10-15.md`.
+- **DAYTERA** is only an internal candidate. Public name and production routes remain **Moscow**; trademark/domain clearance is explicitly **not** confirmed. Colliding/similar signs require professional clearance.
+- New isolated `src/product/travelProductIdentity.ts` registry records the single Moscow pilot and its time zone; unsupported cities fail closed. Do not present Shanghai, Kazan, Istanbul, Saint Petersburg, etc. as available until independently admitted.
+- Per-city authorities, data namespace, migration from Moscow v1 keys and a genuine second-city admission gate: `docs/DAYTERA_MULTI_DESTINATION_ARCHITECTURE_2026-10-15.md`. This blueprint is not a second-city implementation.
+- `TripJourneyOverview.tsx` adopts clearer editorial stop cards, readable type, one decisive visit action, and destination-registry labels. This is UX polish, not integration of real bookings or citywide navigation.
+- The user job at the center of development is **next action + fixed commitments + evidence-checked replan + history**, NOT another general POI catalogue. Competitive superiority remains a hypothesis pending head-to-head usability trials.
+- Release still requires stacked PR exact-head CI, actual 375/768/1440 viewport inspection, native fault testing, independent review, production rollback proof, source-verified venue media and explicit external-provider admission.
+- Preserve all earlier Phase-0 spatial, native and integration HOLD gates; this strategic work does not override them.
+
+
+
+#### Crash-recoverable local trip transitions — DRAFT (2026-10-14)
+
+Delivery lane: PR #175 + P0 issue #173. Source contract:
+`docs/MOSCOW_LOCAL_TRIP_RECOVERY_JOURNAL_2026-10-14.md`.
+
+- A versioned local intent journal now wraps archive, old-trip activation, backup import and explicitly confirmed deletion.
+- Every transition stores validated before/after pairs, verifies writes by read-back, and retains the intent until both keys are verified.
+- Startup must recover interrupted intents **before** loading either active or archived journeys.
+- Unrecognized journal, stale in-memory active data or divergent foreign modification must block changes instead of overwriting user's history.
+- Autosave failures must not be swallowed; product surfaces a recovery-required state.
+- The journal protects against selected single-runtime interrupted-write scenarios; **it is not multi-tab atomicity, OS-level durable storage, encrypted backup, or cross-device sync**.
+- No production admission until exact-head CI, browser/physical-device restart fault injection, independent review, conflict and retention policy acceptance. Local private data may still be lost on device wipe.
+
+
+
+#### Next Discoveries — DRAFT IMPLEMENTATION (2026-10-13)
+
+The repeat-trip product loop extends Passport v2:
+`past known visit identities -> selected future trip day -> source-backed eligible ideas -> explicit add -> personal plan`.
+
+- `src/travel/moscowNextDiscoveries.ts` selects only admitted curated venue IDs, excluding visited identities across archived + active trips and currently planned catalog places.
+- `src/features/trip/MoscowNextDiscoveriesCard.tsx` adds category controls, official source links, address/source timestamps and a selected-day Add control.
+- Free-text historic visits are not assumed to be the same place by title; an unknown identity cannot prove "never seen".
+- Past category counts provide transparent editorial ordering, never an inferred preference.
+- Every added suggestion remains a plain planned stop with **no** inferred ticket, reservation, price, opening state, schedule or provider verification.
+- Tests: `tests/moscowNextDiscoveries.test.ts`, `tests/personalTrip.e2e.spec.ts`, responsive `tests/visualAcceptance.e2e.spec.ts`.
+- Details / remaining safeguards: `docs/MOSCOW_NEXT_DISCOVERIES_2026-10-13.md`.
+- Release still requires exact-head CI, manual visual QA, failure testing and independent review. This layer does not affect field verification or provider PASS.
+
+
+#### Moscow Passport 2.0 — DRAFT / NOT RELEASED (2026-10-13)
+
+Current development lane: Draft PR #170 -> Passport filters branch; evidence and details:
+`docs/MOSCOW_PASSPORT_V2_FILTERS_AND_IDENTITIES_2026-10-13.md`.
+
+- Local multi-trip journal joins active itinerary and validated archived snapshots, with active trip revision taking precedence by ID.
+- Visit records and unique identified places are separate metrics; only admitted destination/catalog IDs may deduplicate places.
+- No free-text name matching, unadmitted destination ID promotion, or invented proof of physical visits.
+- Search covers saved place/title/trip/note; filter by semantic category and explicit valid ISO-day range; journal groups newest day first.
+- Catalogue taxonomy now covers restaurant/cafe, gallery/exhibition, cinema/concert, park/landmark and other citywide kinds.
+- Requirements before release: exact-head quality/contract/browser/mobile visual checks, recovery/fault-injection for archive storage and independent review.
+- No new external provider PASS or spatial Phase 0 unlock; no paid resources, cloud sync, location tracking, or photo capture in this lane.
+
+
 
 ### Trip Booking Wallet — IMPLEMENTING (#110)
 
