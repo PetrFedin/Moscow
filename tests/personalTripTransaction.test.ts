@@ -233,3 +233,22 @@ test('concurrent archive-only imports serialize and do not lose unrelated trip I
   assert.equal(recovered.activeTrip?.id, 'autumn');
   assert.equal(await storage.getItem(JOURNAL), null);
 });
+
+
+test('archive-only import never rewrites an unchanged active trip', async () => {
+  const { storage, active } = seeded();
+  storage.fault = { key: ACTIVE, operation: 'set', when: 'before' };
+  const result = await transactTripStorage({
+    storage, expectedActiveTrip: active, operation: 'import', id: 'no-active-touch',
+    transform: ({ activeTrip, archive }) => ({
+      activeTrip,
+      archive: archivePersonalTrip(archive, base('extra')),
+      result: true
+    })
+  });
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.activeTrip, active);
+  assert.ok(archivedPersonalTrip(result.archive, 'extra'));
+  assert.equal(storage.fault?.key, ACTIVE, 'Active write fault must remain unused');
+});
+
