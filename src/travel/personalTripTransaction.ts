@@ -23,7 +23,7 @@ export type TripStorageState = {
   archive: PersonalTripArchive;
 };
 
-export type TripStorageOperation = 'archive' | 'switch' | 'import' | 'delete';
+export type TripStorageOperation = 'archive' | 'switch' | 'import' | 'delete' | 'edit';
 
 type RawImage = {
   active: string | null;
@@ -86,7 +86,7 @@ function parseIntent(raw: string): TransactionIntent {
   if (raw.length > MAX_TRANSACTION_CHARACTERS * 4) throw new Error('Trip transaction is too large');
   const value = JSON.parse(raw) as Partial<TransactionIntent> | null;
   if (!value || value.schemaVersion !== PERSONAL_TRIP_TRANSACTION_VERSION
-    || !['archive', 'switch', 'import', 'delete'].includes(value.operation as string)
+    || !['archive', 'switch', 'import', 'delete', 'edit'].includes(value.operation as string)
     || typeof value.id !== 'string' || !value.id.trim()
     || !isRawImage(value.before) || !isRawImage(value.after)) {
     throw new Error('Unsupported or corrupted trip transaction');
@@ -134,6 +134,14 @@ async function recoverPendingTransaction(storage: TripStorageAdapter): Promise<b
   return true;
 }
 
+/**
+ * User edits are also transitions: one active-key autosave cannot silently
+ * replace a newer saved revision. Legacy v1 data is compared by validated
+ * record content, not the last editor's current React render.
+ *
+ * This avoids stale-tab overwrites when the other edit has already completed;
+ * it does NOT provide an atomic cross-tab lock where Web Locks are unavailable.
+ */
 /** Read both keys only after replaying any interrupted, validated journal. */
 export function readRecoveredTripStorage(storage: TripStorageAdapter): Promise<TripStorageState & { recovered: boolean }> {
   return serialized(async () => {
