@@ -268,7 +268,7 @@ export default function BookingResolutionCard({
                 testID="booking-resolution-reply-input"
                 accessibilityLabel={tr(language,'Ваша заметка об ответе поставщика','Your note about supplier reply','自行记录供应商回复')}
                 multiline
-                maxLength={1200}
+                maxLength={800}
                 style={styles.input}
                 value={reply}
                 onChangeText={setReply}
