@@ -580,12 +580,16 @@ export default function PersonalTripPlanner({
     setManualOpen(true);
   };
 
-  const createTrip = () => {
-    if (!hydrated || !archiveReady || archiveError || storageOperationRef.current) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) return;
+  const createTrip = async () => {
+    if (!hydrated || !archiveReady || archiveError || trip || storageOperationRef.current) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateInput)) {
+      setFormError('invalid-arrival-date');
+      return;
+    }
     const createdAt = new Date().toISOString();
+    let next: PersonalTrip;
     try {
-      const next = createPersonalTrip({
+      next = createPersonalTrip({
         id: tripId(startDateInput),
         destinationId: 'moscow',
         title: tr(language, 'Моя поездка в Москву', 'My Moscow trip', '我的莫斯科之旅'),
@@ -593,10 +597,34 @@ export default function PersonalTripPlanner({
         endDate: addDays(startDateInput, durationDays - 1),
         createdAt
       });
-      setTrip(next);
-      setSelectedDay(next.days[0] ?? startDateInput);
     } catch {
+      setFormError('invalid-trip-date-range');
       return;
+    }
+    if (!beginStorageOperation()) return;
+    try {
+      await activeWritesRef.current;
+      // The trip becomes visible ONLY after its first revision is persisted.
+      // If a second tab created an active trip, fail closed instead of replacing it.
+      const result = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'edit',
+        id: 'create:' + next.id,
+        expectedActiveTrip: null,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (activeTrip) throw new Error('Active trip already exists');
+          return { activeTrip: next, archive: savedArchive, result: true };
+        }
+      });
+      persistedTripRef.current = result.activeTrip;
+      setTrip(result.activeTrip);
+      setSelectedDay(next.days[0] ?? startDateInput);
+      setFormError('');
+    } catch {
+      setFormError('trip-create-storage-error');
+      setArchiveError('trip-storage-recovery-required');
+    } finally {
+      endStorageOperation();
     }
   };
 
