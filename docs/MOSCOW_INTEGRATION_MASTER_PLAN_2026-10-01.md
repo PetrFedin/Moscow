@@ -776,6 +776,18 @@ Guardrails:
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
 
+#### P0 release reconciliation and unfinished-work matrix — 2026-10-15
+
+Canonical inspection and execution checklist: `docs/MOSCOW_UNFINISHED_WORK_DELIVERY_AUDIT_2026-10-15.md` (Draft PR #179).
+- Do not confuse passing quality runs on Draft PRs with production shipping or successful independent review.
+- Resolve #176 responsive failure via stable itinerary stop IDs; PR #179 adds exact viewport regression checks.
+- Protect local data before more features: initial create and subsequent edits now use verified journaled writes with expected-active revision; on supported browsers, cooperating tabs use Web Locks. No claim of guaranteed durable multi-tab/OS recovery.
+- Correct ticket truth: cancelled/held/user-declared/provider-recorded and actually user-visited states differ; fixed tickets remain outside unsupported automatic modifications.
+- Keep RELEASE HOLD until exact-head full quality, physical iOS/Android disruption+storage tests, independent review, staged PR reconciliation and rollback proof.
+- P1 catalogue expansion, booking import and identity-verified map/routing are important differentiators but shall not outrank unresolved P0 consumer data and truthful ticket UX.
+
+
+
 #### Market audit and multi-destination brand proposal — NOT RELEASED (2026-10-15)
 
 - Comprehensive *selected-market* review of RUSSPASS, 2GIS, Yandex Maps/Travel, Tripster, Sputnik8, Wanderlog, TripIt, Polarsteps, Mindtrip, Roadtrippers, and attraction booking alternatives, with vendor links and visual pattern references: `docs/DAYTERA_MARKET_COMPETITOR_UX_AUDIT_2026-10-15.md`.
