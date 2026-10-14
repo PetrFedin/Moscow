@@ -108,7 +108,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
             <Text style={styles.nextTitle}>{nextSavedTicket.title}</Text>
             <Text style={styles.nextMeta}>{nextSavedTicket.dayDate} · {timeLabel(nextSavedTicket.plannedStartAt)}</Text>
             <Text style={styles.truth}>{nextSavedTicket.commitment?.verification === 'provider-confirmed'
-              ? tr(language, 'Подтверждение провайдера записано', 'Provider receipt recorded', '已记录供应商凭证')
+              ? tr(language, 'В записи указано подтверждение поставщика · не перепроверено', 'Provider confirmation recorded · not reverified', '记录引用供应商确认 · 未复核')
               : tr(language, 'Добавлено вами · статус провайдера не проверен', 'Added by you · provider status not verified', '由您添加 · 供应商状态未核验')}</Text>
           </View>
         )}
@@ -229,7 +229,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
           </Text>
           <Text style={styles.truth}>
             {state.nextCommitment.commitment?.verification === 'provider-confirmed'
-              ? tr(language, 'Подтверждено провайдером', 'Provider confirmed', '供应商已确认')
+              ? tr(language, 'В записи указано подтверждение поставщика · не перепроверено', 'Provider confirmation recorded · not reverified', '记录引用供应商确认 · 未复核')
               : tr(language, 'Добавлено вами · статус провайдера не проверен', 'Added by you · provider status not verified', '由你添加 · 供应商状态未核验')}
           </Text>
           {state.nextCommitment.commitment?.externalUrl ? (
