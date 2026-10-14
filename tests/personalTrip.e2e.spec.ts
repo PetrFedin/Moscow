@@ -1441,9 +1441,11 @@ test('two browser tabs creating different trips cannot silently overwrite a comp
 
     // A loser may not adopt an unknown remote trip from another tab. It must
     // fail closed and require an explicit reload while preserving the winner.
-    const aVisible = await page.getByText('День 1', { exact: true }).count();
-    const bVisible = await sibling.getByText('День 1', { exact: true }).count();
-    expect(aVisible + bVisible).toBe(1);
+    await expect.poll(async () => {
+      const aVisible = await page.getByText('День 1', { exact: true }).count();
+      const bVisible = await sibling.getByText('День 1', { exact: true }).count();
+      return aVisible + bVisible;
+    }).toBe(1);
     const activeBefore = await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
     expect(activeBefore).not.toBeNull();
     await page.reload();
