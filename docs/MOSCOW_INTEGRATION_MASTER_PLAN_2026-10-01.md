@@ -776,6 +776,21 @@ Guardrails:
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
 
+#### Crash-recoverable local trip transitions — DRAFT (2026-10-14)
+
+Delivery lane: PR #175 + P0 issue #173. Source contract:
+`docs/MOSCOW_LOCAL_TRIP_RECOVERY_JOURNAL_2026-10-14.md`.
+
+- A versioned local intent journal now wraps archive, old-trip activation, backup import and explicitly confirmed deletion.
+- Every transition stores validated before/after pairs, verifies writes by read-back, and retains the intent until both keys are verified.
+- Startup must recover interrupted intents **before** loading either active or archived journeys.
+- Unrecognized journal, stale in-memory active data or divergent foreign modification must block changes instead of overwriting user's history.
+- Autosave failures must not be swallowed; product surfaces a recovery-required state.
+- The journal protects against selected single-runtime interrupted-write scenarios; **it is not multi-tab atomicity, OS-level durable storage, encrypted backup, or cross-device sync**.
+- No production admission until exact-head CI, browser/physical-device restart fault injection, independent review, conflict and retention policy acceptance. Local private data may still be lost on device wipe.
+
+
+
 #### Next Discoveries — DRAFT IMPLEMENTATION (2026-10-13)
 
 The repeat-trip product loop extends Passport v2:
