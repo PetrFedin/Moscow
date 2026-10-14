@@ -776,6 +776,18 @@ Guardrails:
 
 This implements the current master-plan requirement that visited history answer what the user has already seen and where they have actually spent their trip.
 
+#### Market audit and multi-destination brand proposal — NOT RELEASED (2026-10-15)
+
+- Comprehensive *selected-market* review of RUSSPASS, 2GIS, Yandex Maps/Travel, Tripster, Sputnik8, Wanderlog, TripIt, Polarsteps, Mindtrip, Roadtrippers, and attraction booking alternatives, with vendor links and visual pattern references: `docs/DAYTERA_MARKET_COMPETITOR_UX_AUDIT_2026-10-15.md`.
+- **DAYTERA** is only an internal candidate. Public name and production routes remain **Moscow**; trademark/domain clearance is explicitly **not** confirmed. Colliding/similar signs require professional clearance.
+- New isolated `src/product/travelProductIdentity.ts` registry records the single Moscow pilot and its time zone; unsupported cities fail closed. Do not present Shanghai, Kazan, Istanbul, Saint Petersburg, etc. as available until independently admitted.
+- `TripJourneyOverview.tsx` adopts clearer editorial stop cards, readable type, one decisive visit action, and destination-registry labels. This is UX polish, not integration of real bookings or citywide navigation.
+- The user job at the center of development is **next action + fixed commitments + evidence-checked replan + history**, NOT another general POI catalogue. Competitive superiority remains a hypothesis pending head-to-head usability trials.
+- Release still requires stacked PR exact-head CI, actual 375/768/1440 viewport inspection, native fault testing, independent review, production rollback proof, source-verified venue media and explicit external-provider admission.
+- Preserve all earlier Phase-0 spatial, native and integration HOLD gates; this strategic work does not override them.
+
+
+
 #### Crash-recoverable local trip transitions — DRAFT (2026-10-14)
 
 Delivery lane: PR #175 + P0 issue #173. Source contract:
