@@ -833,6 +833,35 @@ export default function PersonalTripPlanner({
     }
   };
 
+  const deleteActiveTrip = async () => {
+    if (!trip || !beginStorageOperation()) {
+      setFormError('trip-delete-not-ready');
+      return;
+    }
+    try {
+      await activeWritesRef.current;
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'delete',
+        id: 'delete:' + trip.id + ':' + new Date().toISOString(),
+        expectedActiveTrip: trip,
+        transform: ({ archive: savedArchive }) => ({
+          activeTrip: null, archive: savedArchive, result: true
+        })
+      });
+      setArchive(outcome.archive);
+      setTrip(null);
+      setResetConfirmationOpen(false);
+      onDirectoryPlaceHandled?.();
+      setFormError('');
+    } catch {
+      setFormError('trip-delete-storage-error');
+      setArchiveError('trip-storage-recovery-required');
+    } finally {
+      endStorageOperation();
+    }
+  };
+
   const exportTripBackup = async (): Promise<string> => {
     if (!hydrated || !archiveReady || archiveError || storageOperationRef.current) {
       throw new Error('Archive not ready');
@@ -968,7 +997,14 @@ export default function PersonalTripPlanner({
         <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={createTrip}>
           <Text style={styles.primaryText}>{tr(language, 'Создать поездку', 'Create trip', '创建行程')}</Text>
         </PhysicalPressable>
-        {archiveError ? <Text style={styles.formError}>{tr(language,'Историю поездок не удалось прочитать. Архивация заблокирована, чтобы не потерять данные.','Trip history could not be read. Archiving is disabled to protect your data.','无法读取行程历史。为保护数据，归档已禁用。')}</Text> : null}
+        {recoveryNotice ? <Text style={styles.recoveryNotice}>{tr(language,
+          'После прерванной операции локальная история восстановлена и проверена.',
+          'Your interrupted trip operation was recovered and verified.',
+          '中断的行程操作已恢复并核验。')}</Text> : null}
+        {archiveError ? <Text style={styles.recoveryError}>{tr(language,
+          'Локальное сохранение или восстановление не подтверждено. Изменения заблокированы. Не очищайте данные приложения; перезапустите его для повторной проверки.',
+          'Trip storage or recovery could not be verified. Changes are blocked. Do not clear app data; restart to retry recovery.',
+          '无法核验行程存储或恢复。编辑已阻止。请勿清除应用数据，重新启动以重试。')}</Text> : null}
         {archiveReady && !archiveError && (
           <TripArchivePanel archive={archive} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
         )}
@@ -997,7 +1033,14 @@ export default function PersonalTripPlanner({
         </PhysicalPressable>
       </View>
 
-      {archiveError ? <Text style={styles.formError}>{tr(language, 'Локальный архив недоступен. Не удаляйте поездку до резервного сохранения.', 'Local trip archive is unavailable. Do not delete this trip before saving a backup.', '本地行程归档不可用。请先备份再删除行程。')}</Text> : null}
+      {recoveryNotice ? <Text style={styles.recoveryNotice}>{tr(language,
+        'Прерванная операция восстановлена из проверенного локального журнала.',
+        'Interrupted operation recovered from the validated local journal.',
+        '已从核验的本地日志恢复中断操作。')}</Text> : null}
+      {archiveError ? <Text style={styles.recoveryError}>{tr(language,
+        'Сохранение не проверено или обнаружен конфликт восстановления. Изменения временно заблокированы. Не очищайте данные приложения, перезапустите его.',
+        'Storage is unverified or recovery conflicted. Changes are blocked. Do not clear app data; restart.',
+        '存储未验证或恢复发生冲突。编辑已阻止。请勿清除应用数据，重新启动。')}</Text> : null}
       {resetConfirmationOpen && (
         <View style={styles.dangerPanel}>
           <Text style={styles.dangerTitle}>{tr(language, 'Создать новую поездку?', 'Start a new trip?', '创建新的行程？')}</Text>
@@ -1028,12 +1071,7 @@ export default function PersonalTripPlanner({
             accessibilityLabel={tr(language, 'Удалить текущую поездку и начать новую', 'Delete current trip and start a new one', '删除当前行程并重新开始')}
             style={styles.dangerButton}
             contentStyle={styles.center}
-            onPress={() => {
-              void activeWritesRef.current.catch(() => undefined)
-                .then(() => AsyncStorage.removeItem(PERSONAL_TRIP_STORAGE_KEY))
-                .then(() => { setTrip(null); setResetConfirmationOpen(false); onDirectoryPlaceHandled?.(); })
-                .catch(() => setFormError('trip-reset-storage-error'));
-            }}
+            onPress={() => { void deleteActiveTrip(); }}
           ><Text style={styles.dangerButtonText}>{tr(language, 'Удалить поездку', 'Delete trip', '删除行程')}</Text></PhysicalPressable>
           <PhysicalPressable
             accessibilityRole="button"
@@ -1511,6 +1549,8 @@ const styles = StyleSheet.create({
   input: { minHeight: 47, borderRadius: 14, borderWidth: 1, borderColor: '#363c44', backgroundColor: '#171b20', color: '#f2eee5', paddingHorizontal: 13, fontSize: 13 },
   inputSpaced: { marginTop: 7 },
   formError: { color: '#dc9e94', fontSize: 9, lineHeight: 14, marginTop: 8 },
+  recoveryNotice: { borderWidth: 1, borderColor: '#63866a', backgroundColor: '#24382c', borderRadius: 12, padding: 12, marginTop: 10, color: '#cce6d1', fontSize: 13, lineHeight: 19 },
+  recoveryError: { borderWidth: 1, borderColor: '#bd8479', backgroundColor: '#3a2627', borderRadius: 12, padding: 12, marginTop: 10, color: '#ffcdc3', fontSize: 13, lineHeight: 20 },
   chips: { flexDirection: 'row', gap: 7 },
   chip: { flex: 1, minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: '#3b424a' },
   chipActive: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },
