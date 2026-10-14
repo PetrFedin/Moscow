@@ -409,6 +409,8 @@ test('multiple journeys survive archive, new trip and subsequent resume on the s
   await page.getByPlaceholder('2026-10-02').fill('2026-10-13');
   await page.getByText('1', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
+  // A journey becomes visible only after the verified first persistence.
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
   const first = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
   expect(first.days).toEqual(['2026-10-13']);
 
@@ -425,6 +427,7 @@ test('multiple journeys survive archive, new trip and subsequent resume on the s
   await page.getByPlaceholder('2026-10-02').fill('2026-10-20');
   await page.getByText('1', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
   const second = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
   expect(second.id).not.toBe(first.id);
   await page.getByRole('button', { name: 'Открыть архивную поездку: 2026-10-13' }).click();
