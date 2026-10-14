@@ -131,9 +131,11 @@ for (const fault of [
     const { storage, active } = seeded();
     storage.fault = fault;
     await assert.rejects(archiveOperation(storage, active), /Injected storage crash/);
-    assert.ok(await storage.getItem(JOURNAL), 'Unfinished journal must survive');
+    const alreadyClean = fault.key === JOURNAL && fault.operation === 'remove' && fault.when === 'after';
+    if (alreadyClean) assert.equal(await storage.getItem(JOURNAL), null);
+    else assert.ok(await storage.getItem(JOURNAL));
     const recovered = await readRecoveredTripStorage(storage);
-    assert.equal(recovered.recovered, true);
+    assert.equal(recovered.recovered, !alreadyClean);
     assert.equal(recovered.activeTrip, null);
     assert.equal(recovered.archive.trips.length, 2);
     assert.equal(archivedPersonalTrip(recovered.archive, 'autumn')?.visits[0]?.note,
