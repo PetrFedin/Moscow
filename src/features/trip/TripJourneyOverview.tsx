@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
-import type { PersonalTrip, PersonalTripItem } from '../../travel/personalTrip';
+import { personalTripDayItems, type PersonalTrip, type PersonalTripItem } from '../../travel/personalTrip';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { formatDestinationTime, requireAdmittedDestination } from '../../product/travelProductIdentity';
 import { dayStopPresentation, displayedUpcomingCommitments, type DayStopPresentation } from '../../travel/tripDayPresentation';
@@ -41,8 +41,7 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
   // inherit Europe/Moscow timezone or Moscow-only content accidentally.
   const destination = requireAdmittedDestination(trip.destinationId);
   const localTime = (iso?: string) => formatDestinationTime(iso, trip.destinationId);
-  const items = trip.items.filter(item => item.dayDate === dayDate).sort((a,b) =>
-    (a.plannedStartAt ?? '').localeCompare(b.plannedStartAt ?? '') || (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const items = personalTripDayItems(trip, dayDate);
   const visited = new Set(trip.visits.filter(v => v.dayDate === dayDate).map(v => v.itemId));
   const next = items.find(item => item.status === 'planned' && item.commitment?.status !== 'cancelled' && !visited.has(item.id));
   const bookings = displayedUpcomingCommitments(items);
@@ -70,7 +69,7 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
     </View>
     <View style={styles.heading}>
       <Text style={styles.sectionTitle}>{tr(language, 'Маршрут дня', 'Your itinerary', '当天路线')}</Text>
-      <Text style={styles.sectionHint}>{tr(language, 'В хронологическом порядке', 'In time order', '按时间顺序')}</Text>
+      <Text style={styles.sectionHint}>{tr(language, 'Порядок из вашего плана', 'Order from your itinerary', '按您规划的顺序')}</Text>
     </View>
     {items.length === 0 ? <View style={styles.empty}><Text style={styles.emptyText}>{tr(language, 'Начните с одного интересного места или добавьте билет.', 'Start with a place or add your ticket.', '添加地点或门票开始旅程。')}</Text></View> : items.map((item,index)=>
       <View key={item.id} testID={"trip-stop-" + item.id} style={styles.stop}>
