@@ -136,9 +136,13 @@ test('forged provider evidence, empty replies, duplicate events and illegal chro
   for (const malformed of [
     { ...base.bookingResolutions![0], itemId: 'unknown-ticket' },
     { ...base.bookingResolutions![0], topic: 'supplier-confirmed-refund' },
+    { ...base.bookingResolutions![0], externalVerifiedRefund: true },
     { ...base.bookingResolutions![0], events: [
       { id: 'open-1', at: at1, kind: 'opened' },
       { id: 'claim-1', at: at2, kind: 'provider-verified' }
+    ] },
+    { ...base.bookingResolutions![0], events: [
+      { id: 'open-1', at: at1, kind: 'opened', providerVerified: true }
     ] }
   ]) {
     const forged = { ...base, bookingResolutions: [malformed] };
