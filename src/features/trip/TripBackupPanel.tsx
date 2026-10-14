@@ -74,9 +74,10 @@ export default function TripBackupPanel({ language, busy, error, onExport, onPre
       setPreviewRaw('');
       setBackupText('');
     } catch {
-      setLocalError(tr(language, 'Импорт отменён: конфликт поездок или ошибка локального хранилища. Существующие поездки не заменены.',
-        'Import blocked: trip conflict or storage error. Existing trips were not replaced.',
-        '导入被阻止：行程冲突或存储错误。已有行程未被替换。'));
+      setLocalError(tr(language,
+        'Импорт не подтверждён. Возможно повреждение файла, конфликт поездок или сбой записи. Не очищайте данные приложения: после перезапуска проверьте архив и повторите попытку только при необходимости.',
+        'Import was not confirmed: invalid file, conflicting trip or interrupted write. Do not clear app data. Restart, inspect your archive and retry only if needed.',
+        '未能确认导入：文件无效、行程冲突或写入中断。请勿清除应用数据。重启后检查档案，再决定是否重试。'));
     } finally {
       setWorking(false);
     }
