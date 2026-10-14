@@ -253,6 +253,7 @@ export default function PersonalTripPlanner({
   const [recoveryNotice, setRecoveryNotice] = useState(false);
   const storageOperationRef = useRef(false);
   const activeWritesRef = useRef<Promise<void>>(Promise.resolve());
+  const persistedTripRef = useRef<PersonalTrip | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [selectedDay, setSelectedDay] = useState(localDateOnly());
   const [startDateInput, setStartDateInput] = useState(localDateOnly());
@@ -285,6 +286,7 @@ export default function PersonalTripPlanner({
     // an apparently empty trip to overwrite user records.
     readRecoveredTripStorage(AsyncStorage)
       .then(({ activeTrip, archive: savedArchive, recovered }) => {
+        persistedTripRef.current = activeTrip;
         setArchive(savedArchive);
         setTrip(activeTrip);
         setRecoveryNotice(recovered);
@@ -306,16 +308,24 @@ export default function PersonalTripPlanner({
   useEffect(() => {
     if (!hydrated || !trip || archiveError || storageOperationRef.current) return;
     const snapshot = JSON.stringify(trip);
-    // Ordered active writes are checked on read-back; never swallow a failure
-    // and never autosave over a pending archive/switch/import journal.
+    // Revision-level journal and expected prior snapshot protect against
+    // stale edits from another tab, interrupted writes and archive interleaves.
+    // This remains same-runtime serialization, NOT cross-tab atomicity.
     const pending = activeWritesRef.current.then(async () => {
-      if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
-        throw new Error('An unfinished trip transaction blocks autosave');
-      }
-      await AsyncStorage.setItem(PERSONAL_TRIP_STORAGE_KEY, snapshot);
-      if (await AsyncStorage.getItem(PERSONAL_TRIP_STORAGE_KEY) !== snapshot) {
-        throw new Error('Trip autosave read-back failed');
-      }
+      const nextTrip = parsePersonalTrip(snapshot);
+      const stored = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'edit',
+        id: 'edit:' + nextTrip.id + ':' + nextTrip.updatedAt,
+        expectedActiveTrip: persistedTripRef.current,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (activeTrip && activeTrip.id !== nextTrip.id) {
+            throw new Error('Active trip identity changed during autosave');
+          }
+          return { activeTrip: nextTrip, archive: savedArchive, result: true };
+        }
+      });
+      persistedTripRef.current = stored.activeTrip;
     });
     activeWritesRef.current = pending;
     void pending.catch(() => {
@@ -777,6 +787,7 @@ export default function PersonalTripPlanner({
           };
         }
       });
+      persistedTripRef.current = null;
       setArchive(outcome.archive);
       setTrip(null);
       setResetConfirmationOpen(false);
@@ -816,6 +827,7 @@ export default function PersonalTripPlanner({
       });
       const nextTrip = outcome.activeTrip;
       if (!nextTrip) throw new Error('Recovered trip missing');
+      persistedTripRef.current = nextTrip;
       setArchive(outcome.archive);
       setTrip(nextTrip);
       onDirectoryPlaceHandled?.();
@@ -849,6 +861,7 @@ export default function PersonalTripPlanner({
           activeTrip: null, archive: savedArchive, result: true
         })
       });
+      persistedTripRef.current = null;
       setArchive(outcome.archive);
       setTrip(null);
       setResetConfirmationOpen(false);
