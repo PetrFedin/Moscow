@@ -39,11 +39,12 @@
 3. `src/features/trip/TripJourneyOverview.tsx` renders truth labels and source-state counts, not unverified "booking verified" language. Gives each itinerary stop a stable ID for E2E/visual QA.
 4. `src/travel/personalTripTransaction.ts`: transaction operation `edit` is admitted; active autosaves can use the same journal/expected-revision guard as switch/archive/import.
 5. `src/features/trip/PersonalTripPlanner.tsx`: initial create becomes journaled and must succeed before the UI shows the trip; edits serialize and verify prior durable active trip, so common stale-tab writes fail closed instead of silently replacing newer completed edits.
-6. Tests include `tripDayPresentation.test.ts`, additional browser cancellation/provenance/initial-create checks, stale-active edit and interrupted-edit replay in `personalTripTransaction.test.ts`.
+6. Tests include `tripDayPresentation.test.ts`, browser cancellation/provenance/initial-create and two-tab concurrency checks, stale-edit rejection and interrupted-edit replay in `personalTripTransaction.test.ts`.
+7. Web Locks coordinate cooperating browser tabs on supported origins. This improves cross-tab safety without creating guaranteed multi-process atomic storage.
 
 ## 4. Important remaining storage risk
 
-This journal still relies on independent AsyncStorage keys. It serializes transactions inside **one JS runtime**, not across all browser tabs or across devices. Read-then-compare is not cross-tab compare-and-swap; two tabs can interleave between observation and mutation. Neither recovery from OS storage eviction nor encryption is proven. Do not publicly guarantee zero data loss. Resolve issue #173 with either tested Web Locks/coordination for the browser and safe fallback, or an atomic single-authority database; ensure physical iPhone/Android kill, quota and restart tests. Plain-text exported backup is not encrypted.
+This journal still relies on independent AsyncStorage keys. Co-operating browser tabs now use a named Web Lock when the browser supports it; operations within a native JS runtime remain serialized by an in-memory queue. **Web Locks do not solve unsupported browsers, device loss, hostile storage writes or non-cooperating extensions.** Read-then-compare alone is not atomic; physical iPhone/Android termination, quota and crash tests remain P0 issue #173. Neither recovery from OS storage eviction nor encryption is proven. Do not publicly guarantee zero data loss. Plain-text exported backups remain unencrypted.
 
 ## 5. Release order and boundaries
 
