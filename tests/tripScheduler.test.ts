@@ -113,22 +113,80 @@ test('free windows also subtract flexible scheduled plan items', () => {
   assert.ok(windows.every((window) => window.routingVerified === false));
 });
 
-test('moving a planned ticket to another day preserves truth class and local clock time', () => {
-  let value = trip();
-  value = addFixed(value, 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
-
-  value = moveTripItem({
+test('fixed booking cannot silently change its booked date, time or evidence', () => {
+  const value = addFixed(trip(), 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
+  const before = JSON.stringify(value);
+  assert.throws(() => moveTripItem({
     trip: value,
     itemId: 'ticket',
     targetDayDate: '2026-10-03',
     updatedAt: '2026-10-02T07:00:00.000Z'
-  });
-
+  }), /cannot move without verified rescheduling/);
+  assert.equal(JSON.stringify(value), before);
   const item = value.items.find((candidate) => candidate.id === 'ticket');
-  assert.equal(item?.dayDate, '2026-10-03');
-  assert.equal(item?.plannedStartAt, '2026-10-03T19:00:00+03:00');
-  assert.equal(item?.plannedEndAt, '2026-10-03T21:00:00+03:00');
+  assert.equal(item?.dayDate, '2026-10-02');
+  assert.equal(item?.plannedStartAt, '2026-10-02T19:00:00+03:00');
+  assert.equal(item?.plannedEndAt, '2026-10-02T21:00:00+03:00');
   assert.equal(item?.commitment?.verification, 'user-declared');
+});
+
+test('unbooked flexible place can be moved without rewriting a fixed ticket', () => {
+  let value = addFixed(trip(), 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
+  value = addManualTripItem({
+    trip: value, itemId: 'museum', dayDate: '2026-10-02',
+    title: 'Свободная прогулка', kind: 'activity',
+    plannedStartAt: '2026-10-02T11:00:00+03:00',
+    plannedEndAt: '2026-10-02T12:00:00+03:00',
+    updatedAt: createdAt
+  });
+  const beforeTicket = value.items.find(item => item.id === 'ticket');
+  const result = moveTripItem({
+    trip: value, itemId: 'museum', targetDayDate: '2026-10-03',
+    updatedAt: '2026-10-02T07:00:00.000Z'
+  });
+  assert.equal(result.items.find(item => item.id === 'museum')?.dayDate, '2026-10-03');
+  assert.equal(result.items.find(item => item.id === 'museum')?.plannedStartAt, '2026-10-03T11:00:00+03:00');
+  assert.deepEqual(result.items.find(item => item.id === 'ticket'), beforeTicket);
+  assert.equal(value.items.find(item => item.id === 'museum')?.dayDate, '2026-10-02');
+});
+
+test('held, cancelled and completed reservations do not move across days', () => {
+  for (const bookingStatus of ['held', 'cancelled', 'confirmed'] as const) {
+    let value = addManualTripItem({
+      trip: trip(), itemId: bookingStatus,
+      dayDate: '2026-10-02', title: 'Ужин с бронью',
+      kind: 'food', plannedStartAt: '2026-10-02T20:00:00+03:00',
+      plannedEndAt: '2026-10-02T22:00:00+03:00',
+      commitment: { kind: 'reservation', status: bookingStatus, verification: 'user-declared' },
+      updatedAt: createdAt
+    });
+    const before = JSON.stringify(value);
+    assert.throws(() => moveTripItem({
+      trip: value, itemId: bookingStatus,
+      targetDayDate: '2026-10-03', updatedAt: createdAt
+    }), /cannot move without verified rescheduling/);
+    assert.equal(JSON.stringify(value), before);
+  }
+});
+
+test('cancelled commitments do not occupy free windows or create false fixed-ticket conflicts', () => {
+  let value = addFixed(trip(), 'morning', '2026-10-02T10:00:00+03:00', '2026-10-02T11:00:00+03:00');
+  value = addFixed(value, 'overlap', '2026-10-02T10:30:00+03:00', '2026-10-02T11:30:00+03:00');
+  assert.equal(detectTripScheduleConflicts(value).length, 1);
+  value = {
+    ...value,
+    items: value.items.map(item => item.id === 'overlap'
+      ? { ...item, commitment: { ...item.commitment!, status: 'cancelled' as const } }
+      : item)
+  };
+  assert.equal(detectTripScheduleConflicts(value).length, 0);
+  const windows = deriveTripFreeWindows({
+    trip: value, dayDate: '2026-10-02',
+    dayStartsAt: '2026-10-02T09:00:00+03:00',
+    dayEndsAt: '2026-10-02T12:00:00+03:00'
+  });
+  assert.deepEqual(windows.map(window => window.minutes), [60, 60]);
+  assert.ok(windows.every(window => window.routingVerified === false));
 });
 
 test('historical visited item cannot be moved to rewrite where the visit happened', () => {

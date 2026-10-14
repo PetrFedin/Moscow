@@ -253,6 +253,12 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
           <Text style={styles.nextMeta}>
             {timeLabel(state.nextItem.plannedStartAt) ?? tr(language, 'Без фиксированного времени · доступность не проверена', 'No fixed time · availability not verified', '无固定时间 · 尚未核验开放状态')}
           </Text>
+          {state.nextItem.commitment?.status === 'held' ? (
+            <Text style={styles.truth}>{tr(language,
+              'Предварительная бронь · окончательное подтверждение не проверено',
+              'Provisional hold · final confirmation is not verified',
+              '暂时预留，最终确认尚未核验')}</Text>
+          ) : null}
           <View style={styles.stopActionsLight}>
             <TodayStopActions key={state.nextItem.id} item={state.nextItem} language={language} onMarkVisited={onMarkVisited} onOpenPlace={onOpenPlace} />
           </View>

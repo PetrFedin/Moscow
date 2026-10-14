@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import type { PersonalTrip } from '../../travel/personalTrip';
+import { isActivePlannedTripStop } from '../../travel/tripDayPresentation';
 import {
   applyPersonalTripReplanProposal,
   buildPersonalTripReplanProposal,
@@ -49,7 +50,7 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
   );
 
   const plannedCount = trip.items.filter(
-    (item) => item.dayDate === dayDate && item.status === 'planned'
+    (item) => item.dayDate === dayDate && isActivePlannedTripStop(item)
   ).length;
 
   if (!trip.days.includes(dayDate) || plannedCount === 0) return null;

@@ -1,4 +1,5 @@
 import type { PersonalTrip, PersonalTripItem } from './personalTrip.ts';
+import { canMoveTripStopBetweenDays, countsAsScheduledOccupancy, isActivePlannedTripStop } from './tripDayPresentation.ts';
 
 export type TripScheduleConflict = {
   kind: 'fixed-commitment-overlap';
@@ -55,14 +56,13 @@ function rebaseTimestampDay(value: string | undefined, dayDate: string) {
 }
 
 function hasScheduledInterval(item: PersonalTripItem) {
-  return item.status !== 'cancelled'
-    && item.status !== 'skipped'
+  return countsAsScheduledOccupancy(item)
     && Boolean(item.plannedStartAt)
     && Boolean(item.plannedEndAt);
 }
 
 function isFixedCommitment(item: PersonalTripItem) {
-  return item.status === 'planned'
+  return isActivePlannedTripStop(item)
     && item.commitment?.status === 'confirmed'
     && hasScheduledInterval(item);
 }
@@ -95,6 +95,12 @@ export function moveTripItem(input: {
   }
 
   if (item.dayDate === input.targetDayDate) return next;
+  // Tickets and reservations are attached to a real date/time. Their
+  // metadata must never be rebased by an ordinary itinerary drag action.
+  // Confirmed, held, cancelled and completed historic items all remain fixed.
+  if (!canMoveTripStopBetweenDays(item)) {
+    throw new Error('Booked or historic trip item cannot move without verified rescheduling');
+  }
 
   item.dayDate = input.targetDayDate;
   item.displayOrder = undefined;

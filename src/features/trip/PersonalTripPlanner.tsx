@@ -51,6 +51,7 @@ import {
   moveTripItem,
   reorderTripDayItems
 } from '../../travel/tripScheduler';
+import { canMoveTripStopBetweenDays } from '../../travel/tripDayPresentation';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
@@ -748,6 +749,10 @@ export default function PersonalTripPlanner({
     if (!trip) return;
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
     if (!item || visitByItemId.has(item.id)) return;
+    if (!canMoveTripStopBetweenDays(item)) {
+      setFormError('ticket-date-requires-provider-confirmation');
+      return;
+    }
     const currentIndex = trip.days.indexOf(item.dayDate);
     const targetDay = trip.days[currentIndex + offset];
     if (!targetDay) return;
@@ -1429,11 +1434,23 @@ export default function PersonalTripPlanner({
                 </Text>
               ) : null}
               {item.commitment && (
-                <Text style={styles.commitmentStatus}>
-                  {item.commitment.verification === 'provider-confirmed'
-                    ? tr(language, 'Подтверждено провайдером', 'Provider confirmed', '供应商已确认')
-                    : tr(language, 'Добавлено вами · не проверено провайдером', 'Added by you · not provider verified', '由你添加 · 未经供应商验证')}
-                </Text>
+                <>
+                  <Text style={styles.commitmentStatus}>
+                    {item.status === 'cancelled' || item.commitment.status === 'cancelled'
+                      ? tr(language, 'Отменено — сохранено в истории', 'Cancelled — retained in history', '已取消，记录保留')
+                      : item.commitment.status === 'held'
+                        ? tr(language, 'Предварительная бронь · подтверждение не проверено', 'Provisional hold · not verified', '临时保留，尚未核验')
+                        : item.commitment.verification === 'provider-confirmed'
+                          ? tr(language, 'В записи указано подтверждение поставщика · не перепроверено', 'Provider confirmation recorded · not reverified', '记录供应商确认，尚未复核')
+                          : tr(language, 'Добавлено вами · не проверено провайдером', 'Added by you · not provider verified', '由你添加 · 未经供应商验证')}
+                  </Text>
+                  <Text style={styles.commitmentDetail}>
+                    {tr(language,
+                      'Дата и время билета или брони не меняются при переносе маршрута. Изменение оформляется у поставщика.',
+                      'Moving the itinerary does not change a ticket or reservation. Confirm changes with the supplier.',
+                      '调整行程不会更改门票或预订，请与供应商确认变更。')}
+                  </Text>
+                </>
               )}
               <View style={styles.itemActions}>
                 {!visited && item.commitment?.status !== 'confirmed' && activeItems.length > 1 && (
@@ -1458,7 +1475,7 @@ export default function PersonalTripPlanner({
                     </PhysicalPressable>
                   </>
                 )}
-                {!visited && trip.days.indexOf(item.dayDate) > 0 && (
+                {!visited && canMoveTripStopBetweenDays(item) && trip.days.indexOf(item.dayDate) > 0 && (
                   <PhysicalPressable
                     style={styles.iconButton}
                     contentStyle={styles.center}
@@ -1468,7 +1485,7 @@ export default function PersonalTripPlanner({
                     <Text style={styles.iconButtonText}>←</Text>
                   </PhysicalPressable>
                 )}
-                {!visited && trip.days.indexOf(item.dayDate) < trip.days.length - 1 && (
+                {!visited && canMoveTripStopBetweenDays(item) && trip.days.indexOf(item.dayDate) < trip.days.length - 1 && (
                   <PhysicalPressable
                     style={styles.iconButton}
                     contentStyle={styles.center}

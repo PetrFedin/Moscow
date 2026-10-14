@@ -2,6 +2,7 @@ import type { DestinationPackage, ExperienceNode, ExperienceNodeKind } from './d
 import type { StepFreeIntent } from './accessibilityRouteProfile.ts';
 import type { DayReplacementAcceptanceReceipt } from './dayReplacementProposal.ts';
 import type { CuratedMoscowPlace } from './curatedMoscowPlaces.ts';
+import { displayedUpcomingCommitments, isActivePlannedTripStop } from './tripDayPresentation.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -564,8 +565,8 @@ export function syncRouteCompletedVisits(input: {
 export function summarizePersonalTrip(trip: PersonalTrip): PersonalTripSummary {
   return {
     dayCount: trip.days.length,
-    plannedCount: trip.items.filter((item) => item.status === 'planned').length,
-    commitmentCount: trip.items.filter((item) => item.commitment && item.commitment.status !== 'cancelled').length,
+    plannedCount: trip.items.filter(isActivePlannedTripStop).length,
+    commitmentCount: displayedUpcomingCommitments(trip.items).length,
     completedCount: trip.items.filter((item) => item.status === 'completed').length,
     visitedCount: trip.visits.length
   };
