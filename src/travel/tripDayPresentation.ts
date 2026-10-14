@@ -31,6 +31,29 @@ export function dayStopPresentation(
   return 'planned';
 }
 
+/** A cancelled booking never becomes an actionable stop or takes time in Today's plan. */
+export function isActivePlannedTripStop(
+  item: Pick<PersonalTripItem, 'status' | 'commitment'>
+): boolean {
+  return item.status === 'planned' && item.commitment?.status !== 'cancelled';
+}
+
+/** Preserve the booked date/time unless the provider's documented change process is used. */
+export function canMoveTripStopBetweenDays(
+  item: Pick<PersonalTripItem, 'status' | 'commitment'>
+): boolean {
+  return item.status === 'planned' && !item.commitment;
+}
+
+/** Historical completed stops still occupy the interval; cancelled bookings do not. */
+export function countsAsScheduledOccupancy(
+  item: Pick<PersonalTripItem, 'status' | 'commitment'>
+): boolean {
+  return item.status !== 'cancelled'
+    && item.status !== 'skipped'
+    && item.commitment?.status !== 'cancelled';
+}
+
 export function displayedUpcomingCommitments(items: readonly PersonalTripItem[]): PersonalTripItem[] {
   return items.filter((item) =>
     item.commitment !== undefined
