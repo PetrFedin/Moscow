@@ -73,7 +73,9 @@ for (const viewport of [
     // invisible off-screen component inside a very tall fullPage screenshot.
     const dayOverview = page.getByTestId('travel-day-overview');
     await expect(dayOverview.getByText('Маршрут дня', { exact: true })).toBeVisible();
-    await dayOverview.getByText('Третьяковская галерея', { exact: true }).scrollIntoViewIfNeeded();
+    const plannedMuseum = dayOverview.getByTestId('trip-stop-visual-venue');
+    await expect(plannedMuseum.getByText('Третьяковская галерея', { exact: true })).toBeVisible();
+    await plannedMuseum.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-editorial-day-viewport.png') });
     const dayOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(dayOverflow, 'Editorial day has no body horizontal overflow').toBe(false);
