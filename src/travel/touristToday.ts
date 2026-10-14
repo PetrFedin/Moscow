@@ -1,5 +1,6 @@
 import { resolvePersonalTripPreferences, type PersonalTrip, type PersonalTripItem, type PersonalTripVisit } from './personalTrip.ts';
 import { deriveTripFreeWindows, detectTripScheduleConflicts, type TripFreeWindow } from './tripScheduler.ts';
+import { isActivePlannedTripStop } from './tripDayPresentation.ts';
 
 export type TouristTodayState = {
   tripActive: boolean;
@@ -50,7 +51,7 @@ function itemEnd(item: PersonalTripItem) {
 }
 
 function isRemaining(item: PersonalTripItem) {
-  return item.status === 'planned';
+  return isActivePlannedTripStop(item);
 }
 
 function isComplete(item: PersonalTripItem) {
@@ -58,7 +59,7 @@ function isComplete(item: PersonalTripItem) {
 }
 
 function isConfirmedCommitment(item: PersonalTripItem) {
-  return item.status === 'planned' && item.commitment?.status === 'confirmed';
+  return isActivePlannedTripStop(item) && item.commitment?.status === 'confirmed';
 }
 
 export function deriveTouristTodayState(input: {
