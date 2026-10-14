@@ -1577,6 +1577,11 @@ test('traveler records supplier inquiry without changing ticket, archives it, an
   await expect(selected.getByText('Мой билет', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Начать личную запись об обращении' }).click();
   await expect(card.getByText('Моя история обращения', { exact: false })).toBeVisible();
+  await card.getByRole('button', { name: 'Показать пример запроса поставщику' }).click();
+  await expect(card.getByTestId('booking-resolution-message-template'))
+    .toContainText('KEEP-BOOKED-DATE');
+  await expect(card.getByText('Выделите текст и скопируйте вручную. Сообщение НЕ отправлено.', { exact: true }))
+    .toBeVisible();
   await card.getByRole('button', { name: 'Я самостоятельно связался с поставщиком' }).click();
   await card.getByTestId('booking-resolution-reply-input')
     .fill('По телефону сказали сохранить оригинальный билет.');
