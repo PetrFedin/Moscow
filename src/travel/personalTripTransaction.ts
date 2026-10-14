@@ -199,12 +199,18 @@ export function transactTripStorage<T>(input: {
     if (guardedArchive !== before.archive && guardedArchive !== after.archive) {
       throw new Error('Trip transaction concurrent archive modification');
     }
-    await writeChecked(storage, PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, after.archive);
+    if (before.archive !== after.archive) {
+      await writeChecked(storage, PERSONAL_TRIP_ARCHIVE_STORAGE_KEY, after.archive);
+    }
     const guardedActive = await storage.getItem(PERSONAL_TRIP_ACTIVE_STORAGE_KEY);
     if (guardedActive !== before.active && guardedActive !== after.active) {
       throw new Error('Trip transaction concurrent active modification');
     }
-    await writeChecked(storage, PERSONAL_TRIP_ACTIVE_STORAGE_KEY, after.active);
+    // Import must not rewrite the user's unchanged active trip. Likewise a
+    // switch that retains an archive does not need to rewrite that archive.
+    if (before.active !== after.active) {
+      await writeChecked(storage, PERSONAL_TRIP_ACTIVE_STORAGE_KEY, after.active);
+    }
     const completed = await readRawImage(storage);
     if (completed.archive !== after.archive || completed.active !== after.active) {
       throw new Error('Trip transaction commit verification failed');
