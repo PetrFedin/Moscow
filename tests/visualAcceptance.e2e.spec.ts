@@ -79,6 +79,13 @@ for (const viewport of [
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-editorial-day-viewport.png') });
     const dayOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(dayOverflow, 'Editorial day has no body horizontal overflow').toBe(false);
+    const wallet = page.getByTestId('travel-booking-wallet');
+    await expect(wallet.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+    await wallet.getByText('Большой театр · мой билет', { exact: true }).scrollIntoViewIfNeeded();
+    await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-booking-wallet-viewport.png') });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2),
+      'Booking wallet has no horizontal body overflow').toBe(false);
     await page.getByText('Новая', { exact: true }).click();
     await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
     await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
