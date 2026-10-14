@@ -185,3 +185,48 @@ test('a planned untimed stop remains visible beside a later fixed ticket, and ch
   assert.equal(after.nextCommitment?.id, 'theatre');
   assert.equal(after.visitsToday[0]?.title, venue.titleRu);
 });
+
+test('cancelled confirmed ticket cannot be next action and does not count as day progress', () => {
+  let value = addManualTripItem({
+    trip: trip(), itemId: 'cancelled',
+    dayDate: '2026-10-02', title: 'Отменённый концерт',
+    kind: 'event', plannedStartAt: '2026-10-02T11:00:00+03:00',
+    plannedEndAt: '2026-10-02T12:00:00+03:00',
+    commitment: {
+      kind: 'ticket', verification: 'user-declared',
+      status: 'cancelled', reference: 'USER-CANCELLED'
+    }, updatedAt: '2026-10-02T07:00:00.000Z'
+  });
+  const snapshot = JSON.stringify(value);
+  let state = deriveTouristTodayState({ trip: value, nowIso: '2026-10-02T08:00:00.000Z' });
+  assert.equal(state.tripActive, true);
+  assert.equal(state.nextItem, undefined);
+  assert.equal(state.nextCommitment, undefined);
+  assert.deepEqual(state.currentItems, []);
+  assert.deepEqual(todayProgress(state), { completed: 0, remaining: 0, total: 0, ratio: 0 });
+  assert.equal(JSON.stringify(value), snapshot);
+
+  value = addManualTripItem({
+    trip: value, itemId: 'free-walk', dayDate: '2026-10-02',
+    title: 'Свободная прогулка', kind: 'activity', updatedAt: '2026-10-02T07:01:00.000Z'
+  });
+  state = deriveTouristTodayState({ trip: value, nowIso: '2026-10-02T08:00:00.000Z' });
+  assert.equal(state.nextItem?.id, 'free-walk');
+  assert.equal(state.nextCommitment, undefined);
+  assert.deepEqual(state.remainingItems.map(item => item.id), ['free-walk']);
+});
+
+test('held reservation is not displayed as confirmed next ticket', () => {
+  const value = addManualTripItem({
+    trip: trip(), itemId: 'held-dinner', dayDate: '2026-10-02',
+    title: 'Предварительное бронирование', kind: 'food',
+    plannedStartAt: '2026-10-02T19:00:00+03:00',
+    plannedEndAt: '2026-10-02T20:00:00+03:00',
+    commitment: { kind: 'reservation', status: 'held', verification: 'user-declared' },
+    updatedAt: '2026-10-02T07:00:00.000Z'
+  });
+  const state = deriveTouristTodayState({ trip: value, nowIso: '2026-10-02T08:00:00.000Z' });
+  assert.equal(state.nextItem?.id, 'held-dinner');
+  assert.equal(state.nextCommitment, undefined);
+  assert.equal(state.remainingItems.length, 1);
+});
