@@ -54,6 +54,17 @@
 - New tests cover fixed-date immutability, valid flexible moves, held/cancelled bookings, free-window recovery, conflict removal, unified summary and Today projection, and on-reload cancelled-booking browser truth.
 - Release gate remains **latest exact-head GREEN**, independent review, scenario screenshots, physical native smoke and proof that external provider changes are real. Until these gates pass, this PR is Draft and production remains unchanged.
 
+## 2026-10-15 P0 continuation: personal booking inquiry ledger (Draft PR #181)
+
+- Previous baseline PR #180 exact-head `cdc7ee89` GREEN: 590 contract PASS, 41 browser E2E PASS and 3 visual viewport PASS; this does not imply a merged or released build.
+- Introduced `bookingResolutions` (optional v1 trip field) with strict local event sequence, user-reported contact and reply notes, archival and bounded payloads. The original provider-anchored booking and its confirmation evidence are untouched by every event transition.
+- Active Wallet offers a one-tap inquiry entry; cancelled bookings remain available for a separate refund/cancellation discussion in the private assistance panel. Past cases are readable after archive, reload and portable plaintext JSON backup.
+- A supplier-message draft is *copyable but never transmitted*. Stored references are displayed as user recorded. Local event timestamps use the admitted destination timezone; no provider-state upgrade is implied by the presence of a note.
+- Adversarial parser and backup tests reject fabricated verified refunds, unsupported provenance keys, duplicate IDs, bad chronology, oversized text and wrong booking identity.
+- First code-only CI on PR #181 SHA `1dd33685` succeeded with 596 contract PASS / 42 browser PASS / 3 visual PASS (run 38656465212). **This is not the final SHA after UX and documentation edits; final exact-head checks required.**
+- Remaining P0 blockers: independent review of PR #179 → #180 → #181 plus ancestor reconciliation; on-device crash/restore and actual screenshot inspection. Remaining P1: real consented provider communication, immutable verified supplier responses, refunds and ticket/document import. Production HOLD.
+
+
 ## 4. Important remaining storage risk
 
 This journal still relies on independent AsyncStorage keys. Co-operating browser tabs now use a named Web Lock when the browser supports it; operations within a native JS runtime remain serialized by an in-memory queue. **Web Locks do not solve unsupported browsers, device loss, hostile storage writes or non-cooperating extensions.** Read-then-compare alone is not atomic; physical iPhone/Android termination, quota and crash tests remain P0 issue #173. Neither recovery from OS storage eviction nor encryption is proven. Do not publicly guarantee zero data loss. Plain-text exported backups remain unencrypted.

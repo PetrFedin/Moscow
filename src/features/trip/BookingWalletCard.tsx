@@ -11,9 +11,10 @@ import PhysicalPressable from '../../ui/PhysicalPressable';
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
+  onManageBooking?: (itemId: string) => void;
 };
 
-export default function BookingWalletCard({ trip, language }: Props) {
+export default function BookingWalletCard({ trip, language, onManageBooking }: Props) {
   const items = useMemo(
     () => displayedUpcomingCommitments(trip.items)
       .sort((a, b) =>
@@ -115,6 +116,19 @@ export default function BookingWalletCard({ trip, language }: Props) {
                         '由您添加，供应商未验证')}
               </Text>
 
+              {onManageBooking ? (
+                <PhysicalPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={tr(language, 'Разобраться с билетом или бронью: ', 'Manage booking inquiry for: ', '处理预订咨询：') + item.title}
+                  style={styles.inquiryButton} contentStyle={styles.center}
+                  onPress={() => onManageBooking(item.id)}
+                >
+                  <Text style={styles.inquiryText}>
+                    {tr(language, 'Вопрос по билету или броне', 'Question about this booking', '咨询此预订')} →
+                  </Text>
+                </PhysicalPressable>
+              ) : null}
+
               {commitment.externalUrl ? (
                 <PhysicalPressable
                   accessibilityRole="link"
@@ -170,6 +184,8 @@ const styles = StyleSheet.create({
   detailText: { color: '#334B3F', fontSize: 12 },
   address: { color: '#435A4D', fontSize: 13, lineHeight: 19, marginTop: 9 },
   truth: { color: '#4A5E50', fontSize: 13, lineHeight: 19, marginTop: 10 },
+  inquiryButton: { minHeight: 52, borderRadius: 12, backgroundColor: '#2F5A4A', marginTop: 12 },
+  inquiryText: { color: '#FFF9E8', fontSize: 14, fontWeight: '700', textAlign: 'center' },
   openButton: { minHeight: 52, borderRadius: 12, backgroundColor: '#204338', marginTop: 12 },
   openText: { color: '#FFF7E8', fontSize: 14, fontWeight: '700' },
   privacy: { color: '#D5DECF', fontSize: 12, lineHeight: 18, marginTop: 14 }

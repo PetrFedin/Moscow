@@ -86,6 +86,16 @@ for (const viewport of [
     await page.screenshot({ path: testInfo.outputPath(viewport.name + '-booking-wallet-viewport.png') });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2),
       'Booking wallet has no horizontal body overflow').toBe(false);
+    await wallet.getByRole('button', {
+      name: 'Разобраться с билетом или бронью: Большой театр · мой билет'
+    }).click();
+    const bookingHelp = page.getByTestId('booking-resolution-card');
+    await expect(bookingHelp.getByTestId('booking-resolution-selected-visual-ticket')).toBeVisible();
+    await bookingHelp.getByText('О чём хотите спросить?', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(viewport.name + '-booking-inquiry-viewport.png') });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2),
+      'Booking assistance has no horizontal body overflow').toBe(false);
+    await bookingHelp.getByRole('button', { name: 'Свернуть помощь с билетами' }).click();
     await page.getByText('Новая', { exact: true }).click();
     await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
     await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();

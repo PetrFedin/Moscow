@@ -58,6 +58,7 @@ import TripJourneyOverview from './TripJourneyOverview';
 import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
+import BookingResolutionCard from './BookingResolutionCard';
 import TripArchivePanel from './TripArchivePanel';
 import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
 import { buildMoscowTravelHistory } from '../../travel/moscowTravelHistory';
@@ -261,6 +262,8 @@ export default function PersonalTripPlanner({
   const [durationDays, setDurationDays] = useState<(typeof durationOptions)[number]>(3);
   const [manualOpen, setManualOpen] = useState(false);
   const [tripToolsOpen, setTripToolsOpen] = useState(false);
+  const [bookingHelpOpen, setBookingHelpOpen] = useState(false);
+  const [bookingHelpItemId, setBookingHelpItemId] = useState<string | undefined>(undefined);
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
@@ -1176,7 +1179,22 @@ export default function PersonalTripPlanner({
 
 
 
-      <BookingWalletCard trip={trip} language={language} />
+      <BookingWalletCard
+        trip={trip}
+        language={language}
+        onManageBooking={(itemId) => {
+          setBookingHelpItemId(itemId);
+          setBookingHelpOpen(true);
+        }}
+      />
+      <BookingResolutionCard
+        trip={trip}
+        language={language}
+        open={bookingHelpOpen}
+        focusedItemId={bookingHelpItemId}
+        onToggle={setBookingHelpOpen}
+        onUpdate={setTrip}
+      />
 
       <LiveDisruptionCard
         disruptions={liveDisruptions}

@@ -788,6 +788,18 @@ Canonical inspection and execution checklist: `docs/MOSCOW_UNFINISHED_WORK_DELIV
 
 
 
+#### Booking exception continuation — self-reported evidence only (Draft PR #181, 2026-10-15)
+
+Specification and provider authority gates: `docs/MOSCOW_BOOKING_EXCEPTION_CONTINUATION_2026-10-15.md`.
+
+- PR #180 blocks itinerary and schedule-only solver mutations of held/confirmed/cancelled provider commitments. User-selected flexible places may move; real booked dates are immutable without a separate supplier-approved change.
+- Draft PR #181 adds optional private `bookingResolutions` to each trip: local request opened → traveler self-reported contact → traveler-authored reply note → archived, with append-only audit, strict input limits and legacy backup compatibility.
+- The Wallet's active booking card links to the inquiry panel; cancelled reservations remain reachable in a separate history/assistance selection. A copyable message example is never automatically sent.
+- All action labels distinguish **user report** from independently verified provider evidence. Contact notes cannot change booked time, cancel/refund status or verification class.
+- This is a consumer UX and data-integrity layer, **not** actual provider contact, returns/refunds, live availability, PDF/QR import or authenticated cross-device storage.
+- Review gates: exact-head CI, real screenshot inspection, OS kill/storage recovery, independent security/UX review, source-proven supplier API permissions and explicit owner release approval. No main/production change.
+
+
 #### Market audit and multi-destination brand proposal — NOT RELEASED (2026-10-15)
 
 - Comprehensive *selected-market* review of RUSSPASS, 2GIS, Yandex Maps/Travel, Tripster, Sputnik8, Wanderlog, TripIt, Polarsteps, Mindtrip, Roadtrippers, and attraction booking alternatives, with vendor links and visual pattern references: `docs/DAYTERA_MARKET_COMPETITOR_UX_AUDIT_2026-10-15.md`.
