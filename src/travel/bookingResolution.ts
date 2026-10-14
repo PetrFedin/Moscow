@@ -7,9 +7,9 @@ import type { PersonalTrip } from './personalTrip.ts';
  * Cases are append-only per event. The original commitment is NEVER mutated
  * by this workflow. Any real reschedule/refund remains a provider action.
  */
-export const BOOKING_RESOLUTION_MAX_CASES = 80;
-export const BOOKING_RESOLUTION_MAX_EVENTS = 40;
-export const BOOKING_RESOLUTION_MAX_NOTE = 1200;
+export const BOOKING_RESOLUTION_MAX_CASES = 40;
+export const BOOKING_RESOLUTION_MAX_EVENTS = 12;
+export const BOOKING_RESOLUTION_MAX_NOTE = 800;
 
 export type BookingResolutionTopic =
   | 'change-date'
@@ -64,6 +64,9 @@ export function validateBookingResolutions(trip: PersonalTrip): void {
       throw new Error('Invalid booking resolution case');
     }
     const entry = candidate as Partial<BookingResolutionCase>;
+    if (!Object.keys(entry).every(key => ['id', 'itemId', 'topic', 'events'].includes(key))) {
+      throw new Error('Unsupported booking case fields');
+    }
     if (!nonempty(entry.id, 120) || caseIds.has(entry.id)
       || !nonempty(entry.itemId, 120)
       || !trip.items.some(item => item.id === entry.itemId && item.commitment)
@@ -78,6 +81,10 @@ export function validateBookingResolutions(trip: PersonalTrip): void {
     let archived = false;
     for (let i = 0; i < entry.events.length; i++) {
       const event = entry.events[i] as Partial<BookingResolutionEvent>;
+      if (event && typeof event === 'object' && !Array.isArray(event)
+        && !Object.keys(event).every(key => ['id', 'at', 'kind', 'note'].includes(key))) {
+        throw new Error('Unsupported booking event fields');
+      }
       if (!event || typeof event !== 'object' || Array.isArray(event)
         || !nonempty(event.id, 120) || allEventIds.has(event.id)
         || !exactTime(event.at)
