@@ -65,6 +65,14 @@
 - Remaining P0 blockers: independent review of PR #179 → #180 → #181 plus ancestor reconciliation; on-device crash/restore and actual screenshot inspection. Remaining P1: real consented provider communication, immutable verified supplier responses, refunds and ticket/document import. Production HOLD.
 
 
+## 2026-10-15 P0 privacy continuation — selective full local erasure (Draft PR #182)
+
+- Review identified a deliberate but potentially confusing distinction: the existing `deleteActiveTrip` removes only the current local active copy. Any already archived revision with the same ID is retained and the UI explicitly said so. This behavior is preserved.
+- A separate two-step **Delete all local copies** action now journals the active deletion and removal of every matching ID from the local archive atomically as far as the existing recovery journal can guarantee. Unrelated local journeys and their notes, tickets, visits and inquiry logs are retained.
+- Crash-after-write and ordinary deletion regression tests cover exact target removal, preservation of unrelated trip and replay of an interrupted journal.
+- This is **not** secure hardware erasure and cannot remove separate downloaded/plaintext backups, copies stored elsewhere, third-party/provider records or system backups. Storage eviction, native crash tests and independent privacy review are still open.
+- Draft PR #182 is stacked on #181; no merge, preview deployment or production change is implied by code or CI alone.
+
 ## 4. Important remaining storage risk
 
 This journal still relies on independent AsyncStorage keys. Co-operating browser tabs now use a named Web Lock when the browser supports it; operations within a native JS runtime remain serialized by an in-memory queue. **Web Locks do not solve unsupported browsers, device loss, hostile storage writes or non-cooperating extensions.** Read-then-compare alone is not atomic; physical iPhone/Android termination, quota and crash tests remain P0 issue #173. Neither recovery from OS storage eviction nor encryption is proven. Do not publicly guarantee zero data loss. Plain-text exported backups remain unencrypted.
