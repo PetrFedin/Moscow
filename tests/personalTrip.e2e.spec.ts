@@ -1762,7 +1762,8 @@ test('ICS import retains invitation on quota failure and retries only after dura
   });
   await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
   await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected storage quota reached');
-  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation);
+  // HTML textarea normalizes CRLF to LF; every other invitation character must remain unchanged.
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation.replaceAll('\r\n', '\n'));
   await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
   const afterFailure = await page.evaluate(() => ({
     active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
@@ -1830,7 +1831,8 @@ test('ICS interrupted active write recovers exactly once after reload', async ({
   });
   await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
   await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected active-key write failure');
-  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation);
+  // HTML textarea normalizes CRLF to LF; every other invitation character must remain unchanged.
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation.replaceAll('\r\n', '\n'));
   expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction'))).not.toBeNull();
 
   // Simulate a terminated tab after a fully validated but interrupted journal.
