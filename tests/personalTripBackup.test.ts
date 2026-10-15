@@ -98,3 +98,18 @@ test('export chooses the latest active snapshot over a stale archived copy', () 
   assert.equal(parsePersonalTripBackup(backup).archive.trips.length, 0);
   assert.equal(parsePersonalTripBackup(backup).activeTrip?.visits.length, 1);
 });
+
+test('backup rejects duplicate calendar UIDs across two items inside one journey', () => {
+  const value = withTicketAndNote();
+  const duplicate = {
+    ...value, items: [
+      { ...value.items[0]!, calendarImportKey: 'ics:unique-event@example.test' },
+      { ...value.items[0]!, id: 'second-ticket', calendarImportKey: 'ics:unique-event@example.test' }
+    ]
+  };
+  const raw = JSON.stringify({
+    format: 'moscow-personal-trips-backup', schemaVersion: 1,
+    exportedAt: ts, activeTrip: duplicate, archive: emptyPersonalTripArchive()
+  });
+  assert.throws(() => parsePersonalTripBackup(raw), /Duplicate imported calendar event/);
+});
