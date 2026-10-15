@@ -313,3 +313,37 @@ test('invalid reserved preference window is rejected', () => {
     /Reserved window end must be after start/
   );
 });
+
+test('late fixed ticket overlaps an early booking on the following calendar day', () => {
+  let value = addFixed(trip(), 'late-show', '2026-10-02T23:30:00+03:00', '2026-10-03T01:30:00+03:00');
+  value = addManualTripItem({
+    trip: value, itemId: 'early-booking', dayDate: '2026-10-03',
+    title: 'Early booking', kind: 'food',
+    plannedStartAt: '2026-10-03T00:30:00+03:00',
+    plannedEndAt: '2026-10-03T02:00:00+03:00', updatedAt: createdAt,
+    commitment: { kind: 'reservation', status: 'confirmed', verification: 'user-declared' }
+  });
+  const conflicts = detectTripScheduleConflicts(value);
+  assert.equal(conflicts.length, 1);
+  assert.equal(conflicts[0]?.dayDate, '2026-10-03');
+  assert.deepEqual(conflicts[0]?.itemIds, ['late-show', 'early-booking']);
+  assert.equal(conflicts[0]?.overlapStartAt, '2026-10-02T21:30:00.000Z');
+  const windows = deriveTripFreeWindows({
+    trip: value, dayDate: '2026-10-03',
+    dayStartsAt: '2026-10-03T00:00:00+03:00',
+    dayEndsAt: '2026-10-03T03:00:00+03:00'
+  });
+  assert.deepEqual(windows.map(x => x.minutes), [60]);
+});
+
+test('cancelled overnight commitment does not block a following-day slot', () => {
+  let value = addFixed(trip(), 'overnight', '2026-10-02T23:30:00+03:00', '2026-10-03T01:30:00+03:00');
+  value = {...value, items: value.items.map(item => ({...item,
+    commitment: item.commitment ? {...item.commitment, status:'cancelled' as const} : undefined}))};
+  const windows = deriveTripFreeWindows({
+    trip: value, dayDate: '2026-10-03',
+    dayStartsAt: '2026-10-03T00:00:00+03:00',
+    dayEndsAt: '2026-10-03T03:00:00+03:00'
+  });
+  assert.deepEqual(windows.map(x => x.minutes), [180]);
+});
