@@ -1004,6 +1004,47 @@ export default function PersonalTripPlanner({
     }
   };
 
+  // Calendar imports must commit to durable local storage BEFORE their
+  // preview and pasted invitation are discarded. A React state update is not
+  // proof that a ticket or plan survived a storage failure or another tab.
+  const persistCalendarImport = async (nextTrip: PersonalTrip): Promise<void> => {
+    if (!trip || !beginStorageOperation()) {
+      throw new Error('Trip storage is unavailable; calendar event was not saved');
+    }
+    try {
+      await activeWritesRef.current;
+      if (nextTrip.id !== trip.id) throw new Error('Calendar import trip identity changed');
+      const saved = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'edit',
+        id: 'calendar-import:' + nextTrip.id + ':' + nextTrip.updatedAt,
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (!activeTrip || activeTrip.id !== nextTrip.id) {
+            throw new Error('Active trip changed during calendar import');
+          }
+          return { activeTrip: nextTrip, archive: savedArchive, result: true };
+        }
+      });
+      persistedTripRef.current = saved.activeTrip;
+      setTrip(saved.activeTrip);
+      setFormError('');
+    } catch (error) {
+      // A failed, interrupted journal must be recovered before any new edit;
+      // otherwise leave the modal and raw invitation intact for an explicit retry.
+      try {
+        if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
+          setArchiveError('trip-storage-recovery-required');
+        }
+      } catch {
+        setArchiveError('trip-storage-recovery-required');
+      }
+      throw error;
+    } finally {
+      endStorageOperation();
+    }
+  };
+
   const backupPanel = (
     <TripBackupPanel
       language={language}
@@ -1249,7 +1290,7 @@ export default function PersonalTripPlanner({
           setBookingHelpOpen(true);
         }}
       />
-      <CalendarInviteImportCard trip={trip} language={language} onUpdate={setTrip} />
+      <CalendarInviteImportCard trip={trip} language={language} onUpdate={persistCalendarImport} />
       <BookingResolutionCard
         trip={trip}
         language={language}
