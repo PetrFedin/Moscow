@@ -165,8 +165,19 @@ function assertUniqueItemId(trip: PersonalTrip, itemId: string) {
 }
 
 function validateCommitment(commitment: PersonalTripCommitment) {
-  if (commitment.provider !== undefined && !commitment.provider.trim()) {
-    throw new Error('Commitment provider cannot be blank');
+  if (!commitment || typeof commitment !== 'object' || Array.isArray(commitment)
+    || !['ticket', 'reservation'].includes(commitment.kind)
+    || !['held', 'confirmed', 'cancelled'].includes(commitment.status)
+    || !['user-declared', 'provider-confirmed'].includes(commitment.verification)) {
+    throw new Error('Invalid booking type, status or verification');
+  }
+  if (commitment.provider !== undefined && (typeof commitment.provider !== 'string'
+    || !commitment.provider.trim() || commitment.provider.length > 240)) {
+    throw new Error('Commitment provider cannot be blank or oversized');
+  }
+  if (commitment.reference !== undefined && (typeof commitment.reference !== 'string'
+    || !commitment.reference.trim() || commitment.reference.length > 240)) {
+    throw new Error('Invalid commitment reference');
   }
   if (commitment.partySize !== undefined
     && (!Number.isInteger(commitment.partySize) || commitment.partySize < 1 || commitment.partySize > 50)) {
@@ -667,9 +678,17 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   parseIso(parsed.updatedAt);
 
   const trip = parsed as PersonalTrip;
+  const seenItemIds = new Set<string>();
+  const seenCalendarKeys = new Set<string>();
   for (const item of trip.items) {
     assertTripDay(trip, item.dayDate);
     if (!item.id?.trim() || !item.title?.trim()) throw new Error('Invalid Personal Trip item');
+    if (!['planned', 'completed', 'skipped', 'cancelled'].includes(item.status)
+      || !['manual', 'provider', 'destination-package'].includes(item.source)) {
+      throw new Error('Invalid trip item status or source');
+    }
+    if (seenItemIds.has(item.id)) throw new Error('Duplicate trip item ID: ' + item.id);
+    seenItemIds.add(item.id);
     if (item.catalogPlaceId !== undefined) {
       if (typeof item.catalogPlaceId !== 'string' || !item.catalogPlaceId.trim()
         || typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl)
@@ -681,14 +700,25 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
       && (typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl))) {
       throw new Error('Invalid trip place source URL');
     }
-    if (item.calendarImportKey !== undefined
-      && (typeof item.calendarImportKey !== 'string'
-        || !/^ics:[A-Za-z0-9._@+:-]{1,140}$/.test(item.calendarImportKey))) {
-      throw new Error('Invalid calendar import key');
+    if (item.calendarImportKey !== undefined) {
+      if (typeof item.calendarImportKey !== 'string'
+        || !/^ics:[A-Za-z0-9._@+:-]{1,140}$/.test(item.calendarImportKey)
+        || item.source !== 'manual') {
+        throw new Error('Invalid calendar import key');
+      }
+      if (seenCalendarKeys.has(item.calendarImportKey)) {
+        throw new Error('Duplicate imported calendar event: ' + item.calendarImportKey);
+      }
+      seenCalendarKeys.add(item.calendarImportKey);
     }
     if (item.commitment) validateCommitment(item.commitment);
   }
+  const seenVisitIds = new Set<string>();
   for (const visit of trip.visits) {
+    if (!visit.id?.trim() || seenVisitIds.has(visit.id)) {
+      throw new Error('Invalid or duplicate visit ID');
+    }
+    seenVisitIds.add(visit.id);
     assertTripDay(trip, visit.dayDate);
     parseIso(visit.visitedAt);
     if (visit.note !== undefined && (typeof visit.note !== 'string' || visit.note.length > 2000)) {
