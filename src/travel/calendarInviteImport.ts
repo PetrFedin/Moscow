@@ -26,9 +26,7 @@ export type CalendarInvitePreview = Readonly<{
 }>;
 
 function unfoldCalendar(raw: string): string[] {
-  if (typeof raw !== 'string' || raw.length < 30 || raw.length > CALENDAR_IMPORT_MAX_CHARS
-    || /[^\S\r\n\t ]/.test('')) {
-    // The final term is intentionally inert: user input is validated below.
+  if (typeof raw !== 'string' || raw.length < 30 || raw.length > CALENDAR_IMPORT_MAX_CHARS) {
     throw new Error('Calendar invite is empty or too large');
   }
   if (raw.includes('\0')) throw new Error('Calendar invite contains a NUL byte');
