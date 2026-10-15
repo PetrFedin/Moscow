@@ -341,3 +341,45 @@ test('crash during full erase recovers to complete deletion without erasing anot
   assert.deepEqual(recovered.archive.trips.map(t => t.id), ['summer']);
   assert.equal(await storage.getItem(JOURNAL), null);
 });
+
+test('calendar import journal failure does not report durable success or erase a previous ticket', async () => {
+  const { storage, active } = seeded();
+  const imported = addManualTripItem({
+    trip: active, itemId: 'calendar-added', dayDate: '2026-10-13',
+    title: 'Calendar theatre', kind: 'theatre', updatedAt: '2026-10-13T11:00:00.000Z',
+    commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared' }
+  });
+  const commit = () => transactTripStorage({
+    storage, operation: 'edit' as const, id: 'calendar-import-retry',
+    expectedActiveTrip: active,
+    transform: ({archive}) => ({activeTrip: imported, archive, result: true})
+  });
+  storage.fault = { key: JOURNAL, operation: 'set', when: 'before' };
+  await assert.rejects(commit(), /Injected storage crash/);
+  assert.equal(await storage.getItem(JOURNAL), null);
+  assert.equal((await readRecoveredTripStorage(storage)).activeTrip?.items.length, active.items.length);
+  const successful = await commit();
+  assert.equal(successful.activeTrip?.items.length, active.items.length + 1);
+  assert.equal(successful.activeTrip?.items.at(-1)?.commitment?.verification, 'user-declared');
+  assert.equal((await readRecoveredTripStorage(storage)).activeTrip?.items.length, active.items.length + 1);
+});
+
+test('interrupted calendar import replays the committed event exactly once after restart', async () => {
+  const { storage, active } = seeded();
+  const imported = addManualTripItem({
+    trip: active, itemId: 'calendar-night', dayDate: '2026-10-13',
+    title: 'Evening performance', kind: 'theatre', updatedAt: '2026-10-13T12:00:00.000Z'
+  });
+  storage.fault = { key: ACTIVE, operation: 'set', when: 'after' };
+  await assert.rejects(transactTripStorage({
+    storage, operation: 'edit', id: 'calendar-interrupted', expectedActiveTrip: active,
+    transform: ({archive}) => ({activeTrip: imported, archive, result: true})
+  }), /Injected storage crash/);
+  const restarted = await readRecoveredTripStorage(storage);
+  assert.equal(restarted.recovered, true);
+  assert.equal(restarted.activeTrip?.items.filter(item => item.id === 'calendar-night').length, 1);
+  assert.equal(await storage.getItem(JOURNAL), null);
+  const secondRestart = await readRecoveredTripStorage(storage);
+  assert.equal(secondRestart.recovered, false);
+  assert.equal(secondRestart.activeTrip?.items.filter(item => item.id === 'calendar-night').length, 1);
+});
