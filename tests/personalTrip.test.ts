@@ -281,3 +281,46 @@ test('curated place is not rejected solely because a manual stop uses the same t
   assert.equal(curated.items[1]?.catalogPlaceId, museum.id);
   assert.equal(curated.items[1]?.commitment, undefined);
 });
+
+
+test('restored trip refuses forged categories and duplicate visit identities without changing originals', () => {
+  const original = addManualTripItem({
+    trip: baseTrip(), itemId: 'venue-1', dayDate: '2026-10-02',
+    title: 'Museum', kind: 'museum', updatedAt: now
+  });
+  const snapshot = JSON.stringify(original);
+  for (const kind of ['supplier-verified', null, 1]) {
+    const forged = { ...original, items: [{ ...original.items[0], kind }] };
+    assert.throws(() => parsePersonalTrip(JSON.stringify(forged)), /Invalid Personal Trip item/);
+  }
+  const visited = recordTripVisit({
+    trip: original, visitId: 'visit-1', itemId: 'venue-1',
+    dayDate: '2026-10-02', title: 'Museum', kind: 'museum',
+    evidence: 'user-confirmed', visitedAt: now, updatedAt: now
+  });
+  for (const changed of [
+    { ...visited, visits: [{ ...visited.visits[0], evidence: 'provider-confirmed' }] },
+    { ...visited, visits: [{ ...visited.visits[0], evidence: 'provider-receipt' }] },
+    { ...visited, visits: [...visited.visits, { ...visited.visits[0], id: 'visit-2' }] },
+    { ...visited, visits: [null] }
+  ]) {
+    assert.throws(() => parsePersonalTrip(JSON.stringify(changed)));
+  }
+  assert.equal(JSON.stringify(original), snapshot);
+  assert.equal(parsePersonalTrip(JSON.stringify(visited)).visits[0]?.evidence, 'user-confirmed');
+});
+
+test('restored ICS record cannot impersonate a provider-confirmed reservation', () => {
+  const original = addManualTripItem({
+    trip: baseTrip(), itemId: 'ics-entry', dayDate: '2026-10-02',
+    title: 'Theatre', kind: 'theatre', updatedAt: now,
+    commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared' }
+  });
+  const forged = { ...original, items: original.items.map(item => ({
+    ...item, calendarImportKey: 'ics:abc@example.test',
+    commitment: { ...item.commitment, verification: 'provider-confirmed',
+      provider: 'fake-provider', receiptEvidenceRef: 'fake-proof' }
+  })) };
+  assert.throws(() => parsePersonalTrip(JSON.stringify(forged)), /Calendar import cannot establish provider-confirmed booking/);
+  assert.equal(original.items[0]?.commitment?.verification, 'user-declared');
+});
