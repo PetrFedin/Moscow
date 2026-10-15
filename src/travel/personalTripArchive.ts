@@ -45,6 +45,27 @@ export function archivePersonalTrip(archive: PersonalTripArchive, trip: Personal
   }));
 }
 
+/**
+ * Remove all locally archived snapshots of one journey ID.
+ * Active-key deletion must be committed in the SAME journaled transaction.
+ *
+ * This does NOT erase backups already exported, cloud/provider records, or
+ * copies on other devices. It never touches another local trip ID.
+ */
+export function archiveWithoutPersonalTrip(
+  archive: PersonalTripArchive,
+  tripId: string
+): PersonalTripArchive {
+  if (typeof tripId !== 'string' || !tripId.trim()) {
+    throw new Error('Trip ID required for local archive deletion');
+  }
+  const existing = parsePersonalTripArchive(JSON.stringify(archive));
+  return parsePersonalTripArchive(JSON.stringify({
+    schemaVersion: PERSONAL_TRIP_ARCHIVE_VERSION,
+    trips: existing.trips.filter((saved) => saved.id !== tripId)
+  }));
+}
+
 export function archivedPersonalTrip(archive: PersonalTripArchive, tripId: string): PersonalTrip | undefined {
   const normalizedArchive = parsePersonalTripArchive(JSON.stringify(archive));
   return normalizedArchive.trips.find((trip) => trip.id === tripId);
