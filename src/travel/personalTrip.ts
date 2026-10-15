@@ -35,6 +35,8 @@ export type PersonalTripItem = {
   /** Canonical ID of a user-selected editorial venue; not a reservation. */
   catalogPlaceId?: string;
   officialSourceUrl?: string;
+  /** User-imported calendar UID for local deduplication, not provider proof. */
+  calendarImportKey?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
   status: 'planned' | 'completed' | 'skipped' | 'cancelled';
@@ -678,6 +680,11 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
     if (item.officialSourceUrl !== undefined
       && (typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl))) {
       throw new Error('Invalid trip place source URL');
+    }
+    if (item.calendarImportKey !== undefined
+      && (typeof item.calendarImportKey !== 'string'
+        || !/^ics:[A-Za-z0-9._@+:-]{1,140}$/.test(item.calendarImportKey))) {
+      throw new Error('Invalid calendar import key');
     }
     if (item.commitment) validateCommitment(item.commitment);
   }
