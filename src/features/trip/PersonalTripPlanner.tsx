@@ -77,6 +77,7 @@ import {
   parsePersonalTripArchive,
   archivePersonalTrip,
   archivedPersonalTrip,
+  archiveWithoutPersonalTrip,
   type PersonalTripArchive
 } from '../../travel/personalTripArchive';
 import TripPreferencesCard from './TripPreferencesCard';
@@ -265,6 +266,7 @@ export default function PersonalTripPlanner({
   const [bookingHelpOpen, setBookingHelpOpen] = useState(false);
   const [bookingHelpItemId, setBookingHelpItemId] = useState<string | undefined>(undefined);
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
+  const [eraseAllCopiesConfirm, setEraseAllCopiesConfirm] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualKind, setManualKind] = useState<PersonalTripItemKind>('event');
   const [manualTime, setManualTime] = useState('19:00');
@@ -911,6 +913,41 @@ export default function PersonalTripPlanner({
     }
   };
 
+  const eraseAllLocalTripCopies = async () => {
+    if (!trip || !beginStorageOperation()) {
+      setFormError('trip-erase-not-ready');
+      return;
+    }
+    try {
+      await activeWritesRef.current;
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'delete',
+        id: 'erase-all-local:' + trip.id + ':' + new Date().toISOString(),
+        expectedActiveTrip: trip,
+        transform: ({ archive: savedArchive }) => ({
+          activeTrip: null,
+          archive: archiveWithoutPersonalTrip(savedArchive, trip.id),
+          result: true
+        })
+      });
+      persistedTripRef.current = null;
+      setArchive(outcome.archive);
+      setTrip(null);
+      setResetConfirmationOpen(false);
+      setEraseAllCopiesConfirm(false);
+      setBookingHelpOpen(false);
+      setBookingHelpItemId(undefined);
+      onDirectoryPlaceHandled?.();
+      setFormError('');
+    } catch {
+      setFormError('trip-erase-storage-error');
+      setArchiveError('trip-storage-recovery-required');
+    } finally {
+      endStorageOperation();
+    }
+  };
+
   const exportTripBackup = async (): Promise<string> => {
     if (!hydrated || !archiveReady || archiveError || storageOperationRef.current) {
       throw new Error('Archive not ready');
@@ -1122,6 +1159,30 @@ export default function PersonalTripPlanner({
             contentStyle={styles.center}
             onPress={() => { void deleteActiveTrip(); }}
           ><Text style={styles.dangerButtonText}>{tr(language, 'Удалить поездку', 'Delete trip', '删除行程')}</Text></PhysicalPressable>
+          <PhysicalPressable
+            accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Удалить все локальные версии текущей поездки', 'Delete all local copies of this trip', '删除该行程的所有本地副本')}
+            style={styles.dangerButton} contentStyle={styles.center}
+            onPress={() => setEraseAllCopiesConfirm(true)}
+          ><Text style={styles.dangerButtonText}>{tr(language, 'Удалить полностью с устройства', 'Delete all local copies', '删除全部本地副本')}</Text></PhysicalPressable>
+          {eraseAllCopiesConfirm ? (
+            <View style={styles.dangerPanel}>
+              <Text style={styles.dangerBody}>{tr(language,
+                'Будут удалены активная поездка и все её архивные версии на этом устройстве. Другие поездки останутся. Экспортированные файлы и копии на других устройствах НЕ удаляются.',
+                'The active trip and every archived copy of it on this device will be deleted. Other trips stay. Exported files and copies on other devices are NOT deleted.',
+                '将删除本机该行程的活动与存档副本；其他行程保留。已导出的文件和其他设备副本不会删除。')}</Text>
+              <PhysicalPressable accessibilityRole="button"
+                accessibilityLabel={tr(language, 'Окончательно удалить все местные копии этой поездки', 'Confirm delete every local copy of this trip', '确认删除本地全部副本')}
+                style={styles.dangerButton} contentStyle={styles.center}
+                onPress={() => { void eraseAllLocalTripCopies(); }}
+              ><Text style={styles.dangerButtonText}>{tr(language, 'Подтвердить полное удаление', 'Confirm full deletion', '确认完全删除')}</Text></PhysicalPressable>
+              <PhysicalPressable accessibilityRole="button"
+                accessibilityLabel={tr(language, 'Отмена полного удаления', 'Cancel full deletion', '取消完全删除')}
+                style={styles.reset} contentStyle={styles.center}
+                onPress={() => setEraseAllCopiesConfirm(false)}
+              ><Text style={styles.resetText}>{tr(language, 'Не удалять', 'Keep trip', '保留行程')}</Text></PhysicalPressable>
+            </View>
+          ) : null}
           <PhysicalPressable
             accessibilityRole="button"
             accessibilityLabel={tr(language, 'Отменить удаление поездки', 'Keep current trip', '保留当前行程')}

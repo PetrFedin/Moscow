@@ -8,6 +8,7 @@ import {
 } from '../src/travel/personalTrip.ts';
 import {
   archivePersonalTrip,
+  archiveWithoutPersonalTrip,
   archivedPersonalTrip,
   emptyPersonalTripArchive
 } from '../src/travel/personalTripArchive.ts';
@@ -300,5 +301,43 @@ test('creating a trip is refused if another tab has already created an active on
     transform: ({ archive }) => ({ activeTrip: base('overwritten'), archive, result: true })
   }), /changed or is not durably saved/);
   assert.deepEqual((await readRecoveredTripStorage(storage)).activeTrip, active);
+  assert.equal(await storage.getItem(JOURNAL), null);
+});
+
+test('journaled erase removes only active and matching archived trip, not unrelated history', async () => {
+  const { storage, active, old } = seeded();
+  const withDuplicate = archivePersonalTrip(old, active);
+  storage.data.set(ARCHIVE, JSON.stringify(withDuplicate));
+  const result = await transactTripStorage({
+    storage, operation: 'delete', id: 'erase-all:autumn',
+    expectedActiveTrip: active,
+    transform: ({ archive }) => ({
+      activeTrip: null, archive: archiveWithoutPersonalTrip(archive, active.id), result: true
+    })
+  });
+  assert.equal(result.activeTrip, null);
+  assert.equal(result.archive.trips.length, 1);
+  assert.equal(result.archive.trips[0]?.id, 'summer');
+  assert.equal(await storage.getItem(ACTIVE), null);
+  assert.equal(await storage.getItem(JOURNAL), null);
+  assert.equal(archivedPersonalTrip(result.archive, 'autumn'), undefined);
+  assert.equal(archivedPersonalTrip(result.archive, 'summer')?.id, 'summer');
+});
+
+test('crash during full erase recovers to complete deletion without erasing another trip', async () => {
+  const { storage, active, old } = seeded();
+  storage.data.set(ARCHIVE, JSON.stringify(archivePersonalTrip(old, active)));
+  storage.fault = { key: ACTIVE, operation: 'remove', when: 'before' };
+  await assert.rejects(transactTripStorage({
+    storage, operation: 'delete', id: 'erase-full-crash',
+    expectedActiveTrip: active,
+    transform: ({ archive }) => ({
+      activeTrip: null, archive: archiveWithoutPersonalTrip(archive, active.id), result: true
+    })
+  }), /Injected storage crash/);
+  const recovered = await readRecoveredTripStorage(storage);
+  assert.equal(recovered.recovered, true);
+  assert.equal(recovered.activeTrip, null);
+  assert.deepEqual(recovered.archive.trips.map(t => t.id), ['summer']);
   assert.equal(await storage.getItem(JOURNAL), null);
 });

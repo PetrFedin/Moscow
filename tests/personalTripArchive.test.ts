@@ -5,7 +5,7 @@ import {
 } from '../src/travel/personalTrip.ts';
 import type { DayReplacementAcceptanceReceipt } from '../src/travel/dayReplacementProposal.ts';
 import {
-  archivePersonalTrip, archivedPersonalTrip, emptyPersonalTripArchive, parsePersonalTripArchive
+  archivePersonalTrip, archiveWithoutPersonalTrip, archivedPersonalTrip, emptyPersonalTripArchive, parsePersonalTripArchive
 } from '../src/travel/personalTripArchive.ts';
 
 function makeTrip(id: string, startDate: string) {
@@ -85,4 +85,19 @@ test('archive rejects invalid shape, duplicate IDs and forged replacement receip
   assert.throws(() => parsePersonalTripArchive(JSON.stringify({
     schemaVersion: 1, trips: [{ ...corrupted, replacementReceipts: [{ fixedCommitmentsPreserved: false }] }]
   })), /Invalid replacement acceptance receipt/);
+});
+
+test('full local erase removes only the chosen trip ID from archives, including its private notes', () => {
+  const a = makeTrip('target', '2026-10-13');
+  const b = makeTrip('unrelated', '2026-11-13');
+  const archived = archivePersonalTrip(archivePersonalTrip(emptyPersonalTripArchive(), a), b);
+  const original = JSON.stringify(archived);
+  const erased = archiveWithoutPersonalTrip(archived, 'target');
+  assert.equal(erased.trips.length, 1);
+  assert.equal(erased.trips[0]?.id, 'unrelated');
+  assert.equal(archivedPersonalTrip(erased, 'target'), undefined);
+  assert.ok(archivedPersonalTrip(erased, 'unrelated'));
+  assert.equal(JSON.stringify(archived), original);
+  assert.deepEqual(archiveWithoutPersonalTrip(erased, 'target'), erased);
+  assert.throws(() => archiveWithoutPersonalTrip(archived, '  '), /Trip ID required/);
 });

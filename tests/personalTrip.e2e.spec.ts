@@ -1625,3 +1625,43 @@ test('traveler records supplier inquiry without changing ticket, archives it, an
   await expect(page.getByTestId('travel-booking-wallet')
     .getByText('Отменённая бронь', { exact: true })).toHaveCount(0);
 });
+
+test('explicit full local delete erases active and its prior archive snapshot, but not another journey', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const build = (id: string) => ({
+      schemaVersion: 1, id, destinationId: 'moscow', title: id,
+      startDate: '2026-10-13', endDate: '2026-10-13', days: ['2026-10-13'],
+      items: [], visits: [],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    });
+    const target = build('erase-target');
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(target));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [target, build('keep-journey')]
+    }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByText('Новая', { exact: true }).click();
+  await page.getByRole('button', { name: 'Удалить все локальные версии текущей поездки' }).click();
+  await expect(page.getByText(/Экспортированные файлы и копии на других устройствах НЕ удаляются/)).toBeVisible();
+  await page.getByRole('button', { name: 'Окончательно удалить все местные копии этой поездки' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'))).toBeNull();
+  const saved = await page.evaluate(() => ({
+    archive: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(saved.archive.trips.map((t: { id: string }) => t.id)).toEqual(['keep-journey']);
+  expect(saved.journal).toBeNull();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  await expect(page.getByText('erase-target', { exact: true })).toHaveCount(0);
+});
