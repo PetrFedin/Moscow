@@ -114,12 +114,18 @@ function clockField(raw: string): string {
   const value = valuePart(raw).toUpperCase();
   const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/.exec(value);
   if (!match) throw new Error('Calendar event time must include an explicit timezone and minute');
-  const [, year, month, day, hour, minute, seconds = '00', utc] = match;
+  const year = match[1]!;
+  const month = match[2]!;
+  const day = match[3]!;
+  const hour = match[4]!;
+  const minute = match[5]!;
+  const seconds = match[6] ?? '00';
+  const utc = match[7];
   const local = year + '-' + month + '-' + day + 'T' + hour + ':' + minute + ':' + seconds;
   if (+year < 2020 || +year > 2100) throw new Error('Calendar event date is out of range');
   const token = header.split(';').slice(1);
   const recognized = token.length === 0 || (
-    token.length === 1 && /^TZID="?EUROPE\/MOSCOW"?$/.test(token[0])
+    token.length === 1 && /^TZID="?EUROPE\/MOSCOW"?$/.test(token[0] ?? '')
   );
   if (!recognized || (utc && token.length > 0) || (!utc && token.length === 0)) {
     throw new Error('Only UTC or Europe/Moscow calendar times are supported');
