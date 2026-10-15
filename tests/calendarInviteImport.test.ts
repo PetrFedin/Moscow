@@ -60,3 +60,28 @@ test('cancelled, recurring, ambiguous timezone, multi-event and out-of-trip invi
     raw.replace('END:VCALENDAR','BEGIN:VEVENT\r\nUID:another\r\nEND:VEVENT\r\nEND:VCALENDAR')
   ]) assert.throws(()=>previewCalendarInvite(bad,trip()));
 });
+
+test('restored trip cannot contain two imported calendar events with the same UID', () => {
+  const saved = importCalendarInvite({
+    trip: trip(), raw, choice:'ticket', itemId:'first',
+    updatedAt:'2026-10-15T09:00:00.000Z'
+  });
+  const forged = { ...saved, items: [...saved.items,
+    { ...saved.items[0]!, id:'second' }] };
+  assert.throws(() => parsePersonalTrip(JSON.stringify(forged)), /Duplicate imported calendar event/);
+  assert.equal(saved.items.length,1);
+});
+
+test('backup parser refuses duplicate item IDs or malformed booking verification', () => {
+  const saved = importCalendarInvite({
+    trip:trip(),raw,choice:'ticket',itemId:'first',updatedAt:'2026-10-15T09:00:00.000Z'
+  });
+  assert.throws(() => parsePersonalTrip(JSON.stringify({
+    ...saved, items:[...saved.items, { ...saved.items[0]! }]
+  })), /Duplicate trip item ID/);
+  assert.throws(() => parsePersonalTrip(JSON.stringify({
+    ...saved, items:saved.items.map(item => ({
+      ...item, commitment:{ ...item.commitment, verification:'supplier-verified' }
+    }))
+  })), /Invalid booking type, status or verification/);
+});
