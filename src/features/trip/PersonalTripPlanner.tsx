@@ -59,6 +59,7 @@ import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import BookingResolutionCard from './BookingResolutionCard';
+import CalendarInviteImportCard from './CalendarInviteImportCard';
 import TripArchivePanel from './TripArchivePanel';
 import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
 import { buildMoscowTravelHistory } from '../../travel/moscowTravelHistory';
@@ -1248,6 +1249,7 @@ export default function PersonalTripPlanner({
           setBookingHelpOpen(true);
         }}
       />
+      <CalendarInviteImportCard trip={trip} language={language} onUpdate={setTrip} />
       <BookingResolutionCard
         trip={trip}
         language={language}
