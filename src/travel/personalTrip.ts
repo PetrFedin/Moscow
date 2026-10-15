@@ -59,6 +59,22 @@ export type PersonalTripVisit = {
   note?: string;
 };
 
+// JSON restored from device storage or an exported archive is untrusted even
+// when it happens to satisfy the TypeScript interface at compile time.
+const validTripKinds: readonly PersonalTripItemKind[] = [
+  'heritage', 'historical-site', 'landmark', 'museum', 'gallery',
+  'exhibition', 'theatre', 'cinema', 'concert', 'restaurant', 'cafe',
+  'bar', 'nightlife', 'food', 'event', 'activity', 'nature', 'park',
+  'shopping', 'market', 'wellness', 'sport', 'kids', 'stay',
+  'transport', 'viewpoint', 'other'
+];
+const validVisitEvidence: readonly PersonalTripVisit['evidence'][] = [
+  'user-confirmed', 'route-completed', 'provider-receipt', 'proximity'
+];
+function isTripKind(value: unknown): value is PersonalTripItemKind {
+  return typeof value === 'string' && validTripKinds.includes(value as PersonalTripItemKind);
+}
+
 export type TripPace = 'relaxed' | 'balanced' | 'intensive';
 export type TripPriorityMode = 'must-see' | 'balanced' | 'discover-more';
 
@@ -681,8 +697,13 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   const seenItemIds = new Set<string>();
   const seenCalendarKeys = new Set<string>();
   for (const item of trip.items) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)
+      || typeof item.id !== 'string' || !item.id.trim() || item.id.length > 180
+      || typeof item.title !== 'string' || !item.title.trim() || item.title.length > 500
+      || !isTripKind(item.kind)) {
+      throw new Error('Invalid Personal Trip item');
+    }
     assertTripDay(trip, item.dayDate);
-    if (!item.id?.trim() || !item.title?.trim()) throw new Error('Invalid Personal Trip item');
     if (!['planned', 'completed', 'skipped', 'cancelled'].includes(item.status)
       || !['manual', 'provider', 'destination-package'].includes(item.source)) {
       throw new Error('Invalid trip item status or source');
@@ -710,17 +731,53 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
         throw new Error('Duplicate imported calendar event: ' + item.calendarImportKey);
       }
       seenCalendarKeys.add(item.calendarImportKey);
+      if (item.commitment?.verification === 'provider-confirmed') {
+        // A pasted .ics entry is self-reported; it never carries supplier proof.
+        throw new Error('Calendar import cannot establish provider-confirmed booking');
+      }
     }
     if (item.commitment) validateCommitment(item.commitment);
   }
   const seenVisitIds = new Set<string>();
+  const seenVisitItems = new Set<string>();
+  const seenVisitPlaces = new Set<string>();
   for (const visit of trip.visits) {
-    if (!visit.id?.trim() || seenVisitIds.has(visit.id)) {
-      throw new Error('Invalid or duplicate visit ID');
+    if (!visit || typeof visit !== 'object' || Array.isArray(visit)
+      || typeof visit.id !== 'string' || !visit.id.trim() || visit.id.length > 180
+      || typeof visit.title !== 'string' || !visit.title.trim() || visit.title.length > 500
+      || !validVisitEvidence.includes(visit.evidence)
+      || (visit.kind !== undefined && !isTripKind(visit.kind))
+      || seenVisitIds.has(visit.id)) {
+      throw new Error('Invalid or duplicate visit record');
     }
     seenVisitIds.add(visit.id);
     assertTripDay(trip, visit.dayDate);
     parseIso(visit.visitedAt);
+    if (visit.itemId !== undefined) {
+      if (typeof visit.itemId !== 'string' || !visit.itemId.trim()
+        || seenVisitItems.has(visit.itemId)) {
+        throw new Error('Invalid or duplicate visited trip item');
+      }
+      seenVisitItems.add(visit.itemId);
+    }
+    if (visit.destinationNodeId !== undefined) {
+      if (typeof visit.destinationNodeId !== 'string' || !visit.destinationNodeId.trim()) {
+        throw new Error('Invalid visit destination node');
+      }
+      const dayPlaceKey = visit.dayDate + ':' + visit.destinationNodeId;
+      if (seenVisitPlaces.has(dayPlaceKey)) {
+        throw new Error('Duplicate visit to the same place on one day');
+      }
+      seenVisitPlaces.add(dayPlaceKey);
+    }
+    if (visit.evidenceRef !== undefined
+      && (typeof visit.evidenceRef !== 'string' || !visit.evidenceRef.trim()
+        || visit.evidenceRef.length > 240)) {
+      throw new Error('Invalid visit evidence reference');
+    }
+    if (visit.evidence === 'provider-receipt' && !visit.evidenceRef?.trim()) {
+      throw new Error('Provider-receipt visit requires evidence reference');
+    }
     if (visit.note !== undefined && (typeof visit.note !== 'string' || visit.note.length > 2000)) {
       throw new Error('Invalid visit note');
     }
