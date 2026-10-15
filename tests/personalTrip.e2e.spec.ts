@@ -1665,3 +1665,51 @@ test('explicit full local delete erases active and its prior archive snapshot, b
   await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
   await expect(page.getByText('erase-target', { exact: true })).toHaveCount(0);
 });
+
+test('calendar invite import previews a plan without claiming purchase and rejects duplicates on reload', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowDateOffset(1);
+  await page.evaluate((dayDate) => {
+    const trip = { schemaVersion:1, id:'ics-e2e-trip', destinationId:'moscow',
+      title:'Моя поездка', startDate:dayDate, endDate:dayDate, days:[dayDate],
+      items:[], visits:[], createdAt:'2026-10-15T08:00:00.000Z',
+      updatedAt:'2026-10-15T08:00:00.000Z' };
+    window.localStorage.setItem('moscow:v1:personal-trip',JSON.stringify(trip));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({schemaVersion:1,trips:[]}));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('calendar-invite-import');
+  await card.getByRole('button',{name:'Открыть импорт календарного события'}).click();
+  const stamp=day.replaceAll('-','');
+  const invite=['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT',
+    'UID:browser-ics-1@example.test','SUMMARY:Спектакль из календаря',
+    'DTSTART;TZID=Europe/Moscow:'+stamp+'T190000',
+    'DTEND;TZID=Europe/Moscow:'+stamp+'T210000',
+    'DESCRIPTION:PRIVATE BANK DATA MUST BE DISCARDED',
+    'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invite);
+  await card.getByRole('button',{name:'Проверить приглашение'}).click();
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Спектакль из календаря');
+  await card.getByRole('button',{name:'Подтвердить импорт события'}).click();
+  await expect.poll(async()=>page.evaluate(()=>{
+    const raw=JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.items?.length ?? 0;
+  })).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const stored=await page.evaluate(()=>JSON.parse(
+    window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(stored.items[0].commitment).toBeUndefined();
+  expect(stored.items[0].calendarImportKey).toBe('ics:browser-ics-1@example.test');
+  expect(JSON.stringify(stored)).not.toContain('PRIVATE BANK DATA');
+  const reopened=page.getByTestId('calendar-invite-import');
+  await reopened.getByRole('button',{name:'Открыть импорт календарного события'}).click();
+  await reopened.getByTestId('calendar-invite-input').fill(invite);
+  await reopened.getByRole('button',{name:'Проверить приглашение'}).click();
+  await expect(reopened.getByTestId('calendar-invite-error')).toContainText('already in this journey');
+});
