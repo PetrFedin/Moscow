@@ -1713,3 +1713,143 @@ test('calendar invite import previews a plan without claiming purchase and rejec
   await reopened.getByRole('button',{name:'Проверить приглашение'}).click();
   await expect(reopened.getByTestId('calendar-invite-error')).toContainText('already in this journey');
 });
+
+
+test('ICS import retains invitation on quota failure and retries only after durable write', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const value = {
+      schemaVersion: 1, id: 'ics-quota-journey', destinationId: 'moscow',
+      title: 'Private calendar proof', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [], visits: [], createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(value));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const card = page.getByTestId('calendar-invite-import');
+  await card.getByRole('button', { name: 'Открыть импорт календарного события' }).click();
+  const stamp = day.replaceAll('-', '');
+  const invitation = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+    'UID:ics-storage-quota@example.test', 'SUMMARY:Ночной спектакль',
+    'DTSTART;TZID=Europe/Moscow:' + stamp + 'T190000',
+    'DTEND;TZID=Europe/Moscow:' + stamp + 'T210000',
+    'DESCRIPTION:PRIVATE NEVER SAVE', 'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invitation);
+  await card.getByRole('button', { name: 'Проверить приглашение' }).click();
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
+
+  // Block the *actual* localStorage journal write for one attempt, not the
+  // parsing service or component callback. This mirrors a browser quota fault.
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!rejected && key === 'moscow:v1:personal-trip-transaction') {
+        rejected = true;
+        throw new DOMException('Injected storage quota reached', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected storage quota reached');
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation);
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
+  const afterFailure = await page.evaluate(() => ({
+    active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(afterFailure.active.items).toHaveLength(0);
+  expect(afterFailure.journal).toBeNull();
+
+  // A retry is explicit; never assume a rejected commit was saved.
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length ?? 0
+  )).toBe(1);
+  await expect(card.getByTestId('calendar-invite-input')).toHaveCount(0);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const restored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(restored.items).toHaveLength(1);
+  expect(restored.items[0].calendarImportKey).toBe('ics:ics-storage-quota@example.test');
+  expect(JSON.stringify(restored)).not.toContain('PRIVATE NEVER SAVE');
+});
+
+test('ICS interrupted active write recovers exactly once after reload', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const value = {
+      schemaVersion: 1, id: 'ics-interrupt-journey', destinationId: 'moscow',
+      title: 'Calendar crash recovery', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [], visits: [], createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(value));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const card = page.getByTestId('calendar-invite-import');
+  await card.getByRole('button', { name: 'Открыть импорт календарного события' }).click();
+  const stamp = day.replaceAll('-', '');
+  const invitation = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+    'UID:ics-interrupted@example.test', 'SUMMARY:Прогулка после театра',
+    'DTSTART;TZID=Europe/Moscow:' + stamp + 'T170000',
+    'DTEND;TZID=Europe/Moscow:' + stamp + 'T180000',
+    'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invitation);
+  await card.getByRole('button', { name: 'Проверить приглашение' }).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!rejected && key === 'moscow:v1:personal-trip') {
+        rejected = true;
+        throw new DOMException('Injected active-key write failure', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected active-key write failure');
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation);
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction'))).not.toBeNull();
+
+  // Simulate a terminated tab after a fully validated but interrupted journal.
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length ?? 0
+  )).toBe(1);
+  const state = await page.evaluate(() => ({
+    active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(state.journal).toBeNull();
+  expect(state.active.items).toHaveLength(1);
+  expect(state.active.items[0].calendarImportKey).toBe('ics:ics-interrupted@example.test');
+  await page.reload();
+  await ensureRussian(page);
+  const again = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(again.items).toHaveLength(1);
+});
