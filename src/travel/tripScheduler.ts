@@ -1,4 +1,5 @@
 import type { PersonalTrip, PersonalTripItem } from './personalTrip.ts';
+import { requireAdmittedDestination } from '../product/travelProductIdentity.ts';
 import { canMoveTripStopBetweenDays, countsAsScheduledOccupancy, isActivePlannedTripStop } from './tripDayPresentation.ts';
 
 export type TripScheduleConflict = {
@@ -147,38 +148,73 @@ export function reorderTripDayItems(input: {
   return next;
 }
 
+/**
+ * The clock owns booking conflicts, not the calendar bucket where an item
+ * was originally added. A 23:30 concert can overlap a 00:30 reservation on
+ * the following trip day.
+ */
+function destinationDayAt(epoch: number, destinationId: string): string {
+  const timezone = requireAdmittedDestination(destinationId).timezone;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date(epoch));
+  const part = (type: string) => parts.find(value => value.type === type)?.value ?? '';
+  return part('year') + '-' + part('month') + '-' + part('day');
+}
+
+/** Read-only warning candidates for a proposed time interval; no booking is changed. */
+export function overlappingFixedCommitments(
+  trip: PersonalTrip,
+  proposedStartAt: string,
+  proposedEndAt: string
+): PersonalTripItem[] {
+  const start = parseIso(proposedStartAt);
+  const end = parseIso(proposedEndAt);
+  if (end <= start) throw new Error('Proposed interval end must be after start');
+  return trip.items
+    .filter(isFixedCommitment)
+    .filter(item => {
+      const booked = interval(item);
+      return booked.start < end && booked.end > start;
+    })
+    .sort((a, b) => itemStartTime(a) - itemStartTime(b) || a.id.localeCompare(b.id));
+}
+
+function itemStartTime(item: PersonalTripItem): number {
+  return parseIso(item.plannedStartAt!);
+}
+
 export function detectTripScheduleConflicts(trip: PersonalTrip): TripScheduleConflict[] {
   const conflicts: TripScheduleConflict[] = [];
+  const fixed = trip.items
+    .filter(isFixedCommitment)
+    .map(item => ({ item, ...interval(item) }))
+    .sort((a, b) => a.start - b.start || a.item.id.localeCompare(b.item.id));
 
-  for (const dayDate of trip.days) {
-    const fixed = trip.items
-      .filter((item) => item.dayDate === dayDate && isFixedCommitment(item))
-      .map((item) => ({ item, ...interval(item) }))
-      .sort((a, b) => a.start - b.start || a.item.id.localeCompare(b.item.id));
+  for (let i = 0; i < fixed.length; i += 1) {
+    const left = fixed[i];
+    if (!left) continue;
+    for (let j = i + 1; j < fixed.length; j += 1) {
+      const right = fixed[j];
+      if (!right) continue;
+      if (right.start >= left.end) break;
 
-    for (let i = 0; i < fixed.length; i += 1) {
-      const left = fixed[i];
-      if (!left) continue;
-      for (let j = i + 1; j < fixed.length; j += 1) {
-        const right = fixed[j];
-        if (!right) continue;
-        if (right.start >= left.end) break;
+      const overlapStart = Math.max(left.start, right.start);
+      const overlapEnd = Math.min(left.end, right.end);
+      if (overlapEnd <= overlapStart) continue;
 
-        const overlapStart = Math.max(left.start, right.start);
-        const overlapEnd = Math.min(left.end, right.end);
-        if (overlapEnd <= overlapStart) continue;
-
-        conflicts.push({
-          kind: 'fixed-commitment-overlap',
-          dayDate,
-          itemIds: [left.item.id, right.item.id],
-          overlapStartAt: new Date(overlapStart).toISOString(),
-          overlapEndAt: new Date(overlapEnd).toISOString()
-        });
-      }
+      const overlapDay = destinationDayAt(overlapStart, trip.destinationId);
+      conflicts.push({
+        kind: 'fixed-commitment-overlap',
+        // If an overlap spills beyond a trip's final day, keep it visible
+        // on the originating trip day instead of making it disappear.
+        dayDate: trip.days.includes(overlapDay) ? overlapDay : left.item.dayDate,
+        itemIds: [left.item.id, right.item.id],
+        overlapStartAt: new Date(overlapStart).toISOString(),
+        overlapEndAt: new Date(overlapEnd).toISOString()
+      });
     }
   }
-
   return conflicts;
 }
 
@@ -201,7 +237,7 @@ export function deriveTripFreeWindows(input: {
   }
 
   const itemIntervals = input.trip.items
-    .filter((item) => item.dayDate === input.dayDate && hasScheduledInterval(item))
+    .filter(hasScheduledInterval)
     .map((item) => interval(item));
 
   const reservedIntervals = (input.reservedWindows ?? []).map((window) => {

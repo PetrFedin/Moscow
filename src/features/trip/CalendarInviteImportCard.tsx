@@ -5,6 +5,7 @@ import { tr } from '../../i18n';
 import type { PersonalTrip } from '../../travel/personalTrip';
 import { previewCalendarInvite, importCalendarInvite, type CalendarImportChoice, type CalendarInvitePreview } from '../../travel/calendarInviteImport';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { overlappingFixedCommitments } from '../../travel/tripScheduler';
 
 type Props = { trip: PersonalTrip; language: AppLanguage; onUpdate: (trip: PersonalTrip) => void };
 export default function CalendarInviteImportCard({ trip, language, onUpdate }: Props) {
@@ -14,6 +15,7 @@ export default function CalendarInviteImportCard({ trip, language, onUpdate }: P
   const [choice, setChoice] = useState<CalendarImportChoice>('plan');
   const [reference, setReference] = useState('');
   const [error, setError] = useState('');
+  const overlaps = preview ? overlappingFixedCommitments(trip, preview.startAt, preview.endAt) : [];
   const inspect = () => {
     try {
       const found = previewCalendarInvite(raw, trip);
@@ -52,6 +54,10 @@ export default function CalendarInviteImportCard({ trip, language, onUpdate }: P
         <Text style={styles.title}>{preview.title}</Text>
         <Text style={styles.caption}>{preview.dayDate} · {preview.startAt} → {preview.endAt}</Text>
         {preview.location ? <Text style={styles.caption}>{preview.location}</Text> : null}
+        {overlaps.length > 0 ? <Text testID="calendar-invite-overlap-warning" style={styles.error}>{tr(language,
+          'Внимание: время пересекается с существующим билетом или бронью. Проверьте расписание до добавления. Конфликтов: ',
+          'Warning: this overlaps an existing ticket or reservation. Review timing before adding. Conflicts: ',
+          '警告：此时段与现有门票或预订冲突，请先核对时间。冲突数：') + overlaps.length}</Text> : null}
         <Text style={styles.caption}>{tr(language,'Выберите, чем является запись. Источник не проверен.','Choose what this represents. The source is not verified.','选择记录类型；来源未经核实。')}</Text>
         {(['plan','ticket','reservation'] as const).map(value => <PhysicalPressable key={value} accessibilityRole="button"
           accessibilityLabel={value === 'plan' ? tr(language,'Только план','Plan only','仅计划') : value === 'ticket' ? tr(language,'Мой билет','My ticket','我的门票') : tr(language,'Моя бронь','My reservation','我的预订')}
