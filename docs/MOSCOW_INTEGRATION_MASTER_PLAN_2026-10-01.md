@@ -788,6 +788,14 @@ Canonical inspection and execution checklist: `docs/MOSCOW_UNFINISHED_WORK_DELIV
 
 
 
+#### Calendar invitation intake — explicitly user-declared (Draft PR #183, 2026-10-15)
+
+- Following green PR #182 (599 contracts, 43 browser, 3 responsive), the next isolated milestone introduces strict single-event `.ics` **text paste** preview for Moscow. It is not file attachment, PDF, QR or provider API import.
+- Fields accepted: SUMMARY, DTSTART, DTEND, LOCATION and calendar UID solely as local duplication key. Reject multiple/recurring/cancelled/ambiguous-timezone events; remove attendee emails and descriptions. Dates must fall within the existing journey.
+- Traveler explicitly accepts either plan-only or user-declared ticket/reservation. Never use calendar UID as the supplier order number and never claim provider confirmation or payment evidence from calendar metadata.
+- No background uploading. Original source text is not persisted; duplicate UID key and small approved event fields live in the private trip and plaintext portable backup.
+- Release requires latest-head CI, browser journey proof, timezone/date boundary QA, independent review and native crash/restore. PDF/QR import, licensed media and authenticated supplier validation remain pending.
+
 #### Booking exception continuation — self-reported evidence only (Draft PR #181, 2026-10-15)
 
 Specification and provider authority gates: `docs/MOSCOW_BOOKING_EXCEPTION_CONTINUATION_2026-10-15.md`.
