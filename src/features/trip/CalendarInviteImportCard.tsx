@@ -7,7 +7,7 @@ import { previewCalendarInvite, importCalendarInvite, type CalendarImportChoice,
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import { overlappingFixedCommitments } from '../../travel/tripScheduler';
 
-type Props = { trip: PersonalTrip; language: AppLanguage; onUpdate: (trip: PersonalTrip) => void };
+type Props = { trip: PersonalTrip; language: AppLanguage; onUpdate: (trip: PersonalTrip) => Promise<void> };
 export default function CalendarInviteImportCard({ trip, language, onUpdate }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [raw, setRaw] = useState('');
@@ -15,6 +15,7 @@ export default function CalendarInviteImportCard({ trip, language, onUpdate }: P
   const [choice, setChoice] = useState<CalendarImportChoice>('plan');
   const [reference, setReference] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const overlaps = preview ? overlappingFixedCommitments(trip, preview.startAt, preview.endAt) : [];
   const inspect = () => {
     try {
@@ -22,17 +23,19 @@ export default function CalendarInviteImportCard({ trip, language, onUpdate }: P
       setPreview(found); setError('');
     } catch (e) { setPreview(null); setError(e instanceof Error ? e.message : 'Invalid calendar invite'); }
   };
-  const save = () => {
-    if (!preview) return;
+  const save = async () => {
+    if (!preview || saving) return;
+    setSaving(true);
     try {
       const next = importCalendarInvite({
         trip, raw, choice, reference: choice === 'plan' ? undefined : reference,
         itemId: 'calendar:' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 9),
         updatedAt: new Date().toISOString()
       });
-      onUpdate(next);
+      await onUpdate(next);
       setRaw(''); setPreview(null); setReference(''); setChoice('plan'); setError(''); setExpanded(false);
     } catch (e) { setError(e instanceof Error ? e.message : 'Calendar import failed'); }
+    finally { setSaving(false); }
   };
   return <View testID="calendar-invite-import" style={styles.root}>
     <Text style={styles.title}>{tr(language, 'Добавить из календарного приглашения', 'Import calendar invitation', '导入日历邀请')}</Text>
@@ -68,7 +71,7 @@ export default function CalendarInviteImportCard({ trip, language, onUpdate }: P
           style={styles.shortInput} value={reference} onChangeText={setReference} maxLength={120}
           placeholder={tr(language,'Номер заказа — только если известен','Order reference if known','已知订单号')} placeholderTextColor="#A6B3AA"/>}
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить импорт события','Confirm calendar import','确认导入')}
-          style={styles.button} contentStyle={styles.center} onPress={save}><Text style={styles.buttonText}>{tr(language,'Добавить в поездку','Add to trip','添加到行程')}</Text></PhysicalPressable>
+          style={styles.button} contentStyle={styles.center} disabled={saving} onPress={() => { void save(); }}><Text style={styles.buttonText}>{tr(language,'Добавить в поездку','Add to trip','添加到行程')}</Text></PhysicalPressable>
       </View>}
       {error ? <Text testID="calendar-invite-error" style={styles.error}>{error}</Text> : null}
     </>}
