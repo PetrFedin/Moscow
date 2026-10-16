@@ -540,10 +540,10 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const acceptReplacement = (proposal: DayReplacementProposal) => {
-    if (!trip) return;
+  const acceptReplacement = async (proposal: DayReplacementProposal): Promise<void> => {
+    if (!trip) throw new Error('Active trip unavailable');
     const disruption = liveDisruptions.find((item) => item.id === proposal.disruptionId);
-    if (!disruption) return;
+    if (!disruption) throw new Error('Replacement disruption is no longer current');
 
     try {
       const accepted = acceptDayReplacementProposal({
@@ -552,12 +552,16 @@ export default function PersonalTripPlanner({
         proposal,
         acceptedAt: new Date().toISOString()
       });
-      setTrip(accepted.trip);
+      // Acceptance is evidence-bearing: preserve fixed tickets and save the
+      // before/after receipt before exposing the revised itinerary in the UI.
+      // On write failure the original trip, proposal and verification remain.
+      await persistVisitorAction(accepted.trip, 'replacement');
       setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
     } catch (error) {
       setReplacementActionError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
+      throw error;
     }
   };
 
@@ -1055,7 +1059,7 @@ export default function PersonalTripPlanner({
    */
   const persistVisitorAction = async (
     nextTrip: PersonalTrip,
-    action: 'manual' | 'visit' | 'note'
+    action: 'manual' | 'visit' | 'note' | 'replacement'
   ): Promise<void> => {
     if (!trip || !beginStorageOperation()) {
       setHistoryError(tr(language, 'Локальное хранилище недоступно. Изменение не сохранено.',
