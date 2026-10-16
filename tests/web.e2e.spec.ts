@@ -441,3 +441,84 @@ test('multiple journeys survive archive, new trip and subsequent resume on the s
   expect(persisted.id).toBe(first.id);
   await expect(page.getByRole('button', { name: 'Открыть архивную поездку: 2026-10-20' })).toBeVisible();
 });
+
+
+test('My Moscow storage fault is visible, keeps the saved-place intent, and retries durably', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+  await page.evaluate(() => {
+    const actual = Storage.prototype.setItem;
+    let injected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!injected && key === 'moscow:v4:experience') {
+        injected = true;
+        throw new DOMException('Injected My Moscow quota failure', 'QuotaExceededError');
+      }
+      return actual.call(this, key, value);
+    };
+  });
+  await page.getByRole('button', { name: 'Кафе Пушкинъ' }).click();
+  await page.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  const warning = page.getByTestId('experience-storage-error');
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText('Прогресс «Моей Москвы» не сохранён');
+  const beforeRetry = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  );
+  expect(beforeRetry.savedIds ?? []).not.toContain('cafe-pushkin-tverskoy');
+
+  await page.getByRole('button', { name: 'Повторить сохранение прогресса' }).click();
+  await expect(warning).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}').savedIds
+      ?.includes('cafe-pushkin-tverskoy') ?? false
+  )).toBe(true);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Моя Москва' }).click();
+  await expect(page.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('experience-storage-error')).toHaveCount(0);
+});
+
+test('two tabs cannot silently overwrite each others My Moscow favorites', async ({ page, context }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+
+  // Both tabs hydrate the identical prior version before any favorite is added.
+  const secondTab = await context.newPage();
+  await secondTab.goto('/');
+  await ensureRussian(secondTab);
+  await expect.poll(() => secondTab.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+
+  await page.getByRole('button', { name: 'Кафе Пушкинъ' }).click();
+  await page.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}').savedIds
+      ?.includes('cafe-pushkin-tverskoy') ?? false
+  )).toBe(true);
+
+  await secondTab.getByRole('button', { name: 'Третьяковская галерея' }).click();
+  await secondTab.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  await expect(secondTab.getByTestId('experience-storage-error')).toBeVisible();
+
+  const afterConflict = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  );
+  expect(afterConflict.savedIds).toContain('cafe-pushkin-tverskoy');
+  expect(afterConflict.savedIds).not.toContain('tretyakov-lavrushinsky');
+  // Explicit Retry must not discard the other tab's saved records either.
+  await secondTab.getByRole('button', { name: 'Повторить сохранение прогресса' }).click();
+  await expect(secondTab.getByTestId('experience-storage-error')).toBeVisible();
+  expect((await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  )).savedIds).toContain('cafe-pushkin-tverskoy');
+  await secondTab.close();
+});
