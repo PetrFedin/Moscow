@@ -1059,7 +1059,7 @@ export default function PersonalTripPlanner({
    */
   const persistVisitorAction = async (
     nextTrip: PersonalTrip,
-    action: 'manual' | 'visit' | 'note' | 'replacement'
+    action: 'manual' | 'visit' | 'note' | 'replacement' | 'booking' | 'replan' | 'preferences'
   ): Promise<void> => {
     if (!trip || !beginStorageOperation()) {
       setHistoryError(tr(language, 'Локальное хранилище недоступно. Изменение не сохранено.',
@@ -1338,7 +1338,7 @@ export default function PersonalTripPlanner({
       {tripToolsOpen && <TripPreferencesCard
         trip={trip}
         language={language}
-        onUpdate={setTrip}
+        onUpdate={(next) => persistVisitorAction(next, 'preferences')}
       />}
 
 
@@ -1358,7 +1358,7 @@ export default function PersonalTripPlanner({
         open={bookingHelpOpen}
         focusedItemId={bookingHelpItemId}
         onToggle={setBookingHelpOpen}
-        onUpdate={setTrip}
+        onUpdate={(next) => persistVisitorAction(next, 'booking')}
       />
 
       <LiveDisruptionCard
@@ -1379,7 +1379,7 @@ export default function PersonalTripPlanner({
         trip={trip}
         dayDate={selectedDay}
         language={language}
-        onUpdate={setTrip}
+        onUpdate={(next) => persistVisitorAction(next, 'replan')}
       />}
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
