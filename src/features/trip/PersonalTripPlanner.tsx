@@ -42,7 +42,6 @@ import {
   recordTripVisit,
   updateTripVisitNote,
   summarizePersonalTrip,
-  syncRouteCompletedVisits,
   type PersonalTrip,
   type PersonalTripCommitment,
   type PersonalTripItemKind
@@ -52,6 +51,7 @@ import {
   reorderTripDayItems
 } from '../../travel/tripScheduler';
 import { canMoveTripStopBetweenDays } from '../../travel/tripDayPresentation';
+import { deriveWalkVisitCandidates } from '../../travel/walkVisitBridge';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
@@ -342,28 +342,15 @@ export default function PersonalTripPlanner({
     });
   }, [hydrated, trip, archiveError]);
 
-  useEffect(() => {
-    if (!hydrated || !trip || visitedIds.length === 0) return;
-    const today = moscowDateOnly();
-    if (!trip.days.includes(today)) return;
-    // Historic global walk-progress IDs belong to My Moscow, not to every newly opened trip.
-    // Only synchronize nodes explicitly scheduled into this exact trip and day.
-    const boundIds = visitedIds.filter((nodeId) => trip.items.some((item) =>
-      item.destinationNodeId === nodeId && item.dayDate === today
-    ));
-    if (!boundIds.length) return;
+  const walkVisitCandidates = useMemo(() => trip
+    ? deriveWalkVisitCandidates({
+        trip,
+        walkVisitedIds: visitedIds,
+        dayDate: moscowDateOnly(),
+        todayInDestination: moscowDateOnly()
+      })
+    : [], [trip, visitedIds]);
 
-    const synced = syncRouteCompletedVisits({
-      trip,
-      pkg: moscowVarvarkaDestinationPackage,
-      destinationNodeIds: boundIds,
-      dayDate: today,
-      at: new Date().toISOString(),
-      idForNode: (nodeId) => itemId(`route-visit:${nodeId}`)
-    });
-
-    if (synced.visits.length !== trip.visits.length) setTrip(synced);
-  }, [hydrated, trip, visitedIds]);
 
   const summary = useMemo(() => trip ? summarizePersonalTrip(trip) : null, [trip]);
   const activeItems = useMemo(
@@ -1329,6 +1316,28 @@ export default function PersonalTripPlanner({
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
+      {walkVisitCandidates.length > 0 ? (
+        <View testID="walk-visit-candidates" style={styles.form}>
+          <Text style={styles.formTitle}>{tr(language,
+            'В прогулке отмечены места — подтвердите посещение для дневника',
+            'Places marked in your walk — confirm before recording in your diary',
+            '步行记录中有地点，请先确认实际到访')}</Text>
+          <Text style={styles.truthNote}>{tr(language,
+            'Прежние отметки прогулок не содержат дату и не подтверждают посещение именно в этой поездке.',
+            'Existing walk progress has no visit date and is not proof of this trip.',
+            '过往步行记录没有到访日期，不能证明本次行程已到访。')}</Text>
+          {walkVisitCandidates.map(candidate => (
+            <PhysicalPressable key={candidate.itemId} accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Подтвердить посещение из прогулки: ',
+                'Confirm walk visit: ', '确认步行到访：') + candidate.title}
+              style={styles.secondary} contentStyle={styles.center}
+              onPress={() => { void markVisited(candidate.itemId).catch(() => undefined); }}>
+              <Text style={styles.secondaryText}>{candidate.title} · {tr(language,
+                'Да, я посетил', 'Yes, I visited', '是的，我到访了')}</Text>
+            </PhysicalPressable>
+          ))}
+        </View>
+      ) : null}
       <TripAcceptanceHistoryCard trip={trip} language={language} />
       {archiveReady && !archiveError && (
         <TripArchivePanel archive={archive} activeTripId={trip.id} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
