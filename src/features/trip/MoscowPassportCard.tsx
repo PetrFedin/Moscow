@@ -15,7 +15,7 @@ import type { PersonalTrip, PersonalTripVisit } from '../../travel/personalTrip'
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
-  onSaveVisitNote?: (visitId: string, note: string) => void;
+  onSaveVisitNote?: (visitId: string, note: string) => Promise<void>;
 };
 
 const categoryLabel: Record<AppLanguage, Record<MoscowPassportCategory, string>> = {
@@ -84,6 +84,8 @@ function categorySymbol(category: MoscowPassportCategory) {
 export default function MoscowPassportCard({ trip, language, onSaveVisitNote }: Props) {
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState(false);
   const passport = useMemo(
     () => buildMoscowPassport({ trip, pkg: moscowVarvarkaDestinationPackage }),
     [trip]
@@ -161,6 +163,7 @@ export default function MoscowPassportCard({ trip, language, onSaveVisitNote }: 
                       onPress={() => {
                         setEditingVisitId(entry.visit.id);
                         setDraft(entry.visit.note ?? '');
+                        setNoteError(false);
                       }}
                       style={styles.noteAction}
                       contentStyle={styles.noteActionContent}
@@ -185,13 +188,23 @@ export default function MoscowPassportCard({ trip, language, onSaveVisitNote }: 
                         accessibilityLabel={tr(language, 'Сохранить заметку', 'Save visit note', '保存笔记')}
                         style={styles.noteAction}
                         contentStyle={styles.noteActionContent}
+                        disabled={savingNote}
                         onPress={() => {
-                          onSaveVisitNote(entry.visit.id, draft);
-                          setEditingVisitId(null);
+                          if (savingNote) return;
+                          setSavingNote(true);
+                          setNoteError(false);
+                          void onSaveVisitNote(entry.visit.id, draft)
+                            .then(() => setEditingVisitId(null))
+                            .catch(() => setNoteError(true))
+                            .finally(() => setSavingNote(false));
                         }}
                       >
                         <Text style={styles.noteActionText}>{tr(language, 'Сохранить', 'Save', '保存')}</Text>
                       </PhysicalPressable>
+                      {noteError && <Text testID="passport-note-save-error" style={styles.noteError}>{tr(language,
+                        'Заметка не сохранена. Текст оставлен для повторной попытки.',
+                        'Note not saved. Text retained for retry.',
+                        '笔记尚未保存，文字已保留以便重试。')}</Text>}
                     </View>
                   )}
                 </View>
@@ -214,6 +227,7 @@ export default function MoscowPassportCard({ trip, language, onSaveVisitNote }: 
 }
 
 const styles = StyleSheet.create({
+  noteError: { color: '#ffb9ac', fontSize: 12, lineHeight: 18 },
   note: { color: '#d8e2d7', fontSize: 12, lineHeight: 18, marginTop: 8 },
   noteAction: { borderWidth: 1, borderColor: '#496b54', borderRadius: 11, marginTop: 8, alignSelf: 'flex-start' },
   noteActionContent: { paddingHorizontal: 12, paddingVertical: 10 },
