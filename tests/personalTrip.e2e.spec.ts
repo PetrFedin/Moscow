@@ -1935,3 +1935,56 @@ test('full journey: saved theatre ticket and visit note survive archive, restart
   expect(reopened.active.items[0].commitment.verification).toBe('user-declared');
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
 });
+
+
+test('passport note preserves draft after local journal failure and succeeds on retry', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'note-write-proof', destinationId: 'moscow',
+      title: 'Заметки', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'museum-note', dayDate, source: 'manual', kind: 'museum',
+        title: 'Музей для заметки', status: 'completed'
+      }],
+      visits: [{
+        id: 'visit-note', itemId: 'museum-note', dayDate,
+        visitedAt: dayDate + 'T14:00:00+03:00',
+        title: 'Музей для заметки', kind: 'museum', evidence: 'user-confirmed'
+      }],
+      createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByRole('button', {name:'Редактировать заметку: Музей для заметки'}).click();
+  const note = page.getByLabel('Текст личной заметки');
+  await note.fill('Черновик должен пережить ошибку записи');
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!fault && key === 'moscow:v1:personal-trip-transaction') {
+        fault = true;
+        throw new DOMException('Simulated visit-note quota fault', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole('button', {name:'Сохранить заметку'}).click();
+  await expect(page.getByTestId('passport-note-save-error')).toBeVisible();
+  await expect(note).toHaveValue('Черновик должен пережить ошибку записи');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}').visits[0].note)).toBeUndefined();
+  await page.getByRole('button', {name:'Сохранить заметку'}).click();
+  await expect(page.getByTestId('passport-note-save-error')).toHaveCount(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Черновик должен пережить ошибку записи', {exact:true})).toBeVisible();
+});
