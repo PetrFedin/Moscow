@@ -34,7 +34,8 @@ import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { loadCurrentLiveCityProjection } from './travel/currentLiveCityClient';
 import { projectLiveDestinationFeed } from './travel/liveDestinationAuthority';
-import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { createExperienceStorageCoordinator } from './persistence/experienceStorageCoordinator';
 import {
   canOpenArchiveLens,
   canOpenModel3d,
@@ -164,6 +165,8 @@ export default function MoscowExperienceApp() {
   const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [experienceStorageError, setExperienceStorageError] = useState(false);
+  const experienceStorage = useRef(createExperienceStorageCoordinator(AsyncStorage));
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
   const [trustMode, setTrustMode] = useState<TrustMode>('public');
@@ -226,10 +229,8 @@ export default function MoscowExperienceApp() {
   );
 
   useEffect(() => {
-    AsyncStorage.getItem(EXPERIENCE_STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const parsed = normalizeExperienceSnapshot(JSON.parse(raw));
+    experienceStorage.current.hydrate()
+      .then((parsed) => {
         setSavedIds(parsed.savedIds);
         setVisitedIds(parsed.visitedIds);
         setRouteStep(parsed.routeStep);
@@ -250,7 +251,7 @@ export default function MoscowExperienceApp() {
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
       })
-      .catch(() => undefined)
+      .catch(() => setExperienceStorageError(true))
       .finally(() => setHydrated(true));
   }, []);
 
@@ -344,8 +345,9 @@ export default function MoscowExperienceApp() {
       walkAutoAudio,
       heritageStoryOpen
     };
-    AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+    if (experienceStorageError) return;
+    void experienceStorage.current.persist(payload).catch(() => setExperienceStorageError(true));
+  }, [era, hydrated, experienceStorageError, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -584,6 +586,22 @@ export default function MoscowExperienceApp() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
+      {experienceStorageError ? (
+        <View testID="experience-storage-error" style={styles.storageWarning}>
+          <Text style={styles.storageWarningText}>{tr(language,
+            'Прогресс «Моей Москвы» не сохранён. Не удаляйте данные приложения. Проверьте память устройства и повторите запись.',
+            'My Moscow progress was not saved. Do not clear app data. Check storage and retry.',
+            '我的莫斯科进度尚未保存，请勿清除应用数据，检查存储后重试。')}</Text>
+          <PhysicalPressable style={styles.storageRetry} contentStyle={styles.center}
+            accessibilityLabel={tr(language, 'Повторить сохранение прогресса', 'Retry saving progress', '重试保存进度')}
+            onPress={() => {
+              const payload: PersistedExperienceState = {savedIds,visitedIds,routeStep,language,lensOpacity,lensVisible,selectedId,tab,timeValue,era,trustMode,routeBudgetMinutes,routeInterest,routeStopIds,routeCompletedStopIds,routeFinished,missionDoneIds,walkAutoAudio,heritageStoryOpen};
+              void experienceStorage.current.persist(payload, true).then(() => setExperienceStorageError(false)).catch(() => setExperienceStorageError(true));
+            }}>
+            <Text style={styles.storageWarningText}>{tr(language, 'Повторить', 'Retry', '重试')}</Text>
+          </PhysicalPressable>
+        </View>
+      ) : null}
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.brand}>{tr(language, 'МОСКВА · ВАШ ПУТЕВОДИТЕЛЬ', 'MOSCOW · YOUR CITY GUIDE', '莫斯科 · 城市指南')}</Text>
@@ -1098,6 +1116,9 @@ export default function MoscowExperienceApp() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#101716' },
+  storageWarning: {padding: 10, backgroundColor: '#563326', gap: 8},
+  storageWarningText: {color: '#fff0df', fontSize: 12, lineHeight: 18},
+  storageRetry: {minHeight: 38, borderRadius: 9, borderWidth: 1, borderColor: '#e5c898'},
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   header: { paddingHorizontal: 22, paddingTop: 11, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#273330' },
   headerCopy: { flex: 1 },
