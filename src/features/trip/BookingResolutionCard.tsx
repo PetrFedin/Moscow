@@ -23,7 +23,7 @@ type Props = {
   open: boolean;
   focusedItemId?: string;
   onToggle: (next: boolean) => void;
-  onUpdate: (nextTrip: PersonalTrip) => void;
+  onUpdate: (nextTrip: PersonalTrip) => Promise<void>;
 };
 
 const topics: readonly BookingResolutionTopic[] = [
@@ -82,6 +82,7 @@ export default function BookingResolutionCard({
   const [reply, setReply] = useState('');
   const [showTemplate, setShowTemplate] = useState(false);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [visibleLimit, setVisibleLimit] = useState(12);
 
   useEffect(() => {
@@ -110,20 +111,25 @@ export default function BookingResolutionCard({
 
   if (bookings.length === 0) return null;
 
-  const run = (update: () => PersonalTrip) => {
+  const run = async (update: () => PersonalTrip, clearReply = false): Promise<void> => {
+    if (saving) return;
+    setSaving(true);
     try {
-      onUpdate(update());
+      const next = update();
+      await onUpdate(next);
       setError('');
-      setReply('');
+      if (clearReply) setReply('');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'booking-inquiry-local-error');
+    } finally {
+      setSaving(false);
     }
   };
 
   const start = () => {
     if (!selected || active) return;
     const at = new Date().toISOString();
-    run(() => beginBookingResolution({
+    void run(() => beginBookingResolution({
       trip, itemId: selected.id, topic,
       caseId: uniqueId('booking-case'),
       eventId: uniqueId('booking-open'),
@@ -133,21 +139,21 @@ export default function BookingResolutionCard({
 
   const recordContact = () => {
     if (!active) return;
-    run(() => noteBookingContact({
+    void run(() => noteBookingContact({
       trip, caseId: active.id,
       eventId: uniqueId('booking-contact'), at: new Date().toISOString()
     }));
   };
   const recordResponse = () => {
     if (!active) return;
-    run(() => noteBookingResponse({
+    void run(() => noteBookingResponse({
       trip, caseId: active.id, eventId: uniqueId('booking-reply'),
       at: new Date().toISOString(), note: reply
-    }));
+    }), true);
   };
   const archive = () => {
     if (!active) return;
-    run(() => archiveBookingResolution({
+    void run(() => archiveBookingResolution({
       trip, caseId: active.id, eventId: uniqueId('booking-archive'),
       at: new Date().toISOString()
     }));
@@ -262,6 +268,7 @@ export default function BookingResolutionCard({
               <PhysicalPressable accessibilityRole="button"
                 accessibilityLabel={tr(language,'Начать личную запись об обращении','Start personal inquiry record','新建个人沟通记录')}
                 style={styles.primary} contentStyle={styles.center}
+                disabled={saving}
                 onPress={start}>
                 <Text style={styles.primaryText}>{tr(language,'Создать обращение','Start an inquiry','新建记录')}</Text>
               </PhysicalPressable>
@@ -311,6 +318,7 @@ export default function BookingResolutionCard({
               <PhysicalPressable accessibilityRole="button"
                 accessibilityLabel={tr(language,'Я самостоятельно связался с поставщиком','I contacted the supplier myself','我已自行联系供应商')}
                 style={styles.secondary} contentStyle={styles.center}
+                disabled={saving}
                 onPress={recordContact}>
                 <Text style={styles.secondaryText}>{tr(language,'Я связался с поставщиком','I contacted the supplier','我已联系供应商')}</Text>
               </PhysicalPressable>
@@ -329,13 +337,13 @@ export default function BookingResolutionCard({
               <PhysicalPressable accessibilityRole="button"
                 accessibilityLabel={tr(language,'Сохранить мою заметку об ответе','Save my note about the response','保存个人回复记录')}
                 style={styles.secondary} contentStyle={styles.center}
-                disabled={!reply.trim()}
+                disabled={!reply.trim() || saving}
                 onPress={recordResponse}>
                 <Text style={styles.secondaryText}>{tr(language,'Сохранить мою заметку','Save my note','保存我的记录')}</Text>
               </PhysicalPressable>
               <PhysicalPressable accessibilityRole="button"
                 accessibilityLabel={tr(language,'Архивировать моё обращение без изменения брони','Archive inquiry without changing booking','归档沟通但不修改预订')}
-                style={styles.archive} contentStyle={styles.center} onPress={archive}>
+                style={styles.archive} contentStyle={styles.center} disabled={saving} onPress={archive}>
                 <Text style={styles.archiveText}>{tr(language,'Архивировать обращение','Archive inquiry','归档记录')}</Text>
               </PhysicalPressable>
             </View>
@@ -359,7 +367,10 @@ export default function BookingResolutionCard({
               ))}
             </View>
           ) : null}
-          {error ? <Text testID="booking-resolution-error" style={styles.error}>{error}</Text> : null}
+          {error ? <Text testID="booking-resolution-error" style={styles.error}>{tr(language,
+            'Не удалось сохранить обращение. Введённый текст оставлен для повторной попытки.',
+            'Inquiry not saved. Your note is retained for retry.',
+            '未能保存沟通记录，您的笔记已保留以便重试。')} · {error}</Text> : null}
           <Text style={styles.privacy}>{tr(language,
             'Заметки хранятся локально вместе с поездкой и входят в незашифрованный JSON-экспорт. Не записывайте банковские данные или секреты.',
             'Notes stay locally with your trip and are included in unencrypted JSON backups. Do not enter payment details or secrets.',
