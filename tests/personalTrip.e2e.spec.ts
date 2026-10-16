@@ -1991,7 +1991,7 @@ test('passport note preserves draft after local journal failure and succeeds on 
 
 
 test('Today confirmation stays open and preserves visit truth when journal write fails', async ({ page }) => {
-  const day = moscowDateOffset(1);
+  const day = moscowNowParts().date;
   await page.goto('/');
   await page.evaluate(dayDate => {
     localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
@@ -2006,7 +2006,7 @@ test('Today confirmation stays open and preserves visit truth when journal write
   await page.reload();
   await ensureRussian(page);
   await page.getByRole('tab',{name:'Поездка'}).click();
-  await page.getByText('Я был здесь',{exact:true}).click();
+  await page.getByRole('button',{name:'Отметить, что я был здесь'}).click();
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     let fault=false;
