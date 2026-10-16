@@ -1048,7 +1048,40 @@ test('source-backed replacement becomes executable after current route verificat
   await expect(page.getByText(/OUT · SAFE · 36 мин/)).toBeVisible();
   await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
 
+  // Admission and user acceptance are distinct from a durable commit.
+  // A failed local journal write MUST leave the original museum, its confirmed
+  // self-declared theatre ticket and all acceptance receipts untouched.
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  const rawBeforeFailure = await page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'));
+  expect(rawBeforeFailure).not.toBeNull();
+  expect(JSON.parse(rawBeforeFailure!).replacementReceipts ?? []).toHaveLength(0);
+  await page.evaluate(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    let injected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!injected && key === 'moscow:v1:personal-trip-transaction') {
+        injected = true;
+        throw new DOMException('Injected replacement journal quota fault', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    };
+  });
   await page.getByText('Принять замену', { exact: true }).click();
+  await expect(page.getByTestId('replacement-durable-save-error')).toBeVisible();
+  await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip')))
+    .toBe(rawBeforeFailure);
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction')))
+    .toBeNull();
+
+  // An explicit second acceptance must write exactly one immutable receipt
+  // before the UI reports the revised route as accepted.
+  await page.getByText('Принять замену', { exact: true }).click();
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() =>
     window.localStorage.getItem('moscow:v1:personal-trip-transaction')
   )).toBeNull();
