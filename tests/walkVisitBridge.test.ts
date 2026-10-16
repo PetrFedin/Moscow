@@ -7,7 +7,7 @@ import { deriveWalkVisitCandidates } from '../src/travel/walkVisitBridge.ts';
 const day = '2026-10-16';
 function fixture() {
   const node=moscowVarvarkaDestinationPackage.nodes[0]!;
-  const trip=createPersonalTrip({id:'trip-walk-test',destinationId:'moscow',title:'Current trip',startDate:day,dayCount:1,createdAt:day+'T08:00:00Z'});
+  const trip=createPersonalTrip({id:'trip-walk-test',destinationId:'moscow',title:'Current trip',startDate:day,endDate:day,createdAt:day+'T08:00:00Z'});
   const added=addDestinationNodeToTrip({trip,node,itemId:'walk-stop',dayDate:day,updatedAt:day+'T09:00:00Z'});
   return {node,trip:added};
 }
