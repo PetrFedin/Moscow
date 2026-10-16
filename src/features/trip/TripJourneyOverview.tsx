@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
@@ -35,10 +35,13 @@ function stopStatusLabel(language: AppLanguage, state: DayStopPresentation): str
 }
 
 export default function TripJourneyOverview({ trip, dayDate, language, onVisit, onOpenDetails }: {
-  trip: PersonalTrip; dayDate: string; language: AppLanguage; onVisit: (id: string) => void; onOpenDetails: () => void;
+  trip: PersonalTrip; dayDate: string; language: AppLanguage; onVisit: (id: string) => Promise<void>; onOpenDetails: () => void;
 }) {
   // The pilot is still Moscow; other cities must pass admission rather than
   // inherit Europe/Moscow timezone or Moscow-only content accidentally.
+  const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null);
+  const [savingVisit, setSavingVisit] = useState(false);
+  const [visitError, setVisitError] = useState(false);
   const destination = requireAdmittedDestination(trip.destinationId);
   const localTime = (iso?: string) => formatDestinationTime(iso, trip.destinationId);
   const items = personalTripDayItems(trip, dayDate);
@@ -61,10 +64,46 @@ export default function TripJourneyOverview({ trip, dayDate, language, onVisit, 
       {next && <View style={styles.nextCard}>
         <Text style={styles.nextLabel}>{tr(language, 'СЛЕДУЮЩАЯ ОСТАНОВКА', 'NEXT STOP', '下一站')} · {localTime(next.plannedStartAt)}</Text>
         <Text style={styles.nextTitle}>{next.title}</Text>
-        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Я был здесь','I visited this place','我到过这里')} style={styles.action} contentStyle={styles.actionInner} onPress={() => onVisit(next.id)}>
-          <Text style={styles.actionText}>{tr(language, 'Отметить посещение', 'Mark as visited', '标记为已到访')}</Text>
-          <Text style={styles.actionText}>↗</Text>
-        </PhysicalPressable>
+        {confirmingItemId === next.id ? (
+          <View testID="journey-visit-confirmation" style={styles.confirmation}>
+            <Text style={styles.confirmationText}>{tr(language,
+              'Вы действительно посетили это место? Отметка сохранится как ваше сообщение, не как подтверждение организатора.',
+              'Did you actually visit? This is your own record, not confirmation by a provider.',
+              '您确实到访了吗？这是您自己的记录，而非场地方确认。')}</Text>
+            {visitError ? <Text testID="journey-visit-save-error" style={styles.errorText}>{tr(language,
+              'Сохранение не подтверждено. Повторите попытку — посещение ещё не записано.',
+              'The visit was not saved. Retry; no visit was recorded.',
+              '未确认保存，请重试。')}</Text> : null}
+            <PhysicalPressable accessibilityRole="button"
+              accessibilityLabel={tr(language,'Подтвердить посещение в маршруте','Confirm visit in itinerary','确认行程到访')}
+              style={styles.action} contentStyle={styles.actionInner} disabled={savingVisit}
+              onPress={() => {
+                if (savingVisit) return;
+                setSavingVisit(true);
+                setVisitError(false);
+                void onVisit(next.id)
+                  .then(() => setConfirmingItemId(null))
+                  .catch(() => setVisitError(true))
+                  .finally(() => setSavingVisit(false));
+              }}>
+              <Text style={styles.actionText}>{tr(language,'Подтвердить посещение','Confirm visit','确认到访')}</Text>
+            </PhysicalPressable>
+            <PhysicalPressable accessibilityRole="button"
+              accessibilityLabel={tr(language,'Отменить отметку в маршруте','Cancel itinerary check-in','取消行程到访')}
+              style={styles.cancelVisit} contentStyle={styles.actionInner} disabled={savingVisit}
+              onPress={() => { setVisitError(false); setConfirmingItemId(null); }}>
+              <Text style={styles.cancelText}>{tr(language,'Отмена','Cancel','取消')}</Text>
+            </PhysicalPressable>
+          </View>
+        ) : (
+          <PhysicalPressable accessibilityRole="button"
+            accessibilityLabel={tr(language,'Я был здесь','I visited this place','我到过这里')}
+            style={styles.action} contentStyle={styles.actionInner}
+            onPress={() => { setVisitError(false); setConfirmingItemId(next.id); }}>
+            <Text style={styles.actionText}>{tr(language, 'Отметить посещение', 'Mark as visited', '标记为已到访')}</Text>
+            <Text style={styles.actionText}>↗</Text>
+          </PhysicalPressable>
+        )}
       </View>}
     </View>
     <View style={styles.heading}>
@@ -104,6 +143,11 @@ const styles = StyleSheet.create({
   nextLabel: { color: '#455E54', fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   nextTitle: { color: '#172C24', fontSize: 22, lineHeight: 28, fontWeight: '700', marginTop: 9, marginBottom: 15 },
   action: { backgroundColor: '#173B32', borderRadius: 13, minHeight: 52 },
+  confirmation: { marginTop: 4, gap: 9 },
+  confirmationText: { fontSize: 13, color: '#36574D', lineHeight: 19 },
+  errorText: { fontSize: 13, color: '#A82D2B', lineHeight: 19, fontWeight: '700' },
+  cancelVisit: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#6F8980' },
+  cancelText: { color: '#294E42', fontSize: 13, fontWeight: '700' },
   actionInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 10 },
   actionText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   heading: { marginTop: 26, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 8 },
