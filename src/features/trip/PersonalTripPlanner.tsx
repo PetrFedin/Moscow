@@ -1827,6 +1827,8 @@ const styles = StyleSheet.create({
   smallPrimaryText: { color: '#e1c184', fontSize: 9, fontWeight: '900' },
   form: { borderRadius: 18, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#30363e', padding: 14, marginBottom: 12 },
   formTitle: { color: '#f0ece4', fontSize: 16, fontWeight: '900', marginBottom: 10 },
+  secondary: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#90784e', marginTop: 6 },
+  secondaryText: { color: '#e5c88e', fontSize: 13, fontWeight: '700' },
   wrapChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   kindChip: { minHeight: 36, borderRadius: 12, borderWidth: 1, borderColor: '#343b43', paddingHorizontal: 9 },
   kindChipActive: { borderColor: '#90784e', backgroundColor: '#241e15' },
