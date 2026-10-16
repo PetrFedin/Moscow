@@ -1049,6 +1049,9 @@ test('source-backed replacement becomes executable after current route verificat
   await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
 
   await page.getByText('Принять замену', { exact: true }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
 
   const replacementError = page.getByTestId('replacement-action-error');
   if (await replacementError.count()) {
