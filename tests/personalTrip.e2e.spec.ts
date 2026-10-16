@@ -1855,3 +1855,83 @@ test('ICS interrupted active write recovers exactly once after reload', async ({
     JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
   expect(again.items).toHaveLength(1);
 });
+
+
+test('full journey: saved theatre ticket and visit note survive archive, restart and reopening', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+
+  // A visitor enters an already-purchased ticket. No supplier is contacted.
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Большой театр · билет сохранён');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByPlaceholder('Номер заказа / заметка (необязательно)')
+    .fill('USER-REF-ARCHIVE-REOPEN');
+  await page.getByText('Добавить в день', { exact: true }).click();
+  await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true }))
+    .toBeVisible();
+
+  await page.getByText('Я был здесь', { exact: true }).click();
+  await page.getByRole('button', {
+    name: 'Редактировать заметку: Большой театр · билет сохранён'
+  }).click();
+  await page.getByLabel('Текст личной заметки').fill('Личная заметка пережила архив и перезапуск.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Личная заметка пережила архив и перезапуск.', { exact: true }))
+    .toBeVisible();
+
+  // Wait for the actual local journal to complete before archiving.
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('moscow:v1:personal-trip');
+    if (!raw || localStorage.getItem('moscow:v1:personal-trip-transaction')) return false;
+    const value = JSON.parse(raw);
+    return value.items?.[0]?.commitment?.reference === 'USER-REF-ARCHIVE-REOPEN'
+      && value.items?.[0]?.commitment?.verification === 'user-declared'
+      && value.visits?.[0]?.note === 'Личная заметка пережила архив и перезапуск.';
+  })).toBe(true);
+
+  const beforeArchive = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  await page.getByText('Новая', { exact: true }).click();
+  await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+  const afterArchive = await page.evaluate(() => ({
+    active: localStorage.getItem('moscow:v1:personal-trip'),
+    archive: JSON.parse(localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(afterArchive.active).toBeNull();
+  expect(afterArchive.journal).toBeNull();
+  expect(afterArchive.archive.trips).toHaveLength(1);
+  expect(afterArchive.archive.trips[0]).toEqual(beforeArchive);
+
+  // Archive entries must remain usable after browser restart, not only in
+  // a React component's in-memory state.
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть архивную поездку: ' + day }).click();
+  await expect(page.getByText('Большой театр · билет сохранён', { exact: true }).first())
+    .toBeVisible();
+  await expect(page.getByText('Личная заметка пережила архив и перезапуск.', { exact: true }))
+    .toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const reopened = await page.evaluate(() => ({
+    active: JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(reopened.active).toEqual(beforeArchive);
+  expect(reopened.journal).toBeNull();
+  expect(reopened.active.items[0].commitment.verification).toBe('user-declared');
+  await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
+});
