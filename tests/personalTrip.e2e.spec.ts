@@ -1988,3 +1988,45 @@ test('passport note preserves draft after local journal failure and succeeds on 
   await ensureRussian(page);
   await expect(page.getByText('Черновик должен пережить ошибку записи', {exact:true})).toBeVisible();
 });
+
+
+test('Today confirmation stays open and preserves visit truth when journal write fails', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'today-visit-fault',destinationId:'moscow',title:'Visit fault',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'visit-target',dayDate,title:'Музей для отметки',kind:'museum',source:'manual',status:'planned'}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  await page.getByText('Я был здесь',{exact:true}).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault=false;
+    Storage.prototype.setItem=function(key:string,value:string) {
+      if (!fault && key==='moscow:v1:personal-trip-transaction') {
+        fault=true;
+        throw new DOMException('Injected visit journal quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await page.getByRole('button',{name:'Подтвердить личное посещение'}).click();
+  await expect(page.getByTestId('today-visit-save-error')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Подтвердить личное посещение'})).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await page.getByRole('button',{name:'Подтвердить личное посещение'}).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits?.length)).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const state=await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(state.visits).toHaveLength(1);
+  expect(state.visits[0].evidence).toBe('user-confirmed');
+});
