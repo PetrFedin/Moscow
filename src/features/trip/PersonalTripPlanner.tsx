@@ -280,6 +280,7 @@ export default function PersonalTripPlanner({
   const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [historyError, setHistoryError] = useState('');
   const [discoveryActionError, setDiscoveryActionError] = useState('');
   const [replacementActionError, setReplacementActionError] = useState('');
   const [verifiedReplacementRoutingProjection, setVerifiedReplacementRoutingProjection] = useState<
@@ -704,7 +705,7 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const addManual = () => {
+  const addManual = async () => {
     if (!trip || !manualTitle.trim()) return;
     const now = new Date().toISOString();
     const commitment: PersonalTripCommitment | undefined = commitmentChoice === 'none'
@@ -723,7 +724,7 @@ export default function PersonalTripPlanner({
 
     try {
       setFormError('');
-      setTrip(addManualTripItem({
+      const next = addManualTripItem({
         trip,
         itemId: itemId('manual'),
         dayDate: selectedDay,
@@ -733,7 +734,8 @@ export default function PersonalTripPlanner({
         plannedEndAt: moscowTimestamp(selectedDay, manualEndTime),
         updatedAt: now,
         ...(commitment ? { commitment } : {})
-      }));
+      });
+      await persistVisitorAction(next, 'manual');
       setManualTitle('');
       setManualReference('');
       setManualProvider('');
@@ -1045,6 +1047,59 @@ export default function PersonalTripPlanner({
     }
   };
 
+  /**
+   * Critical visitor actions are shown as completed only after the active
+   * trip and its archive journal have been durably written and read back.
+   * Ordinary optimistic edits still use the queued autosave effect; tickets,
+   * personal check-ins and notes must NOT clear their form before this proof.
+   */
+  const persistVisitorAction = async (
+    nextTrip: PersonalTrip,
+    action: 'manual' | 'visit' | 'note'
+  ): Promise<void> => {
+    if (!trip || !beginStorageOperation()) {
+      setHistoryError(tr(language, 'Локальное хранилище недоступно. Изменение не сохранено.',
+        'Local storage is unavailable. The change was not saved.',
+        '本地存储不可用，变更未保存。'));
+      throw new Error('Trip storage unavailable for visitor action');
+    }
+    try {
+      await activeWritesRef.current;
+      if (trip.id !== nextTrip.id) throw new Error('Active trip identity changed during visitor action');
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'edit',
+        id: action + ':' + nextTrip.id + ':' + nextTrip.updatedAt,
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (!activeTrip || activeTrip.id !== nextTrip.id) {
+            throw new Error('Active trip changed before visitor action was saved');
+          }
+          return { activeTrip: nextTrip, archive: savedArchive, result: true };
+        }
+      });
+      persistedTripRef.current = outcome.activeTrip;
+      setTrip(outcome.activeTrip);
+      setHistoryError('');
+      setFormError('');
+    } catch (error) {
+      setHistoryError(tr(language,
+        'Не удалось подтвердить сохранение. Исходные данные оставлены для повторной попытки. Не очищайте память приложения.',
+        'Saving could not be verified. Your input is retained for retry. Do not clear the app storage.',
+        '无法确认保存。已保留输入以便重试，请勿清除应用存储。'));
+      try {
+        if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
+          setArchiveError('trip-storage-recovery-required');
+        }
+      } catch {
+        setArchiveError('trip-storage-recovery-required');
+      }
+      throw error;
+    } finally {
+      endStorageOperation();
+    }
+  };
+
   const backupPanel = (
     <TripBackupPanel
       language={language}
@@ -1056,13 +1111,13 @@ export default function PersonalTripPlanner({
     />
   );
 
-  const markVisited = (tripItemId: string) => {
-    if (!trip) return;
+  const markVisited = async (tripItemId: string): Promise<void> => {
+    if (!trip) throw new Error('Active trip unavailable');
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
-    if (!item) return;
+    if (!item) throw new Error('Trip item unavailable');
 
     const at = visitTimestamp(item.dayDate);
-    setTrip(recordTripVisit({
+    const next = recordTripVisit({
       trip,
       visitId: itemId(`visit:${tripItemId}`),
       itemId: tripItemId,
@@ -1073,7 +1128,8 @@ export default function PersonalTripPlanner({
       kind: item.kind,
       evidence: 'user-confirmed',
       updatedAt: new Date().toISOString()
-    }));
+    });
+    await persistVisitorAction(next, 'visit');
   };
 
   if (!trip) {
@@ -1247,6 +1303,7 @@ export default function PersonalTripPlanner({
           <Text style={styles.resetText}>{tr(language,'Отмена','Cancel','取消')}</Text>
         </PhysicalPressable>
       </View>}
+      {historyError ? <Text testID="trip-history-save-error" style={styles.recoveryError}>{historyError}</Text> : null}
       <TouristTodayCard
         trip={trip}
         language={language}
@@ -1265,7 +1322,7 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
-      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={(id) => { void markVisited(id).catch(() => undefined); }} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
       <TripAcceptanceHistoryCard trip={trip} language={language} />
       {archiveReady && !archiveError && (
@@ -1500,7 +1557,7 @@ export default function PersonalTripPlanner({
                 : tr(language, 'Проверьте время и данные пункта', 'Check the time and item details', '请检查时间和项目详情')}
             </Text>
           ) : null}
-          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={addManual}>
+          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => { void addManual(); }}>
             <Text style={styles.primaryText}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
           </PhysicalPressable>
         </View>
@@ -1636,7 +1693,7 @@ export default function PersonalTripPlanner({
                   </PhysicalPressable>
                 )}
                 {!visited && (
-                  <PhysicalPressable style={styles.visitButton} contentStyle={styles.center} onPress={() => markVisited(item.id)}>
+                  <PhysicalPressable style={styles.visitButton} contentStyle={styles.center} onPress={() => { void markVisited(item.id).catch(() => undefined); }}>
                     <Text style={styles.visitButtonText}>{tr(language, 'Я был здесь', 'I was here', '我来过这里')}</Text>
                   </PhysicalPressable>
                 )}
@@ -1697,12 +1754,9 @@ export default function PersonalTripPlanner({
         </>
       )}
 
-      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={(visitId, note) => {
-        try {
-          setTrip(updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() }));
-        } catch {
-          setFormError('visit-note-save-failed');
-        }
+      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={async (visitId, note) => {
+        const next = updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() });
+        await persistVisitorAction(next, 'note');
       }} />
     </View>
   );
