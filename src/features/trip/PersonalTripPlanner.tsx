@@ -640,72 +640,65 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const addNode = (nodeId: string) => {
+  const addNode = async (nodeId: string): Promise<void> => {
     if (!trip) return;
     const node = moscowVarvarkaDestinationPackage.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) return;
     if (trip.items.some((item) => item.destinationNodeId === nodeId && item.dayDate === selectedDay)) return;
-
-    const now = new Date().toISOString();
-    setTrip(addDestinationNodeToTrip({
-      trip,
-      node,
-      itemId: itemId(`node:${node.id}`),
-      dayDate: selectedDay,
-      updatedAt: now
-    }));
+    try {
+      const next = addDestinationNodeToTrip({
+        trip,
+        node,
+        itemId: itemId(`node:${node.id}`),
+        dayDate: selectedDay,
+        updatedAt: new Date().toISOString()
+      });
+      await persistVisitorAction(next, 'node');
+    } catch (error) {
+      setHistoryError(tr(language,
+        'Не удалось добавить место в маршрут. Проверьте сохранение и повторите попытку.',
+        'Could not save the place to your trip. Check storage and retry.',
+        '未能将地点保存到行程，请检查存储后重试。'));
+    }
   };
 
-  const addDirectoryPlace = () => {
+  const addDirectoryPlace = async (): Promise<void> => {
     if (!trip || !selectedDirectoryPlace) return;
     try {
-      setFormError('');
-      const at = new Date().toISOString();
-      setTrip(addCuratedMoscowPlaceToTrip({
+      const next = addCuratedMoscowPlaceToTrip({
         trip,
         place: selectedDirectoryPlace,
         itemId: itemId('directory'),
         dayDate: selectedDay,
-        updatedAt: at
-      }));
+        updatedAt: new Date().toISOString()
+      });
+      await persistVisitorAction(next, 'directory');
       onDirectoryPlaceHandled?.();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'place-add-failed');
     }
   };
 
-  const addSuggestedPlace = (place: CuratedMoscowPlace) => {
+  const addSuggestedPlace = async (place: CuratedMoscowPlace): Promise<void> => {
     if (!trip || !trip.days.includes(selectedDay) || !archiveReady || archiveError) {
       setDiscoveryActionError(tr(language, 'История поездок пока недоступна.', 'Trip history is not available.', '旅行历史记录暂不可用。'));
       return;
     }
     try {
-      const newId = itemId('discovery');
-      const updatedAt = new Date().toISOString();
-      // Validate the visible snapshot before scheduling the React update.
-      // Apply to the most recent state so rapid taps on different cards cannot
-      // silently replace another suggestion added in the same render frame.
-      addCuratedMoscowPlaceToTrip({
-        trip, place, itemId: newId, dayDate: selectedDay, updatedAt
+      const next = addCuratedMoscowPlaceToTrip({
+        trip,
+        place,
+        itemId: itemId('discovery'),
+        dayDate: selectedDay,
+        updatedAt: new Date().toISOString()
       });
-      setTrip((current) => {
-        if (!current || current.id !== trip.id || !current.days.includes(selectedDay)) {
-          return current;
-        }
-        try {
-          return addCuratedMoscowPlaceToTrip({
-            trip: current, place, itemId: newId, dayDate: selectedDay, updatedAt
-          });
-        } catch {
-          // A duplicate click after a successful first update is idempotent.
-          return current;
-        }
-      });
+      await persistVisitorAction(next, 'discovery');
       setDiscoveryActionError('');
-    } catch {
-      setDiscoveryActionError(tr(language, 'Это место уже есть в выбранном дне или его не удалось добавить.',
-        'This place is already in the day or could not be added.',
-        '此地点已在当日计划中，或无法添加。'));
+    } catch (error) {
+      setDiscoveryActionError(tr(language,
+        'Место не добавлено. Возможно, оно уже в плане либо возникла ошибка сохранения. Проверьте и повторите.',
+        'Place not added. It may already be in the plan, or saving failed. Check and retry.',
+        '地点未添加。可能已在计划中，或保存失败，请检查后重试。'));
     }
   };
 
@@ -757,7 +750,7 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const moveItemToAdjacentDay = (tripItemId: string, offset: -1 | 1) => {
+  const moveItemToAdjacentDay = async (tripItemId: string, offset: -1 | 1): Promise<void> => {
     if (!trip) return;
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
     if (!item || visitByItemId.has(item.id)) return;
@@ -769,18 +762,22 @@ export default function PersonalTripPlanner({
     const targetDay = trip.days[currentIndex + offset];
     if (!targetDay) return;
     try {
-      setTrip(moveTripItem({
+      const next = moveTripItem({
         trip,
         itemId: item.id,
         targetDayDate: targetDay,
         updatedAt: new Date().toISOString()
-      }));
+      });
+      await persistVisitorAction(next, 'move-day');
     } catch {
-      return;
+      setHistoryError(tr(language,
+        'Перенос не сохранён. Исходный день и билеты не изменены — повторите попытку.',
+        'Move not saved. The original day and tickets remain unchanged; please retry.',
+        '移动未保存。原日期和门票未改变，请重试。'));
     }
   };
 
-  const reorderItem = (tripItemId: string, offset: -1 | 1) => {
+  const reorderItem = async (tripItemId: string, offset: -1 | 1): Promise<void> => {
     if (!trip) return;
     const ids = activeItems.map((item) => item.id);
     const index = ids.indexOf(tripItemId);
@@ -788,14 +785,18 @@ export default function PersonalTripPlanner({
     if (index < 0 || target < 0 || target >= ids.length) return;
     [ids[index], ids[target]] = [ids[target]!, ids[index]!];
     try {
-      setTrip(reorderTripDayItems({
+      const next = reorderTripDayItems({
         trip,
         dayDate: selectedDay,
         orderedItemIds: ids,
         updatedAt: new Date().toISOString()
-      }));
+      });
+      await persistVisitorAction(next, 'reorder');
     } catch {
-      return;
+      setHistoryError(tr(language,
+        'Порядок мест не сохранён. Исходный план сохранён — повторите попытку.',
+        'Place order not saved. Your original itinerary remains; please retry.',
+        '地点顺序未保存，原行程保持不变，请重试。'));
     }
   };
 
@@ -1059,7 +1060,7 @@ export default function PersonalTripPlanner({
    */
   const persistVisitorAction = async (
     nextTrip: PersonalTrip,
-    action: 'manual' | 'visit' | 'note' | 'replacement' | 'booking' | 'replan' | 'preferences'
+    action: 'manual' | 'visit' | 'note' | 'replacement' | 'booking' | 'replan' | 'preferences' | 'node' | 'directory' | 'discovery' | 'move-day' | 'reorder'
   ): Promise<void> => {
     if (!trip || !beginStorageOperation()) {
       setHistoryError(tr(language, 'Локальное хранилище недоступно. Изменение не сохранено.',
@@ -1300,7 +1301,7 @@ export default function PersonalTripPlanner({
         <Text style={styles.directoryBody}>{tr(language,'Выбранный день','Selected day','选择的日期')}: {selectedDay}</Text>
         <Text style={styles.directoryBody}>{tr(language,'Это место, не билет и не бронь. Время и часы работы не проверены.','A saved place, not a ticket or reservation. Hours and times are unverified.','只是保存地点，不代表已购票或预订。')}</Text>
         {formError ? <Text style={styles.directoryError}>{formError}</Text> : null}
-        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} onPress={addDirectoryPlace}>
+        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} disabled={storageBusy} onPress={() => { void addDirectoryPlace(); }}>
           <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
         </PhysicalPressable>
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Отменить выбор места','Cancel place selection','取消选点')} style={styles.reset} contentStyle={styles.center} onPress={onDirectoryPlaceHandled}>
@@ -1643,7 +1644,7 @@ export default function PersonalTripPlanner({
                       contentStyle={styles.center}
                       disabled={activeItems[0]?.id === item.id}
                       accessibilityLabel={tr(language, `Переместить ${item.title} выше`, `Move ${item.title} up`, `将 ${item.title} 上移`)}
-                      onPress={() => reorderItem(item.id, -1)}
+                      onPress={() => { void reorderItem(item.id, -1); }
                     >
                       <Text style={styles.iconButtonText}>↑</Text>
                     </PhysicalPressable>
@@ -1652,7 +1653,7 @@ export default function PersonalTripPlanner({
                       contentStyle={styles.center}
                       disabled={activeItems[activeItems.length - 1]?.id === item.id}
                       accessibilityLabel={tr(language, `Переместить ${item.title} ниже`, `Move ${item.title} down`, `将 ${item.title} 下移`)}
-                      onPress={() => reorderItem(item.id, 1)}
+                      onPress={() => { void reorderItem(item.id, 1); }
                     >
                       <Text style={styles.iconButtonText}>↓</Text>
                     </PhysicalPressable>
@@ -1663,7 +1664,7 @@ export default function PersonalTripPlanner({
                     style={styles.iconButton}
                     contentStyle={styles.center}
                     accessibilityLabel={tr(language, `Перенести ${item.title} на предыдущий день`, `Move ${item.title} to previous day`, `将 ${item.title} 移到前一天`)}
-                    onPress={() => moveItemToAdjacentDay(item.id, -1)}
+                    onPress={() => { void moveItemToAdjacentDay(item.id, -1); }
                   >
                     <Text style={styles.iconButtonText}>←</Text>
                   </PhysicalPressable>
@@ -1673,7 +1674,7 @@ export default function PersonalTripPlanner({
                     style={styles.iconButton}
                     contentStyle={styles.center}
                     accessibilityLabel={tr(language, `Перенести ${item.title} на следующий день`, `Move ${item.title} to next day`, `将 ${item.title} 移到后一天`)}
-                    onPress={() => moveItemToAdjacentDay(item.id, 1)}
+                    onPress={() => { void moveItemToAdjacentDay(item.id, 1); }
                   >
                     <Text style={styles.iconButtonText}>→</Text>
                   </PhysicalPressable>
@@ -1723,7 +1724,7 @@ export default function PersonalTripPlanner({
                     style={[styles.addButton, added && styles.disabled]}
                     contentStyle={styles.center}
                     disabled={added}
-                    onPress={() => addNode(node.id)}
+                    onPress={() => { void addNode(node.id); }}
                   >
                     <Text style={styles.addButtonText}>{added ? '✓' : '+'}</Text>
                   </PhysicalPressable>
@@ -1749,7 +1750,7 @@ export default function PersonalTripPlanner({
                   <Text style={styles.quickTitle}>{nodeTitle(language, node)}</Text>
                   <Text style={styles.quickMeta}>{tr(language, 'Из исторического справочника · часы работы не проверены', 'From the heritage directory · hours unverified', '来自历史地点目录 · 开放时间未核验')}</Text>
                 </PhysicalPressable>
-                <PhysicalPressable style={styles.addButton} contentStyle={styles.center} onPress={() => addNode(node.id)}>
+                <PhysicalPressable style={styles.addButton} contentStyle={styles.center} onPress={() => { void addNode(node.id); }}>
                   <Text style={styles.addButtonText}>+</Text>
                 </PhysicalPressable>
               </View>
