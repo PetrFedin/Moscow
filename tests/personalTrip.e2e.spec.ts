@@ -2110,3 +2110,58 @@ test('day overview requires confirmation and retains retry on local write failur
   expect(state.visits).toHaveLength(1);
   expect(state.visits[0].evidence).toBe('user-confirmed');
 });
+
+
+test('booking inquiry reply remains editable on storage fault and persists after retry', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'booking-reply-failure',destinationId:'moscow',
+      title:'Ticket support',startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'ticket-support',dayDate,title:'Билет с обращением',
+        kind:'theatre',source:'manual',status:'planned',
+        commitment:{kind:'ticket',status:'confirmed',verification:'user-declared',reference:'REF-UNCHANGED'}}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('booking-resolution-card');
+  await card.getByRole('button',{name:'Открыть помощь с билетами'}).click();
+  await card.getByRole('button',{name:'Начать личную запись об обращении'}).click();
+  await expect(card.getByText('Моя история обращения',{exact:false})).toBeVisible();
+  const input=card.getByTestId('booking-resolution-reply-input');
+  await input.fill('Ответ оператора со слов туриста — сохранить при сбое.');
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    let fail=false;
+    Storage.prototype.setItem=function(key:string,value:string){
+      if(!fail&&key==='moscow:v1:personal-trip-transaction'){
+        fail=true;
+        throw new DOMException('Injected inquiry quota failure','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await card.getByRole('button',{name:'Сохранить мою заметку об ответе'}).click();
+  await expect(card.getByTestId('booking-resolution-error')).toBeVisible();
+  await expect(input).toHaveValue('Ответ оператора со слов туриста — сохранить при сбое.');
+  let stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(stored.bookingResolutions[0].events).toHaveLength(1);
+  expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
+  await card.getByRole('button',{name:'Сохранить мою заметку об ответе'}).click();
+  await expect(card.getByTestId('booking-resolution-error')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>{
+    const t=JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}');
+    return t.bookingResolutions?.[0]?.events?.length ?? 0;
+  })).toBe(2);
+  await page.reload();
+  await ensureRussian(page);
+  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(stored.bookingResolutions[0].events[1].note).toBe('Ответ оператора со слов туриста — сохранить при сбое.');
+  expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
+});
