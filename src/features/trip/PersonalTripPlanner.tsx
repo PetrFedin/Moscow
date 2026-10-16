@@ -1322,7 +1322,7 @@ export default function PersonalTripPlanner({
         </View>
       )}
 
-      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={(id) => { void markVisited(id).catch(() => undefined); }} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+      <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
       <TripAcceptanceHistoryCard trip={trip} language={language} />
       {archiveReady && !archiveError && (
