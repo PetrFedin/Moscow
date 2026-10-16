@@ -2165,3 +2165,50 @@ test('booking inquiry reply remains editable on storage fault and persists after
   expect(stored.bookingResolutions[0].events[1].note).toBe('Ответ оператора со слов туриста — сохранить при сбое.');
   expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
 });
+
+
+test('discovery add survives quota fault without phantom itinerary stop', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'discovery-quota-proof',destinationId:'moscow',title:'Discoveries',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],items:[],visits:[],
+      createdAt:'2026-10-16T08:00:00.000Z',updatedAt:'2026-10-16T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('moscow-next-discoveries');
+  await card.getByRole('button',{name:'Идеи: Рестораны'}).click();
+  const add=card.getByRole('button',{name:'Добавить место в выбранный день: Кафе Пушкинъ'});
+  await expect(add).toBeVisible();
+  await page.evaluate(() => {
+    const original=Storage.prototype.setItem;
+    let injected=false;
+    Storage.prototype.setItem=function(key:string,value:string) {
+      if(!injected && key==='moscow:v1:personal-trip-transaction') {
+        injected=true;
+        throw new DOMException('Injected discovery write error','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await add.click();
+  await expect(card.getByText(/Место не добавлено/)).toBeVisible();
+  await expect(add).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').items)).toHaveLength(0);
+  await add.click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').items?.length ?? 0
+  )).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const persisted=await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(persisted.items).toHaveLength(1);
+  expect(persisted.items[0].catalogPlaceId).toBe('cafe-pushkin-tverskoy');
+  expect(persisted.items[0].commitment).toBeUndefined();
+});
