@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import type { AppLanguage } from '../../i18n';
@@ -49,11 +49,13 @@ export default function ReplacementProposalCard({
 }: {
   sets: DayReplacementProposalSet[];
   language: AppLanguage;
-  onAccept: (proposal: DayReplacementProposal) => void;
+  onAccept: (proposal: DayReplacementProposal) => Promise<void>;
   onVerifyRouting?: (proposal: DayReplacementProposal) => void;
   verifyingProposalId?: string | null;
   actionError?: string;
 }) {
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState(false);
   if (sets.length === 0) return null;
 
   return (
@@ -71,6 +73,10 @@ export default function ReplacementProposalCard({
         )}
       </Text>
 
+      {saveError ? <Text testID="replacement-durable-save-error" style={styles.errorText}>{tr(language,
+        'Не удалось сохранить замену. Исходный маршрут и билеты оставлены без изменений.',
+        'Could not save replacement. The original itinerary and tickets remain unchanged.',
+        '无法保存替换，原行程与门票保持不变。')}</Text> : null}
       {actionError ? (
         <View style={styles.errorBox} testID="replacement-action-error">
           <Text style={styles.errorTitle}>REPLACEMENT ACTION BLOCKED</Text>
@@ -133,7 +139,15 @@ export default function ReplacementProposalCard({
                   <PhysicalPressable
                     style={styles.accept}
                     contentStyle={styles.center}
-                    onPress={() => onAccept(proposal)}
+                    disabled={acceptingId !== null}
+                    onPress={() => {
+                      if (acceptingId !== null) return;
+                      setAcceptingId(proposal.id);
+                      setSaveError(false);
+                      void onAccept(proposal)
+                        .catch(() => setSaveError(true))
+                        .finally(() => setAcceptingId(null));
+                    }}
                   >
                     <Text style={styles.acceptText}>
                       {tr(language, 'Принять замену', 'Accept replacement', '确认替换')}

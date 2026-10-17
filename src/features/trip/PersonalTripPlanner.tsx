@@ -42,7 +42,6 @@ import {
   recordTripVisit,
   updateTripVisitNote,
   summarizePersonalTrip,
-  syncRouteCompletedVisits,
   type PersonalTrip,
   type PersonalTripCommitment,
   type PersonalTripItemKind
@@ -52,6 +51,7 @@ import {
   reorderTripDayItems
 } from '../../travel/tripScheduler';
 import { canMoveTripStopBetweenDays } from '../../travel/tripDayPresentation';
+import { deriveWalkVisitCandidates } from '../../travel/walkVisitBridge';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
@@ -280,6 +280,7 @@ export default function PersonalTripPlanner({
   const [manualAddress, setManualAddress] = useState('');
   const [manualExternalUrl, setManualExternalUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [historyError, setHistoryError] = useState('');
   const [discoveryActionError, setDiscoveryActionError] = useState('');
   const [replacementActionError, setReplacementActionError] = useState('');
   const [verifiedReplacementRoutingProjection, setVerifiedReplacementRoutingProjection] = useState<
@@ -341,28 +342,15 @@ export default function PersonalTripPlanner({
     });
   }, [hydrated, trip, archiveError]);
 
-  useEffect(() => {
-    if (!hydrated || !trip || visitedIds.length === 0) return;
-    const today = moscowDateOnly();
-    if (!trip.days.includes(today)) return;
-    // Historic global walk-progress IDs belong to My Moscow, not to every newly opened trip.
-    // Only synchronize nodes explicitly scheduled into this exact trip and day.
-    const boundIds = visitedIds.filter((nodeId) => trip.items.some((item) =>
-      item.destinationNodeId === nodeId && item.dayDate === today
-    ));
-    if (!boundIds.length) return;
+  const walkVisitCandidates = useMemo(() => trip
+    ? deriveWalkVisitCandidates({
+        trip,
+        walkVisitedIds: visitedIds,
+        dayDate: moscowDateOnly(),
+        todayInDestination: moscowDateOnly()
+      })
+    : [], [trip, visitedIds]);
 
-    const synced = syncRouteCompletedVisits({
-      trip,
-      pkg: moscowVarvarkaDestinationPackage,
-      destinationNodeIds: boundIds,
-      dayDate: today,
-      at: new Date().toISOString(),
-      idForNode: (nodeId) => itemId(`route-visit:${nodeId}`)
-    });
-
-    if (synced.visits.length !== trip.visits.length) setTrip(synced);
-  }, [hydrated, trip, visitedIds]);
 
   const summary = useMemo(() => trip ? summarizePersonalTrip(trip) : null, [trip]);
   const activeItems = useMemo(
@@ -539,10 +527,10 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const acceptReplacement = (proposal: DayReplacementProposal) => {
-    if (!trip) return;
+  const acceptReplacement = async (proposal: DayReplacementProposal): Promise<void> => {
+    if (!trip) throw new Error('Active trip unavailable');
     const disruption = liveDisruptions.find((item) => item.id === proposal.disruptionId);
-    if (!disruption) return;
+    if (!disruption) throw new Error('Replacement disruption is no longer current');
 
     try {
       const accepted = acceptDayReplacementProposal({
@@ -551,12 +539,16 @@ export default function PersonalTripPlanner({
         proposal,
         acceptedAt: new Date().toISOString()
       });
-      setTrip(accepted.trip);
+      // Acceptance is evidence-bearing: preserve fixed tickets and save the
+      // before/after receipt before exposing the revised itinerary in the UI.
+      // On write failure the original trip, proposal and verification remain.
+      await persistVisitorAction(accepted.trip, 'replacement');
       setSelectedDay(accepted.trip.items.find((item) => item.id === accepted.receipt.affectedItemId)?.dayDate ?? selectedDay);
       setVerifiedReplacementRoutingProjection(null);
       setReplacementActionError('');
     } catch (error) {
       setReplacementActionError(error instanceof Error ? error.message : 'replacement-acceptance-failed');
+      throw error;
     }
   };
 
@@ -635,76 +627,69 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const addNode = (nodeId: string) => {
+  const addNode = async (nodeId: string): Promise<void> => {
     if (!trip) return;
     const node = moscowVarvarkaDestinationPackage.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) return;
     if (trip.items.some((item) => item.destinationNodeId === nodeId && item.dayDate === selectedDay)) return;
-
-    const now = new Date().toISOString();
-    setTrip(addDestinationNodeToTrip({
-      trip,
-      node,
-      itemId: itemId(`node:${node.id}`),
-      dayDate: selectedDay,
-      updatedAt: now
-    }));
+    try {
+      const next = addDestinationNodeToTrip({
+        trip,
+        node,
+        itemId: itemId(`node:${node.id}`),
+        dayDate: selectedDay,
+        updatedAt: new Date().toISOString()
+      });
+      await persistVisitorAction(next, 'node');
+    } catch (error) {
+      setHistoryError(tr(language,
+        'Не удалось добавить место в маршрут. Проверьте сохранение и повторите попытку.',
+        'Could not save the place to your trip. Check storage and retry.',
+        '未能将地点保存到行程，请检查存储后重试。'));
+    }
   };
 
-  const addDirectoryPlace = () => {
+  const addDirectoryPlace = async (): Promise<void> => {
     if (!trip || !selectedDirectoryPlace) return;
     try {
-      setFormError('');
-      const at = new Date().toISOString();
-      setTrip(addCuratedMoscowPlaceToTrip({
+      const next = addCuratedMoscowPlaceToTrip({
         trip,
         place: selectedDirectoryPlace,
         itemId: itemId('directory'),
         dayDate: selectedDay,
-        updatedAt: at
-      }));
+        updatedAt: new Date().toISOString()
+      });
+      await persistVisitorAction(next, 'directory');
       onDirectoryPlaceHandled?.();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'place-add-failed');
     }
   };
 
-  const addSuggestedPlace = (place: CuratedMoscowPlace) => {
+  const addSuggestedPlace = async (place: CuratedMoscowPlace): Promise<void> => {
     if (!trip || !trip.days.includes(selectedDay) || !archiveReady || archiveError) {
       setDiscoveryActionError(tr(language, 'История поездок пока недоступна.', 'Trip history is not available.', '旅行历史记录暂不可用。'));
       return;
     }
     try {
-      const newId = itemId('discovery');
-      const updatedAt = new Date().toISOString();
-      // Validate the visible snapshot before scheduling the React update.
-      // Apply to the most recent state so rapid taps on different cards cannot
-      // silently replace another suggestion added in the same render frame.
-      addCuratedMoscowPlaceToTrip({
-        trip, place, itemId: newId, dayDate: selectedDay, updatedAt
+      const next = addCuratedMoscowPlaceToTrip({
+        trip,
+        place,
+        itemId: itemId('discovery'),
+        dayDate: selectedDay,
+        updatedAt: new Date().toISOString()
       });
-      setTrip((current) => {
-        if (!current || current.id !== trip.id || !current.days.includes(selectedDay)) {
-          return current;
-        }
-        try {
-          return addCuratedMoscowPlaceToTrip({
-            trip: current, place, itemId: newId, dayDate: selectedDay, updatedAt
-          });
-        } catch {
-          // A duplicate click after a successful first update is idempotent.
-          return current;
-        }
-      });
+      await persistVisitorAction(next, 'discovery');
       setDiscoveryActionError('');
-    } catch {
-      setDiscoveryActionError(tr(language, 'Это место уже есть в выбранном дне или его не удалось добавить.',
-        'This place is already in the day or could not be added.',
-        '此地点已在当日计划中，或无法添加。'));
+    } catch (error) {
+      setDiscoveryActionError(tr(language,
+        'Место не добавлено. Возможно, оно уже в плане либо возникла ошибка сохранения. Проверьте и повторите.',
+        'Place not added. It may already be in the plan, or saving failed. Check and retry.',
+        '地点未添加。可能已在计划中，或保存失败，请检查后重试。'));
     }
   };
 
-  const addManual = () => {
+  const addManual = async () => {
     if (!trip || !manualTitle.trim()) return;
     const now = new Date().toISOString();
     const commitment: PersonalTripCommitment | undefined = commitmentChoice === 'none'
@@ -723,7 +708,7 @@ export default function PersonalTripPlanner({
 
     try {
       setFormError('');
-      setTrip(addManualTripItem({
+      const next = addManualTripItem({
         trip,
         itemId: itemId('manual'),
         dayDate: selectedDay,
@@ -733,7 +718,8 @@ export default function PersonalTripPlanner({
         plannedEndAt: moscowTimestamp(selectedDay, manualEndTime),
         updatedAt: now,
         ...(commitment ? { commitment } : {})
-      }));
+      });
+      await persistVisitorAction(next, 'manual');
       setManualTitle('');
       setManualReference('');
       setManualProvider('');
@@ -751,7 +737,7 @@ export default function PersonalTripPlanner({
     }
   };
 
-  const moveItemToAdjacentDay = (tripItemId: string, offset: -1 | 1) => {
+  const moveItemToAdjacentDay = async (tripItemId: string, offset: -1 | 1): Promise<void> => {
     if (!trip) return;
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
     if (!item || visitByItemId.has(item.id)) return;
@@ -763,18 +749,22 @@ export default function PersonalTripPlanner({
     const targetDay = trip.days[currentIndex + offset];
     if (!targetDay) return;
     try {
-      setTrip(moveTripItem({
+      const next = moveTripItem({
         trip,
         itemId: item.id,
         targetDayDate: targetDay,
         updatedAt: new Date().toISOString()
-      }));
+      });
+      await persistVisitorAction(next, 'move-day');
     } catch {
-      return;
+      setHistoryError(tr(language,
+        'Перенос не сохранён. Исходный день и билеты не изменены — повторите попытку.',
+        'Move not saved. The original day and tickets remain unchanged; please retry.',
+        '移动未保存。原日期和门票未改变，请重试。'));
     }
   };
 
-  const reorderItem = (tripItemId: string, offset: -1 | 1) => {
+  const reorderItem = async (tripItemId: string, offset: -1 | 1): Promise<void> => {
     if (!trip) return;
     const ids = activeItems.map((item) => item.id);
     const index = ids.indexOf(tripItemId);
@@ -782,14 +772,18 @@ export default function PersonalTripPlanner({
     if (index < 0 || target < 0 || target >= ids.length) return;
     [ids[index], ids[target]] = [ids[target]!, ids[index]!];
     try {
-      setTrip(reorderTripDayItems({
+      const next = reorderTripDayItems({
         trip,
         dayDate: selectedDay,
         orderedItemIds: ids,
         updatedAt: new Date().toISOString()
-      }));
+      });
+      await persistVisitorAction(next, 'reorder');
     } catch {
-      return;
+      setHistoryError(tr(language,
+        'Порядок мест не сохранён. Исходный план сохранён — повторите попытку.',
+        'Place order not saved. Your original itinerary remains; please retry.',
+        '地点顺序未保存，原行程保持不变，请重试。'));
     }
   };
 
@@ -1004,6 +998,100 @@ export default function PersonalTripPlanner({
     }
   };
 
+  // Calendar imports must commit to durable local storage BEFORE their
+  // preview and pasted invitation are discarded. A React state update is not
+  // proof that a ticket or plan survived a storage failure or another tab.
+  const persistCalendarImport = async (nextTrip: PersonalTrip): Promise<void> => {
+    if (!trip || !beginStorageOperation()) {
+      throw new Error('Trip storage is unavailable; calendar event was not saved');
+    }
+    try {
+      await activeWritesRef.current;
+      if (nextTrip.id !== trip.id) throw new Error('Calendar import trip identity changed');
+      const saved = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'edit',
+        id: 'calendar-import:' + nextTrip.id + ':' + nextTrip.updatedAt,
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (!activeTrip || activeTrip.id !== nextTrip.id) {
+            throw new Error('Active trip changed during calendar import');
+          }
+          return { activeTrip: nextTrip, archive: savedArchive, result: true };
+        }
+      });
+      persistedTripRef.current = saved.activeTrip;
+      setTrip(saved.activeTrip);
+      setFormError('');
+    } catch (error) {
+      // A failed, interrupted journal must be recovered before any new edit;
+      // otherwise leave the modal and raw invitation intact for an explicit retry.
+      try {
+        if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
+          setArchiveError('trip-storage-recovery-required');
+        }
+      } catch {
+        setArchiveError('trip-storage-recovery-required');
+      }
+      throw error;
+    } finally {
+      endStorageOperation();
+    }
+  };
+
+  /**
+   * Critical visitor actions are shown as completed only after the active
+   * trip and its archive journal have been durably written and read back.
+   * Ordinary optimistic edits still use the queued autosave effect; tickets,
+   * personal check-ins and notes must NOT clear their form before this proof.
+   */
+  const persistVisitorAction = async (
+    nextTrip: PersonalTrip,
+    action: 'manual' | 'visit' | 'note' | 'replacement' | 'booking' | 'replan' | 'preferences' | 'node' | 'directory' | 'discovery' | 'move-day' | 'reorder'
+  ): Promise<void> => {
+    if (!trip || !beginStorageOperation()) {
+      setHistoryError(tr(language, 'Локальное хранилище недоступно. Изменение не сохранено.',
+        'Local storage is unavailable. The change was not saved.',
+        '本地存储不可用，变更未保存。'));
+      throw new Error('Trip storage unavailable for visitor action');
+    }
+    try {
+      await activeWritesRef.current;
+      if (trip.id !== nextTrip.id) throw new Error('Active trip identity changed during visitor action');
+      const outcome = await transactTripStorage({
+        storage: AsyncStorage,
+        operation: 'edit',
+        id: action + ':' + nextTrip.id + ':' + nextTrip.updatedAt,
+        expectedActiveTrip: trip,
+        transform: ({ activeTrip, archive: savedArchive }) => {
+          if (!activeTrip || activeTrip.id !== nextTrip.id) {
+            throw new Error('Active trip changed before visitor action was saved');
+          }
+          return { activeTrip: nextTrip, archive: savedArchive, result: true };
+        }
+      });
+      persistedTripRef.current = outcome.activeTrip;
+      setTrip(outcome.activeTrip);
+      setHistoryError('');
+      setFormError('');
+    } catch (error) {
+      setHistoryError(tr(language,
+        'Не удалось подтвердить сохранение. Исходные данные оставлены для повторной попытки. Не очищайте память приложения.',
+        'Saving could not be verified. Your input is retained for retry. Do not clear the app storage.',
+        '无法确认保存。已保留输入以便重试，请勿清除应用存储。'));
+      try {
+        if (await AsyncStorage.getItem(PERSONAL_TRIP_TRANSACTION_STORAGE_KEY)) {
+          setArchiveError('trip-storage-recovery-required');
+        }
+      } catch {
+        setArchiveError('trip-storage-recovery-required');
+      }
+      throw error;
+    } finally {
+      endStorageOperation();
+    }
+  };
+
   const backupPanel = (
     <TripBackupPanel
       language={language}
@@ -1015,13 +1103,13 @@ export default function PersonalTripPlanner({
     />
   );
 
-  const markVisited = (tripItemId: string) => {
-    if (!trip) return;
+  const markVisited = async (tripItemId: string): Promise<void> => {
+    if (!trip) throw new Error('Active trip unavailable');
     const item = trip.items.find((candidate) => candidate.id === tripItemId);
-    if (!item) return;
+    if (!item) throw new Error('Trip item unavailable');
 
     const at = visitTimestamp(item.dayDate);
-    setTrip(recordTripVisit({
+    const next = recordTripVisit({
       trip,
       visitId: itemId(`visit:${tripItemId}`),
       itemId: tripItemId,
@@ -1032,7 +1120,8 @@ export default function PersonalTripPlanner({
       kind: item.kind,
       evidence: 'user-confirmed',
       updatedAt: new Date().toISOString()
-    }));
+    });
+    await persistVisitorAction(next, 'visit');
   };
 
   if (!trip) {
@@ -1199,13 +1288,14 @@ export default function PersonalTripPlanner({
         <Text style={styles.directoryBody}>{tr(language,'Выбранный день','Selected day','选择的日期')}: {selectedDay}</Text>
         <Text style={styles.directoryBody}>{tr(language,'Это место, не билет и не бронь. Время и часы работы не проверены.','A saved place, not a ticket or reservation. Hours and times are unverified.','只是保存地点，不代表已购票或预订。')}</Text>
         {formError ? <Text style={styles.directoryError}>{formError}</Text> : null}
-        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} onPress={addDirectoryPlace}>
+        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} disabled={storageBusy} onPress={() => { void addDirectoryPlace(); }}>
           <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
         </PhysicalPressable>
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Отменить выбор места','Cancel place selection','取消选点')} style={styles.reset} contentStyle={styles.center} onPress={onDirectoryPlaceHandled}>
           <Text style={styles.resetText}>{tr(language,'Отмена','Cancel','取消')}</Text>
         </PhysicalPressable>
       </View>}
+      {historyError ? <Text testID="trip-history-save-error" style={styles.recoveryError}>{historyError}</Text> : null}
       <TouristTodayCard
         trip={trip}
         language={language}
@@ -1226,6 +1316,28 @@ export default function PersonalTripPlanner({
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
+      {walkVisitCandidates.length > 0 ? (
+        <View testID="walk-visit-candidates" style={styles.form}>
+          <Text style={styles.formTitle}>{tr(language,
+            'В прогулке отмечены места — подтвердите посещение для дневника',
+            'Places marked in your walk — confirm before recording in your diary',
+            '步行记录中有地点，请先确认实际到访')}</Text>
+          <Text style={styles.truthNote}>{tr(language,
+            'Прежние отметки прогулок не содержат дату и не подтверждают посещение именно в этой поездке.',
+            'Existing walk progress has no visit date and is not proof of this trip.',
+            '过往步行记录没有到访日期，不能证明本次行程已到访。')}</Text>
+          {walkVisitCandidates.map(candidate => (
+            <PhysicalPressable key={candidate.itemId} accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Подтвердить посещение из прогулки: ',
+                'Confirm walk visit: ', '确认步行到访：') + candidate.title}
+              style={styles.secondary} contentStyle={styles.center}
+              onPress={() => { void markVisited(candidate.itemId).catch(() => undefined); }}>
+              <Text style={styles.secondaryText}>{candidate.title} · {tr(language,
+                'Да, я посетил', 'Yes, I visited', '是的，我到访了')}</Text>
+            </PhysicalPressable>
+          ))}
+        </View>
+      ) : null}
       <TripAcceptanceHistoryCard trip={trip} language={language} />
       {archiveReady && !archiveError && (
         <TripArchivePanel archive={archive} activeTripId={trip.id} language={language} onOpenArchivedTrip={(id) => { void openPreviousTrip(id); }} />
@@ -1236,7 +1348,7 @@ export default function PersonalTripPlanner({
       {tripToolsOpen && <TripPreferencesCard
         trip={trip}
         language={language}
-        onUpdate={setTrip}
+        onUpdate={(next) => persistVisitorAction(next, 'preferences')}
       />}
 
 
@@ -1249,14 +1361,14 @@ export default function PersonalTripPlanner({
           setBookingHelpOpen(true);
         }}
       />
-      <CalendarInviteImportCard trip={trip} language={language} onUpdate={setTrip} />
+      <CalendarInviteImportCard trip={trip} language={language} onUpdate={persistCalendarImport} />
       <BookingResolutionCard
         trip={trip}
         language={language}
         open={bookingHelpOpen}
         focusedItemId={bookingHelpItemId}
         onToggle={setBookingHelpOpen}
-        onUpdate={setTrip}
+        onUpdate={(next) => persistVisitorAction(next, 'booking')}
       />
 
       <LiveDisruptionCard
@@ -1277,7 +1389,7 @@ export default function PersonalTripPlanner({
         trip={trip}
         dayDate={selectedDay}
         language={language}
-        onUpdate={setTrip}
+        onUpdate={(next) => persistVisitorAction(next, 'replan')}
       />}
 
       <Text style={styles.label}>{tr(language, 'ДНИ ПОЕЗДКИ', 'TRIP DAYS', '行程日期')}</Text>
@@ -1459,7 +1571,7 @@ export default function PersonalTripPlanner({
                 : tr(language, 'Проверьте время и данные пункта', 'Check the time and item details', '请检查时间和项目详情')}
             </Text>
           ) : null}
-          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={addManual}>
+          <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => { void addManual(); }}>
             <Text style={styles.primaryText}>{tr(language, 'Добавить в день', 'Add to day', '添加到当天')}</Text>
           </PhysicalPressable>
         </View>
@@ -1541,7 +1653,7 @@ export default function PersonalTripPlanner({
                       contentStyle={styles.center}
                       disabled={activeItems[0]?.id === item.id}
                       accessibilityLabel={tr(language, `Переместить ${item.title} выше`, `Move ${item.title} up`, `将 ${item.title} 上移`)}
-                      onPress={() => reorderItem(item.id, -1)}
+                      onPress={() => { void reorderItem(item.id, -1); }}
                     >
                       <Text style={styles.iconButtonText}>↑</Text>
                     </PhysicalPressable>
@@ -1550,7 +1662,7 @@ export default function PersonalTripPlanner({
                       contentStyle={styles.center}
                       disabled={activeItems[activeItems.length - 1]?.id === item.id}
                       accessibilityLabel={tr(language, `Переместить ${item.title} ниже`, `Move ${item.title} down`, `将 ${item.title} 下移`)}
-                      onPress={() => reorderItem(item.id, 1)}
+                      onPress={() => { void reorderItem(item.id, 1); }}
                     >
                       <Text style={styles.iconButtonText}>↓</Text>
                     </PhysicalPressable>
@@ -1561,7 +1673,7 @@ export default function PersonalTripPlanner({
                     style={styles.iconButton}
                     contentStyle={styles.center}
                     accessibilityLabel={tr(language, `Перенести ${item.title} на предыдущий день`, `Move ${item.title} to previous day`, `将 ${item.title} 移到前一天`)}
-                    onPress={() => moveItemToAdjacentDay(item.id, -1)}
+                    onPress={() => { void moveItemToAdjacentDay(item.id, -1); }}
                   >
                     <Text style={styles.iconButtonText}>←</Text>
                   </PhysicalPressable>
@@ -1571,7 +1683,7 @@ export default function PersonalTripPlanner({
                     style={styles.iconButton}
                     contentStyle={styles.center}
                     accessibilityLabel={tr(language, `Перенести ${item.title} на следующий день`, `Move ${item.title} to next day`, `将 ${item.title} 移到后一天`)}
-                    onPress={() => moveItemToAdjacentDay(item.id, 1)}
+                    onPress={() => { void moveItemToAdjacentDay(item.id, 1); }}
                   >
                     <Text style={styles.iconButtonText}>→</Text>
                   </PhysicalPressable>
@@ -1595,7 +1707,7 @@ export default function PersonalTripPlanner({
                   </PhysicalPressable>
                 )}
                 {!visited && (
-                  <PhysicalPressable style={styles.visitButton} contentStyle={styles.center} onPress={() => markVisited(item.id)}>
+                  <PhysicalPressable style={styles.visitButton} contentStyle={styles.center} onPress={() => { void markVisited(item.id).catch(() => undefined); }}>
                     <Text style={styles.visitButtonText}>{tr(language, 'Я был здесь', 'I was here', '我来过这里')}</Text>
                   </PhysicalPressable>
                 )}
@@ -1621,7 +1733,7 @@ export default function PersonalTripPlanner({
                     style={[styles.addButton, added && styles.disabled]}
                     contentStyle={styles.center}
                     disabled={added}
-                    onPress={() => addNode(node.id)}
+                    onPress={() => { void addNode(node.id); }}
                   >
                     <Text style={styles.addButtonText}>{added ? '✓' : '+'}</Text>
                   </PhysicalPressable>
@@ -1647,7 +1759,7 @@ export default function PersonalTripPlanner({
                   <Text style={styles.quickTitle}>{nodeTitle(language, node)}</Text>
                   <Text style={styles.quickMeta}>{tr(language, 'Из исторического справочника · часы работы не проверены', 'From the heritage directory · hours unverified', '来自历史地点目录 · 开放时间未核验')}</Text>
                 </PhysicalPressable>
-                <PhysicalPressable style={styles.addButton} contentStyle={styles.center} onPress={() => addNode(node.id)}>
+                <PhysicalPressable style={styles.addButton} contentStyle={styles.center} onPress={() => { void addNode(node.id); }}>
                   <Text style={styles.addButtonText}>+</Text>
                 </PhysicalPressable>
               </View>
@@ -1656,12 +1768,9 @@ export default function PersonalTripPlanner({
         </>
       )}
 
-      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={(visitId, note) => {
-        try {
-          setTrip(updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() }));
-        } catch {
-          setFormError('visit-note-save-failed');
-        }
+      <MoscowPassportCard trip={trip} language={language} onSaveVisitNote={async (visitId, note) => {
+        const next = updateTripVisitNote({ trip, visitId, note, updatedAt: new Date().toISOString() });
+        await persistVisitorAction(next, 'note');
       }} />
     </View>
   );
@@ -1718,6 +1827,8 @@ const styles = StyleSheet.create({
   smallPrimaryText: { color: '#e1c184', fontSize: 9, fontWeight: '900' },
   form: { borderRadius: 18, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#30363e', padding: 14, marginBottom: 12 },
   formTitle: { color: '#f0ece4', fontSize: 16, fontWeight: '900', marginBottom: 10 },
+  secondary: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#90784e', marginTop: 6 },
+  secondaryText: { color: '#e5c88e', fontSize: 13, fontWeight: '700' },
   wrapChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   kindChip: { minHeight: 36, borderRadius: 12, borderWidth: 1, borderColor: '#343b43', paddingHorizontal: 9 },
   kindChipActive: { borderColor: '#90784e', backgroundColor: '#241e15' },

@@ -32,7 +32,9 @@
     "live:tretyakov-programme-smoke": "node --experimental-strip-types scripts/tretyakov_programme_smoke.mjs",
     "live:refresh-runtime": "node --experimental-strip-types scripts/live_city_refresh_runtime.mjs",
     "live:publication-server": "node --experimental-strip-types scripts/live_city_publication_server.mjs",
-    "live:publish-current": "node --experimental-strip-types scripts/publish_live_city_snapshot.mjs"
+    "live:publish-current": "node --experimental-strip-types scripts/publish_live_city_snapshot.mjs",
+    "release:probe": "node --experimental-strip-types scripts/probe_release_candidate.mjs",
+    "acceptance:staging": "playwright test --config playwright.staging.config.ts"
   },
   "dependencies": {
     "@google/model-viewer": "4.3.1",

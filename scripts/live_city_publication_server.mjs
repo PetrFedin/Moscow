@@ -27,6 +27,7 @@ import {
   VALHALLA_DEFAULT_BASE_URL
 } from '../src/integrations/valhallaRoutingAdapter.ts';
 import { projectLiveDestinationFeed } from '../src/travel/liveDestinationAuthority.ts';
+import { moscowRuntimeReleaseIdentity } from '../src/travel/runtimeReleaseIdentity.ts';
 import { runLiveCityRefreshRuntime } from '../src/travel/liveCityRefreshRuntime.ts';
 import {
   assertGitHubActionsPublisherClaims,
@@ -572,6 +573,10 @@ const server = http.createServer(async (req, res) => {
       'access-control-allow-headers': 'authorization, content-type'
     });
     return res.end();
+  }
+
+  if (req.method === 'GET' && url.pathname === '/release') {
+    return json(res, 200, moscowRuntimeReleaseIdentity(process.env));
   }
 
   if (req.method === 'GET' && url.pathname === '/health') {

@@ -9,13 +9,15 @@ import PhysicalPressable from '../../ui/PhysicalPressable';
 type Props = {
   item: PersonalTripItem;
   language: AppLanguage;
-  onMarkVisited: (itemId: string) => void;
+  onMarkVisited: (itemId: string) => Promise<void>;
   onOpenPlace: (placeId: string) => void;
 };
 
 /** Explicit user check-in. Neither opening a map nor this action is provider attendance proof. */
 export default function TodayStopActions({ item, language, onMarkVisited, onOpenPlace }: Props) {
   const [confirmVisit, setConfirmVisit] = useState(false);
+  const [savingVisit, setSavingVisit] = useState(false);
+  const [visitError, setVisitError] = useState(false);
   const place = item.catalogPlaceId ? curatedMoscowPlace(item.catalogPlaceId) : undefined;
   const address = place?.addressRu || item.commitment?.address;
 
@@ -64,12 +66,18 @@ export default function TodayStopActions({ item, language, onMarkVisited, onOpen
           accessibilityRole="button"
           accessibilityLabel={tr(language, 'Отметить, что я был здесь', 'Mark that I visited', '标记已到访')}
           style={styles.primaryButton} contentStyle={styles.center}
-          onPress={() => setConfirmVisit(true)}
+          onPress={() => { setVisitError(false); setConfirmVisit(true); }}
         >
           <Text style={styles.primaryText}>{tr(language, 'Я был здесь', 'I was here', '我来过这里')} ✓</Text>
         </PhysicalPressable>
       ) : (
         <View style={styles.confirmation}>
+          {visitError ? (
+            <Text testID="today-visit-save-error" style={styles.errorText}>{tr(language,
+              'Посещение не сохранено. Проверьте память устройства и повторите попытку.',
+              'Visit not saved. Check your device storage and retry.',
+              '到访记录未保存，请检查设备存储后重试。')}</Text>
+          ) : null}
           <Text style={styles.confirmText}>{tr(language,
             'Вы действительно посетили это место? Запись будет добавлена как ваша личная отметка, без подтверждения организатора.',
             'Have you actually visited? This creates your own check-in, not confirmation by a provider.',
@@ -78,7 +86,16 @@ export default function TodayStopActions({ item, language, onMarkVisited, onOpen
             accessibilityRole="button"
             accessibilityLabel={tr(language, 'Подтвердить личное посещение', 'Confirm my visit', '确认个人到访')}
             style={styles.primaryButton} contentStyle={styles.center}
-            onPress={() => { onMarkVisited(item.id); setConfirmVisit(false); }}
+            disabled={savingVisit}
+            onPress={() => {
+              if (savingVisit) return;
+              setSavingVisit(true);
+              setVisitError(false);
+              void onMarkVisited(item.id)
+                .then(() => setConfirmVisit(false))
+                .catch(() => setVisitError(true))
+                .finally(() => setSavingVisit(false));
+            }}
           >
             <Text style={styles.primaryText}>{tr(language, 'Подтвердить посещение', 'Confirm visit', '确认到访')}</Text>
           </PhysicalPressable>
@@ -86,6 +103,7 @@ export default function TodayStopActions({ item, language, onMarkVisited, onOpen
             accessibilityRole="button"
             accessibilityLabel={tr(language, 'Отменить отметку посещения', 'Cancel visit check-in', '取消到访标记')}
             style={styles.outlineButton} contentStyle={styles.center}
+            disabled={savingVisit}
             onPress={() => setConfirmVisit(false)}
           >
             <Text style={styles.outlineText}>{tr(language, 'Отмена', 'Cancel', '取消')}</Text>
@@ -107,5 +125,6 @@ const styles = StyleSheet.create({
   primaryButton: { borderRadius: 12, backgroundColor: '#244638', minHeight: 48 },
   primaryText: { color: '#fff6e4', fontSize: 13, fontWeight: '700' },
   confirmation: { backgroundColor: '#e6e9df', borderRadius: 12, padding: 12, gap: 9 },
-  confirmText: { color: '#345042', fontSize: 12, lineHeight: 19 }
+  confirmText: { color: '#345042', fontSize: 12, lineHeight: 19 },
+  errorText: { color: '#982e28', fontSize: 13, lineHeight: 20, fontWeight: '700' }
 });

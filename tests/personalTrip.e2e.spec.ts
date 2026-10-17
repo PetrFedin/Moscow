@@ -1048,7 +1048,43 @@ test('source-backed replacement becomes executable after current route verificat
   await expect(page.getByText(/OUT · SAFE · 36 мин/)).toBeVisible();
   await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
 
+  // Admission and user acceptance are distinct from a durable commit.
+  // A failed local journal write MUST leave the original museum, its confirmed
+  // self-declared theatre ticket and all acceptance receipts untouched.
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  const rawBeforeFailure = await page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'));
+  expect(rawBeforeFailure).not.toBeNull();
+  expect(JSON.parse(rawBeforeFailure!).replacementReceipts ?? []).toHaveLength(0);
+  await page.evaluate(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    let injected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!injected && key === 'moscow:v1:personal-trip-transaction') {
+        injected = true;
+        throw new DOMException('Injected replacement journal quota fault', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    };
+  });
   await page.getByText('Принять замену', { exact: true }).click();
+  await expect(page.getByTestId('replacement-durable-save-error')).toBeVisible();
+  await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip')))
+    .toBe(rawBeforeFailure);
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction')))
+    .toBeNull();
+
+  // An explicit second acceptance must write exactly one immutable receipt
+  // before the UI reports the revised route as accepted.
+  await page.getByText('Принять замену', { exact: true }).click();
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
 
   const replacementError = page.getByTestId('replacement-action-error');
   if (await replacementError.count()) {
@@ -1712,4 +1748,467 @@ test('calendar invite import previews a plan without claiming purchase and rejec
   await reopened.getByTestId('calendar-invite-input').fill(invite);
   await reopened.getByRole('button',{name:'Проверить приглашение'}).click();
   await expect(reopened.getByTestId('calendar-invite-error')).toContainText('already in this journey');
+});
+
+
+test('ICS import retains invitation on quota failure and retries only after durable write', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const value = {
+      schemaVersion: 1, id: 'ics-quota-journey', destinationId: 'moscow',
+      title: 'Private calendar proof', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [], visits: [], createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(value));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const card = page.getByTestId('calendar-invite-import');
+  await card.getByRole('button', { name: 'Открыть импорт календарного события' }).click();
+  const stamp = day.replaceAll('-', '');
+  const invitation = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+    'UID:ics-storage-quota@example.test', 'SUMMARY:Ночной спектакль',
+    'DTSTART;TZID=Europe/Moscow:' + stamp + 'T190000',
+    'DTEND;TZID=Europe/Moscow:' + stamp + 'T210000',
+    'DESCRIPTION:PRIVATE NEVER SAVE', 'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invitation);
+  await card.getByRole('button', { name: 'Проверить приглашение' }).click();
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
+
+  // Block the *actual* localStorage journal write for one attempt, not the
+  // parsing service or component callback. This mirrors a browser quota fault.
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!rejected && key === 'moscow:v1:personal-trip-transaction') {
+        rejected = true;
+        throw new DOMException('Injected storage quota reached', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected storage quota reached');
+  // HTML textarea normalizes CRLF to LF; every other invitation character must remain unchanged.
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation.replaceAll('\r\n', '\n'));
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
+  const afterFailure = await page.evaluate(() => ({
+    active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(afterFailure.active.items).toHaveLength(0);
+  expect(afterFailure.journal).toBeNull();
+
+  // A retry is explicit; never assume a rejected commit was saved.
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length ?? 0
+  )).toBe(1);
+  await expect(card.getByTestId('calendar-invite-input')).toHaveCount(0);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const restored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(restored.items).toHaveLength(1);
+  expect(restored.items[0].calendarImportKey).toBe('ics:ics-storage-quota@example.test');
+  expect(JSON.stringify(restored)).not.toContain('PRIVATE NEVER SAVE');
+});
+
+test('ICS interrupted active write recovers exactly once after reload', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const value = {
+      schemaVersion: 1, id: 'ics-interrupt-journey', destinationId: 'moscow',
+      title: 'Calendar crash recovery', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [], visits: [], createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(value));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const card = page.getByTestId('calendar-invite-import');
+  await card.getByRole('button', { name: 'Открыть импорт календарного события' }).click();
+  const stamp = day.replaceAll('-', '');
+  const invitation = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+    'UID:ics-interrupted@example.test', 'SUMMARY:Прогулка после театра',
+    'DTSTART;TZID=Europe/Moscow:' + stamp + 'T170000',
+    'DTEND;TZID=Europe/Moscow:' + stamp + 'T180000',
+    'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invitation);
+  await card.getByRole('button', { name: 'Проверить приглашение' }).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!rejected && key === 'moscow:v1:personal-trip') {
+        rejected = true;
+        throw new DOMException('Injected active-key write failure', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected active-key write failure');
+  // HTML textarea normalizes CRLF to LF; every other invitation character must remain unchanged.
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation.replaceAll('\r\n', '\n'));
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction'))).not.toBeNull();
+
+  // Simulate a terminated tab after a fully validated but interrupted journal.
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length ?? 0
+  )).toBe(1);
+  const state = await page.evaluate(() => ({
+    active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(state.journal).toBeNull();
+  expect(state.active.items).toHaveLength(1);
+  expect(state.active.items[0].calendarImportKey).toBe('ics:ics-interrupted@example.test');
+  await page.reload();
+  await ensureRussian(page);
+  const again = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(again.items).toHaveLength(1);
+});
+
+
+test('full journey: saved theatre ticket and visit note survive archive, restart and reopening', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+
+  // A visitor enters an already-purchased ticket. No supplier is contacted.
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Большой театр · билет сохранён');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByPlaceholder('Номер заказа / заметка (необязательно)')
+    .fill('USER-REF-ARCHIVE-REOPEN');
+  await page.getByText('Добавить в день', { exact: true }).click();
+  await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true }))
+    .toBeVisible();
+
+  await page.getByText('Я был здесь', { exact: true }).click();
+  await page.getByRole('button', {
+    name: 'Редактировать заметку: Большой театр · билет сохранён'
+  }).click();
+  await page.getByLabel('Текст личной заметки').fill('Личная заметка пережила архив и перезапуск.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Личная заметка пережила архив и перезапуск.', { exact: true }))
+    .toBeVisible();
+
+  // Wait for the actual local journal to complete before archiving.
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('moscow:v1:personal-trip');
+    if (!raw || localStorage.getItem('moscow:v1:personal-trip-transaction')) return false;
+    const value = JSON.parse(raw);
+    return value.items?.[0]?.commitment?.reference === 'USER-REF-ARCHIVE-REOPEN'
+      && value.items?.[0]?.commitment?.verification === 'user-declared'
+      && value.visits?.[0]?.note === 'Личная заметка пережила архив и перезапуск.';
+  })).toBe(true);
+
+  const beforeArchive = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  await page.getByText('Новая', { exact: true }).click();
+  await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+  const afterArchive = await page.evaluate(() => ({
+    active: localStorage.getItem('moscow:v1:personal-trip'),
+    archive: JSON.parse(localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(afterArchive.active).toBeNull();
+  expect(afterArchive.journal).toBeNull();
+  expect(afterArchive.archive.trips).toHaveLength(1);
+  expect(afterArchive.archive.trips[0]).toEqual(beforeArchive);
+
+  // Archive entries must remain usable after browser restart, not only in
+  // a React component's in-memory state.
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть архивную поездку: ' + day }).click();
+  await expect(page.getByText('Большой театр · билет сохранён', { exact: true }).first())
+    .toBeVisible();
+  await expect(page.getByText('Личная заметка пережила архив и перезапуск.', { exact: true }))
+    .toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const reopened = await page.evaluate(() => ({
+    active: JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(reopened.active).toEqual(beforeArchive);
+  expect(reopened.journal).toBeNull();
+  expect(reopened.active.items[0].commitment.verification).toBe('user-declared');
+  await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
+});
+
+
+test('passport note preserves draft after local journal failure and succeeds on retry', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'note-write-proof', destinationId: 'moscow',
+      title: 'Заметки', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'museum-note', dayDate, source: 'manual', kind: 'museum',
+        title: 'Музей для заметки', status: 'completed'
+      }],
+      visits: [{
+        id: 'visit-note', itemId: 'museum-note', dayDate,
+        visitedAt: dayDate + 'T14:00:00+03:00',
+        title: 'Музей для заметки', kind: 'museum', evidence: 'user-confirmed'
+      }],
+      createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByRole('button', {name:'Редактировать заметку: Музей для заметки'}).click();
+  const note = page.getByLabel('Текст личной заметки');
+  await note.fill('Черновик должен пережить ошибку записи');
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!fault && key === 'moscow:v1:personal-trip-transaction') {
+        fault = true;
+        throw new DOMException('Simulated visit-note quota fault', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole('button', {name:'Сохранить заметку'}).click();
+  await expect(page.getByTestId('passport-note-save-error')).toBeVisible();
+  await expect(note).toHaveValue('Черновик должен пережить ошибку записи');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}').visits[0].note)).toBeUndefined();
+  await page.getByRole('button', {name:'Сохранить заметку'}).click();
+  await expect(page.getByTestId('passport-note-save-error')).toHaveCount(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Черновик должен пережить ошибку записи', {exact:true})).toBeVisible();
+});
+
+
+test('Today confirmation stays open and preserves visit truth when journal write fails', async ({ page }) => {
+  const day = moscowNowParts().date;
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'today-visit-fault',destinationId:'moscow',title:'Visit fault',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'visit-target',dayDate,title:'Музей для отметки',kind:'museum',source:'manual',status:'planned'}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  await page.getByRole('button',{name:'Отметить, что я был здесь'}).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault=false;
+    Storage.prototype.setItem=function(key:string,value:string) {
+      if (!fault && key==='moscow:v1:personal-trip-transaction') {
+        fault=true;
+        throw new DOMException('Injected visit journal quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await page.getByRole('button',{name:'Подтвердить личное посещение'}).click();
+  await expect(page.getByTestId('today-visit-save-error')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Подтвердить личное посещение'})).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await page.getByRole('button',{name:'Подтвердить личное посещение'}).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits?.length)).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const state=await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(state.visits).toHaveLength(1);
+  expect(state.visits[0].evidence).toBe('user-confirmed');
+});
+
+
+test('day overview requires confirmation and retains retry on local write failure', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip',JSON.stringify({
+      schemaVersion:1,id:'journey-checkin-retry',destinationId:'moscow',title:'Journey check-in',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'journey-stop',dayDate,title:'Музей маршрута',kind:'museum',source:'manual',status:'planned'}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('travel-day-overview');
+  await card.getByRole('button',{name:'Я был здесь'}).click();
+  await expect(card.getByTestId('journey-visit-confirmation')).toBeVisible();
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    let fault=false;
+    Storage.prototype.setItem=function(key:string,value:string){
+      if(!fault&&key==='moscow:v1:personal-trip-transaction'){
+        fault=true;throw new DOMException('Injected journal quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await card.getByRole('button',{name:'Подтвердить посещение в маршруте'}).click();
+  await expect(card.getByTestId('journey-visit-save-error')).toBeVisible();
+  await expect(card.getByRole('button',{name:'Подтвердить посещение в маршруте'})).toBeVisible();
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await card.getByRole('button',{name:'Подтвердить посещение в маршруте'}).click();
+  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits.length)).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(state.visits).toHaveLength(1);
+  expect(state.visits[0].evidence).toBe('user-confirmed');
+});
+
+
+test('booking inquiry reply remains editable on storage fault and persists after retry', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'booking-reply-failure',destinationId:'moscow',
+      title:'Ticket support',startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'ticket-support',dayDate,title:'Билет с обращением',
+        kind:'theatre',source:'manual',status:'planned',
+        commitment:{kind:'ticket',status:'confirmed',verification:'user-declared',reference:'REF-UNCHANGED'}}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('booking-resolution-card');
+  await card.getByRole('button',{name:'Открыть помощь с билетами'}).click();
+  await card.getByRole('button',{name:'Начать личную запись об обращении'}).click();
+  await expect(card.getByText('Моя история обращения',{exact:false})).toBeVisible();
+  const input=card.getByTestId('booking-resolution-reply-input');
+  await input.fill('Ответ оператора со слов туриста — сохранить при сбое.');
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    let fail=false;
+    Storage.prototype.setItem=function(key:string,value:string){
+      if(!fail&&key==='moscow:v1:personal-trip-transaction'){
+        fail=true;
+        throw new DOMException('Injected inquiry quota failure','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await card.getByRole('button',{name:'Сохранить мою заметку об ответе'}).click();
+  await expect(card.getByTestId('booking-resolution-error')).toBeVisible();
+  await expect(input).toHaveValue('Ответ оператора со слов туриста — сохранить при сбое.');
+  let stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(stored.bookingResolutions[0].events).toHaveLength(1);
+  expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
+  await card.getByRole('button',{name:'Сохранить мою заметку об ответе'}).click();
+  await expect(card.getByTestId('booking-resolution-error')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>{
+    const t=JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}');
+    return t.bookingResolutions?.[0]?.events?.length ?? 0;
+  })).toBe(2);
+  await page.reload();
+  await ensureRussian(page);
+  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(stored.bookingResolutions[0].events[1].note).toBe('Ответ оператора со слов туриста — сохранить при сбое.');
+  expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
+});
+
+
+test('discovery add survives quota fault without phantom itinerary stop', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'discovery-quota-proof',destinationId:'moscow',title:'Discoveries',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],items:[],visits:[],
+      createdAt:'2026-10-16T08:00:00.000Z',updatedAt:'2026-10-16T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('moscow-next-discoveries');
+  await card.getByRole('button',{name:'Идеи: Рестораны'}).click();
+  const add=card.getByRole('button',{name:'Добавить место в выбранный день: Кафе Пушкинъ'});
+  await expect(add).toBeVisible();
+  await page.evaluate(() => {
+    const original=Storage.prototype.setItem;
+    let injected=false;
+    Storage.prototype.setItem=function(key:string,value:string) {
+      if(!injected && key==='moscow:v1:personal-trip-transaction') {
+        injected=true;
+        throw new DOMException('Injected discovery write error','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await add.click();
+  await expect(card.getByText(/Место не добавлено/)).toBeVisible();
+  await expect(add).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').items)).toHaveLength(0);
+  await add.click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').items?.length ?? 0
+  )).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const persisted=await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(persisted.items).toHaveLength(1);
+  expect(persisted.items[0].catalogPlaceId).toBe('cafe-pushkin-tverskoy');
+  expect(persisted.items[0].commitment).toBeUndefined();
 });

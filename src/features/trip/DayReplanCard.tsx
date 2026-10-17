@@ -16,7 +16,7 @@ type Props = {
   trip: PersonalTrip;
   dayDate: string;
   language: AppLanguage;
-  onUpdate: (trip: PersonalTrip) => void;
+  onUpdate: (trip: PersonalTrip) => Promise<void>;
 };
 
 function timeLabel(language: AppLanguage, value: string) {
@@ -38,6 +38,7 @@ function unplacedLabel(language: AppLanguage, reason: 'missing-duration' | 'no-s
 export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Props) {
   const [proposal, setProposal] = useState<PersonalTripReplanProposal | null>(null);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setProposal(null);
@@ -71,7 +72,8 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
     }
   };
 
-  const apply = () => {
+  const apply = async () => {
+    if (saving) return;
     if (!proposal) return;
     try {
       const next = applyPersonalTripReplanProposal({
@@ -80,7 +82,8 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
         userAccepted: true,
         updatedAt: new Date().toISOString()
       });
-      onUpdate(next);
+      setSaving(true);
+      await onUpdate(next);
       setProposal(null);
       setError('');
     } catch (caught) {
@@ -89,6 +92,8 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
           ? tr(language, 'План изменился. Пересчитайте предложение.', 'The plan changed. Rebuild the proposal.', '计划已改变，请重新计算。')
           : tr(language, 'Не удалось применить предложение без изменения фиксированных пунктов.', 'Could not apply without changing fixed items.', '无法在不更改固定项目的情况下应用。')
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -182,7 +187,7 @@ export default function DayReplanCard({ trip, dayDate, language, onUpdate }: Pro
             <PhysicalPressable style={styles.secondary} contentStyle={styles.center} onPress={build}>
               <Text style={styles.secondaryText}>{tr(language, 'Пересчитать', 'Rebuild', '重新计算')}</Text>
             </PhysicalPressable>
-            <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={apply}>
+            <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong disabled={saving} onPress={() => { void apply(); }}>
               <Text style={styles.primaryText}>{tr(language, 'Применить', 'Apply', '应用')}</Text>
             </PhysicalPressable>
           </View>

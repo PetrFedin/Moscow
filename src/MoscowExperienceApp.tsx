@@ -34,7 +34,8 @@ import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { loadCurrentLiveCityProjection } from './travel/currentLiveCityClient';
 import { projectLiveDestinationFeed } from './travel/liveDestinationAuthority';
-import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { createExperienceStorageCoordinator } from './persistence/experienceStorageCoordinator';
 import {
   canOpenArchiveLens,
   canOpenModel3d,
@@ -164,6 +165,10 @@ export default function MoscowExperienceApp() {
   const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [experienceStorageError, setExperienceStorageError] = useState(false);
+  const [experienceHydrationError, setExperienceHydrationError] = useState(false);
+  const [experienceHydrationBusy, setExperienceHydrationBusy] = useState(true);
+  const experienceStorage = useRef(createExperienceStorageCoordinator(AsyncStorage));
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
   const [trustMode, setTrustMode] = useState<TrustMode>('public');
@@ -225,11 +230,13 @@ export default function MoscowExperienceApp() {
     [routeBudgetMinutes, routeInterest, routeStopIds]
   );
 
-  useEffect(() => {
-    AsyncStorage.getItem(EXPERIENCE_STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const parsed = normalizeExperienceSnapshot(JSON.parse(raw));
+  // If initial hydration fails, no editor may operate on fallback defaults.
+  // Otherwise an old, malformed or temporarily unreadable user history could
+  // be silently replaced by an apparently empty journey.
+  const hydrateExperience = () => {
+    setExperienceHydrationBusy(true);
+    void experienceStorage.current.hydrate()
+      .then((parsed) => {
         setSavedIds(parsed.savedIds);
         setVisitedIds(parsed.visitedIds);
         setRouteStep(parsed.routeStep);
@@ -249,9 +256,19 @@ export default function MoscowExperienceApp() {
         setRouteFinished(parsed.routeFinished);
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
+        setExperienceStorageError(false);
+        setExperienceHydrationError(false);
+        setHydrated(true);
       })
-      .catch(() => undefined)
-      .finally(() => setHydrated(true));
+      .catch(() => {
+        setExperienceStorageError(true);
+        setExperienceHydrationError(true);
+        setHydrated(false);
+      })
+      .finally(() => setExperienceHydrationBusy(false));
+  };
+  useEffect(() => {
+    hydrateExperience();
   }, []);
 
   useEffect(() => {
@@ -344,8 +361,9 @@ export default function MoscowExperienceApp() {
       walkAutoAudio,
       heritageStoryOpen
     };
-    AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+    if (experienceStorageError) return;
+    void experienceStorage.current.persist(payload).catch(() => setExperienceStorageError(true));
+  }, [era, hydrated, experienceStorageError, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -581,9 +599,60 @@ export default function MoscowExperienceApp() {
     setMissionDoneIds((current) => current.includes(missionId) ? current : [...current, missionId]);
   };
 
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar style="light" />
+        <View testID={experienceHydrationError ? 'experience-hydration-blocked' : 'experience-hydration-loading'}
+          style={styles.hydrationGate}>
+          <Text style={styles.hydrationGateTitle}>{tr(language,
+            experienceHydrationError ? 'Не удалось безопасно открыть «Мою Москву»' : 'Открываем «Мою Москву»',
+            experienceHydrationError ? 'My Moscow could not be opened safely' : 'Opening My Moscow',
+            experienceHydrationError ? '无法安全打开“我的莫斯科”' : '正在打开“我的莫斯科”')}</Text>
+          <Text style={styles.hydrationGateBody}>{tr(language,
+            experienceHydrationError
+              ? 'Сохранённые данные не изменены. Не очищайте хранилище и не создавайте новую поездку, пока загрузка не восстановится.'
+              : 'Проверяем сохранённые данные, прежде чем открыть маршрут и дневник.',
+            experienceHydrationError
+              ? 'Existing data is untouched. Do not clear app storage or start a new trip before recovery.'
+              : 'Checking stored data before opening your itinerary and journal.',
+            experienceHydrationError
+              ? '已保存的数据未被更改。恢复读取前，请勿清除存储或创建新行程。'
+              : '正在检查已保存的数据，然后开放行程和日记。')}</Text>
+          {experienceHydrationError ? (
+            <PhysicalPressable accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Повторить безопасную загрузку', 'Retry safe loading', '重试安全加载')}
+              disabled={experienceHydrationBusy}
+              style={styles.hydrationRetry} contentStyle={styles.center}
+              onPress={hydrateExperience}>
+              <Text style={styles.hydrationRetryText}>{tr(language,
+                'Повторить загрузку', 'Retry loading', '重试加载')}</Text>
+            </PhysicalPressable>
+          ) : null}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
+      {experienceStorageError ? (
+        <View testID="experience-storage-error" style={styles.storageWarning}>
+          <Text style={styles.storageWarningText}>{tr(language,
+            'Прогресс «Моей Москвы» не сохранён. Не удаляйте данные приложения. Проверьте память устройства и повторите запись.',
+            'My Moscow progress was not saved. Do not clear app data. Check storage and retry.',
+            '我的莫斯科进度尚未保存，请勿清除应用数据，检查存储后重试。')}</Text>
+          <PhysicalPressable style={styles.storageRetry} contentStyle={styles.center}
+            accessibilityLabel={tr(language, 'Повторить сохранение прогресса', 'Retry saving progress', '重试保存进度')}
+            onPress={() => {
+              const payload: PersistedExperienceState = {savedIds,visitedIds,routeStep,language,lensOpacity,lensVisible,selectedId,tab,timeValue,era,trustMode,routeBudgetMinutes,routeInterest,routeStopIds,routeCompletedStopIds,routeFinished,missionDoneIds,walkAutoAudio,heritageStoryOpen};
+              void experienceStorage.current.persist(payload, true).then(() => setExperienceStorageError(false)).catch(() => setExperienceStorageError(true));
+            }}>
+            <Text style={styles.storageWarningText}>{tr(language, 'Повторить', 'Retry', '重试')}</Text>
+          </PhysicalPressable>
+        </View>
+      ) : null}
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.brand}>{tr(language, 'МОСКВА · ВАШ ПУТЕВОДИТЕЛЬ', 'MOSCOW · YOUR CITY GUIDE', '莫斯科 · 城市指南')}</Text>
@@ -1098,6 +1167,14 @@ export default function MoscowExperienceApp() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#101716' },
+  hydrationGate: { flex: 1, padding: 26, justifyContent: 'center', gap: 14 },
+  hydrationGateTitle: { color: '#f7f3eb', fontSize: 22, fontWeight: '700' },
+  hydrationGateBody: { color: '#dbd0ba', fontSize: 15, lineHeight: 23 },
+  hydrationRetry: { minHeight: 46, borderRadius: 13, backgroundColor: '#d7bb84' },
+  hydrationRetryText: { color: '#17130d', fontSize: 14, fontWeight: '700' },
+  storageWarning: {padding: 10, backgroundColor: '#563326', gap: 8},
+  storageWarningText: {color: '#fff0df', fontSize: 12, lineHeight: 18},
+  storageRetry: {minHeight: 38, borderRadius: 9, borderWidth: 1, borderColor: '#e5c898'},
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   header: { paddingHorizontal: 22, paddingTop: 11, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#273330' },
   headerCopy: { flex: 1 },
