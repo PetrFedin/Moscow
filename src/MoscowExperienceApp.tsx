@@ -166,6 +166,8 @@ export default function MoscowExperienceApp() {
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [experienceStorageError, setExperienceStorageError] = useState(false);
+  const [experienceHydrationError, setExperienceHydrationError] = useState(false);
+  const [experienceHydrationBusy, setExperienceHydrationBusy] = useState(true);
   const experienceStorage = useRef(createExperienceStorageCoordinator(AsyncStorage));
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
@@ -228,8 +230,12 @@ export default function MoscowExperienceApp() {
     [routeBudgetMinutes, routeInterest, routeStopIds]
   );
 
-  useEffect(() => {
-    experienceStorage.current.hydrate()
+  // If initial hydration fails, no editor may operate on fallback defaults.
+  // Otherwise an old, malformed or temporarily unreadable user history could
+  // be silently replaced by an apparently empty journey.
+  const hydrateExperience = () => {
+    setExperienceHydrationBusy(true);
+    void experienceStorage.current.hydrate()
       .then((parsed) => {
         setSavedIds(parsed.savedIds);
         setVisitedIds(parsed.visitedIds);
@@ -250,9 +256,19 @@ export default function MoscowExperienceApp() {
         setRouteFinished(parsed.routeFinished);
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
+        setExperienceStorageError(false);
+        setExperienceHydrationError(false);
+        setHydrated(true);
       })
-      .catch(() => setExperienceStorageError(true))
-      .finally(() => setHydrated(true));
+      .catch(() => {
+        setExperienceStorageError(true);
+        setExperienceHydrationError(true);
+        setHydrated(false);
+      })
+      .finally(() => setExperienceHydrationBusy(false));
+  };
+  useEffect(() => {
+    hydrateExperience();
   }, []);
 
   useEffect(() => {
@@ -582,6 +598,41 @@ export default function MoscowExperienceApp() {
     }
     setMissionDoneIds((current) => current.includes(missionId) ? current : [...current, missionId]);
   };
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar style="light" />
+        <View testID={experienceHydrationError ? 'experience-hydration-blocked' : 'experience-hydration-loading'}
+          style={styles.hydrationGate}>
+          <Text style={styles.hydrationGateTitle}>{tr(language,
+            experienceHydrationError ? 'Не удалось безопасно открыть «Мою Москву»' : 'Открываем «Мою Москву»',
+            experienceHydrationError ? 'My Moscow could not be opened safely' : 'Opening My Moscow',
+            experienceHydrationError ? '无法安全打开“我的莫斯科”' : '正在打开“我的莫斯科”')}</Text>
+          <Text style={styles.hydrationGateBody}>{tr(language,
+            experienceHydrationError
+              ? 'Сохранённые данные не изменены. Не очищайте хранилище и не создавайте новую поездку, пока загрузка не восстановится.'
+              : 'Проверяем сохранённые данные, прежде чем открыть маршрут и дневник.',
+            experienceHydrationError
+              ? 'Existing data is untouched. Do not clear app storage or start a new trip before recovery.'
+              : 'Checking stored data before opening your itinerary and journal.',
+            experienceHydrationError
+              ? '已保存的数据未被更改。恢复读取前，请勿清除存储或创建新行程。'
+              : '正在检查已保存的数据，然后开放行程和日记。')}</Text>
+          {experienceHydrationError ? (
+            <PhysicalPressable accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Повторить безопасную загрузку', 'Retry safe loading', '重试安全加载')}
+              disabled={experienceHydrationBusy}
+              style={styles.hydrationRetry} contentStyle={styles.center}
+              onPress={hydrateExperience}>
+              <Text style={styles.hydrationRetryText}>{tr(language,
+                'Повторить загрузку', 'Retry loading', '重试加载')}</Text>
+            </PhysicalPressable>
+          ) : null}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -1116,6 +1167,11 @@ export default function MoscowExperienceApp() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#101716' },
+  hydrationGate: { flex: 1, padding: 26, justifyContent: 'center', gap: 14 },
+  hydrationGateTitle: { color: '#f7f3eb', fontSize: 22, fontWeight: '700' },
+  hydrationGateBody: { color: '#dbd0ba', fontSize: 15, lineHeight: 23 },
+  hydrationRetry: { minHeight: 46, borderRadius: 13, backgroundColor: '#d7bb84' },
+  hydrationRetryText: { color: '#17130d', fontSize: 14, fontWeight: '700' },
   storageWarning: {padding: 10, backgroundColor: '#563326', gap: 8},
   storageWarningText: {color: '#fff0df', fontSize: 12, lineHeight: 18},
   storageRetry: {minHeight: 38, borderRadius: 9, borderWidth: 1, borderColor: '#e5c898'},
