@@ -522,3 +522,34 @@ test('two tabs cannot silently overwrite each others My Moscow favorites', async
   )).savedIds).toContain('cafe-pushkin-tverskoy');
   await secondTab.close();
 });
+
+
+test('corrupt My Moscow snapshot blocks all edits and preserves raw storage through retry', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.localStorage.setItem('moscow:v4:experience', '{original-corrupt-personal-progress');
+  });
+  await page.reload();
+  const blocked=page.getByTestId('experience-hydration-blocked');
+  await expect(blocked).toBeVisible();
+  await expect(blocked).toContainText('Сохранённые данные не изменены');
+  await expect(page.getByRole('tab',{name:'Поездка'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Сохранить место в избранное'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Повторить безопасную загрузку'}).click();
+  await expect(blocked).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v4:experience')))
+    .toBe('{original-corrupt-personal-progress');
+
+  // External repair is a fixture action, never performed by the app.
+  await page.evaluate(() => window.localStorage.setItem('moscow:v4:experience', JSON.stringify({
+    savedIds:['romanov-chambers'],visitedIds:['old-english-court'],
+    language:'ru',tab:'saved'
+  })));
+  await page.getByRole('button',{name:'Повторить безопасную загрузку'}).click();
+  await expect(blocked).toHaveCount(0);
+  await expect(page.getByRole('tab',{name:'Моя Москва'})).toBeVisible();
+  await expect(page.getByText('мест открыто')).toBeVisible();
+  expect((await page.evaluate(() => JSON.parse(
+    window.localStorage.getItem('moscow:v4:experience') || '{}'
+  ))).visitedIds).toContain('old-english-court');
+});
