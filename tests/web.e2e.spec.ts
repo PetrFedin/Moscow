@@ -553,3 +553,72 @@ test('corrupt My Moscow snapshot blocks all edits and preserves raw storage thro
     window.localStorage.getItem('moscow:v4:experience') || '{}'
   ))).visitedIds).toContain('old-english-court');
 });
+
+
+test('walk stop never advances or emits completion analytics before confirmed local storage', async ({ page }) => {
+  await page.goto('/');
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+  await page.evaluate(() => {
+    const key = 'moscow:v4:experience';
+    const state = JSON.parse(window.localStorage.getItem(key) || '{}');
+    window.localStorage.setItem(key, JSON.stringify({
+      ...state, tab:'walk', language:'ru', routeStep:0,
+      routeCompletedStopIds:[], visitedIds:[], routeFinished:false
+    }));
+    window.localStorage.removeItem('moscow:v1:analytics-outbox');
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', {exact:true})).toBeVisible();
+  const next = page.getByRole('button',{name:'Открыто · дальше'});
+  await expect(next).toBeVisible();
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let failed = false;
+    Storage.prototype.setItem = function(key: string,value: string) {
+      if (!failed && key === 'moscow:v4:experience') {
+        failed = true;
+        throw new DOMException('Injected walk stop quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await next.click();
+  await expect(page.getByTestId('walk-stop-save-error')).toBeVisible();
+  await expect(page.getByTestId('experience-storage-error')).toBeVisible();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1',{exact:true})).toBeVisible();
+  const failed = await page.evaluate(() => ({
+    state:JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}'),
+    analytics:JSON.parse(window.localStorage.getItem('moscow:v1:analytics-outbox') || '[]')
+  }));
+  expect(failed.state.routeStep).toBe(0);
+  expect(failed.state.routeCompletedStopIds).toHaveLength(0);
+  expect(failed.state.visitedIds).toHaveLength(0);
+  expect(failed.analytics.filter((e:{event:string})=>e.event==='stop_complete')).toHaveLength(0);
+  expect(failed.analytics.filter((e:{event:string})=>e.event==='route_complete')).toHaveLength(0);
+
+  await page.getByRole('button',{name:'Повторить сохранение прогресса'}).click();
+  await expect(page.getByTestId('experience-storage-error')).toHaveCount(0);
+  await next.click();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 2',{exact:true})).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const state=JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}');
+    return state.routeStep===1 && state.routeCompletedStopIds.length===1 && state.visitedIds.length===1;
+  })).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const records=JSON.parse(window.localStorage.getItem('moscow:v1:analytics-outbox') || '[]');
+    return records.filter((e:{event:string})=>e.event==='stop_complete').length;
+  })).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 2',{exact:true})).toBeVisible();
+  const restored=await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  );
+  expect(restored.routeStep).toBe(1);
+  expect(restored.routeCompletedStopIds).toHaveLength(1);
+  expect(restored.visitedIds).toHaveLength(1);
+});
