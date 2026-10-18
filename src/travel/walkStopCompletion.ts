@@ -35,3 +35,18 @@ export function planWalkStopCompletion(
     finalStep
   };
 }
+
+
+/**
+ * A completed stop is reported only after storage acknowledges the entire
+ * state revision. A failed write leaves the caller's state unchanged.
+ */
+export async function commitWalkStopCompletion(input: {
+  state: PersistedExperienceState;
+  placeId: string;
+  persist: (next: PersistedExperienceState) => Promise<void>;
+}): Promise<WalkStopCompletion> {
+  const planned = planWalkStopCompletion(input.state, input.placeId);
+  await input.persist(planned.next);
+  return planned;
+}
