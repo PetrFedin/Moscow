@@ -34,6 +34,7 @@ import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { loadCurrentLiveCityProjection } from './travel/currentLiveCityClient';
 import { projectLiveDestinationFeed } from './travel/liveDestinationAuthority';
+import { commitWalkStopCompletion } from './travel/walkStopCompletion';
 import { type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
 import { createExperienceStorageCoordinator } from './persistence/experienceStorageCoordinator';
 import {
@@ -168,6 +169,9 @@ export default function MoscowExperienceApp() {
   const [experienceStorageError, setExperienceStorageError] = useState(false);
   const [experienceHydrationError, setExperienceHydrationError] = useState(false);
   const [experienceHydrationBusy, setExperienceHydrationBusy] = useState(true);
+  const [walkStopSaving, setWalkStopSaving] = useState(false);
+  const [walkStopSaveError, setWalkStopSaveError] = useState(false);
+  const walkStopInFlightRef = useRef(false);
   const experienceStorage = useRef(createExperienceStorageCoordinator(AsyncStorage));
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
@@ -338,31 +342,32 @@ export default function MoscowExperienceApp() {
     });
   }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routePlace, routeStep, tab]);
 
+  const currentExperienceSnapshot = (): PersistedExperienceState => ({
+    savedIds,
+    visitedIds,
+    routeStep,
+    language,
+    lensOpacity,
+    lensVisible,
+    selectedId,
+    tab,
+    timeValue,
+    era,
+    trustMode,
+    routeBudgetMinutes,
+    routeInterest,
+    routeStopIds,
+    routeCompletedStopIds,
+    routeFinished,
+    missionDoneIds,
+    walkAutoAudio,
+    heritageStoryOpen
+  });
+
   useEffect(() => {
-    if (!hydrated) return;
-    const payload: PersistedExperienceState = {
-      savedIds,
-      visitedIds,
-      routeStep,
-      language,
-      lensOpacity,
-      lensVisible,
-      selectedId,
-      tab,
-      timeValue,
-      era,
-      trustMode,
-      routeBudgetMinutes,
-      routeInterest,
-      routeStopIds,
-      routeCompletedStopIds,
-      routeFinished,
-      missionDoneIds,
-      walkAutoAudio,
-      heritageStoryOpen
-    };
-    if (experienceStorageError) return;
-    void experienceStorage.current.persist(payload).catch(() => setExperienceStorageError(true));
+    if (!hydrated || experienceStorageError) return;
+    void experienceStorage.current.persist(currentExperienceSnapshot())
+      .catch(() => setExperienceStorageError(true));
   }, [era, hydrated, experienceStorageError, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
@@ -504,38 +509,57 @@ export default function MoscowExperienceApp() {
     setTab('walk');
   };
 
-  const completeRouteStop = (placeId: string, completionMode: TouristAnalyticsCompletionMode) => {
-    const completionKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
-    if (!stopCompletionTrackedRef.current.has(completionKey)) {
-      stopCompletionTrackedRef.current.add(completionKey);
-      void trackTouristEvent({
-        event: 'stop_complete',
-        routeId: pilotRoute.id,
+  const completeRouteStop = async (placeId: string, completionMode: TouristAnalyticsCompletionMode): Promise<void> => {
+    if (walkStopInFlightRef.current || experienceStorageError || !hydrated) return;
+    // A delayed audio callback may refer to a previous route or stop.
+    if (tab !== 'walk' || routePlace?.id !== placeId || routeFinished) return;
+    walkStopInFlightRef.current = true;
+    setWalkStopSaving(true);
+    setWalkStopSaveError(false);
+    try {
+      const accepted = await commitWalkStopCompletion({
+        state: currentExperienceSnapshot(),
         placeId,
-        completionMode,
-        language
+        persist: (next) => experienceStorage.current.persist(next)
       });
-    }
 
-    const finalStep = routeStep >= activeRoutePlan.stopIds.length - 1;
-    if (finalStep && !routeCompleteTrackedRef.current.has(analyticsRouteKey)) {
-      routeCompleteTrackedRef.current.add(analyticsRouteKey);
-      void trackTouristEvent({
-        event: 'route_complete',
-        routeId: pilotRoute.id,
-        budgetMinutes: routeBudgetMinutes,
-        interest: routeInterest,
-        stopCount: activeRoutePlan.stopIds.length,
-        language
-      });
-    }
+      // The persisted revision is authoritative. Do not advance the UI or
+      // emit completion analytics before the read-back verified write.
+      setVisitedIds(accepted.next.visitedIds);
+      setRouteCompletedStopIds(accepted.next.routeCompletedStopIds);
+      setRouteStep(accepted.next.routeStep);
+      setRouteFinished(accepted.next.routeFinished);
 
-    setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    setRouteCompletedStopIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    if (finalStep) {
-      setRouteFinished(true);
-    } else {
-      setRouteStep((current) => current + 1);
+      const completionKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
+      if (!stopCompletionTrackedRef.current.has(completionKey)) {
+        stopCompletionTrackedRef.current.add(completionKey);
+        void trackTouristEvent({
+          event: 'stop_complete',
+          routeId: pilotRoute.id,
+          placeId,
+          completionMode,
+          language
+        });
+      }
+      if (accepted.finalStep && !routeCompleteTrackedRef.current.has(analyticsRouteKey)) {
+        routeCompleteTrackedRef.current.add(analyticsRouteKey);
+        void trackTouristEvent({
+          event: 'route_complete',
+          routeId: pilotRoute.id,
+          budgetMinutes: routeBudgetMinutes,
+          interest: routeInterest,
+          stopCount: activeRoutePlan.stopIds.length,
+          language
+        });
+      }
+    } catch {
+      // The original stop and its analytics remain unconfirmed. Recovery must
+      // go through the storage warning before the action can be repeated.
+      setWalkStopSaveError(true);
+      setExperienceStorageError(true);
+    } finally {
+      walkStopInFlightRef.current = false;
+      setWalkStopSaving(false);
     }
   };
 
@@ -1031,17 +1055,24 @@ export default function MoscowExperienceApp() {
                     autoEnabled={walkAutoAudio}
                     onAutoEnabledChange={setWalkAutoAudio}
                     onMissionComplete={completeMission}
-                    onAutoStopCompleted={(placeId) => completeRouteStop(placeId, 'audio-auto')}
+                    onAutoStopCompleted={(placeId) => { void completeRouteStop(placeId, 'audio-auto'); }}
                     onProximityArrive={recordProximityArrival}
                     onAudioStart={recordAudioStart}
                     onAudioComplete={recordAudioComplete}
                     onTranscriptOpen={recordTranscriptOpen}
                   />
+                  {walkStopSaveError ? (
+                    <Text testID="walk-stop-save-error" style={styles.walkStopSaveError}>{tr(language,
+                      'Остановка не сохранена. Прогресс и статистика не обновлены. Повторите сохранение через предупреждение.',
+                      'Stop was not saved. Progress and analytics were not updated. Use the storage retry first.',
+                      '此站未保存。进度与统计未更新，请先使用存储重试。')}</Text>
+                  ) : null}
                   <PhysicalPressable
                     style={styles.primary}
                     contentStyle={styles.center}
                     strong
-                    onPress={() => completeRouteStop(routePlace.id, 'manual')}
+                    disabled={walkStopSaving || experienceStorageError}
+                    onPress={() => { void completeRouteStop(routePlace.id, 'manual'); }}
                   >
                     <Text style={styles.primaryText}>{routeStep === activeRoutePlan.stopIds.length - 1 ? ui.finish : ui.next}</Text>
                   </PhysicalPressable>
@@ -1173,6 +1204,7 @@ const styles = StyleSheet.create({
   hydrationRetry: { minHeight: 46, borderRadius: 13, backgroundColor: '#d7bb84' },
   hydrationRetryText: { color: '#17130d', fontSize: 14, fontWeight: '700' },
   storageWarning: {padding: 10, backgroundColor: '#563326', gap: 8},
+  walkStopSaveError: { color: '#f2c4b1', fontSize: 13, lineHeight: 20, marginVertical: 8 },
   storageWarningText: {color: '#fff0df', fontSize: 12, lineHeight: 18},
   storageRetry: {minHeight: 38, borderRadius: 9, borderWidth: 1, borderColor: '#e5c898'},
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
