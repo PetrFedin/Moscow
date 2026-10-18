@@ -441,3 +441,184 @@ test('multiple journeys survive archive, new trip and subsequent resume on the s
   expect(persisted.id).toBe(first.id);
   await expect(page.getByRole('button', { name: 'Открыть архивную поездку: 2026-10-20' })).toBeVisible();
 });
+
+
+test('My Moscow storage fault is visible, keeps the saved-place intent, and retries durably', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+  await page.evaluate(() => {
+    const actual = Storage.prototype.setItem;
+    let injected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!injected && key === 'moscow:v4:experience') {
+        injected = true;
+        throw new DOMException('Injected My Moscow quota failure', 'QuotaExceededError');
+      }
+      return actual.call(this, key, value);
+    };
+  });
+  await page.getByRole('button', { name: 'Кафе Пушкинъ' }).click();
+  await page.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  const warning = page.getByTestId('experience-storage-error');
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText('Прогресс «Моей Москвы» не сохранён');
+  const beforeRetry = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  );
+  expect(beforeRetry.savedIds ?? []).not.toContain('cafe-pushkin-tverskoy');
+
+  await page.getByRole('button', { name: 'Повторить сохранение прогресса' }).click();
+  await expect(warning).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}').savedIds
+      ?.includes('cafe-pushkin-tverskoy') ?? false
+  )).toBe(true);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Моя Москва' }).click();
+  await expect(page.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('experience-storage-error')).toHaveCount(0);
+});
+
+test('two tabs cannot silently overwrite each others My Moscow favorites', async ({ page, context }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+
+  // Both tabs hydrate the identical prior version before any favorite is added.
+  const secondTab = await context.newPage();
+  await secondTab.goto('/');
+  await ensureRussian(secondTab);
+  await expect.poll(() => secondTab.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+
+  await page.getByRole('button', { name: 'Кафе Пушкинъ' }).click();
+  await page.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}').savedIds
+      ?.includes('cafe-pushkin-tverskoy') ?? false
+  )).toBe(true);
+
+  await secondTab.getByRole('button', { name: 'Третьяковская галерея' }).click();
+  await secondTab.getByRole('button', { name: 'Сохранить место в избранное' }).click();
+  await expect(secondTab.getByTestId('experience-storage-error')).toBeVisible();
+
+  const afterConflict = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  );
+  expect(afterConflict.savedIds).toContain('cafe-pushkin-tverskoy');
+  expect(afterConflict.savedIds).not.toContain('tretyakov-lavrushinsky');
+  // Explicit Retry must not discard the other tab's saved records either.
+  await secondTab.getByRole('button', { name: 'Повторить сохранение прогресса' }).click();
+  await expect(secondTab.getByTestId('experience-storage-error')).toBeVisible();
+  expect((await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  )).savedIds).toContain('cafe-pushkin-tverskoy');
+  await secondTab.close();
+});
+
+
+test('corrupt My Moscow snapshot blocks all edits and preserves raw storage through retry', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.localStorage.setItem('moscow:v4:experience', '{original-corrupt-personal-progress');
+  });
+  await page.reload();
+  const blocked=page.getByTestId('experience-hydration-blocked');
+  await expect(blocked).toBeVisible();
+  await expect(blocked).toContainText('Сохранённые данные не изменены');
+  await expect(page.getByRole('tab',{name:'Поездка'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Сохранить место в избранное'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Повторить безопасную загрузку'}).click();
+  await expect(blocked).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v4:experience')))
+    .toBe('{original-corrupt-personal-progress');
+
+  // External repair is a fixture action, never performed by the app.
+  await page.evaluate(() => window.localStorage.setItem('moscow:v4:experience', JSON.stringify({
+    savedIds:['romanov-chambers'],visitedIds:['old-english-court'],
+    language:'ru',tab:'saved'
+  })));
+  await page.getByRole('button',{name:'Повторить безопасную загрузку'}).click();
+  await expect(blocked).toHaveCount(0);
+  await expect(page.getByRole('tab',{name:'Моя Москва'})).toBeVisible();
+  await expect(page.getByText('мест открыто')).toBeVisible();
+  expect((await page.evaluate(() => JSON.parse(
+    window.localStorage.getItem('moscow:v4:experience') || '{}'
+  ))).visitedIds).toContain('old-english-court');
+});
+
+
+test('walk stop never advances or emits completion analytics before confirmed local storage', async ({ page }) => {
+  await page.goto('/');
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v4:experience') !== null
+  )).toBe(true);
+  await page.evaluate(() => {
+    const key = 'moscow:v4:experience';
+    const state = JSON.parse(window.localStorage.getItem(key) || '{}');
+    window.localStorage.setItem(key, JSON.stringify({
+      ...state, tab:'walk', language:'ru', routeStep:0,
+      routeCompletedStopIds:[], visitedIds:[], routeFinished:false
+    }));
+    window.localStorage.removeItem('moscow:v1:analytics-outbox');
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1', {exact:true})).toBeVisible();
+  const next = page.getByRole('button',{name:'Открыто · дальше'});
+  await expect(next).toBeVisible();
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let failed = false;
+    Storage.prototype.setItem = function(key: string,value: string) {
+      if (!failed && key === 'moscow:v4:experience') {
+        failed = true;
+        throw new DOMException('Injected walk stop quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await next.click();
+  await expect(page.getByTestId('walk-stop-save-error')).toBeVisible();
+  await expect(page.getByTestId('experience-storage-error')).toBeVisible();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 1',{exact:true})).toBeVisible();
+  const failed = await page.evaluate(() => ({
+    state:JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}'),
+    analytics:JSON.parse(window.localStorage.getItem('moscow:v1:analytics-outbox') || '[]')
+  }));
+  expect(failed.state.routeStep).toBe(0);
+  expect(failed.state.routeCompletedStopIds).toHaveLength(0);
+  expect(failed.state.visitedIds).toHaveLength(0);
+  expect(failed.analytics.filter((e:{event:string})=>e.event==='stop_complete')).toHaveLength(0);
+  expect(failed.analytics.filter((e:{event:string})=>e.event==='route_complete')).toHaveLength(0);
+
+  await page.getByRole('button',{name:'Повторить сохранение прогресса'}).click();
+  await expect(page.getByTestId('experience-storage-error')).toHaveCount(0);
+  await next.click();
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 2',{exact:true})).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const state=JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}');
+    return state.routeStep===1 && state.routeCompletedStopIds.length===1 && state.visitedIds.length===1;
+  })).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const records=JSON.parse(window.localStorage.getItem('moscow:v1:analytics-outbox') || '[]');
+    return records.filter((e:{event:string})=>e.event==='stop_complete').length;
+  })).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('СЕЙЧАС · ОСТАНОВКА 2',{exact:true})).toBeVisible();
+  const restored=await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v4:experience') || '{}')
+  );
+  expect(restored.routeStep).toBe(1);
+  expect(restored.routeCompletedStopIds).toHaveLength(1);
+  expect(restored.visitedIds).toHaveLength(1);
+});

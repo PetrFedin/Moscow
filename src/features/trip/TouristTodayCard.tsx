@@ -16,7 +16,7 @@ type Props = {
   onOpenPlace: (placeId: string) => void;
   onManageTrip: () => void;
   onDiscover: () => void;
-  onMarkVisited: (itemId: string) => void;
+  onMarkVisited: (itemId: string) => Promise<void>;
 };
 
 function timeLabel(value?: string) {

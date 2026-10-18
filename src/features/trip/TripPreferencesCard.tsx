@@ -16,7 +16,7 @@ import PhysicalPressable from '../../ui/PhysicalPressable';
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
-  onUpdate: (trip: PersonalTrip) => void;
+  onUpdate: (trip: PersonalTrip) => Promise<void>;
 };
 
 const paceOptions: TripPace[] = ['relaxed', 'balanced', 'intensive'];
@@ -53,6 +53,7 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
   const [lunchStart, setLunchStart] = useState(resolved.lunchWindow?.start ?? '');
   const [lunchEnd, setLunchEnd] = useState(resolved.lunchWindow?.end ?? '');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const next = resolvePersonalTripPreferences(trip);
@@ -66,7 +67,8 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
     setLunchEnd(next.lunchWindow?.end ?? '');
   }, [trip.updatedAt]);
 
-  const save = () => {
+  const save = async () => {
+    if (saving) return;
     const hasLunch = Boolean(lunchStart.trim() || lunchEnd.trim());
     if (hasLunch && (!lunchStart.trim() || !lunchEnd.trim())) {
       setError(tr(language, 'Для обеда нужны начало и конец окна.', 'Lunch needs both start and end.', '午餐时段需要开始和结束时间。'));
@@ -89,8 +91,9 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
         },
         updatedAt: new Date().toISOString()
       });
+      setSaving(true);
+      await onUpdate(next);
       setError('');
-      onUpdate(next);
       setOpen(false);
     } catch (caught) {
       const raw = caught instanceof Error ? caught.message : '';
@@ -99,6 +102,8 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
           ? tr(language, 'Непрерывная прогулка: от 10 до 240 минут.', 'Walking limit must be 10–240 minutes.', '连续步行需为10–240分钟。')
           : tr(language, 'Проверьте время: формат ЧЧ:ММ, конец дня и обеда должен быть позже начала.', 'Check HH:MM times; end must be after start.', '请检查HH:MM时间，结束时间必须晚于开始时间。')
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -199,7 +204,7 @@ export default function TripPreferencesCard({ trip, language, onUpdate }: Props)
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PhysicalPressable style={styles.save} contentStyle={styles.center} strong onPress={save}>
+          <PhysicalPressable style={styles.save} contentStyle={styles.center} strong disabled={saving} onPress={() => { void save(); }}>
             <Text style={styles.saveText}>{tr(language, 'Сохранить настройки', 'Save preferences', '保存设置')}</Text>
           </PhysicalPressable>
         </View>
