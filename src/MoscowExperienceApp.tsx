@@ -365,10 +365,13 @@ export default function MoscowExperienceApp() {
   });
 
   useEffect(() => {
-    if (!hydrated || experienceStorageError) return;
+    // While a stop is being committed, ordinary reactive autosaves must not
+    // queue a stale pre-completion snapshot that could erase the confirmed
+    // stop. Re-run once after the commit with the complete latest React state.
+    if (!hydrated || experienceStorageError || walkStopInFlightRef.current) return;
     void experienceStorage.current.persist(currentExperienceSnapshot())
       .catch(() => setExperienceStorageError(true));
-  }, [era, hydrated, experienceStorageError, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+  }, [era, hydrated, experienceStorageError, walkStopSaving, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -447,6 +450,7 @@ export default function MoscowExperienceApp() {
   }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routeMissionCount, routeSavedCount, tab]);
 
   const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
+    if (walkStopInFlightRef.current || experienceStorageError) return;
     stopPresentedTrackedRef.current.clear();
     stopCompletionTrackedRef.current.clear();
     arrivalTrackedRef.current.clear();
