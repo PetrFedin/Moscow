@@ -2212,3 +2212,46 @@ test('discovery add survives quota fault without phantom itinerary stop', async 
   expect(persisted.items[0].catalogPlaceId).toBe('cafe-pushkin-tverskoy');
   expect(persisted.items[0].commitment).toBeUndefined();
 });
+
+
+test('manual Moscow overnight booking remains anchored and is recovered after reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+  const arrival = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(arrival);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Ночной спектакль');
+  await page.getByPlaceholder('19:00').fill('23:30');
+  await page.getByPlaceholder('21:00').fill('01:15');
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await expect.poll(async () => page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    const item = saved.items?.find((entry: { title?: string }) => entry.title === 'Ночной спектакль');
+    return item ? {
+      dayDate: item.dayDate,
+      start: item.plannedStartAt,
+      end: item.plannedEndAt,
+      verification: item.commitment?.verification
+    } : null;
+  })).toEqual({
+    dayDate: arrival,
+    start: arrival + 'T23:30:00+03:00',
+    end: moscowDateOffset(2) + 'T01:15:00+03:00',
+    verification: 'user-declared'
+  });
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Ночной спектакль', { exact: true }).first()).toBeVisible();
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(page.getByTestId('travel-day-overview')
+    .getByText('Ночной спектакль', { exact: true })).toHaveCount(0);
+  await page.getByText('День 1', { exact: true }).click();
+  await expect(page.getByText('Ночной спектакль', { exact: true }).first()).toBeVisible();
+});
