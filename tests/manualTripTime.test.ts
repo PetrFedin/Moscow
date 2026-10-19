@@ -26,7 +26,7 @@ test('invalid clocks, same-time ambiguity, and impossible days fail closed', () 
     ['2026-10-19', '9:00', '10:00'],
     ['2026-10-19', '22:00', '22:00'],
     ['2026-02-30', '22:00', '23:00']
-  ]) assert.throws(() => manualMoscowInterval(day, start, end));
+  ] as const) assert.throws(() => manualMoscowInterval(day, start, end));
 });
 
 test('overnight manual ticket conflicts with a following-day reservation', () => {
