@@ -52,6 +52,7 @@ import {
 } from '../../travel/tripScheduler';
 import { canMoveTripStopBetweenDays } from '../../travel/tripDayPresentation';
 import { deriveWalkVisitCandidates } from '../../travel/walkVisitBridge';
+import { manualMoscowInterval, moscowCalendarDay } from '../../travel/manualTripTime';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
@@ -191,11 +192,6 @@ function itemId(prefix: string) {
   return `${prefix}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function moscowTimestamp(dayDate: string, time: string) {
-  const normalized = /^\d{2}:\d{2}$/.test(time) ? time : '12:00';
-  return `${dayDate}T${normalized}:00+03:00`;
-}
-
 function visitTimestamp(dayDate: string) {
   return dayDate === moscowDateOnly()
     ? new Date().toISOString()
@@ -259,8 +255,8 @@ export default function PersonalTripPlanner({
   const activeWritesRef = useRef<Promise<void>>(Promise.resolve());
   const persistedTripRef = useRef<PersonalTrip | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(localDateOnly());
-  const [startDateInput, setStartDateInput] = useState(localDateOnly());
+  const [selectedDay, setSelectedDay] = useState(() => moscowCalendarDay());
+  const [startDateInput, setStartDateInput] = useState(() => moscowCalendarDay());
   const [durationDays, setDurationDays] = useState<(typeof durationOptions)[number]>(3);
   const [manualOpen, setManualOpen] = useState(false);
   const [tripToolsOpen, setTripToolsOpen] = useState(false);
@@ -300,8 +296,8 @@ export default function PersonalTripPlanner({
         setRecoveryNotice(recovered);
         if (activeTrip) {
           setSelectedDay(
-            activeTrip.days.includes(localDateOnly())
-              ? localDateOnly()
+            activeTrip.days.includes(moscowCalendarDay())
+              ? moscowCalendarDay()
               : activeTrip.days[0] ?? activeTrip.startDate
           );
         }
@@ -714,8 +710,7 @@ export default function PersonalTripPlanner({
         dayDate: selectedDay,
         title: manualTitle,
         kind: manualKind,
-        plannedStartAt: moscowTimestamp(selectedDay, manualTime),
-        plannedEndAt: moscowTimestamp(selectedDay, manualEndTime),
+        ...manualMoscowInterval(selectedDay, manualTime, manualEndTime),
         updatedAt: now,
         ...(commitment ? { commitment } : {})
       });
@@ -1487,6 +1482,10 @@ export default function PersonalTripPlanner({
             </View>
           </View>
 
+          <Text style={styles.truthNote}>{tr(language,
+            'Время московское. Если окончание раньше начала, событие закончится на следующий день. Одинаковое время недопустимо.',
+            'Times are in Moscow. An earlier end time means the next day. Equal start and end times are not allowed.',
+            '使用莫斯科时间。结束时间早于开始时间表示次日结束；两者不能相同。')}</Text>
           <Text style={styles.label}>{tr(language, 'УЖЕ ЕСТЬ', 'ALREADY HAVE', '已有')}</Text>
           <View style={styles.chips}>
             {(['none', 'ticket', 'reservation'] as CommitmentChoice[]).map((choice) => (
