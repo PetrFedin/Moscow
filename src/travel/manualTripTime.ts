@@ -11,7 +11,7 @@ export function moscowCalendarDay(now: Date = new Date()): string {
 }
 
 function requireClock(raw: string): string {
-  if (!/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(raw)) {
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(raw)) {
     throw new Error('Use a valid 24-hour Moscow time (HH:MM)');
   }
   return raw;
