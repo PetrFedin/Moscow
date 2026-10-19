@@ -53,18 +53,23 @@ jobs:
         run: npx playwright test tests/visualAcceptance.e2e.spec.ts --project=chromium
       - name: Real browser showcase capture (mobile / desktop)
         run: npx playwright test tests/showcaseCapture.e2e.spec.ts --project=chromium
-      - name: Encode 25 second showcase MP4 from genuine browser recording
-        if: always()
+      - name: Install FFmpeg for verified video exports
         run: |
-          if [ -d showcase-evidence/videos ]; then
-            command -v ffmpeg || { echo "FFmpeg unavailable; preserving original WebM"; exit 0; }
-            for file in showcase-evidence/videos/*-session.webm; do
-              [ -f "$file" ] || continue
-              target="${file%.webm}.mp4"
-              ffmpeg -hide_banner -loglevel error -y -i "$file" -t 25 -an -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p -movflags +faststart "$target"
-              ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 "$target"
-            done
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Encode and verify two exact 25-second MP4 recordings
+        run: |
+          set -euo pipefail
+          test -s showcase-evidence/videos/mobile-375-session.webm
+          test -s showcase-evidence/videos/desktop-1440-session.webm
+          for profile in mobile-375 desktop-1440; do
+            source="showcase-evidence/videos/${profile}-session.webm"
+            target="showcase-evidence/videos/${profile}-25s.mp4"
+            ffmpeg -hide_banner -loglevel error -y -i "$source" -t 25 -an -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart "$target"
+            test -s "$target"
+            duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$target")
+            awk -v seconds="$duration" 'BEGIN { if (seconds < 24.5 || seconds > 25.2) exit 1 }'
+          done
       - name: Upload web showcase screenshots and videos
         if: always()
         uses: actions/upload-artifact@v4
