@@ -32,10 +32,10 @@ async function still(page: Page, profile: string, name: string, pauseMs = 2100) 
   await page.waitForTimeout(pauseMs);
 }
 
-async function filmed(browser: Browser, testInfo: TestInfo, profile: 'mobile-375' | 'desktop-1440',
+async function filmed(browser: Browser, testInfo: TestInfo, profile: 'mobile-375' | 'desktop-1440' | 'services-375',
   story: (page: Page) => Promise<void>) {
   test.setTimeout(100_000);
-  const mobile = profile === 'mobile-375';
+  const mobile = profile !== 'desktop-1440';
   const videoDir = path.join(ROOT, 'raw');
   const output = path.join(ROOT, 'videos');
   mkdirSync(videoDir, { recursive: true });
