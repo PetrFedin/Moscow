@@ -1,4 +1,6 @@
-export type CuratedMoscowCategory = 'museum' | 'theatre' | 'park' | 'restaurant';
+export type CuratedMoscowCategory =
+  'museum' | 'gallery' | 'exhibition' | 'theatre' | 'cinema' | 'concert' |
+  'event' | 'park' | 'restaurant' | 'cafe' | 'bar' | 'activity' | 'studio';
 export type CuratedMoscowPlace = {
   id: string;
   titleRu: string;

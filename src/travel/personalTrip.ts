@@ -39,6 +39,8 @@ export type PersonalTripItem = {
   calendarImportKey?: string;
   plannedStartAt?: string;
   plannedEndAt?: string;
+  /** Optional participant count for an intention only; actual bookings use commitment.partySize. */
+  plannedPartySize?: number;
   status: 'planned' | 'completed' | 'skipped' | 'cancelled';
   displayOrder?: number;
   commitment?: PersonalTripCommitment;
@@ -454,7 +456,10 @@ export function addCuratedMoscowPlaceToTrip(input: {
   }
   const next = clone(input.trip);
   const kind: PersonalTripItemKind =
-    input.place.kind === 'park' ? 'activity' : input.place.kind === 'restaurant' ? 'food' : input.place.kind;
+    input.place.kind === 'park' ? 'activity'
+      : input.place.kind === 'studio' ? 'wellness'
+      : input.place.kind === 'restaurant' ? 'food'
+      : input.place.kind;
   next.items.push({
     id: input.itemId,
     dayDate: input.dayDate,
@@ -710,6 +715,9 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
     }
     if (seenItemIds.has(item.id)) throw new Error('Duplicate trip item ID: ' + item.id);
     seenItemIds.add(item.id);
+    if (item.plannedPartySize !== undefined && (
+      !Number.isInteger(item.plannedPartySize) || item.plannedPartySize < 1 || item.plannedPartySize > 50
+    )) throw new Error('Invalid planned participant count');
     if (item.catalogPlaceId !== undefined) {
       if (typeof item.catalogPlaceId !== 'string' || !item.catalogPlaceId.trim()
         || typeof item.officialSourceUrl !== 'string' || !/^https:\/\//i.test(item.officialSourceUrl)

@@ -57,12 +57,13 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-      - name: Encode and verify two exact 25-second MP4 recordings
+      - name: Encode and verify three exact 25-second MP4 recordings
         run: |
           set -euo pipefail
           test -s showcase-evidence/videos/mobile-375-session.webm
           test -s showcase-evidence/videos/desktop-1440-session.webm
-          for profile in mobile-375 desktop-1440; do
+          test -s showcase-evidence/videos/services-375-session.webm
+          for profile in mobile-375 desktop-1440 services-375; do
             source="showcase-evidence/videos/${profile}-session.webm"
             target="showcase-evidence/videos/${profile}-25s.mp4"
             ffmpeg -hide_banner -loglevel error -y -i "$source" -t 25 -an -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart "$target"

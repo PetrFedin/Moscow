@@ -61,6 +61,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import BookingResolutionCard from './BookingResolutionCard';
 import CalendarInviteImportCard from './CalendarInviteImportCard';
+import VenueServiceIntakeCard from './VenueServiceIntakeCard';
 import TripArchivePanel from './TripArchivePanel';
 import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
 import { buildMoscowTravelHistory } from '../../travel/moscowTravelHistory';
@@ -108,11 +109,17 @@ type CommitmentChoice = 'none' | 'ticket' | 'reservation';
 const durationOptions = [1, 2, 3, 5, 7] as const;
 const manualKinds: PersonalTripItemKind[] = [
   'museum',
+  'gallery',
+  'exhibition',
+  'cinema',
+  'concert',
   'food',
+  'cafe',
   'event',
   'theatre',
   'bar',
   'activity',
+  'wellness',
   'stay',
   'transport',
   'shopping',
@@ -122,6 +129,12 @@ const manualKinds: PersonalTripItemKind[] = [
 const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, string>>> = {
   ru: {
     museum: 'Музей',
+    gallery: 'Галерея',
+    exhibition: 'Выставка',
+    cinema: 'Кино',
+    concert: 'Концерт',
+    cafe: 'Кафе',
+    wellness: 'Студия / услуга',
     food: 'Ресторан',
     event: 'Событие',
     theatre: 'Театр',
@@ -134,6 +147,12 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
   },
   en: {
     museum: 'Museum',
+    gallery: 'Gallery',
+    exhibition: 'Exhibition',
+    cinema: 'Cinema',
+    concert: 'Concert',
+    cafe: 'Cafe',
+    wellness: 'Studio / service',
     food: 'Restaurant',
     event: 'Event',
     theatre: 'Theatre',
@@ -146,6 +165,12 @@ const kindLabels: Record<AppLanguage, Partial<Record<PersonalTripItemKind, strin
   },
   zh: {
     museum: '博物馆',
+    gallery: '美术馆',
+    exhibition: '展览',
+    cinema: '电影院',
+    concert: '音乐会',
+    cafe: '咖啡馆',
+    wellness: '工作室 / 服务',
     food: '餐厅',
     event: '活动',
     theatre: '剧院',
@@ -1286,6 +1311,16 @@ export default function PersonalTripPlanner({
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} disabled={storageBusy} onPress={() => { void addDirectoryPlace(); }}>
           <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
         </PhysicalPressable>
+        <VenueServiceIntakeCard
+          key={selectedDirectoryPlace.id + ':' + selectedDay}
+          place={selectedDirectoryPlace}
+          trip={trip}
+          dayDate={selectedDay}
+          language={language}
+          busy={storageBusy || Boolean(archiveError)}
+          onPersist={(next) => persistVisitorAction(next, 'directory')}
+          onSaved={() => onDirectoryPlaceHandled?.()}
+        />
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Отменить выбор места','Cancel place selection','取消选点')} style={styles.reset} contentStyle={styles.center} onPress={onDirectoryPlaceHandled}>
           <Text style={styles.resetText}>{tr(language,'Отмена','Cancel','取消')}</Text>
         </PhysicalPressable>
@@ -1608,6 +1643,11 @@ export default function PersonalTripPlanner({
                 <Text style={styles.commitmentProvider}>
                   {item.commitment.provider ? `${tr(language, 'Источник', 'Source', '来源')}: ${item.commitment.provider}` : ''}
                   {item.commitment.reference ? `${item.commitment.provider ? ' · ' : ''}${item.commitment.reference}` : ''}
+                </Text>
+              ) : null}
+              {item.plannedPartySize ? (
+                <Text style={styles.commitmentDetail}>
+                  {tr(language, 'Планируемых участников', 'Planned participants', '计划参与人数')}: {item.plannedPartySize}
                 </Text>
               ) : null}
               {item.commitment?.partySize ? (

@@ -19,7 +19,15 @@ export default function CuratedMoscowDirectory({language,onRequestAdd,savedIds,o
       ['museum', tr(language,'Музеи','Museums','博物馆')],
       ['theatre', tr(language,'Театры','Theatres','剧院')],
       ['park', tr(language,'Парки','Parks','公园')],
-      ['restaurant', tr(language,'Рестораны','Restaurants','餐厅')]
+      ['restaurant', tr(language,'Рестораны','Restaurants','餐厅')],
+      ['cafe', tr(language,'Кафе','Cafes','咖啡馆')],
+      ['bar', tr(language,'Бары','Bars','酒吧')],
+      ['gallery', tr(language,'Галереи','Galleries','美术馆')],
+      ['exhibition', tr(language,'Выставки','Exhibitions','展览')],
+      ['cinema', tr(language,'Кино','Cinema','电影院')],
+      ['concert', tr(language,'Концерты','Concerts','音乐会')],
+      ['event', tr(language,'Мероприятия','Events','活动')],
+      ['studio', tr(language,'Студии','Studios','工作室')]
     ] as const).map(([key,label])=>(
       <PhysicalPressable
         key={key}
@@ -32,6 +40,12 @@ export default function CuratedMoscowDirectory({language,onRequestAdd,savedIds,o
       ><Text style={[styles.filterText,category===key&&styles.filterTextSelected]}>{label}</Text></PhysicalPressable>
     ))}
   </View>
+  {filteredPlaces.length === 0 ? <View testID="city-directory-empty-category" style={styles.card}>
+    <Text style={styles.note}>{tr(language,
+      'В этой категории пока нет проверенных карточек. Добавьте событие вручную в поездке. Онлайн-покупка и бронирование не подключены.',
+      'There are no source-checked venues in this category yet. Add an event manually in your trip. Online booking is not connected.',
+      '此类别尚无已核对来源的场馆。可以手动添加到行程；暂不支持在线预订。')}</Text>
+  </View> : null}
   {filteredPlaces.map(place=><View key={place.id} style={styles.card}>
    <PhysicalPressable accessibilityRole="button" accessibilityLabel={place.titleRu} style={styles.header} contentStyle={styles.inner} onPress={()=>setSelected(selected===place.id?null:place.id)}>
     <View style={styles.copy}>

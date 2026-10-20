@@ -32,10 +32,10 @@ async function still(page: Page, profile: string, name: string, pauseMs = 2100) 
   await page.waitForTimeout(pauseMs);
 }
 
-async function filmed(browser: Browser, testInfo: TestInfo, profile: 'mobile-375' | 'desktop-1440',
+async function filmed(browser: Browser, testInfo: TestInfo, profile: 'mobile-375' | 'desktop-1440' | 'services-375',
   story: (page: Page) => Promise<void>) {
   test.setTimeout(100_000);
-  const mobile = profile === 'mobile-375';
+  const mobile = profile !== 'desktop-1440';
   const videoDir = path.join(ROOT, 'raw');
   const output = path.join(ROOT, 'videos');
   mkdirSync(videoDir, { recursive: true });
@@ -126,5 +126,37 @@ test('record presentation walkthrough: real desktop city discovery', async ({ br
     await page.getByText('Добавить в день', { exact: true }).click();
     await expect(page.getByText('Вечер в театре · демо', { exact: true }).first()).toBeVisible();
     await still(page, 'desktop-1440', '06-planned-ticket', 2000);
+  });
+});
+
+
+test('record presentation walkthrough: source-controlled restaurant visit and personal booking', async ({ browser }, testInfo) => {
+  await filmed(browser, testInfo, 'services-375', async (page) => {
+    await expect(page.getByRole('button', { name: 'Рестораны', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Рестораны', exact: true }).click();
+    await page.getByRole('button', { name: 'Кафе Пушкинъ', exact: true }).click();
+    await still(page, 'services-375', '01-source-backed-restaurant', 1800);
+    await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+    await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+    await page.getByPlaceholder('2026-10-02').fill(moscowTomorrow());
+    await page.getByText('2', { exact: true }).click();
+    await page.getByText('Создать поездку', { exact: true }).click();
+    const intake = page.getByTestId('venue-service-intake');
+    await expect(intake).toBeVisible();
+    await still(page, 'services-375', '02-venue-in-trip', 1600);
+    await intake.getByRole('button', { name: 'Открыть запись времени или билета' }).click();
+    await intake.getByRole('button', { name: 'Уже есть мой билет или бронь' }).click();
+    await intake.getByTestId('venue-service-party-size').fill('2');
+    await intake.getByTestId('venue-service-reference').fill('DEMO-NO-SUPPLIER');
+    await intake.scrollIntoViewIfNeeded();
+    await still(page, 'services-375', '03-user-declared-booking', 2300);
+    await intake.getByRole('button', {
+      name: 'Сохранить в мою поездку без подтверждения поставщика'
+    }).click();
+    await expect(intake).toHaveCount(0);
+    const wallet = page.getByTestId('travel-booking-wallet');
+    await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
+    await wallet.scrollIntoViewIfNeeded();
+    await still(page, 'services-375', '04-wallet-no-provider-proof', 2200);
   });
 });
