@@ -220,3 +220,44 @@ for (const viewport of [
     expect(overflow, 'Venue intake/wallet must not overflow horizontally').toBe(false);
   });
 }
+
+
+for (const viewport of [
+  { name: 'phone-375', width: 375, height: 812 },
+  { name: 'tablet-768', width: 768, height: 1024 },
+  { name: 'desktop-1440', width: 1440, height: 900 }
+]) {
+  test('readiness local-conflict visual proof / ' + viewport.name, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.clock.install({ time: new Date('2026-10-13T08:00:00Z') });
+    await page.goto('/');
+    await page.getByRole('tab', { name: 'Поездка' }).click();
+    await page.getByPlaceholder('2026-10-02').fill('2026-10-20');
+    await page.getByText('2', { exact: true }).click();
+    await page.getByText('Создать поездку', { exact: true }).click();
+    for (const [name, start, end] of [
+      ['Билет в музей · демонстрация', '19:00', '21:00'],
+      ['Билет в театр · демонстрация', '20:00', '22:00']
+    ] as const) {
+      await page.getByText('+ Добавить', { exact: true }).click();
+      await page.getByPlaceholder('Например: Большой театр').fill(name);
+      await page.getByPlaceholder('19:00').fill(start);
+      await page.getByPlaceholder('21:00').fill(end);
+      await page.getByRole('button', { name: 'Билет', exact: true }).last().click();
+      await page.getByText('Добавить в день', { exact: true }).click();
+      await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+    }
+    const readiness = page.getByTestId('trip-readiness');
+    await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+    await readiness.getByTestId('trip-readiness-conflicts').scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(viewport.name + '-trip-readiness-summary-viewport.png')
+    });
+    await readiness.getByText(/Два записанных билета или брони пересекаются/).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(viewport.name + '-trip-readiness-conflict-viewport.png')
+    });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    expect(overflow, 'Trip readiness card must not overflow viewport width').toBe(false);
+  });
+}

@@ -2371,3 +2371,54 @@ test('source-backed museum plan keeps participant count but never creates a tick
   await expect(page.getByText('Планируемых участников: 4', { exact: true })).toBeVisible();
   expect(await page.getByTestId('travel-booking-wallet').count()).toBe(0);
 });
+
+
+test('readiness review connects two personal bookings, flags conflict, survives reload and opens booking inquiry', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  const readiness = page.getByTestId('trip-readiness');
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('0');
+  for (const [name, start, end] of [
+    ['Вечерний музей · личный билет', '19:00', '21:00'],
+    ['Спектакль · личный билет', '20:00', '22:00']
+  ] as const) {
+    await page.getByText('+ Добавить', { exact: true }).click();
+    await page.getByPlaceholder('Например: Большой театр').fill(name);
+    await page.getByPlaceholder('19:00').fill(start);
+    await page.getByPlaceholder('21:00').fill(end);
+    await page.getByRole('button', { name: 'Билет', exact: true }).last().click();
+    await page.getByText('Добавить в день', { exact: true }).click();
+    await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  }
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+  await expect(readiness.getByTestId('trip-readiness-checks')).toHaveText('2');
+  await expect(readiness.getByText(/Два записанных билета или брони пересекаются/)).toBeVisible();
+  await expect(readiness).toContainText('поставщик');
+  await readiness.getByRole('button', { name: 'Проверить все дни поездки' }).click();
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+  await readiness.getByRole('button', { name: 'Проверить выбранный день' }).click();
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+
+  await expect.poll(async () => page.evaluate(() => {
+    const trip = JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return trip.items?.length ?? 0;
+  })).toBe(2);
+  await page.reload();
+  await ensureRussian(page);
+  const restored = page.getByTestId('trip-readiness');
+  await expect(restored.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+  await expect(restored.getByTestId('trip-readiness-checks')).toHaveText('2');
+  await restored.getByRole('button', { name: /Открыть обращение по брони:/ }).first().click();
+  await expect(page.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items).toHaveLength(2);
+  expect(saved.items.every((item: { commitment?: { verification: string } }) =>
+    item.commitment?.verification === 'user-declared')).toBe(true);
+});
