@@ -173,3 +173,50 @@ for (const viewport of [
     expect(overflowing, 'No horizontal body overflow after discovery').toBe(false);
   });
 }
+
+
+for (const viewport of [
+  { name: 'phone-375', width: 375, height: 812 },
+  { name: 'tablet-768', width: 768, height: 1024 },
+  { name: 'desktop-1440', width: 1440, height: 900 }
+]) {
+  test('venue service intake visual proof / ' + viewport.name, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.clock.install({ time: new Date('2026-10-13T08:00:00Z') });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Рестораны', exact: true }).click();
+    await page.getByRole('button', { name: 'Кафе Пушкинъ', exact: true }).click();
+    await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+    await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+    await page.getByPlaceholder('2026-10-02').fill('2026-10-20');
+    await page.getByText('2', { exact: true }).click();
+    await page.getByText('Создать поездку', { exact: true }).click();
+    const intake = page.getByTestId('venue-service-intake');
+    await expect(intake).toBeVisible();
+    await intake.getByRole('button', { name: 'Открыть запись времени или билета' }).click();
+    await intake.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(viewport.name + '-venue-service-plan.png')
+    });
+
+    await intake.getByRole('button', { name: 'Уже есть мой билет или бронь' }).click();
+    await intake.getByTestId('venue-service-party-size').fill('2');
+    await intake.getByTestId('venue-service-reference').fill('DEMO-ONLY');
+    await intake.getByTestId('venue-service-reference').scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(viewport.name + '-venue-service-own-booking.png')
+    });
+    await intake.getByRole('button', {
+      name: 'Сохранить в мою поездку без подтверждения поставщика'
+    }).click();
+    await expect(intake).toHaveCount(0);
+    const wallet = page.getByTestId('travel-booking-wallet');
+    await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
+    await wallet.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(viewport.name + '-venue-service-wallet.png')
+    });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    expect(overflow, 'Venue intake/wallet must not overflow horizontally').toBe(false);
+  });
+}
