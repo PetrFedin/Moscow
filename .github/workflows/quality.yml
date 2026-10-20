@@ -51,6 +51,20 @@ jobs:
         run: npm run test:e2e-web
       - name: Visual acceptance captures (375 / 768 / 1440)
         run: npx playwright test tests/visualAcceptance.e2e.spec.ts --project=chromium
+      - name: Preserve and verify responsive screenshot evidence before next Playwright run
+        run: |
+          set -euo pipefail
+          test -d test-results
+          mkdir -p visual-evidence
+          cp -a test-results/. visual-evidence/
+          for viewport in phone-375 tablet-768 desktop-1440; do
+            find visual-evidence -type f -name "${viewport}-trip-readiness-summary-viewport.png" -print -quit | grep -q .
+            find visual-evidence -type f -name "${viewport}-trip-readiness-conflict-viewport.png" -print -quit | grep -q .
+            find visual-evidence -type f -name "${viewport}-venue-service-wallet.png" -print -quit | grep -q .
+          done
+          count=$(find visual-evidence -type f -name '*.png' | wc -l)
+          echo "Preserved real Chromium screenshots: $count"
+          test "$count" -ge 9
       - name: Real browser showcase capture (mobile / desktop)
         run: npx playwright test tests/showcaseCapture.e2e.spec.ts --project=chromium
       - name: Install FFmpeg for verified video exports
@@ -85,6 +99,7 @@ jobs:
         with:
           name: moscow-visual-qa-${{ github.sha }}
           path: |
+            visual-evidence/**/*
             test-results/**/*
           retention-days: 14
           if-no-files-found: warn
