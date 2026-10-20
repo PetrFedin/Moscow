@@ -51,6 +51,16 @@ export default function BookingWalletCard({ trip, language, onManageBooking }: P
       <View style={styles.list}>
         {items.slice(0, 8).map((item) => {
           const commitment = item.commitment!;
+          const venueWebsiteOnly = Boolean(item.catalogPlaceId
+            && item.officialSourceUrl === commitment.externalUrl);
+          const linkTitle = venueWebsiteOnly
+            ? tr(language, 'Открыть официальный сайт (не подтверждение)',
+              'Open official website (not a confirmation)', '打开官方网站（非预订确认）')
+            : commitment.verification === 'provider-confirmed'
+              ? tr(language, 'Открыть сохранённое подтверждение',
+                'Open saved provider confirmation', '打开已保存的供应商确认')
+              : tr(language, 'Открыть сохранённую ссылку (не проверена)',
+                'Open saved link (unverified)', '打开已保存链接（未核验）');
           return (
             <View key={item.id} style={styles.item}>
               <View style={styles.itemTop}>
@@ -132,13 +142,13 @@ export default function BookingWalletCard({ trip, language, onManageBooking }: P
               {commitment.externalUrl ? (
                 <PhysicalPressable
                   accessibilityRole="link"
-                  accessibilityLabel={tr(language, 'Открыть сохранённую ссылку на подтверждение: ', 'Open saved confirmation link: ', '打开已保存的确认链接：') + item.title}
+                  accessibilityLabel={linkTitle + ': ' + item.title}
                   style={styles.openButton}
                   contentStyle={styles.center}
-                  onPress={() => { void Linking.openURL(commitment.externalUrl!); }}
+                  onPress={() => { void Linking.openURL(commitment.externalUrl!).catch(() => undefined); }}
                 >
                   <Text style={styles.openText}>
-                    {tr(language, 'Открыть подтверждение', 'Open confirmation', '打开确认信息')}
+                    {linkTitle}
                   </Text>
                 </PhysicalPressable>
               ) : null}
