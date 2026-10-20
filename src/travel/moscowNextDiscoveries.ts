@@ -38,7 +38,7 @@ export type MoscowNextDiscoveryProjection = {
  * ticket prices, travel geometry, opening state or bookings.
  */
 function interestForPlace(place: CuratedMoscowPlace): Exclude<MoscowDiscoveryInterest, 'all'> {
-  if (place.kind === 'restaurant') return 'food';
+  if (['restaurant', 'cafe', 'bar'].includes(place.kind)) return 'food';
   if (place.kind === 'park') return 'parks';
   return 'culture';
 }
@@ -47,6 +47,7 @@ function kindForPlace(place: CuratedMoscowPlace): PersonalTripItemKind {
   if (place.kind === 'restaurant') return 'food';
   // Match the persisted curated-place mapping in addCuratedMoscowPlaceToTrip.
   if (place.kind === 'park') return 'activity';
+  if (place.kind === 'studio') return 'wellness';
   return place.kind;
 }
 
