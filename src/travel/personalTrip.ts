@@ -456,7 +456,10 @@ export function addCuratedMoscowPlaceToTrip(input: {
   }
   const next = clone(input.trip);
   const kind: PersonalTripItemKind =
-    input.place.kind === 'park' ? 'activity' : input.place.kind === 'restaurant' ? 'food' : input.place.kind;
+    input.place.kind === 'park' ? 'activity'
+      : input.place.kind === 'studio' ? 'wellness'
+      : input.place.kind === 'restaurant' ? 'food'
+      : input.place.kind;
   next.items.push({
     id: input.itemId,
     dayDate: input.dayDate,
