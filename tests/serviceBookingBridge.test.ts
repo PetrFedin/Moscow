@@ -211,3 +211,19 @@ test('an already-visited curated stop is not silently rewritten into a new suppl
   assert.equal(later.items[0]?.commitment, undefined);
   assert.equal(later.items[1]?.commitment?.verification, 'user-declared');
 });
+
+
+test('timed personal plan upgrades to user-reported booking in place without duplicate participant counts', () => {
+  const planned = insert({ mode: 'plan', itemId: 'timed-original', partySize: 5 });
+  assert.equal(planned.items[0]?.plannedPartySize, 5);
+  const booked = insert({
+    trip: planned, itemId: 'should-not-create',
+    mode: 'self-reported', partySize: 2, reference: 'RESERVATION-FROM-MY-EMAIL'
+  });
+  assert.equal(booked.items.length, 1);
+  assert.equal(booked.items[0]?.id, 'timed-original');
+  assert.equal(booked.items[0]?.plannedPartySize, undefined);
+  assert.equal(booked.items[0]?.commitment?.partySize, 2);
+  assert.equal(booked.items[0]?.commitment?.verification, 'user-declared');
+  assert.deepEqual(parsePersonalTrip(JSON.stringify(booked)), booked);
+});
