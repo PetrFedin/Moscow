@@ -146,10 +146,16 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
   if (input.trip.destinationId !== 'moscow') {
     throw new Error('Venue service is not admitted in this destination');
   }
-  if (input.trip.items.some(item =>
+  const matchingSlot = input.trip.items.find(item =>
     item.catalogPlaceId === canonical.id
     && item.plannedStartAt === plannedStartAt
-    && item.status !== 'cancelled')) {
+    && item.status !== 'cancelled');
+  // Never silently overwrite confirmed, visited, skipped or fixed commitments.
+  if (matchingSlot && (
+    matchingSlot.commitment
+    || matchingSlot.status !== 'planned'
+    || input.trip.visits.some(visit => visit.itemId === matchingSlot.id)
+  )) {
     throw new Error('This venue and time are already in the trip');
   }
 
@@ -168,7 +174,7 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
   // Upgrade an unscheduled venue saved from Discover without duplicating it
   // in the day route and Passport. Never rewrite an already visited, booked,
   // cancelled or independently timed occurrence.
-  const unbookedPlan = input.trip.items.find(item =>
+  const unbookedPlan = matchingSlot ?? input.trip.items.find(item =>
     item.catalogPlaceId === canonical.id
     && item.dayDate === input.dayDate
     && !item.plannedStartAt
@@ -183,13 +189,14 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
       items: input.trip.items.map(item => item.id === unbookedPlan.id
         ? {
             ...item,
+            // Participant count for a booking moves to its single
+            // authoritative commitment, not two diverging copies.
+            plannedPartySize: input.mode === 'plan' ? input.partySize : undefined,
             kind: capability.tripKind,
             title: canonical.titleRu,
             note: canonical.addressRu,
             plannedStartAt,
             plannedEndAt,
-            ...(input.mode === 'plan' && input.partySize
-              ? { plannedPartySize: input.partySize } : {}),
             ...(commitment ? { commitment } : {}),
             catalogPlaceId: canonical.id,
             officialSourceUrl: handoff.url
