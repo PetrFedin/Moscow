@@ -61,6 +61,7 @@ import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
 import BookingResolutionCard from './BookingResolutionCard';
 import CalendarInviteImportCard from './CalendarInviteImportCard';
+import VenueServiceIntakeCard from './VenueServiceIntakeCard';
 import TripArchivePanel from './TripArchivePanel';
 import MoscowTravelHistoryCard from './MoscowTravelHistoryCard';
 import { buildMoscowTravelHistory } from '../../travel/moscowTravelHistory';
@@ -1286,6 +1287,16 @@ export default function PersonalTripPlanner({
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Подтвердить добавление места','Confirm add place','确认添加地点')} style={styles.primary} contentStyle={styles.center} disabled={storageBusy} onPress={() => { void addDirectoryPlace(); }}>
           <Text style={styles.primaryText}>{tr(language,'Добавить в день','Add to day','添加到当天')}</Text>
         </PhysicalPressable>
+        <VenueServiceIntakeCard
+          key={selectedDirectoryPlace.id + ':' + selectedDay}
+          place={selectedDirectoryPlace}
+          trip={trip}
+          dayDate={selectedDay}
+          language={language}
+          busy={storageBusy || Boolean(archiveError)}
+          onPersist={(next) => persistVisitorAction(next, 'directory')}
+          onSaved={() => onDirectoryPlaceHandled?.()}
+        />
         <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Отменить выбор места','Cancel place selection','取消选点')} style={styles.reset} contentStyle={styles.center} onPress={onDirectoryPlaceHandled}>
           <Text style={styles.resetText}>{tr(language,'Отмена','Cancel','取消')}</Text>
         </PhysicalPressable>
