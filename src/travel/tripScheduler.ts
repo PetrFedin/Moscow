@@ -46,12 +46,31 @@ function assertDay(trip: PersonalTrip, dayDate: string) {
   if (!trip.days.includes(dayDate)) throw new Error(`Date is outside trip range: ${dayDate}`);
 }
 
-function rebaseTimestampDay(value: string | undefined, dayDate: string) {
+function shiftedDayOffset(originalDay: string, targetDay: string): number {
+  const source = Date.parse(originalDay + 'T12:00:00.000Z');
+  const target = Date.parse(targetDay + 'T12:00:00.000Z');
+  if (!Number.isFinite(source) || !Number.isFinite(target)) {
+    throw new Error('Cannot move trip stop without valid source and target days');
+  }
+  const difference = (target - source) / 86_400_000;
+  if (!Number.isInteger(difference)) throw new Error('Trip day shift must be a whole calendar day');
+  return difference;
+}
+
+/** Preserve original relative date offsets for overnight flexible events. */
+function shiftTimestampDays(value: string | undefined, dayOffset: number) {
   if (!value) return undefined;
   parseIso(value);
-  const match = /^\d{4}-\d{2}-\d{2}(T.*)$/.exec(value);
-  if (!match?.[1]) throw new Error(`Cannot move timestamp without date-only prefix: ${value}`);
-  const rebased = `${dayDate}${match[1]}`;
+  const match = /^(\d{4}-\d{2}-\d{2})(T.*)$/.exec(value);
+  if (!match?.[1] || !match[2]) {
+    throw new Error('Cannot move a timestamp without a date-only prefix');
+  }
+  const date = new Date(match[1] + 'T12:00:00.000Z');
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== match[1]) {
+    throw new Error('Cannot move an invalid timestamp calendar date');
+  }
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  const rebased = date.toISOString().slice(0, 10) + match[2];
   parseIso(rebased);
   return rebased;
 }
@@ -103,11 +122,14 @@ export function moveTripItem(input: {
     throw new Error('Booked or historic trip item cannot move without verified rescheduling');
   }
 
+  const offsetDays = shiftedDayOffset(item.dayDate, input.targetDayDate);
+  const rebasedStart = shiftTimestampDays(item.plannedStartAt, offsetDays);
+  const rebasedEnd = shiftTimestampDays(item.plannedEndAt, offsetDays);
+  if (rebasedStart && rebasedEnd && Date.parse(rebasedEnd) <= Date.parse(rebasedStart)) {
+    throw new Error('Cannot move a trip item with an inverted time interval');
+  }
   item.dayDate = input.targetDayDate;
   item.displayOrder = undefined;
-
-  const rebasedStart = rebaseTimestampDay(item.plannedStartAt, input.targetDayDate);
-  const rebasedEnd = rebaseTimestampDay(item.plannedEndAt, input.targetDayDate);
   if (rebasedStart) item.plannedStartAt = rebasedStart;
   if (rebasedEnd) item.plannedEndAt = rebasedEnd;
 
