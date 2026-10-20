@@ -1621,6 +1621,11 @@ export default function PersonalTripPlanner({
                   {item.commitment.reference ? `${item.commitment.provider ? ' · ' : ''}${item.commitment.reference}` : ''}
                 </Text>
               ) : null}
+              {item.plannedPartySize ? (
+                <Text style={styles.commitmentDetail}>
+                  {tr(language, 'Планируемых участников', 'Planned participants', '计划参与人数')}: {item.plannedPartySize}
+                </Text>
+              ) : null}
               {item.commitment?.partySize ? (
                 <Text style={styles.commitmentDetail}>
                   {tr(language, 'Гостей / билетов', 'Guests / tickets', '人数 / 门票')}: {item.commitment.partySize}
