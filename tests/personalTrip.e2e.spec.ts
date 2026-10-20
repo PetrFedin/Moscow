@@ -2255,3 +2255,115 @@ test('manual Moscow overnight booking remains anchored and is recovered after re
   await page.getByText('День 1', { exact: true }).click();
   await expect(page.getByText('Ночной спектакль', { exact: true }).first()).toBeVisible();
 });
+
+
+test('source-backed restaurant intake: discovery -> local reservation -> wallet -> visit history after reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Кино', exact: true }).click();
+  await expect(page.getByTestId('city-directory-empty-category'))
+    .toContainText('нет проверенных карточек');
+  await page.getByRole('button', { name: 'Рестораны', exact: true }).click();
+  await page.getByRole('button', { name: 'Кафе Пушкинъ', exact: true }).click();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const intake = page.getByTestId('venue-service-intake');
+  await expect(intake).toBeVisible();
+  await intake.getByRole('button', { name: 'Открыть запись времени или билета' }).click();
+  await intake.getByRole('button', { name: 'Уже есть мой билет или бронь' }).click();
+  await intake.getByTestId('venue-service-time-start').fill('19:00');
+  await intake.getByTestId('venue-service-time-end').fill('21:00');
+  await intake.getByTestId('venue-service-party-size').fill('3');
+  await intake.getByTestId('venue-service-reference').fill('MY-SAVED-ORDER');
+
+  // A local journal failure must never fake a restaurant booking.
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let failed = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!failed && key === 'moscow:v1:personal-trip-transaction') {
+        failed = true;
+        throw new DOMException('Injected local reservation failure', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await intake.getByRole('button', {
+    name: 'Сохранить в мою поездку без подтверждения поставщика'
+  }).click();
+  await expect(intake.getByTestId('venue-service-intake-error')).toBeVisible();
+  await expect(intake.getByTestId('venue-service-reference')).toHaveValue('MY-SAVED-ORDER');
+  expect(await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length)).toBe(0);
+  // Explicit retry, never a silent retry or supplier call.
+  await intake.getByRole('button', {
+    name: 'Сохранить в мою поездку без подтверждения поставщика'
+  }).click();
+  await expect(intake).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    const item = saved.items?.find((entry: { catalogPlaceId?: string }) =>
+      entry.catalogPlaceId === 'cafe-pushkin-tverskoy');
+    return item ? {
+      count: saved.items.length,
+      dayDate: item.dayDate,
+      kind: item.kind,
+      guests: item.commitment?.partySize,
+      reference: item.commitment?.reference,
+      verification: item.commitment?.verification,
+      providerReceipt: item.commitment?.receiptEvidenceRef ?? null
+    } : null;
+  })).toEqual({
+    count: 1, dayDate: day, kind: 'food', guests: 3, reference: 'MY-SAVED-ORDER',
+    verification: 'user-declared', providerReceipt: null
+  });
+  const wallet = page.getByTestId('travel-booking-wallet');
+  await expect(wallet.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
+  await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
+  await page.getByText('Я был здесь', { exact: true }).click();
+  await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  const restored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(restored.items).toHaveLength(1);
+  expect(restored.visits).toHaveLength(1);
+  expect(restored.visits[0].evidence).toBe('user-confirmed');
+  expect(restored.items[0].commitment.verification).toBe('user-declared');
+});
+
+test('source-backed museum plan keeps participant count but never creates a ticket', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Музеи', exact: true }).click();
+  await page.getByRole('button', { name: 'Третьяковская галерея', exact: true }).click();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const intake = page.getByTestId('venue-service-intake');
+  await intake.getByRole('button', { name: 'Открыть запись времени или билета' }).click();
+  await intake.getByTestId('venue-service-time-start').fill('10:00');
+  await intake.getByTestId('venue-service-time-end').fill('12:00');
+  await intake.getByTestId('venue-service-party-size').fill('4');
+  await intake.getByRole('button', {
+    name: 'Сохранить в мою поездку без подтверждения поставщика'
+  }).click();
+  await expect(intake).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(
+    localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items).toHaveLength(1);
+  expect(saved.items[0].kind).toBe('museum');
+  expect(saved.items[0].plannedPartySize).toBe(4);
+  expect(saved.items[0].commitment).toBeUndefined();
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Планируемых участников: 4', { exact: true })).toBeVisible();
+  expect(await page.getByTestId('travel-booking-wallet').count()).toBe(0);
+});
