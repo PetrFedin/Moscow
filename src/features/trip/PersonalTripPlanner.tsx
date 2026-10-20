@@ -56,6 +56,7 @@ import { manualMoscowInterval, moscowCalendarDay } from '../../travel/manualTrip
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
+import TripReadinessCard from './TripReadinessCard';
 import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
 import BookingWalletCard from './BookingWalletCard';
@@ -1343,6 +1344,17 @@ export default function PersonalTripPlanner({
           <View style={styles.metric}><Text style={styles.metricValue}>{summary.visitedCount}</Text><Text style={styles.metricLabel}>{tr(language, 'посещено', 'visited', '已到访')}</Text></View>
         </View>
       )}
+
+      <TripReadinessCard
+        trip={trip}
+        dayDate={selectedDay}
+        language={language}
+        onManageBooking={(itemId) => {
+          setBookingHelpItemId(itemId);
+          setBookingHelpOpen(true);
+        }}
+        onOpenTripDetails={() => setTripToolsOpen(true)}
+      />
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
