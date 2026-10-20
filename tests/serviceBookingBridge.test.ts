@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { curatedMoscowPlace, curatedMoscowPlaces } from '../src/travel/curatedMoscowPlaces.ts';
-import { createPersonalTrip, parsePersonalTrip, recordTripVisit } from '../src/travel/personalTrip.ts';
+import { addCuratedMoscowPlaceToTrip, createPersonalTrip, parsePersonalTrip, recordTripVisit } from '../src/travel/personalTrip.ts';
 import {
   officialVenueServiceHandoff,
   saveVenueServiceToTrip,
@@ -170,4 +170,44 @@ test('catalog includes only evidence-controlled concrete POIs; categories withou
   assert.equal(curatedMoscowPlaces.some(p => p.kind === 'cinema'), false);
   assert.equal(curatedMoscowPlaces.some(p => p.kind === 'concert'), false);
   assert.equal(curatedMoscowPlaces.some(p => p.kind === 'studio'), false);
+});
+
+test('an unscheduled catalog selection upgrades in place to a booking without duplicating Passport route identity', () => {
+  const original = addCuratedMoscowPlaceToTrip({
+    trip: trip(), place: venue('cafe-pushkin-tverskoy'),
+    itemId: 'directory-original', dayDate: '2026-10-20', updatedAt: now
+  });
+  assert.equal(original.items.length, 1);
+  assert.equal(original.items[0]?.plannedStartAt, undefined);
+  const scheduled = insert({
+    trip: original, itemId: 'should-not-create-second-id',
+    reference: 'MY-BOOKED-TABLE', partySize: 2
+  });
+  assert.equal(scheduled.items.length, 1);
+  assert.equal(scheduled.items[0]?.id, 'directory-original');
+  assert.equal(scheduled.items[0]?.commitment?.reference, 'MY-BOOKED-TABLE');
+  assert.equal(scheduled.items[0]?.plannedStartAt, '2026-10-20T19:00:00+03:00');
+  assert.deepEqual(parsePersonalTrip(JSON.stringify(scheduled)), scheduled);
+});
+
+test('an already-visited curated stop is not silently rewritten into a new supplier commitment', () => {
+  const original = addCuratedMoscowPlaceToTrip({
+    trip: trip(), place: venue('cafe-pushkin-tverskoy'),
+    itemId: 'visited-original', dayDate: '2026-10-20', updatedAt: now
+  });
+  const completed = recordTripVisit({
+    trip: original, visitId: 'visited-original-visit',
+    itemId: 'visited-original', dayDate: '2026-10-20',
+    title: 'Кафе Пушкинъ', kind: 'food',
+    visitedAt: '2026-10-20T12:00:00+03:00',
+    evidence: 'user-confirmed', updatedAt: '2026-10-20T12:00:00+03:00'
+  });
+  const later = insert({
+    trip: completed, itemId: 'second-independent-visit',
+    startTime: '20:00', endTime: '22:00'
+  });
+  assert.equal(later.items.length, 2);
+  assert.equal(later.items[0]?.status, 'completed');
+  assert.equal(later.items[0]?.commitment, undefined);
+  assert.equal(later.items[1]?.commitment?.verification, 'user-declared');
 });
