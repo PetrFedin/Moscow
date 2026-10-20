@@ -2387,7 +2387,7 @@ test('readiness review connects two personal bookings, flags conflict, survives 
   for (const [name, start, end] of [
     ['Вечерний музей · личный билет', '19:00', '21:00'],
     ['Спектакль · личный билет', '20:00', '22:00']
-  ]) {
+  ] as const) {
     await page.getByText('+ Добавить', { exact: true }).click();
     await page.getByPlaceholder('Например: Большой театр').fill(name);
     await page.getByPlaceholder('19:00').fill(start);
