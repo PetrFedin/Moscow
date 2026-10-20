@@ -165,6 +165,37 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
           externalUrl: handoff.url
         }
       : undefined;
+  // Upgrade an unscheduled venue saved from Discover without duplicating it
+  // in the day route and Passport. Never rewrite an already visited, booked,
+  // cancelled or independently timed occurrence.
+  const unbookedPlan = input.trip.items.find(item =>
+    item.catalogPlaceId === canonical.id
+    && item.dayDate === input.dayDate
+    && !item.plannedStartAt
+    && !item.commitment
+    && item.status === 'planned'
+    && !input.trip.visits.some(visit => visit.itemId === item.id)
+  );
+  if (unbookedPlan) {
+    return parsePersonalTrip(JSON.stringify({
+      ...input.trip,
+      updatedAt: input.updatedAt,
+      items: input.trip.items.map(item => item.id === unbookedPlan.id
+        ? {
+            ...item,
+            kind: capability.tripKind,
+            title: canonical.titleRu,
+            note: canonical.addressRu,
+            plannedStartAt,
+            plannedEndAt,
+            ...(input.mode === 'plan' && input.partySize
+              ? { plannedPartySize: input.partySize } : {}),
+            ...(commitment ? { commitment } : {}),
+            catalogPlaceId: canonical.id,
+            officialSourceUrl: handoff.url
+          } : item)
+    }));
+  }
   const inserted = addManualTripItem({
     trip: input.trip,
     itemId: input.itemId,
