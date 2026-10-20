@@ -243,7 +243,7 @@ for (const viewport of [
       await page.getByPlaceholder('Например: Большой театр').fill(name);
       await page.getByPlaceholder('19:00').fill(start);
       await page.getByPlaceholder('21:00').fill(end);
-      await page.getByText('Билет', { exact: true }).click();
+      await page.getByRole('button', { name: 'Билет', exact: true }).click();
       await page.getByText('Добавить в день', { exact: true }).click();
       await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
     }
