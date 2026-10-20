@@ -119,7 +119,9 @@ export type SaveVenueServiceInput = Readonly<{
  */
 export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTrip {
   const handoff = officialVenueServiceHandoff(input.venue);
-  const capability = venueServiceCapability(input.venue.kind);
+  const canonical = curatedMoscowPlace(input.venue.id);
+  if (!canonical) throw new Error('Unknown curated venue');
+  const capability = venueServiceCapability(canonical.kind);
   const { plannedStartAt, plannedEndAt } = manualMoscowInterval(
     input.dayDate, input.startTime, input.endTime
   );
@@ -145,7 +147,7 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
     throw new Error('Venue service is not admitted in this destination');
   }
   if (input.trip.items.some(item =>
-    item.catalogPlaceId === input.venue.id
+    item.catalogPlaceId === canonical.id
     && item.plannedStartAt === plannedStartAt
     && item.status !== 'cancelled')) {
     throw new Error('This venue and time are already in the trip');
@@ -159,7 +161,7 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
           verification: 'user-declared',
           ...(ref ? { reference: ref } : {}),
           ...(input.partySize ? { partySize: input.partySize } : {}),
-          address: input.venue.addressRu,
+          address: canonical.addressRu,
           externalUrl: handoff.url
         }
       : undefined;
@@ -167,11 +169,11 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
     trip: input.trip,
     itemId: input.itemId,
     dayDate: input.dayDate,
-    title: input.venue.titleRu,
+    title: canonical.titleRu,
     kind: capability.tripKind,
     plannedStartAt,
     plannedEndAt,
-    note: input.venue.addressRu,
+    note: canonical.addressRu,
     ...(commitment ? { commitment } : {}),
     updatedAt: input.updatedAt
   });
@@ -180,7 +182,8 @@ export function saveVenueServiceToTrip(input: SaveVenueServiceInput): PersonalTr
     items: inserted.items.map(item => item.id === input.itemId
       ? {
           ...item,
-          catalogPlaceId: input.venue.id,
+          ...(input.mode === 'plan' && input.partySize ? { plannedPartySize: input.partySize } : {}),
+          catalogPlaceId: canonical.id,
           officialSourceUrl: handoff.url
         }
       : item)
