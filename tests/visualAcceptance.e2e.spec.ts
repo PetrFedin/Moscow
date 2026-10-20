@@ -238,7 +238,7 @@ for (const viewport of [
     for (const [name, start, end] of [
       ['Билет в музей · демонстрация', '19:00', '21:00'],
       ['Билет в театр · демонстрация', '20:00', '22:00']
-    ]) {
+    ] as const) {
       await page.getByText('+ Добавить', { exact: true }).click();
       await page.getByPlaceholder('Например: Большой театр').fill(name);
       await page.getByPlaceholder('19:00').fill(start);
