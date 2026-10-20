@@ -2325,6 +2325,10 @@ test('source-backed restaurant intake: discovery -> local reservation -> wallet 
   const wallet = page.getByTestId('travel-booking-wallet');
   await expect(wallet.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
   await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
+  await expect(wallet.getByRole('link', {
+    name: 'Открыть официальный сайт (не подтверждение): Кафе Пушкинъ'
+  })).toBeVisible();
+  await expect(wallet.getByText('Открыть подтверждение', { exact: true })).toHaveCount(0);
   await page.getByText('Я был здесь', { exact: true }).click();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await page.reload();
