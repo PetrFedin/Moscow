@@ -129,7 +129,9 @@ export function moveTripItem(input: {
     throw new Error('Cannot move a trip item with an inverted time interval');
   }
   item.dayDate = input.targetDayDate;
-  item.displayOrder = undefined;
+  // Preserve JSON round-trip identity: an explicit undefined property disappears
+  // during durable storage and can create false revision mismatches.
+  delete item.displayOrder;
   if (rebasedStart) item.plannedStartAt = rebasedStart;
   if (rebasedEnd) item.plannedEndAt = rebasedEnd;
 
