@@ -733,7 +733,9 @@ export default function MoscowExperienceApp() {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, wideDiscover && styles.wideContent]} showsVerticalScrollIndicator={false}>
+        <ScrollView testID="tourist-main-scroll" style={styles.mainScroll}
+          contentContainerStyle={[styles.content, wideDiscover && styles.wideContent]}
+          showsVerticalScrollIndicator={false}>
           {tab === 'discover' && (
             <>
               <View style={wideDiscover ? styles.desktopDiscoverLead : undefined}>
@@ -1151,7 +1153,8 @@ export default function MoscowExperienceApp() {
         </ScrollView>
       )}
 
-      <View style={[styles.nav, { width: Math.min(700, Math.max(280, viewportWidth - 24)), left: Math.max(12, (viewportWidth - Math.min(700, viewportWidth - 24)) / 2) }]}>
+      <View testID="tourist-bottom-navigation"
+        style={[styles.nav, { width: Math.min(700, Math.max(280, viewportWidth - 24)) }]}>
         {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
           <PhysicalPressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} accessibilityLabel={tabLabels[item]} style={[styles.navItem, tab === item && styles.navItemActive]} contentStyle={styles.navContent} hapticEvent="none" onPress={() => setTab(item)}>
             <Text style={[styles.navIcon, tab === item && styles.navIconActive]}>{tabIcons[item]}</Text>
@@ -1218,7 +1221,10 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#f7f3eb', fontSize: 25, fontWeight: '700', marginTop: 3 },
   language: { width: 48, height: 44, borderRadius: 22, backgroundColor: '#20242a' },
   languageText: { color: '#e7c98f', fontSize: 11, fontWeight: '900' },
-  content: { padding: 18, paddingBottom: 132, alignSelf: 'center', width: '100%', maxWidth: 900 },
+  mainScroll: { flex: 1, minHeight: 0 },
+  // The bottom navigation occupies its own flex row, not an overlay.
+  // Scrolling and focus must never position itinerary actions underneath it.
+  content: { padding: 18, paddingBottom: 28, alignSelf: 'center', width: '100%', maxWidth: 900 },
   wideContent: { maxWidth: 1260, paddingHorizontal: 27 },
   desktopDiscoverLead: { flexDirection: 'row', alignItems: 'flex-start', gap: 24 },
   desktopDiscoverPrimary: { flex: 1.18, minWidth: 0 },
@@ -1280,8 +1286,8 @@ const styles = StyleSheet.create({
   sourceContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   sourceText: { color: '#c8cbd0', fontSize: 11, flex: 1 },
   sourceArrow: { color: '#d7bb84', fontSize: 16 },
-  mapPage: { flex: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 86 },
-  mapStage: { flex: 1, minHeight: 520, borderRadius: 25, overflow: 'hidden', position: 'relative', backgroundColor: '#111418' },
+  mapPage: { flex: 1, minHeight: 0, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
+  mapStage: { flex: 1, minHeight: 0, borderRadius: 25, overflow: 'hidden', position: 'relative', backgroundColor: '#111418' },
   mapSheet: { top: 0, zIndex: 20 },
   sheetSurface: { minHeight: 250, borderTopLeftRadius: 25, borderTopRightRadius: 25, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#3b4149', padding: 16, shadowColor: '#000', shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },
   sheetHandle: { width: 42, height: 4, borderRadius: 2, backgroundColor: '#697079', alignSelf: 'center', marginBottom: 9 },
@@ -1329,7 +1335,7 @@ const styles = StyleSheet.create({
   statLabel: { color: '#858b93', fontSize: 8, lineHeight: 11, marginTop: 2 },
   empty: { borderRadius: 20, borderWidth: 1, borderColor: '#30353b', backgroundColor: '#14171b', padding: 20 },
   emptyText: { color: '#999ea6', textAlign: 'center' },
-  nav: { position: 'absolute', bottom: 10, minHeight: 76, borderRadius: 25, backgroundColor: 'rgba(24,33,31,0.98)', borderWidth: 1, borderColor: '#3a4842', flexDirection: 'row', padding: 7, maxWidth: 700 },
+  nav: { alignSelf: 'center', flexShrink: 0, marginBottom: 8, minHeight: 76, borderRadius: 25, backgroundColor: 'rgba(24,33,31,0.98)', borderWidth: 1, borderColor: '#3a4842', flexDirection: 'row', padding: 7, maxWidth: 700 },
   navItem: { flex: 1, borderRadius: 18, minHeight: 58 },
   navItemActive: { backgroundColor: '#33473d' },
   navContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, gap: 3 },
