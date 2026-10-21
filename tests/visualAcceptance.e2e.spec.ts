@@ -261,3 +261,74 @@ for (const viewport of [
     expect(overflow, 'Trip readiness card must not overflow viewport width').toBe(false);
   });
 }
+
+
+for (const viewport of [
+  { name: 'phone-375', width: 375, height: 812 },
+  { name: 'tablet-768', width: 768, height: 1024 },
+  { name: 'desktop-1440', width: 1440, height: 900 }
+]) {
+  test('trip navigation and final itinerary content never overlap / ' + viewport.name,
+    async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.clock.install({ time: new Date('2026-10-13T08:00:00.000Z') });
+      await page.goto('/');
+      const nav = page.getByTestId('tourist-bottom-navigation');
+      await expect(nav.getByRole('tab')).toHaveCount(5);
+      await nav.getByRole('tab', { name: 'Поездка' }).click();
+      await page.getByPlaceholder('2026-10-02').fill('2026-10-20');
+      await page.getByText('2', { exact: true }).click();
+      await page.getByText('Создать поездку', { exact: true }).click();
+      await expect(page.getByTestId('trip-readiness')).toBeVisible();
+
+      const scroll = page.getByTestId('tourist-main-scroll');
+      await expect(scroll).toBeVisible();
+      await scroll.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+      const geometry = await page.evaluate(() => {
+        const element = (id: string) => document.querySelector('[data-testid="' + id + '"]') as HTMLElement | null;
+        const scroll = element('tourist-main-scroll');
+        const nav = element('tourist-bottom-navigation');
+        const finalCard = scroll?.firstElementChild?.lastElementChild as HTMLElement | null;
+        if (!scroll || !nav || !finalCard) throw new Error('Trip scroll and bottom navigation must exist');
+        const sc = scroll.getBoundingClientRect();
+        const nv = nav.getBoundingClientRect();
+        const last = finalCard.getBoundingClientRect();
+        return {
+          scrollBottom: sc.bottom,
+          navTop: nv.top,
+          lastContentBottom: last.bottom,
+          scrollHeight: scroll.scrollHeight,
+          clientHeight: scroll.clientHeight,
+          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2
+        };
+      });
+      expect(geometry.scrollHeight, 'Trip is scrollable on every viewport').toBeGreaterThan(geometry.clientHeight);
+      expect(geometry.navTop, 'Navigation has a separate area below the scroll viewport')
+        .toBeGreaterThanOrEqual(geometry.scrollBottom - 2);
+      expect(geometry.lastContentBottom, 'Last itinerary card clears the navigation')
+        .toBeLessThanOrEqual(geometry.navTop - 4);
+      expect(geometry.horizontalOverflow, 'No horizontal overflow').toBe(false);
+      await page.screenshot({
+        path: testInfo.outputPath(viewport.name + '-trip-bottom-nav-clearance.png')
+      });
+
+      // Switching to Map must retain a positive-sized map viewport above the
+      // same navigation instead of the old hardcoded 520px minimum overflow.
+      await nav.getByRole('tab').nth(1).click();
+      const map = page.getByTestId('tourist-map-stage');
+      await expect(map).toBeVisible();
+      const mapBox = await map.boundingBox();
+      const navBox = await nav.boundingBox();
+      expect(mapBox).not.toBeNull();
+      expect(navBox).not.toBeNull();
+      expect(mapBox!.height, 'Map retains usable viewport area').toBeGreaterThan(180);
+      expect(mapBox!.y + mapBox!.height, 'Map cannot hide underneath bottom navigation')
+        .toBeLessThanOrEqual(navBox!.y + 2);
+      await page.screenshot({
+        path: testInfo.outputPath(viewport.name + '-map-bottom-nav-clearance.png')
+      });
+      await nav.getByRole('tab', { name: 'Поездка' }).click();
+      await expect(page.getByTestId('trip-readiness')).toBeVisible();
+    }
+  );
+}
