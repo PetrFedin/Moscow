@@ -698,7 +698,7 @@ export default function MoscowExperienceApp() {
 
       {tab === 'map' ? (
         <View style={styles.mapPage}>
-          <View style={styles.mapStage}>
+          <View testID="tourist-map-stage" style={styles.mapStage}>
             <MoscowMap selectedId={selectedId} onSelect={selectPlace} />
             {selected && (
               <PhysicalSheet
