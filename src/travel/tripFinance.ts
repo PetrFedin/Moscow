@@ -128,7 +128,6 @@ export function validateTripFinance(trip: Pick<PersonalTrip, 'days' | 'items' | 
   }
   if (finance.budgetMinor !== undefined) assertTripMoneyMinor(finance.budgetMinor, 'Trip budget');
   const seen = new Set<string>();
-  const itemIds = new Set(trip.items.map(item => item.id));
   for (const entry of finance.entries) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)
       || typeof entry.id !== 'string' || !entry.id.trim() || entry.id.length > 180
@@ -142,7 +141,7 @@ export function validateTripFinance(trip: Pick<PersonalTrip, 'days' | 'items' | 
     }
     seen.add(entry.id);
     if (entry.itemId !== undefined && (
-      typeof entry.itemId !== 'string' || !entry.itemId.trim() || !itemIds.has(entry.itemId)
+      typeof entry.itemId !== 'string' || !entry.itemId.trim() || entry.itemId.length > 180
     )) throw new Error('Trip Finance entry has an unknown itinerary link');
     if (entry.estimateMinor === undefined && entry.actualMinor === undefined) {
       throw new Error('Trip Finance entry requires estimated or actual amount');
@@ -212,4 +211,78 @@ export function assessTripFinances(trip: PersonalTrip, dayDate?: string): TripFi
     byCategory: byCategory.filter(c => c.entriesCount > 0),
     byDay
   };
+}
+
+
+/**
+ * Mutations are copy-on-write and validated before returning. A previously
+ * linked item may later be deleted or moved: the private spending evidence is
+ * not erased or made unreadable when its original itinerary stop disappears.
+ */
+function editableFinance(trip: PersonalTrip): TripFinanceState {
+  validateTripFinance(trip);
+  return {
+    currency: 'RUB',
+    ...(trip.finance?.budgetMinor !== undefined ? { budgetMinor: trip.finance.budgetMinor } : {}),
+    entries: (trip.finance?.entries ?? []).map(entry => ({ ...entry }))
+  };
+}
+
+function verifiedTime(raw: string, label: string) {
+  if (!validIso(raw)) throw new Error('Invalid ' + label + ' timestamp');
+}
+
+export function setTripFinanceBudget(input: {
+  trip: PersonalTrip;
+  budgetMinor?: number;
+  updatedAt: string;
+}): PersonalTrip {
+  verifiedTime(input.updatedAt, 'budget revision');
+  if (input.budgetMinor !== undefined) assertTripMoneyMinor(input.budgetMinor, 'Trip budget');
+  const finance = editableFinance(input.trip);
+  if (input.budgetMinor === undefined) delete finance.budgetMinor;
+  else finance.budgetMinor = input.budgetMinor;
+  const next = { ...input.trip, finance, updatedAt: input.updatedAt };
+  validateTripFinance(next);
+  return next;
+}
+
+export function upsertTripFinanceEntry(input: {
+  trip: PersonalTrip;
+  entry: TripFinanceEntry;
+  updatedAt: string;
+}): PersonalTrip {
+  verifiedTime(input.updatedAt, 'financial revision');
+  const finance = editableFinance(input.trip);
+  const previousIndex = finance.entries.findIndex(entry => entry.id === input.entry.id);
+  if (previousIndex >= 0) {
+    // Editing an existing record cannot rewrite its original identity.
+    if (finance.entries[previousIndex]?.createdAt !== input.entry.createdAt) {
+      throw new Error('Financial entry creation timestamp is immutable');
+    }
+    finance.entries[previousIndex] = { ...input.entry };
+  } else {
+    if (input.entry.itemId && !input.trip.items.some(item => item.id === input.entry.itemId)) {
+      throw new Error('Cannot link new financial entry to unknown itinerary stop');
+    }
+    finance.entries.push({ ...input.entry });
+  }
+  const next = { ...input.trip, finance, updatedAt: input.updatedAt };
+  validateTripFinance(next);
+  return next;
+}
+
+export function removeTripFinanceEntry(input: {
+  trip: PersonalTrip;
+  entryId: string;
+  updatedAt: string;
+}): PersonalTrip {
+  verifiedTime(input.updatedAt, 'financial revision');
+  const finance = editableFinance(input.trip);
+  const originalLength = finance.entries.length;
+  finance.entries = finance.entries.filter(entry => entry.id !== input.entryId);
+  if (finance.entries.length === originalLength) throw new Error('Financial entry not found');
+  const next = { ...input.trip, finance, updatedAt: input.updatedAt };
+  validateTripFinance(next);
+  return next;
 }
