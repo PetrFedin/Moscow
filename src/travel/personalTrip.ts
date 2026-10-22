@@ -4,6 +4,7 @@ import type { DayReplacementAcceptanceReceipt } from './dayReplacementProposal.t
 import type { CuratedMoscowPlace } from './curatedMoscowPlaces.ts';
 import { displayedUpcomingCommitments, isActivePlannedTripStop } from './tripDayPresentation.ts';
 import { validateBookingResolutions, type BookingResolutionCase } from './bookingResolution.ts';
+import { validateTripFinance, type TripFinanceState } from './tripFinance.ts';
 
 export const PERSONAL_TRIP_SCHEMA_VERSION = 1 as const;
 
@@ -129,6 +130,8 @@ export type PersonalTrip = {
   replacementReceipts?: DayReplacementAcceptanceReceipt[];
   /** Private traveler-authored contact notes; not a change to the provider booking. */
   bookingResolutions?: BookingResolutionCase[];
+  /** Traveler-entered private spending journal; never supplier or payment proof. */
+  finance?: TripFinanceState;
   createdAt: string;
   updatedAt: string;
 };
@@ -233,6 +236,7 @@ function clone(trip: PersonalTrip): PersonalTrip {
       ...(item.commitment ? { commitment: { ...item.commitment } } : {})
     })),
     visits: trip.visits.map((visit) => ({ ...visit })),
+    ...(trip.finance ? { finance: { ...trip.finance, entries: trip.finance.entries.map(entry => ({ ...entry })) } } : {}),
     ...(trip.bookingResolutions ? {
       bookingResolutions: trip.bookingResolutions.map((entry) => ({
         ...entry,
@@ -793,6 +797,7 @@ export function parsePersonalTrip(raw: string): PersonalTrip {
   // Reject forged/imported supplier replies and broken event trails without
   // upgrading any commitment verification, receipt or actual booked time.
   validateBookingResolutions(trip);
+  validateTripFinance(trip);
   return clone(trip);
 }
 
