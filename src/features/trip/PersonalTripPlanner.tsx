@@ -56,6 +56,7 @@ import { manualMoscowInterval, moscowCalendarDay } from '../../travel/manualTrip
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TouristTodayCard from './TouristTodayCard';
 import TripJourneyOverview from './TripJourneyOverview';
+import TripFinanceCard from './TripFinanceCard';
 import TripReadinessCard from './TripReadinessCard';
 import TripAcceptanceHistoryCard from './TripAcceptanceHistoryCard';
 import MoscowPassportCard from './MoscowPassportCard';
@@ -1069,7 +1070,7 @@ export default function PersonalTripPlanner({
    */
   const persistVisitorAction = async (
     nextTrip: PersonalTrip,
-    action: 'manual' | 'visit' | 'note' | 'replacement' | 'booking' | 'replan' | 'preferences' | 'node' | 'directory' | 'discovery' | 'move-day' | 'reorder'
+    action: 'manual' | 'visit' | 'note' | 'replacement' | 'booking' | 'replan' | 'preferences' | 'node' | 'directory' | 'discovery' | 'move-day' | 'reorder' | 'finance'
   ): Promise<void> => {
     if (!trip || !beginStorageOperation()) {
       setHistoryError(tr(language, 'Локальное хранилище недоступно. Изменение не сохранено.',
@@ -1368,6 +1369,13 @@ export default function PersonalTripPlanner({
       />}
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
+
+      <TripFinanceCard
+        trip={trip}
+        dayDate={selectedDay}
+        language={language}
+        onUpdate={(next) => persistVisitorAction(next, 'finance')}
+      />
 
       {walkVisitCandidates.length > 0 ? (
         <View testID="walk-visit-candidates" style={styles.form}>
