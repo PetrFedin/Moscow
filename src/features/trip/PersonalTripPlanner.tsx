@@ -1810,9 +1810,9 @@ export default function PersonalTripPlanner({
       {unseen.length > 0 && (
         <>
           <View style={styles.sectionTop}>
-            <View>
+            <View style={styles.sectionHeadingCopy}>
               <Text style={styles.kicker}>{tr(language, 'ЧТО ЕЩЁ УВИДЕТЬ', 'WHAT ELSE TO SEE', '还可以去哪里')}</Text>
-              <Text style={styles.sectionTitle}>{tr(language, 'Нет в плане и известных записях посещений', 'Not in plan or identified visit records', '未列入计划或已识别到访记录')}</Text>
+              <Text testID="trip-unseen-heading" style={styles.sectionTitle}>{tr(language, 'Нет в плане и известных записях посещений', 'Not in plan or identified visit records', '未列入计划或已识别到访记录')}</Text>
             </View>
           </View>
           <View style={styles.quickList}>
@@ -1885,6 +1885,8 @@ const styles = StyleSheet.create({
   dayDate: { color: '#bec2c8', fontSize: 10, fontWeight: '800', marginTop: 2 },
   dayDateActive: { color: '#f3dfb6' },
   sectionTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginTop: 20, marginBottom: 9 },
+  // An intrinsic-width flex row child otherwise clips this long heading.
+  sectionHeadingCopy: { flex: 1, minWidth: 0 },
   sectionTitle: { color: '#ece8df', fontSize: 16, lineHeight: 22, fontWeight: '900', marginTop: 4, flexShrink: 1, flexWrap: 'wrap' },
   smallPrimary: { minHeight: 38, borderRadius: 12, backgroundColor: '#262017', paddingHorizontal: 10, borderWidth: 1, borderColor: '#6d5a39' },
   smallPrimaryText: { color: '#e1c184', fontSize: 9, fontWeight: '900' },
