@@ -163,7 +163,7 @@ test('Tourist Today surfaces the active booking without upgrading manual verific
   await expect(page.getByText('СЕЙЧАС ПО ПЛАНУ', { exact: true })).toBeVisible();
   // Today is the primary trip surface and shows the active state before secondary diagnostics.
   const todayTop = await page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true }).boundingBox();
-  const composerTop = await page.getByText('DAY COMPOSER · V2', { exact: true }).boundingBox();
+  const composerTop = await page.getByText('РАСПИСАНИЕ', { exact: true }).boundingBox();
   expect(todayTop).not.toBeNull();
   expect(composerTop).not.toBeNull();
   if (todayTop && composerTop) expect(todayTop.y).toBeLessThan(composerTop.y);
@@ -405,7 +405,7 @@ test('Day Composer replays source-backed Valhalla evidence without claiming it i
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('TRAVEL · 25 мин · WALK', { exact: true })).toBeVisible();
   await expect(page.getByText('TIGHT', { exact: true })).toBeVisible();
   await expect(page.getByText('EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE', { exact: true })).toBeVisible();
@@ -446,7 +446,7 @@ test('Day Composer replays real Tretyakov live-city truth with explicit not-curr
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · OPEN · NOT CURRENT', { exact: true })).toBeVisible();
   await expect(page.getByText('OPEN · next 21:00', { exact: true })).toBeVisible();
@@ -487,7 +487,7 @@ test('Day Composer replays real Tretyakov programme status with explicit not-cur
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · SCHEDULED · NOT CURRENT', { exact: true })).toBeVisible();
   await expect(page.getByText('PROGRAMME · SCHEDULED · 29.09.2026 → 06.06.2027', { exact: true })).toBeVisible();
@@ -583,7 +583,7 @@ test('Day Composer consumes current live truth from runtime snapshot endpoint wi
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE · FRESH · OPEN', { exact: true })).toBeVisible();
   await expect(page.getByText(/Государственная Третьяковская галерея · 2020-01-01T00:00:00.000Z/)).toBeVisible();
