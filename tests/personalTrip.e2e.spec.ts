@@ -102,8 +102,8 @@ test('scheduler flags two fixed commitments and never silently moves a ticket to
 
   await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toBeVisible();
   await expect(page.getByText(/Музей · фиксированный билет ↔ Театр · фиксированная бронь/)).toBeVisible();
-  await expect(page.getByText('CONFLICT', { exact: true })).toBeVisible();
-  await expect(page.getByText('ALTERNATIVE SLOTS', { exact: true })).toBeVisible();
+  await expect(page.getByText('Конфликты', { exact: true })).toBeVisible();
+  await expect(page.getByText('СВОБОДНЫЕ ОКНА', { exact: true })).toBeVisible();
 
   await expect(page.getByLabel('Перенести Театр · фиксированная бронь на следующий день')).toHaveCount(0);
   await expect(page.getByText('Дата и время билета или брони не меняются при переносе маршрута. Изменение оформляется у поставщика.', { exact: true }).first()).toBeVisible();
@@ -277,7 +277,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
-  await page.getByText('Изменить', { exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click();
 
   await page.getByText('Спокойно', { exact: true }).click();
   await page.getByText('Обязательно', { exact: true }).click();
@@ -406,9 +406,9 @@ test('Day Composer replays source-backed Valhalla evidence without claiming it i
   await page.getByText('Поездка', { exact: true }).last().click();
 
   await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
-  await expect(page.getByText('TRAVEL · 25 мин · WALK', { exact: true })).toBeVisible();
-  await expect(page.getByText('TIGHT', { exact: true })).toBeVisible();
-  await expect(page.getByText('EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE', { exact: true })).toBeVisible();
+  await expect(page.getByText('Дорога · 25 мин · WALK', { exact: true })).toBeVisible();
+  await expect(page.getByText('Мало времени', { exact: true })).toBeVisible();
+  await expect(page.getByText('Архивная проверка маршрута — не текущие данные', { exact: true })).toBeVisible();
   await expect(page.getByText(/Valhalla · 2026-10-08T09:41:00.499Z/)).toBeVisible();
 });
 
