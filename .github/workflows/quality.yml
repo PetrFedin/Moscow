@@ -61,10 +61,13 @@ jobs:
             find visual-evidence -type f -name "${viewport}-trip-readiness-summary-viewport.png" -print -quit | grep -q .
             find visual-evidence -type f -name "${viewport}-trip-readiness-conflict-viewport.png" -print -quit | grep -q .
             find visual-evidence -type f -name "${viewport}-venue-service-wallet.png" -print -quit | grep -q .
+            find visual-evidence -type f -name "${viewport}-trip-bottom-nav-clearance.png" -print -quit | grep -q .
+            find visual-evidence -type f -name "${viewport}-map-bottom-nav-clearance.png" -print -quit | grep -q .
+            find visual-evidence -type f -name "${viewport}-readiness-contextual-booking-assistance.png" -print -quit | grep -q .
           done
           count=$(find visual-evidence -type f -name '*.png' | wc -l)
           echo "Preserved real Chromium screenshots: $count"
-          test "$count" -ge 9
+          test "$count" -ge 18
       - name: Real browser showcase capture (mobile / desktop)
         run: npx playwright test tests/showcaseCapture.e2e.spec.ts --project=chromium
       - name: Install FFmpeg for verified video exports

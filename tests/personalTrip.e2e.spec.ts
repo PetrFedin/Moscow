@@ -2415,7 +2415,27 @@ test('readiness review connects two personal bookings, flags conflict, survives 
   await expect(restored.getByTestId('trip-readiness-conflicts')).toHaveText('1');
   await expect(restored.getByTestId('trip-readiness-checks')).toHaveText('2');
   await restored.getByRole('button', { name: /Открыть обращение по брони:/ }).first().click();
-  await expect(page.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+  const bookingHelp = page.getByTestId('booking-resolution-card');
+  await expect(bookingHelp).toHaveCount(1);
+  await expect(bookingHelp.getByText('Если планы изменились', { exact: true })).toBeVisible();
+  const directlyAfterWarning = await page.evaluate(() => {
+    const warning = document.querySelector('[data-testid="trip-readiness"]');
+    return warning?.nextElementSibling?.getAttribute('data-testid') === 'booking-resolution-card';
+  });
+  expect(directlyAfterWarning, 'Warning opens one inline booking form directly below the action').toBe(true);
+  const wallet = page.getByTestId('travel-booking-wallet');
+  await expect(wallet.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+  await wallet.getByRole('button', { name: /Разобраться с билетом или бронью:/ }).first().click();
+  await expect(bookingHelp).toHaveCount(1);
+  const placedWithWallet = await page.evaluate(() => {
+    const warning = document.querySelector('[data-testid="trip-readiness"]');
+    const wallet = document.querySelector('[data-testid="travel-booking-wallet"]');
+    const helper = document.querySelector('[data-testid="booking-resolution-card"]');
+    return Boolean(warning && wallet && helper
+      && warning.nextElementSibling?.getAttribute('data-testid') !== 'booking-resolution-card'
+      && (wallet.compareDocumentPosition(helper) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  expect(placedWithWallet, 'Wallet action opens the same single booking form below wallet').toBe(true);
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
   expect(saved.items).toHaveLength(2);
