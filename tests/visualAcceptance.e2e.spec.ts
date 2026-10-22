@@ -351,3 +351,45 @@ for (const viewport of [
     }
   );
 }
+
+
+for (const viewport of [
+  { name: 'phone-375', width: 375, height: 812 },
+  { name: 'tablet-768', width: 768, height: 1024 },
+  { name: 'desktop-1440', width: 1440, height: 900 }
+]) {
+  test('private trip budget, evidence and readable forecast / ' + viewport.name,
+    async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.clock.install({ time: new Date('2026-10-13T08:00:00.000Z') });
+      await page.goto('/');
+      await page.getByRole('tab', { name: 'Поездка' }).click();
+      await page.getByPlaceholder('2026-10-02').fill('2026-10-20');
+      await page.getByText('2', { exact: true }).click();
+      await page.getByText('Создать поездку', { exact: true }).click();
+
+      const finance = page.getByTestId('trip-finance-card');
+      await finance.getByRole('button', { name: 'Настроить бюджет поездки' }).click();
+      await finance.getByTestId('trip-finance-budget-input').fill('3000');
+      await finance.getByRole('button', { name: 'Сохранить бюджет' }).click();
+      await finance.getByRole('button', { name: 'Добавить расход' }).click();
+      await finance.getByTestId('trip-finance-title-input').fill('Личный билет в музей');
+      await finance.getByRole('button', { name: 'Категория расхода: Билеты' }).click();
+      await finance.getByTestId('trip-finance-estimate-input').fill('1500');
+      await finance.getByTestId('trip-finance-actual-input').fill('1250,50');
+      await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+      await expect(finance.getByTestId('trip-finance-projected')).toContainText(/1\s*250,50/);
+      await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/1\s*749,50/);
+      await finance.getByTestId('trip-finance-projected').scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(viewport.name + '-trip-finance-budget-viewport.png')
+      });
+      const overflow = await page.evaluate(() =>
+        document.documentElement.scrollWidth > window.innerWidth + 2);
+      expect(overflow, 'Financial journal must never expand viewport horizontally').toBe(false);
+      await page.reload();
+      const restored = page.getByTestId('trip-finance-card');
+      await expect(restored.getByTestId('trip-finance-projected')).toContainText(/1\s*250,50/);
+      await expect(restored.getByTestId('trip-finance-remaining')).toContainText(/1\s*749,50/);
+    });
+}
