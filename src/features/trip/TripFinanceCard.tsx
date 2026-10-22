@@ -67,6 +67,7 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [visibleLimit, setVisibleLimit] = useState(12);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const overall = useMemo(() => assessTripFinances(trip), [trip]);
   const daily = useMemo(() => assessTripFinances(trip, dayDate), [trip, dayDate]);
@@ -104,6 +105,7 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
 
   const openNew = () => {
     setEditingId(null);
+    setPendingDeleteId(null);
     setTitle('');
     setCategory('other');
     setEstimateText('');
@@ -115,6 +117,7 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
 
   const edit = (entry: TripFinanceEntry) => {
     setEditingId(entry.id);
+    setPendingDeleteId(null);
     setTitle(entry.title);
     setCategory(entry.category);
     setEstimateText(tripMoneyInputValue(entry.estimateMinor));
@@ -167,6 +170,7 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
     void submit(() => removeTripFinanceEntry({
       trip, entryId: id, updatedAt: new Date().toISOString()
     }), () => {
+      setPendingDeleteId(null);
       if (editingId === id) {
         setEditingId(null);
         setShowEditor(false);
@@ -405,9 +409,28 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
               <PhysicalPressable accessibilityRole="button"
                 accessibilityLabel={tr(language, 'Удалить расход: ', 'Delete expense: ', '删除费用：') + entry.title}
                 style={styles.smallButton} contentStyle={styles.center}
-                disabled={busy} onPress={() => removeEntry(entry.id)}>
+                disabled={busy} onPress={() => setPendingDeleteId(entry.id)}>
                 <Text style={styles.smallText}>{tr(language, 'Удалить', 'Delete', '删除')}</Text>
               </PhysicalPressable>
+              {pendingDeleteId === entry.id && (
+                <View style={styles.deleteConfirm}>
+                  <Text style={styles.deleteText}>{tr(language,
+                    'Удалить эту личную запись расходов?',
+                    'Delete this personal spending entry?', '删除这条私人费用记录？')}</Text>
+                  <PhysicalPressable accessibilityRole="button"
+                    accessibilityLabel={tr(language, 'Подтвердить удаление расхода: ', 'Confirm expense deletion: ', '确认删除费用：') + entry.title}
+                    style={styles.smallButton} contentStyle={styles.center}
+                    disabled={busy} onPress={() => removeEntry(entry.id)}>
+                    <Text style={styles.smallText}>{tr(language, 'Удалить запись', 'Delete entry', '删除记录')}</Text>
+                  </PhysicalPressable>
+                  <PhysicalPressable accessibilityRole="button"
+                    accessibilityLabel={tr(language, 'Отменить удаление расхода', 'Cancel expense deletion', '取消删除费用')}
+                    style={styles.smallButton} contentStyle={styles.center}
+                    disabled={busy} onPress={() => setPendingDeleteId(null)}>
+                    <Text style={styles.smallText}>{tr(language, 'Отмена', 'Cancel', '取消')}</Text>
+                  </PhysicalPressable>
+                </View>
+              )}
             </View>
           );
         })}
@@ -486,6 +509,8 @@ const styles = StyleSheet.create({
   entryMoney: { color: '#e4d4ae', fontSize: 12, lineHeight: 18, marginTop: 4 },
   smallButton: { minHeight: 39, borderRadius: 9, borderWidth: 1, borderColor: '#5a6b5b', paddingHorizontal: 9 },
   smallText: { color: '#d4dccf', fontSize: 10, fontWeight: '600' },
+  deleteConfirm: { width: '100%', padding: 9, borderRadius: 10, backgroundColor: '#302822', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  deleteText: { color: '#f2d2bc', flexBasis: 150, flexGrow: 1, fontSize: 11, lineHeight: 16 },
   breakdown: { gap: 8 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
   breakdownLabel: { color: '#c5d0c4', fontSize: 12, flex: 1 },
