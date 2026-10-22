@@ -288,6 +288,7 @@ export default function PersonalTripPlanner({
   const [tripToolsOpen, setTripToolsOpen] = useState(false);
   const [bookingHelpOpen, setBookingHelpOpen] = useState(false);
   const [bookingHelpItemId, setBookingHelpItemId] = useState<string | undefined>(undefined);
+  const [bookingHelpAfterReadiness, setBookingHelpAfterReadiness] = useState(false);
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
   const [eraseAllCopiesConfirm, setEraseAllCopiesConfirm] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
@@ -1351,10 +1352,20 @@ export default function PersonalTripPlanner({
         language={language}
         onManageBooking={(itemId) => {
           setBookingHelpItemId(itemId);
+          setBookingHelpAfterReadiness(true);
           setBookingHelpOpen(true);
         }}
         onOpenTripDetails={() => setTripToolsOpen(true)}
       />
+
+      {bookingHelpAfterReadiness && <BookingResolutionCard
+        trip={trip}
+        language={language}
+        open={bookingHelpOpen}
+        focusedItemId={bookingHelpItemId}
+        onToggle={setBookingHelpOpen}
+        onUpdate={(next) => persistVisitorAction(next, 'booking')}
+      />}
 
       <TripJourneyOverview trip={trip} dayDate={selectedDay} language={language} onVisit={markVisited} onOpenDetails={() => setTripToolsOpen((v) => !v)} />
 
@@ -1400,18 +1411,19 @@ export default function PersonalTripPlanner({
         language={language}
         onManageBooking={(itemId) => {
           setBookingHelpItemId(itemId);
+          setBookingHelpAfterReadiness(false);
           setBookingHelpOpen(true);
         }}
       />
       <CalendarInviteImportCard trip={trip} language={language} onUpdate={persistCalendarImport} />
-      <BookingResolutionCard
+      {!bookingHelpAfterReadiness && <BookingResolutionCard
         trip={trip}
         language={language}
         open={bookingHelpOpen}
         focusedItemId={bookingHelpItemId}
         onToggle={setBookingHelpOpen}
         onUpdate={(next) => persistVisitorAction(next, 'booking')}
-      />
+      />}
 
       <LiveDisruptionCard
         disruptions={liveDisruptions}
