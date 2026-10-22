@@ -140,6 +140,9 @@ export function validateTripFinance(trip: Pick<PersonalTrip, 'days' | 'items' | 
       throw new Error('Invalid or duplicate Trip Finance entry');
     }
     seen.add(entry.id);
+    if (Date.parse(entry.updatedAt) < Date.parse(entry.createdAt)) {
+      throw new Error('Financial entry update cannot precede its creation');
+    }
     if (entry.itemId !== undefined && (
       typeof entry.itemId !== 'string' || !entry.itemId.trim() || entry.itemId.length > 180
     )) throw new Error('Trip Finance entry has an unknown itinerary link');
@@ -259,6 +262,10 @@ export function upsertTripFinanceEntry(input: {
     // Editing an existing record cannot rewrite its original identity.
     if (finance.entries[previousIndex]?.createdAt !== input.entry.createdAt) {
       throw new Error('Financial entry creation timestamp is immutable');
+    }
+    if (input.entry.itemId && input.entry.itemId !== finance.entries[previousIndex]?.itemId
+      && !input.trip.items.some(item => item.id === input.entry.itemId)) {
+      throw new Error('Cannot create new link to unknown itinerary stop');
     }
     finance.entries[previousIndex] = { ...input.entry };
   } else {
