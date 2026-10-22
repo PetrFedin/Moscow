@@ -315,6 +315,18 @@ for (const viewport of [
       expect(geometry.lastContentBottom, 'Last itinerary card clears the navigation')
         .toBeLessThanOrEqual(geometry.navTop - 4);
       expect(geometry.horizontalOverflow, 'No horizontal overflow').toBe(false);
+      const heading = page.getByTestId('trip-unseen-heading');
+      await expect(heading).toHaveText('Нет в плане и известных записях посещений');
+      const headingBox = await heading.boundingBox();
+      const scrollBox = await scroll.boundingBox();
+      expect(headingBox).not.toBeNull();
+      expect(scrollBox).not.toBeNull();
+      expect(headingBox!.x + headingBox!.width, 'Complete unseen-places heading stays inside the page')
+        .toBeLessThanOrEqual(scrollBox!.x + scrollBox!.width - 5);
+      if (viewport.width === 375) {
+        expect(headingBox!.height, 'Long Russian heading wraps instead of being clipped')
+          .toBeGreaterThan(30);
+      }
       await page.screenshot({
         path: testInfo.outputPath(viewport.name + '-trip-bottom-nav-clearance.png')
       });
