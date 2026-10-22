@@ -64,23 +64,25 @@ jobs:
             find visual-evidence -type f -name "${viewport}-trip-bottom-nav-clearance.png" -print -quit | grep -q .
             find visual-evidence -type f -name "${viewport}-map-bottom-nav-clearance.png" -print -quit | grep -q .
             find visual-evidence -type f -name "${viewport}-readiness-contextual-booking-assistance.png" -print -quit | grep -q .
+            find visual-evidence -type f -name "${viewport}-trip-finance-budget-viewport.png" -print -quit | grep -q .
           done
           count=$(find visual-evidence -type f -name '*.png' | wc -l)
           echo "Preserved real Chromium screenshots: $count"
-          test "$count" -ge 18
+          test "$count" -ge 21
       - name: Real browser showcase capture (mobile / desktop)
         run: npx playwright test tests/showcaseCapture.e2e.spec.ts --project=chromium
       - name: Install FFmpeg for verified video exports
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-      - name: Encode and verify three exact 25-second MP4 recordings
+      - name: Encode and verify four exact 25-second MP4 recordings
         run: |
           set -euo pipefail
           test -s showcase-evidence/videos/mobile-375-session.webm
           test -s showcase-evidence/videos/desktop-1440-session.webm
           test -s showcase-evidence/videos/services-375-session.webm
-          for profile in mobile-375 desktop-1440 services-375; do
+          test -s showcase-evidence/videos/budget-375-session.webm
+          for profile in mobile-375 desktop-1440 services-375 budget-375; do
             source="showcase-evidence/videos/${profile}-session.webm"
             target="showcase-evidence/videos/${profile}-25s.mp4"
             ffmpeg -hide_banner -loglevel error -y -i "$source" -t 25 -an -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -movflags +faststart "$target"

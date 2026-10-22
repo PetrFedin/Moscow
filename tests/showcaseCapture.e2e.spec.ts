@@ -32,7 +32,7 @@ async function still(page: Page, profile: string, name: string, pauseMs = 2100) 
   await page.waitForTimeout(pauseMs);
 }
 
-async function filmed(browser: Browser, testInfo: TestInfo, profile: 'mobile-375' | 'desktop-1440' | 'services-375',
+async function filmed(browser: Browser, testInfo: TestInfo, profile: 'mobile-375' | 'desktop-1440' | 'services-375' | 'budget-375',
   story: (page: Page) => Promise<void>) {
   test.setTimeout(100_000);
   const mobile = profile !== 'desktop-1440';
@@ -158,5 +158,41 @@ test('record presentation walkthrough: source-controlled restaurant visit and pe
     await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
     await wallet.scrollIntoViewIfNeeded();
     await still(page, 'services-375', '04-wallet-no-provider-proof', 2200);
+  });
+});
+
+
+test('record presentation walkthrough: real browser traveler spending forecast', async ({ browser }, testInfo) => {
+  await filmed(browser, testInfo, 'budget-375', async (page) => {
+    await expect(page.getByRole('button', { name: 'Спланировать поездку' })).toBeVisible();
+    await page.getByRole('button', { name: 'Спланировать поездку' }).click();
+    await page.getByPlaceholder('2026-10-02').fill(moscowTomorrow());
+    await page.getByText('2', { exact: true }).click();
+    await page.getByText('Создать поездку', { exact: true }).click();
+    const finance = page.getByTestId('trip-finance-card');
+    await finance.scrollIntoViewIfNeeded();
+    await still(page, 'budget-375', '01-budget-empty', 1400);
+    await finance.getByRole('button', { name: 'Настроить бюджет поездки' }).click();
+    await finance.getByTestId('trip-finance-budget-input').fill('6000');
+    await finance.getByRole('button', { name: 'Сохранить бюджет' }).click();
+    await finance.scrollIntoViewIfNeeded();
+    await still(page, 'budget-375', '02-budget-set', 1650);
+    await finance.getByRole('button', { name: 'Добавить расход' }).click();
+    await finance.getByTestId('trip-finance-title-input').fill('Билет в музей · личная запись');
+    await finance.getByRole('button', { name: 'Категория расхода: Билеты' }).click();
+    await finance.getByTestId('trip-finance-estimate-input').fill('2000');
+    await finance.getByTestId('trip-finance-actual-input').fill('1500,50');
+    await finance.getByTestId('trip-finance-actual-input').scrollIntoViewIfNeeded();
+    await still(page, 'budget-375', '03-enter-expense', 1500);
+    await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+    await expect(finance.getByTestId('trip-finance-projected')).toContainText(/1\s*500,50/);
+    await finance.getByTestId('trip-finance-projected').scrollIntoViewIfNeeded();
+    await still(page, 'budget-375', '04-budget-forecast', 1800);
+    await page.reload();
+    await russian(page);
+    const restored = page.getByTestId('trip-finance-card');
+    await expect(restored.getByTestId('trip-finance-projected')).toContainText(/1\s*500,50/);
+    await restored.scrollIntoViewIfNeeded();
+    await still(page, 'budget-375', '05-budget-after-reload', 2100);
   });
 });

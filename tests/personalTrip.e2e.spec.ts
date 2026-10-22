@@ -43,9 +43,9 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Создать поездку', { exact: true }).click();
 
   await expect(page.getByText('День 1', { exact: true })).toBeVisible();
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Ваш день как единая временная линия', { exact: true })).toBeVisible();
-  await expect(page.getByText('FREE', { exact: true })).toBeVisible();
+  await expect(page.getByText('Свободно', { exact: true })).toBeVisible();
   await page.getByText('+ Добавить', { exact: true }).click();
   await page.getByPlaceholder('Например: Большой театр').fill('Большой театр · мой билет');
   await page.getByText('Театр', { exact: true }).click();
@@ -102,8 +102,8 @@ test('scheduler flags two fixed commitments and never silently moves a ticket to
 
   await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toBeVisible();
   await expect(page.getByText(/Музей · фиксированный билет ↔ Театр · фиксированная бронь/)).toBeVisible();
-  await expect(page.getByText('CONFLICT', { exact: true })).toBeVisible();
-  await expect(page.getByText('ALTERNATIVE SLOTS', { exact: true })).toBeVisible();
+  await expect(page.getByText('Конфликты', { exact: true })).toBeVisible();
+  await expect(page.getByText('СВОБОДНЫЕ ОКНА', { exact: true })).toBeVisible();
 
   await expect(page.getByLabel('Перенести Театр · фиксированная бронь на следующий день')).toHaveCount(0);
   await expect(page.getByText('Дата и время билета или брони не меняются при переносе маршрута. Изменение оформляется у поставщика.', { exact: true }).first()).toBeVisible();
@@ -163,7 +163,7 @@ test('Tourist Today surfaces the active booking without upgrading manual verific
   await expect(page.getByText('СЕЙЧАС ПО ПЛАНУ', { exact: true })).toBeVisible();
   // Today is the primary trip surface and shows the active state before secondary diagnostics.
   const todayTop = await page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true }).boundingBox();
-  const composerTop = await page.getByText('DAY COMPOSER · V2', { exact: true }).boundingBox();
+  const composerTop = await page.getByText('РАСПИСАНИЕ', { exact: true }).boundingBox();
   expect(todayTop).not.toBeNull();
   expect(composerTop).not.toBeNull();
   if (todayTop && composerTop) expect(todayTop.y).toBeLessThan(composerTop.y);
@@ -277,7 +277,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
-  await page.getByText('Изменить', { exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click();
 
   await page.getByText('Спокойно', { exact: true }).click();
   await page.getByText('Обязательно', { exact: true }).click();
@@ -405,10 +405,10 @@ test('Day Composer replays source-backed Valhalla evidence without claiming it i
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
-  await expect(page.getByText('TRAVEL · 25 мин · WALK', { exact: true })).toBeVisible();
-  await expect(page.getByText('TIGHT', { exact: true })).toBeVisible();
-  await expect(page.getByText('EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Дорога · 25 мин · WALK', { exact: true })).toBeVisible();
+  await expect(page.getByText('Мало времени', { exact: true })).toBeVisible();
+  await expect(page.getByText('Архивная проверка маршрута — не текущие данные', { exact: true })).toBeVisible();
   await expect(page.getByText(/Valhalla · 2026-10-08T09:41:00.499Z/)).toBeVisible();
 });
 
@@ -446,7 +446,7 @@ test('Day Composer replays real Tretyakov live-city truth with explicit not-curr
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · OPEN · NOT CURRENT', { exact: true })).toBeVisible();
   await expect(page.getByText('OPEN · next 21:00', { exact: true })).toBeVisible();
@@ -487,7 +487,7 @@ test('Day Composer replays real Tretyakov programme status with explicit not-cur
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · SCHEDULED · NOT CURRENT', { exact: true })).toBeVisible();
   await expect(page.getByText('PROGRAMME · SCHEDULED · 29.09.2026 → 06.06.2027', { exact: true })).toBeVisible();
@@ -583,7 +583,7 @@ test('Day Composer consumes current live truth from runtime snapshot endpoint wi
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE · FRESH · OPEN', { exact: true })).toBeVisible();
   await expect(page.getByText(/Государственная Третьяковская галерея · 2020-01-01T00:00:00.000Z/)).toBeVisible();
@@ -2441,4 +2441,68 @@ test('readiness review connects two personal bookings, flags conflict, survives 
   expect(saved.items).toHaveLength(2);
   expect(saved.items.every((item: { commitment?: { verification: string } }) =>
     item.commitment?.verification === 'user-declared')).toBe(true);
+});
+
+
+test('traveler budget, local spending forecast and itinerary link survive a verified reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const startDay = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(startDay);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Театр для бюджета');
+  await page.getByRole('button', { name: 'Театр', exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  const finance = page.getByTestId('trip-finance-card');
+  await expect(finance).toBeVisible();
+  await finance.getByRole('button', { name: 'Настроить бюджет поездки' }).click();
+  await finance.getByTestId('trip-finance-budget-input').fill('6000');
+  await finance.getByRole('button', { name: 'Сохранить бюджет' }).click();
+  await expect(finance.getByTestId('trip-finance-budget')).toContainText(/6\s*000/);
+
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Вечер в театре');
+  await finance.getByRole('button', { name: 'Категория расхода: Билеты' }).click();
+  await finance.getByTestId('trip-finance-estimate-input').fill('2000');
+  await finance.getByTestId('trip-finance-actual-input').fill('1500,50');
+  await finance.getByRole('button', { name: 'Связать расход с: Театр для бюджета' }).click();
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByText('Вечер в театре', { exact: true })).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-actual')).toContainText(/1\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-projected')).toContainText(/1\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/4\s*499,50/);
+
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Ужин после спектакля');
+  await finance.getByRole('button', { name: 'Категория расхода: Еда и напитки' }).click();
+  await finance.getByTestId('trip-finance-estimate-input').fill('3000');
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/1\s*499,50/);
+  await expect(finance).toContainText('Расходы связаны с 1 / 1 пунктами плана');
+
+  const serialized = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(serialized.finance?.entries).toHaveLength(2);
+  expect(serialized.finance?.entries[0]?.actualMinor).toBe(150050);
+  expect(serialized.finance?.entries[0]?.itemId).toBe(serialized.items[0]?.id);
+  expect(serialized.items[0]?.commitment).toBeUndefined();
+
+  await page.reload();
+  await ensureRussian(page);
+  const restored = page.getByTestId('trip-finance-card');
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(restored.getByTestId('trip-finance-remaining')).toContainText(/1\s*499,50/);
+  await expect(restored.getByText('Ужин после спектакля', { exact: true })).toBeVisible();
+  await restored.getByRole('button', { name: 'Расходы выбранного дня' }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(restored.getByTestId('trip-finance-budget')).toHaveCount(0);
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toHaveText('—');
+  await restored.getByRole('button', { name: 'Расходы всей поездки' }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
 });
