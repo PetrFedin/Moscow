@@ -2442,3 +2442,67 @@ test('readiness review connects two personal bookings, flags conflict, survives 
   expect(saved.items.every((item: { commitment?: { verification: string } }) =>
     item.commitment?.verification === 'user-declared')).toBe(true);
 });
+
+
+test('traveler budget, local spending forecast and itinerary link survive a verified reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const startDay = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(startDay);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Театр для бюджета');
+  await page.getByRole('button', { name: 'Театр', exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  const finance = page.getByTestId('trip-finance-card');
+  await expect(finance).toBeVisible();
+  await finance.getByRole('button', { name: 'Настроить бюджет поездки' }).click();
+  await finance.getByTestId('trip-finance-budget-input').fill('6000');
+  await finance.getByRole('button', { name: 'Сохранить бюджет' }).click();
+  await expect(finance.getByTestId('trip-finance-budget')).toContainText(/6\s*000/);
+
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Вечер в театре');
+  await finance.getByRole('button', { name: 'Категория расхода: Билеты' }).click();
+  await finance.getByTestId('trip-finance-estimate-input').fill('2000');
+  await finance.getByTestId('trip-finance-actual-input').fill('1500,50');
+  await finance.getByRole('button', { name: 'Связать расход с: Театр для бюджета' }).click();
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByText('Вечер в театре', { exact: true })).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-actual')).toContainText(/1\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-projected')).toContainText(/1\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/4\s*499,50/);
+
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Ужин после спектакля');
+  await finance.getByRole('button', { name: 'Категория расхода: Еда и напитки' }).click();
+  await finance.getByTestId('trip-finance-estimate-input').fill('3000');
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/1\s*499,50/);
+  await expect(finance).toContainText('Расходы связаны с 1 / 1 пунктами плана');
+
+  const serialized = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(serialized.finance?.entries).toHaveLength(2);
+  expect(serialized.finance?.entries[0]?.actualMinor).toBe(150050);
+  expect(serialized.finance?.entries[0]?.itemId).toBe(serialized.items[0]?.id);
+  expect(serialized.items[0]?.commitment).toBeUndefined();
+
+  await page.reload();
+  await ensureRussian(page);
+  const restored = page.getByTestId('trip-finance-card');
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(restored.getByTestId('trip-finance-remaining')).toContainText(/1\s*499,50/);
+  await expect(restored.getByText('Ужин после спектакля', { exact: true })).toBeVisible();
+  await restored.getByRole('button', { name: 'Расходы выбранного дня' }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(restored.getByTestId('trip-finance-budget')).toHaveCount(0);
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toHaveText('—');
+  await restored.getByRole('button', { name: 'Расходы всей поездки' }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+});
