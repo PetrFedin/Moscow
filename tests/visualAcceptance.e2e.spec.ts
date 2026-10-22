@@ -257,6 +257,13 @@ for (const viewport of [
     await page.screenshot({
       path: testInfo.outputPath(viewport.name + '-trip-readiness-conflict-viewport.png')
     });
+    await readiness.getByRole('button', { name: /Открыть обращение по брони:/ }).first().click();
+    const inlineHelp = page.getByTestId('booking-resolution-card');
+    await expect(inlineHelp).toHaveCount(1);
+    await inlineHelp.getByText('Если планы изменились', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(viewport.name + '-readiness-contextual-booking-assistance.png')
+    });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     expect(overflow, 'Trip readiness card must not overflow viewport width').toBe(false);
   });
