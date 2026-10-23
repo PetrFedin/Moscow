@@ -6,6 +6,7 @@ import { tr } from '../../i18n';
 import { getUnseenDestinationNodes, type PersonalTrip } from '../../travel/personalTrip';
 import { moscowVarvarkaDestinationPackage } from '../../travel/moscowDestinationPackage';
 import { deriveTouristTodayState, minutesUntilItem, todayProgress } from '../../travel/touristToday';
+import { assessTripFinances, formatTripMoneyMinor } from '../../travel/tripFinance';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 import TodayStopActions from './TodayStopActions';
 
@@ -56,6 +57,50 @@ function countdownLabel(language: AppLanguage, minutes: number) {
     'через ' + hours + ' ч ' + rest + ' мин',
     'in ' + hours + 'h ' + rest + 'm',
     hours + '小时' + rest + '分钟后'
+  );
+}
+
+function TodayFinanceSummary({ trip, dayDate, language }: {
+  trip: PersonalTrip; dayDate: string; language: AppLanguage;
+}) {
+  if (!trip.days.includes(dayDate)) return null;
+  const day = assessTripFinances(trip, dayDate);
+  const total = assessTripFinances(trip);
+  if (day.entriesCount === 0 && total.budgetMinor === undefined) return null;
+  const money = (minor: number) => formatTripMoneyMinor(minor, language);
+  return (
+    <View testID="today-finance-summary" style={styles.financeSummary}>
+      <Text style={styles.financeKicker}>{tr(language, 'РАСХОДЫ СЕГОДНЯ', 'TODAY’S EXPENSES', '今日费用')}</Text>
+      <View style={styles.financeMetrics}>
+        <View style={styles.financeMetric}>
+          <Text style={styles.financeLabel}>{tr(language, 'Прогноз на день', 'Day forecast', '当日预测')}</Text>
+          <Text testID="today-finance-projected" style={styles.financeAmount}>
+            {day.entriesCount ? money(day.projectedMinor) : '—'}
+          </Text>
+        </View>
+        <View style={styles.financeMetric}>
+          <Text style={styles.financeLabel}>{tr(language, 'Записано вами', 'You recorded', '您已记录')}</Text>
+          <Text testID="today-finance-recorded" style={styles.financeAmount}>
+            {day.entriesCount ? money(day.actualMinor) : '—'}
+          </Text>
+        </View>
+      </View>
+      {total.projectedBudgetRemainingMinor !== undefined && (
+        <Text testID="today-finance-trip-remaining" style={[
+          styles.financeRemainder, total.overBudget && styles.financeOverBudget
+        ]}>
+          {total.overBudget
+            ? tr(language, 'Вся поездка · прогноз выше бюджета: ', 'Whole trip · forecast over budget: ', '全程预计超支：')
+              + money(-total.projectedBudgetRemainingMinor)
+            : tr(language, 'Вся поездка · прогноз остатка: ', 'Whole trip · projected remaining: ', '全程预计结余：')
+              + money(total.projectedBudgetRemainingMinor)}
+        </Text>
+      )}
+      <Text style={styles.financeDisclaimer}>{tr(language,
+        'Только ваши записи: оценка расхода не является оплатой.',
+        'Your entries only: an estimate is not a payment.',
+        '仅根据您填写的记录，估算不等于付款。')}</Text>
+    </View>
   );
 }
 
@@ -152,6 +197,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
             onPress={onDiscover}
           ><Text style={styles.heroActionText}>{tr(language, 'Найти первое место', 'Find my first place', '寻找第一个地点')} →</Text></PhysicalPressable>
         </View>
+        <TodayFinanceSummary trip={trip} dayDate={state.dayDate} language={language} />
         {unseen.length > 0 && (
           <View style={styles.unseen}>
             <Text style={styles.eyebrow}>{tr(language, 'ИДЕИ ДЛЯ ПЕРВОГО ОТКРЫТИЯ', 'IDEAS FOR YOUR FIRST STOP', '第一站灵感')}</Text>
@@ -185,6 +231,7 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
         </View>
       </View>
 
+      <TodayFinanceSummary trip={trip} dayDate={state.dayDate} language={language} />
       {current ? (
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>{tr(language, 'СЕЙЧАС ПО ПЛАНУ', 'NOW ON YOUR PLAN', '当前计划')}</Text>
@@ -339,6 +386,15 @@ export default function TouristTodayCard({ trip, language, visitedIds, onOpenPla
 const styles = StyleSheet.create({
   root: { borderRadius: 25, borderWidth: 1, borderColor: '#576b58', backgroundColor: '#183C34', padding: 19, marginTop: 14, marginBottom: 16 },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  financeSummary: { marginTop: 12, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: '#667a66', backgroundColor: '#254539', gap: 8 },
+  financeKicker: { fontSize: 10, lineHeight: 14, color: '#e8d3af', fontWeight: '700', letterSpacing: 0.5 },
+  financeMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  financeMetric: { flexBasis: 132, flexGrow: 1, minWidth: 0 },
+  financeLabel: { color: '#c8d4c9', fontSize: 11, lineHeight: 16 },
+  financeAmount: { color: '#fff2da', fontSize: 18, lineHeight: 24, fontWeight: '700', marginTop: 2 },
+  financeRemainder: { color: '#d9efcc', fontSize: 12, lineHeight: 18 },
+  financeOverBudget: { color: '#ffbba9' },
+  financeDisclaimer: { color: '#b8c7b9', fontSize: 11, lineHeight: 17 },
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
   headingCopy: { flex: 1, minWidth: 0 },
   kicker: { color: '#e2bd82', fontSize: 13, fontWeight: '700', letterSpacing: 1.1 },
