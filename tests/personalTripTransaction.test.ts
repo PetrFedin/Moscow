@@ -6,6 +6,7 @@ import {
   recordTripVisit,
   updateTripVisitNote
 } from '../src/travel/personalTrip.ts';
+import { assessTripFinances, upsertTripFinanceEntry, type TripFinanceEntry } from '../src/travel/tripFinance.ts';
 import {
   archivePersonalTrip,
   archiveWithoutPersonalTrip,
@@ -382,4 +383,88 @@ test('interrupted calendar import replays the committed event exactly once after
   const secondRestart = await readRecoveredTripStorage(storage);
   assert.equal(secondRestart.recovered, false);
   assert.equal(secondRestart.activeTrip?.items.filter(item => item.id === 'calendar-night').length, 1);
+});
+
+
+
+function oneExpense(): TripFinanceEntry {
+  return {
+    id: 'stable-draft-20261023', dayDate: '2026-10-13',
+    title: 'Билет · со слов туриста', category: 'tickets',
+    estimateMinor: 250_000, actualMinor: 225_050,
+    source: 'traveler-entered', createdAt: at, updatedAt: at
+  };
+}
+
+function financeEdit(storage: MemoryTripStorage, expectedActiveTrip: ReturnType<typeof historicalJourney>) {
+  const entry = oneExpense();
+  return transactTripStorage({
+    storage, id: 'finance:' + entry.id, operation: 'edit',
+    expectedActiveTrip,
+    transform: ({ activeTrip, archive }) => ({
+      activeTrip: upsertTripFinanceEntry({
+        trip: activeTrip!, entry, updatedAt: at
+      }),
+      archive,
+      result: entry.id
+    })
+  });
+}
+
+for (const fault of [
+  { key: JOURNAL, operation: 'set', when: 'before' },
+  { key: JOURNAL, operation: 'set', when: 'after' },
+  { key: ACTIVE, operation: 'set', when: 'before' },
+  { key: ACTIVE, operation: 'set', when: 'after' },
+  { key: JOURNAL, operation: 'remove', when: 'before' },
+  { key: JOURNAL, operation: 'remove', when: 'after' }
+] as const) {
+  test('finance journal recovery is exactly one expense after interrupted '
+    + fault.key + '/' + fault.operation + '/' + fault.when, async () => {
+    const { storage, active, old } = seeded();
+    const originalArchive = await storage.getItem(ARCHIVE);
+    storage.fault = fault;
+    await assert.rejects(financeEdit(storage, active), /Injected storage crash/);
+    const recovered = await readRecoveredTripStorage(storage);
+    assert.ok(recovered.activeTrip);
+    if (fault.key === JOURNAL && fault.operation === 'set' && fault.when === 'before') {
+      assert.equal(recovered.activeTrip.finance, undefined, 'no accepted journal means no expense');
+    } else {
+      assert.equal(recovered.activeTrip.finance?.entries.length, 1);
+      assert.equal(recovered.activeTrip.finance?.entries[0]?.id, 'stable-draft-20261023');
+      assert.equal(assessTripFinances(recovered.activeTrip).projectedMinor, 225_050);
+    }
+    assert.equal(await storage.getItem(JOURNAL), null);
+    assert.equal(await storage.getItem(ARCHIVE), originalArchive, 'other archived trip not rewritten');
+    assert.equal(recovered.activeTrip.items[0]?.commitment?.verification, 'user-declared');
+    assert.equal(recovered.activeTrip.visits[0]?.evidence, 'user-confirmed');
+    assert.ok(archivedPersonalTrip(old, 'summer'));
+
+    // The form's stable draft ID gives one idempotent retry even if the first
+    // journal was committed but its final confirmation threw.
+    const retried = await financeEdit(storage, recovered.activeTrip);
+    assert.equal(retried.activeTrip?.finance?.entries.length, 1);
+    assert.equal(assessTripFinances(retried.activeTrip!).projectedMinor, 225_050);
+    assert.equal(await storage.getItem(JOURNAL), null);
+  });
+}
+
+test('stale Finance editor cannot clobber another tab; verified refresh followed by new ID preserves both', async () => {
+  const { storage, active } = seeded();
+  const otherEntry: TripFinanceEntry = {
+    ...oneExpense(), id: 'other-tab-expense', title: 'Расход из соседней вкладки',
+    estimateMinor: 130_000, actualMinor: undefined
+  };
+  const otherTrip = upsertTripFinanceEntry({ trip: active, entry: otherEntry, updatedAt: at });
+  storage.data.set(ACTIVE, JSON.stringify(otherTrip));
+  await assert.rejects(financeEdit(storage, active), /changed or is not durably saved/);
+  assert.deepEqual((await readRecoveredTripStorage(storage)).activeTrip?.finance?.entries.map(e => e.id),
+    ['other-tab-expense']);
+  const refreshed = await readRecoveredTripStorage(storage);
+  const retry = await financeEdit(storage, refreshed.activeTrip!);
+  assert.deepEqual(retry.activeTrip!.finance?.entries.map(e => e.id),
+    ['other-tab-expense', 'stable-draft-20261023']);
+  assert.equal(assessTripFinances(retry.activeTrip!).projectedMinor, 355_050);
+  assert.equal(retry.activeTrip!.items[0]?.commitment?.verification, 'user-declared');
+  assert.equal(await storage.getItem(JOURNAL), null);
 });
