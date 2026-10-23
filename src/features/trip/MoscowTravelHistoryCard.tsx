@@ -11,6 +11,8 @@ import {
   groupMoscowHistoryByDay
 } from '../../travel/moscowTravelHistory';
 import PhysicalPressable from '../../ui/PhysicalPressable';
+import { buildMoscowFinanceHistory } from '../../travel/moscowFinanceHistory';
+import { formatTripMoneyMinor } from '../../travel/tripFinance';
 
 type Props = {
   activeTrip: PersonalTrip | null;
@@ -51,11 +53,15 @@ export default function MoscowTravelHistoryCard({ activeTrip, archive, language,
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [visibleCount, setVisibleCount] = useState(15);
+  const [financeExpanded, setFinanceExpanded] = useState(false);
+  const [financeVisibleCount, setFinanceVisibleCount] = useState(12);
 
   const history = useMemo(
     () => buildMoscowTravelHistory({ activeTrip, archive }),
     [activeTrip, archive]
   );
+  const financial = useMemo(() => buildMoscowFinanceHistory({ activeTrip, archive }), [activeTrip, archive]);
+  const money = (minor: number) => formatTripMoneyMinor(minor, language);
   const filtered = useMemo(() => {
     try {
       return {
@@ -79,7 +85,7 @@ export default function MoscowTravelHistoryCard({ activeTrip, archive, language,
     setVisibleCount(15);
   };
 
-  if (history.tripCount < 2 && history.visitCount === 0) return null;
+  if (history.tripCount < 2 && history.visitCount === 0 && financial.entriesCount === 0) return null;
 
   return (
     <View testID="moscow-passport-v2-card" style={styles.root}>
@@ -102,6 +108,78 @@ export default function MoscowTravelHistoryCard({ activeTrip, archive, language,
         `Из них повторных визитов в известные места: ${history.repeatKnownPlaceVisitCount}. Без точного ID: ${history.unknownIdentityVisitCount} записей — они не объединяются по похожим названиям.`,
         `Repeat visits to identified places: ${history.repeatKnownPlaceVisitCount}. Without a venue ID: ${history.unknownIdentityVisitCount} records — similar names are not merged.`,
         `已识别地点重复到访：${history.repeatKnownPlaceVisitCount}。缺少地点 ID 的记录：${history.unknownIdentityVisitCount}，不会按名称合并。`)}</Text>
+
+      {financial.entriesCount > 0 && (
+        <View testID="moscow-financial-history" style={styles.financeSection}>
+          <Text style={styles.sectionTitle}>{tr(language,
+            'Личный журнал расходов', 'Personal spending journal', '个人费用记录')}</Text>
+          <Text style={styles.hint}>{tr(language,
+            'Расходы из ваших записей, по разным поездкам. Это не подтверждённые банком платежи и не свидетельства посещения.',
+            'Traveler-entered amounts across trips. These are not verified payments or evidence of visiting.',
+            '跨行程的个人费用，不是已验证的支付或到访记录。')}</Text>
+          <View style={styles.financeGrid}>
+            <View style={styles.financeMetric}>
+              <Text style={styles.financeLabel}>{tr(language, 'Записанный факт', 'Recorded actual', '已记录实付')}</Text>
+              <Text testID="finance-history-actual" style={styles.financeAmount}>
+                {financial.actualEntriesCount > 0 ? money(financial.actualMinor) : '—'}
+              </Text>
+            </View>
+            <View style={styles.financeMetric}>
+              <Text style={styles.financeLabel}>{tr(language, 'Прогноз по записям', 'Recorded forecast', '记录预测')}</Text>
+              <Text testID="finance-history-projected" style={styles.financeAmount}>{money(financial.projectedMinor)}</Text>
+            </View>
+          </View>
+          <PhysicalPressable accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Показать дневник расходов по поездкам', 'Toggle spending diary', '查看行程支出')}
+            style={styles.financeToggle} contentStyle={styles.center}
+            onPress={() => setFinanceExpanded(value => !value)}>
+            <Text style={styles.toggleText}>{financeExpanded
+              ? tr(language, 'Скрыть расходы', 'Hide expenses', '隐藏费用')
+              : tr(language, 'Расходы по дням', 'Expenses by day', '按日查看费用')}</Text>
+          </PhysicalPressable>
+          {financeExpanded && (
+            <View style={styles.financeDays}>
+              {financial.days.slice(0, financeVisibleCount).map(day => (
+                <View key={day.key} style={styles.financeDay}>
+                  <Text style={styles.dayTitle}>{day.dayDate} · {day.tripTitle}</Text>
+                  <View style={styles.financeSummaryRow}>
+                    <Text style={styles.financeLabel}>{tr(language, 'Записано: ', 'Recorded: ', '已记录：')}
+                      {day.entries.some(entry => entry.actualMinor !== undefined) ? money(day.actualMinor) : '—'}</Text>
+                    <Text style={styles.financeAmountSmall}>{tr(language, 'Прогноз: ', 'Forecast: ', '预测：')}
+                      {money(day.projectedMinor)}</Text>
+                  </View>
+                  {day.entries.map(entry => (
+                    <View key={entry.id} style={styles.financeEntry}>
+                      <Text style={styles.financeEntryTitle}>{entry.title}</Text>
+                      <Text style={styles.financeLabel}>
+                        {entry.actualMinor !== undefined
+                          ? tr(language, 'Записанный факт: ', 'Recorded actual: ', '已记录实付：') + money(entry.actualMinor)
+                          : tr(language, 'Ваша оценка: ', 'Your estimate: ', '您的估算：') + money(entry.estimateMinor ?? 0)}
+                      </Text>
+                    </View>
+                  ))}
+                  {activeTrip?.id !== day.tripId && (
+                    <PhysicalPressable accessibilityRole="button"
+                      accessibilityLabel={tr(language, 'Открыть поездку с расходами: ', 'Open journey containing expenses: ', '打开含支出的行程：') + day.tripTitle}
+                      style={styles.tripAction} contentStyle={styles.center}
+                      onPress={() => onOpenTrip(day.tripId)}>
+                      <Text style={styles.toggleText}>{tr(language, 'Открыть поездку', 'Open journey', '打开行程')}</Text>
+                    </PhysicalPressable>
+                  )}
+                </View>
+              ))}
+              {financial.days.length > financeVisibleCount && (
+                <PhysicalPressable accessibilityRole="button"
+                  accessibilityLabel={tr(language, 'Показать ещё дни расходов', 'Show more expense days', '显示更多支出日')}
+                  style={styles.financeToggle} contentStyle={styles.center}
+                  onPress={() => setFinanceVisibleCount(value => value + 12)}>
+                  <Text style={styles.toggleText}>{tr(language, 'Показать ещё', 'Show more', '显示更多')}</Text>
+                </PhysicalPressable>
+              )}
+            </View>
+          )}
+        </View>
+      )}
 
       <PhysicalPressable
         accessibilityRole="button"
@@ -232,6 +310,18 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10 },
   toggleText: { color: '#f4e7ca', fontSize: 13, fontWeight: '700' },
   diary: { gap: 13, paddingTop: 10 },
+  financeSection: { padding: 13, gap: 9, borderRadius: 14, backgroundColor: '#1a2c24', borderWidth: 1, borderColor: '#456151' },
+  financeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  financeMetric: { flexBasis: 128, flexGrow: 1, minWidth: 0, gap: 4 },
+  financeLabel: { color: '#c5d3c3', fontSize: 11, lineHeight: 17, flexShrink: 1 },
+  financeAmount: { color: '#f4ead7', fontSize: 18, lineHeight: 24, fontWeight: '700' },
+  financeAmountSmall: { color: '#ead4ac', fontSize: 12, lineHeight: 18, fontWeight: '700', flexShrink: 1 },
+  financeToggle: { backgroundColor: '#34513d', minHeight: 44, borderRadius: 11 },
+  financeDays: { gap: 11, paddingTop: 5 },
+  financeDay: { borderTopWidth: 1, borderTopColor: '#506252', gap: 8, paddingTop: 10 },
+  financeSummaryRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 },
+  financeEntry: { borderRadius: 10, backgroundColor: '#23382c', padding: 9, gap: 3 },
+  financeEntryTitle: { color: '#f7eddb', fontSize: 13, fontWeight: '700' },
   sectionTitle: { color: '#e6e3d6', fontWeight: '700', fontSize: 16 },
   input: { backgroundColor: '#14241b', borderColor: '#58725f', borderWidth: 1, minHeight: 48, paddingHorizontal: 13, color: '#f5f0e6', borderRadius: 11, fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
