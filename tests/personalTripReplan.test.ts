@@ -415,3 +415,76 @@ test('forged proposal cannot rewrite the preference snapshot', () => {
     /preference snapshot/
   );
 });
+
+test('schedule-only replan protects held, cancelled and untimed bookings from auto-rescheduling', () => {
+  let trip = baseTrip();
+  trip = addManualTripItem({
+    trip, itemId: 'held-dinner', dayDate: '2026-10-03',
+    title: 'Столик на удержании', kind: 'food',
+    plannedStartAt: '2026-10-03T14:00:00+03:00',
+    plannedEndAt: '2026-10-03T15:00:00+03:00',
+    commitment: { kind: 'reservation', status: 'held', verification: 'user-declared', reference: 'HOLD-REF' },
+    updatedAt: '2026-10-03T04:05:00.000Z'
+  });
+  trip = addManualTripItem({
+    trip, itemId: 'cancelled-lunch', dayDate: '2026-10-03',
+    title: 'Отменённый обед', kind: 'food',
+    plannedStartAt: '2026-10-03T15:00:00+03:00',
+    plannedEndAt: '2026-10-03T16:00:00+03:00',
+    commitment: { kind: 'reservation', status: 'cancelled', verification: 'user-declared', reference: 'CANCELLED-REF' },
+    updatedAt: '2026-10-03T04:06:00.000Z'
+  });
+  trip = addManualTripItem({
+    trip, itemId: 'untimed-ticket', dayDate: '2026-10-03',
+    title: 'Билет без указанного времени', kind: 'event',
+    commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared', reference: 'UNTIMED-REF' },
+    updatedAt: '2026-10-03T04:07:00.000Z'
+  });
+
+  const before = JSON.stringify(trip);
+  const proposal = buildPersonalTripReplanProposal({
+    trip, proposalId: 'replan-holds-cancelled', dayDate: '2026-10-03',
+    nowIso: '2026-10-03T05:00:00.000Z', trigger: 'manual'
+  });
+  assert.deepEqual(proposal.preservedFixedCommitments.map(c => c.itemId),
+    ['fixed-theatre', 'held-dinner']);
+  for (const id of ['held-dinner', 'cancelled-lunch', 'untimed-ticket']) {
+    assert.equal(proposal.placements.some(c => c.itemId === id), false);
+    assert.equal(proposal.unplaced.some(c => c.itemId === id), false);
+  }
+  const accepted = applyPersonalTripReplanProposal({
+    trip, proposal, userAccepted: true, updatedAt: '2026-10-03T05:01:00.000Z'
+  });
+  for (const id of ['fixed-theatre', 'held-dinner', 'cancelled-lunch', 'untimed-ticket']) {
+    const original = trip.items.find(item => item.id === id)!;
+    const saved = accepted.items.find(item => item.id === id)!;
+    assert.equal(saved.dayDate, original.dayDate);
+    assert.equal(saved.plannedStartAt, original.plannedStartAt);
+    assert.equal(saved.plannedEndAt, original.plannedEndAt);
+    assert.deepEqual(saved.commitment, original.commitment);
+  }
+  assert.equal(JSON.stringify(trip), before);
+
+  const forgedHeld = structuredClone(proposal);
+  forgedHeld.placements.push({
+    itemId: 'held-dinner',
+    previousStartAt: '2026-10-03T14:00:00+03:00',
+    previousEndAt: '2026-10-03T15:00:00+03:00',
+    proposedStartAt: '2026-10-03T16:00:00+03:00',
+    proposedEndAt: '2026-10-03T17:00:00+03:00',
+    durationMinutes: 60, reason: 'existing-duration-fit'
+  });
+  assert.throws(() => applyPersonalTripReplanProposal({
+    trip, proposal: forgedHeld, userAccepted: true,
+    updatedAt: '2026-10-03T05:01:00.000Z'
+  }), /cannot move booked or cancelled commitment/);
+
+  const forgedCancel = structuredClone(proposal);
+  forgedCancel.unplaced.push({
+    itemId: 'cancelled-lunch', reason: 'no-schedule-window', action: 'unschedule'
+  });
+  assert.throws(() => applyPersonalTripReplanProposal({
+    trip, proposal: forgedCancel, userAccepted: true,
+    updatedAt: '2026-10-03T05:01:00.000Z'
+  }), /cannot unschedule booked or cancelled commitment/);
+});

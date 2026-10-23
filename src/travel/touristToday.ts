@@ -1,5 +1,6 @@
 import { resolvePersonalTripPreferences, type PersonalTrip, type PersonalTripItem, type PersonalTripVisit } from './personalTrip.ts';
 import { deriveTripFreeWindows, detectTripScheduleConflicts, type TripFreeWindow } from './tripScheduler.ts';
+import { isActivePlannedTripStop } from './tripDayPresentation.ts';
 
 export type TouristTodayState = {
   tripActive: boolean;
@@ -50,7 +51,7 @@ function itemEnd(item: PersonalTripItem) {
 }
 
 function isRemaining(item: PersonalTripItem) {
-  return item.status === 'planned';
+  return isActivePlannedTripStop(item);
 }
 
 function isComplete(item: PersonalTripItem) {
@@ -58,7 +59,7 @@ function isComplete(item: PersonalTripItem) {
 }
 
 function isConfirmedCommitment(item: PersonalTripItem) {
-  return item.status === 'planned' && item.commitment?.status === 'confirmed';
+  return isActivePlannedTripStop(item) && item.commitment?.status === 'confirmed';
 }
 
 export function deriveTouristTodayState(input: {
@@ -101,9 +102,11 @@ export function deriveTouristTodayState(input: {
     return start <= now && now < end;
   });
 
-  const nextItem = remainingItems.find((item) =>
-    item.plannedStartAt ? itemStart(item) > now : false
-  ) ?? remainingItems.find((item) => !item.plannedStartAt);
+  // Unscheduled ideas must not disappear just because a fixed ticket exists later.
+  // They are a possible next stop, not a verified routing/availability recommendation.
+  const nextItem = remainingItems.find((item) => !item.plannedStartAt && !item.commitment)
+    ?? remainingItems.find((item) => item.plannedStartAt ? itemStart(item) > now : false)
+    ?? remainingItems.find((item) => !item.plannedStartAt);
 
   const nextCommitment = remainingItems
     .filter(isConfirmedCommitment)

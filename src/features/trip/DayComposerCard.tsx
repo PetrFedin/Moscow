@@ -31,12 +31,12 @@ function itemBadge(
   value: 'fixed' | 'flexible' | 'ticketed' | 'reserved' | 'user-declared' | 'provider-confirmed'
 ) {
   const labels = {
-    fixed: tr(language, 'FIXED', 'FIXED', '固定'),
-    flexible: tr(language, 'FLEXIBLE', 'FLEXIBLE', '灵活'),
+    fixed: tr(language, 'По времени', 'Fixed time', '固定时间'),
+    flexible: tr(language, 'Гибкий план', 'Flexible', '灵活安排'),
     ticketed: tr(language, 'БИЛЕТ', 'TICKETED', '门票'),
     reserved: tr(language, 'БРОНЬ', 'RESERVED', '预订'),
-    'user-declared': tr(language, 'ДОБАВЛЕНО ВАМИ', 'USER DECLARED', '用户填写'),
-    'provider-confirmed': tr(language, 'PROVIDER ✓', 'PROVIDER ✓', '供应商 ✓')
+    'user-declared': tr(language, 'Указано вами', 'Added by you', '用户填写'),
+    'provider-confirmed': tr(language, 'Есть запись о подтверждении', 'Confirmation noted', '记录有确认')
   } as const;
   return labels[value];
 }
@@ -54,7 +54,7 @@ export default function DayComposerCard({
     <View style={styles.root}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>DAY COMPOSER · V2</Text>
+          <Text style={styles.kicker}>{tr(language, 'РАСПИСАНИЕ', 'YOUR SCHEDULE', '行程安排')}</Text>
           <Text style={styles.title}>{tr(language, 'Ваш день как единая временная линия', 'Your day as one timeline', '统一时间轴')}</Text>
         </View>
         <View style={styles.countPill}>
@@ -64,13 +64,10 @@ export default function DayComposerCard({
       </View>
 
       <View style={styles.statusGrid}>
-        <Status label="FIXED" value={projection.counts.fixed} />
-        <Status label="FLEX" value={projection.counts.flexible} />
-        <Status label="TICKET" value={projection.counts.ticketed} />
-        <Status label="RESERVE" value={projection.counts.reserved} />
-        <Status label="FREE" value={projection.counts.free} />
-        <Status label="TRAVEL" value={projection.counts.travel} />
-        <Status label="CONFLICT" value={projection.counts.conflict} alert={projection.counts.conflict > 0} />
+        <Status label={tr(language, 'По времени', 'Fixed', '固定')} value={projection.counts.fixed} />
+        <Status label={tr(language, 'Гибкие', 'Flexible', '可调整')} value={projection.counts.flexible} />
+        <Status label={tr(language, 'Свободно', 'Free slots', '空闲')} value={projection.counts.free} />
+        <Status label={tr(language, 'Конфликты', 'Conflicts', '冲突')} value={projection.counts.conflict} alert={projection.counts.conflict > 0} />
       </View>
 
       <View style={styles.timeline}>
@@ -123,12 +120,12 @@ export default function DayComposerCard({
 
           if (entry.type === 'travel') {
             const statusLabel = entry.status === 'safe'
-              ? 'SAFE'
+              ? tr(language, 'Есть запас времени', 'Time available', '有余量')
               : entry.status === 'tight'
-                ? 'TIGHT'
+                ? tr(language, 'Мало времени', 'Tight connection', '时间紧张')
                 : entry.status === 'impossible'
-                  ? 'IMPOSSIBLE'
-                  : 'UNKNOWN';
+                  ? tr(language, 'Не успеть по расчёту', 'Not feasible by timing', '时间不足')
+                  : tr(language, 'Дорога не проверена', 'Travel unverified', '交通未核验');
             return (
               <View
                 key={entry.id}
@@ -147,15 +144,15 @@ export default function DayComposerCard({
                 <View style={styles.rowBody}>
                   <Text style={styles.travelTitle}>
                     {entry.routingVerified && entry.requiredTravelMinutes !== undefined && entry.mode
-                      ? `TRAVEL · ${entry.requiredTravelMinutes} ${tr(language, 'мин', 'min', '分钟')} · ${entry.mode.toUpperCase()}`
-                      : `TRAVEL · ${statusLabel}`}
+                      ? `${tr(language, 'Дорога', 'Travel', '交通')} · ${entry.requiredTravelMinutes} ${tr(language, 'мин', 'min', '分钟')} · ${entry.mode.toUpperCase()}`
+                      : tr(language, 'Время на дорогу', 'Travel time', '交通时间')}
                   </Text>
                   <Text style={styles.travelStatus}>{statusLabel}</Text>
                   <Text style={styles.rowMeta}>
                     {entry.routingVerified && entry.requiredTravelMinutes !== undefined
                       ? tr(
                           language,
-                          `Подтверждено источником · buffer ${entry.bufferMinutes ?? 0} мин`,
+                          `По источнику · запас ${entry.bufferMinutes ?? 0} мин`,
                           `Source-backed · ${entry.bufferMinutes ?? 0} min buffer`,
                           `来源已验证 · 余量 ${entry.bufferMinutes ?? 0} 分钟`
                         )
@@ -168,7 +165,9 @@ export default function DayComposerCard({
                   </Text>
                   {entry.evidenceMode === 'historical-evidence-replay' ? (
                     <>
-                      <Text style={styles.replayBadge}>EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE</Text>
+                      <Text style={styles.replayBadge}>{tr(language,
+                        'Архивная проверка маршрута — не текущие данные',
+                        'Historical routing evidence — not current', '历史路线证据 — 非实时')}</Text>
                       <Text style={styles.rowMeta}>
                         {entry.providerName ?? entry.providerId ?? 'routing provider'}
                         {entry.observedAt ? ` · ${entry.observedAt}` : ''}
@@ -194,7 +193,13 @@ export default function DayComposerCard({
                   {entry.verification !== 'none' && <Badge text={itemBadge(language, entry.verification)} />}
                 </View>
                 <Text style={styles.rowMeta}>
-                  {entry.state.toUpperCase()} · {entry.kind}
+                  {entry.state === 'completed'
+                    ? tr(language, 'Отмечено выполненным', 'Marked complete', '已标为完成')
+                    : entry.state === 'cancelled'
+                      ? tr(language, 'Отменено', 'Cancelled', '已取消')
+                      : entry.state === 'skipped'
+                        ? tr(language, 'Пропущено', 'Skipped', '已跳过')
+                        : tr(language, 'В вашем плане', 'In your plan', '已列入行程')}
                 </Text>
                 {entry.liveTruth ? (
                   <View style={styles.liveTruthBox}>
@@ -244,11 +249,11 @@ export default function DayComposerCard({
 
       {projection.alternativeSlots.length > 0 && (
         <View style={styles.alternativeBox}>
-          <Text style={styles.alternativeTitle}>{tr(language, 'ALTERNATIVE SLOTS', 'ALTERNATIVE SLOTS', '替代时段')}</Text>
+          <Text style={styles.alternativeTitle}>{tr(language, 'СВОБОДНЫЕ ОКНА', 'AVAILABLE TIME WINDOWS', '可选时段')}</Text>
           <Text style={styles.alternativeBody}>
             {tr(
               language,
-              `${projection.alternativeSlots.length} свободных окон можно использовать для альтернатив. Пока это только временные окна — без выдуманных travel time, opening hours или availability.`,
+              `${projection.alternativeSlots.length} свободных окон для других планов. Часы работы, дорога и доступность мест здесь не проверены.`,
               `${projection.alternativeSlots.length} free windows can accept alternatives. They are time slots only: no fabricated travel time, opening hours or availability.`,
               `${projection.alternativeSlots.length} 个空闲时段可用于替代方案；目前仅代表时间窗口，不推测交通、营业时间或可用性。`
             )}
@@ -282,24 +287,24 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#393f47',
-    backgroundColor: '#0c1014'
+    borderColor: '#394b41',
+    backgroundColor: '#17211d'
   },
   header: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   headerCopy: { flex: 1 },
-  kicker: { color: '#bd9c66', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
-  title: { color: '#f6f0e7', fontSize: 18, lineHeight: 23, fontWeight: '900', marginTop: 5 },
+  kicker: { color: '#b7ae96', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  title: { color: '#f3f0e6', fontSize: 19, lineHeight: 25, fontWeight: '700', marginTop: 5 },
   countPill: { minWidth: 54, borderRadius: 15, padding: 8, backgroundColor: '#181d22', alignItems: 'center' },
   countValue: { color: '#e7c98f', fontSize: 18, fontWeight: '900' },
   countLabel: { color: '#7f8790', fontSize: 7, marginTop: 1 },
   statusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 13 },
-  status: { minWidth: 70, flexGrow: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 9, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#292f36' },
+  status: { minWidth: 125, flexBasis: 125, flexGrow: 1, borderRadius: 11, paddingVertical: 10, paddingHorizontal: 11, backgroundColor: '#202d25', borderWidth: 1, borderColor: '#39473f' },
   statusAlert: { borderColor: '#744d46', backgroundColor: '#201514' },
   statusValue: { color: '#d9dce0', fontSize: 15, fontWeight: '900' },
   statusValueAlert: { color: '#e8a79c' },
-  statusLabel: { color: '#69717a', fontSize: 7, fontWeight: '900', marginTop: 2 },
+  statusLabel: { color: '#b5c2b6', fontSize: 11, lineHeight: 15, fontWeight: '600', marginTop: 3 },
   timeline: { marginTop: 15, gap: 7 },
-  row: { flexDirection: 'row', borderRadius: 15, borderWidth: 1, borderColor: '#252c33', backgroundColor: '#12171c', padding: 11 },
+  row: { flexDirection: 'row', borderRadius: 13, borderWidth: 1, borderColor: '#34443b', backgroundColor: '#17221c', padding: 12 },
   free: { borderStyle: 'dashed', backgroundColor: '#10161a' },
   conflict: { borderColor: '#714940', backgroundColor: '#1e1312' },
   travel: { borderColor: '#30404a', backgroundColor: '#10171b' },
@@ -317,7 +322,7 @@ const styles = StyleSheet.create({
   travelTitle: { color: '#a9bac3', fontSize: 10, fontWeight: '900' },
   travelStatus: { color: '#d6c08f', fontSize: 7, fontWeight: '900', marginTop: 4, letterSpacing: 0.8 },
   replayBadge: { color: '#d0aa73', fontSize: 7, fontWeight: '900', marginTop: 5, letterSpacing: 0.7 },
-  rowMeta: { color: '#777f88', fontSize: 8, lineHeight: 12, marginTop: 4 },
+  rowMeta: { color: '#b4c1b6', fontSize: 11, lineHeight: 16, marginTop: 4 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
   badge: { borderRadius: 7, borderWidth: 1, borderColor: '#3b424a', paddingHorizontal: 6, paddingVertical: 3 },
   badgeStrong: { backgroundColor: '#d7bb84', borderColor: '#d7bb84' },

@@ -17,6 +17,7 @@ test('nearby now builds a free walk from the tourist current position', async ({
   await page.goto('/');
   await ensureRussian(page);
 
+  await page.getByRole('button', { name: 'Открыть все возможности планирования' }).click();
   await expect(page.getByText('РЯДОМ СЕЙЧАС', { exact: true })).toBeVisible();
   await page.getByLabel('Показать что рядом').click();
 

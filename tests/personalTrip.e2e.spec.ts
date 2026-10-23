@@ -43,9 +43,9 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Создать поездку', { exact: true }).click();
 
   await expect(page.getByText('День 1', { exact: true })).toBeVisible();
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Ваш день как единая временная линия', { exact: true })).toBeVisible();
-  await expect(page.getByText('FREE', { exact: true })).toBeVisible();
+  await expect(page.getByText('Свободно', { exact: true })).toBeVisible();
   await page.getByText('+ Добавить', { exact: true }).click();
   await page.getByPlaceholder('Например: Большой театр').fill('Большой театр · мой билет');
   await page.getByText('Театр', { exact: true }).click();
@@ -60,6 +60,10 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await page.getByText('Я был здесь', { exact: true }).click();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать заметку: Большой театр · мой билет' }).click();
+  await page.getByLabel('Текст личной заметки').fill('Запомнилась атмосфера этого вечера.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 
   await page.reload();
   await ensureRussian(page);
@@ -67,10 +71,11 @@ test('personal trip keeps user-declared ticket truth and visit history after rel
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
   await expect(page.getByText(/отмечено вами/)).toBeVisible();
+  await expect(page.getByText('Запомнилась атмосфера этого вечера.', { exact: true })).toBeVisible();
 });
 
 
-test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved to another day', async ({ page }) => {
+test('scheduler flags two fixed commitments and never silently moves a ticket to another day', async ({ page }) => {
   await page.goto('/');
   await ensureRussian(page);
 
@@ -97,16 +102,35 @@ test('scheduler surfaces a fixed-time conflict and preserves a ticket when moved
 
   await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toBeVisible();
   await expect(page.getByText(/Музей · фиксированный билет ↔ Театр · фиксированная бронь/)).toBeVisible();
-  await expect(page.getByText('CONFLICT', { exact: true })).toBeVisible();
-  await expect(page.getByText('ALTERNATIVE SLOTS', { exact: true })).toBeVisible();
+  await expect(page.getByText('Конфликты', { exact: true })).toBeVisible();
+  await expect(page.getByText('СВОБОДНЫЕ ОКНА', { exact: true })).toBeVisible();
 
-  await page.getByLabel('Перенести Театр · фиксированная бронь на следующий день').click();
-  await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Перенести Театр · фиксированная бронь на следующий день')).toHaveCount(0);
+  await expect(page.getByText('Дата и время билета или брони не меняются при переносе маршрута. Изменение оформляется у поставщика.', { exact: true }).first()).toBeVisible();
 
+  await expect.poll(async () => page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return (saved.items || []).filter((item: { commitment?: unknown }) => item.commitment).length;
+  })).toBe(2);
+  const before = await page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return saved.items.filter((item: { commitment?: unknown }) => item.commitment);
+  });
+  expect(before).toHaveLength(2);
   await page.getByText('День 2', { exact: true }).click();
-  await expect(page.getByText('Театр · фиксированная бронь', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/11:00–13:00/)).toBeVisible();
-  await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('travel-day-overview')
+    .getByText('Театр · фиксированная бронь', { exact: true })).toHaveCount(0);
+  await page.getByText('День 1', { exact: true }).click();
+  await expect(page.getByText('КОНФЛИКТ ВРЕМЕНИ', { exact: true })).toBeVisible();
+  const after = await page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return saved.items.filter((item: { commitment?: unknown }) => item.commitment);
+  });
+  expect(after).toEqual(before);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByTestId('travel-day-overview')
+    .getByText('Театр · фиксированная бронь', { exact: true }).first()).toBeVisible();
 });
 
 
@@ -137,6 +161,12 @@ test('Tourist Today surfaces the active booking without upgrading manual verific
   await page.getByText('Добавить в день', { exact: true }).click();
 
   await expect(page.getByText('СЕЙЧАС ПО ПЛАНУ', { exact: true })).toBeVisible();
+  // Today is the primary trip surface and shows the active state before secondary diagnostics.
+  const todayTop = await page.getByText('СЕГОДНЯ В МОСКВЕ', { exact: true }).boundingBox();
+  const composerTop = await page.getByText('РАСПИСАНИЕ', { exact: true }).boundingBox();
+  expect(todayTop).not.toBeNull();
+  expect(composerTop).not.toBeNull();
+  if (todayTop && composerTop) expect(todayTop.y).toBeLessThan(composerTop.y);
   await expect(page.getByText('Ужин · активная бронь', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
@@ -191,7 +221,7 @@ test('Moscow Passport groups restaurant and theatre visits semantically', async 
 
   await expect(page.getByText('Moscow Passport', { exact: true })).toBeVisible();
   await expect(page.getByText('Где ел', { exact: true })).toBeVisible();
-  await expect(page.getByText('Культура', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('moscow-single-trip-passport').getByText('Культура', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Ресторан · тест дневника', { exact: true }).last()).toBeVisible();
   await expect(page.getByText('Театр · тест дневника', { exact: true }).last()).toBeVisible();
   await expect(page.getByText(/отмечено вами/).last()).toBeVisible();
@@ -225,7 +255,7 @@ test('Booking Wallet persists theatre booking details without provider upgrade',
   await expect(page.getByText(/Гостей · 2/).first()).toBeVisible();
   await expect(page.getByText(/Места · Партер · ряд 5 · места 11–12/).first()).toBeVisible();
   await expect(page.getByText(/Адрес: Театральная площадь, 1/).first()).toBeVisible();
-  await expect(page.getByText('Добавлено вами · провайдер не проверен', { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId('travel-booking-wallet').getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
   await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
 
   await page.reload();
@@ -245,8 +275,9 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
   await page.getByText('2', { exact: true }).click();
   await page.getByText('Создать поездку', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Настройки поездки', { exact: true })).toBeVisible();
-  await page.getByText('Изменить', { exact: true }).click();
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click();
 
   await page.getByText('Спокойно', { exact: true }).click();
   await page.getByText('Обязательно', { exact: true }).click();
@@ -265,6 +296,7 @@ test('Trip Preferences change day bounds and reserve lunch window', async ({ pag
 
   await page.reload();
   await ensureRussian(page);
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText(/Спокойно · 10:00–18:00 · пешком до 35 мин/)).toBeVisible();
   await expect(page.getByText(/Без ступеней: Обязательно · Главное/)).toBeVisible();
 });
@@ -306,6 +338,7 @@ test('Day Replan requires explicit apply and preserves fixed booking', async ({ 
   await page.getByPlaceholder('21:00').fill('15:00');
   await page.getByText('Добавить в день', { exact: true }).click();
 
+  await page.getByRole('button', { name: 'Настроить подробности поездки' }).click();
   await expect(page.getByText('Пересобрать остаток дня', { exact: true })).toBeVisible();
   await page.getByText('Предложить', { exact: true }).click();
 
@@ -372,10 +405,10 @@ test('Day Composer replays source-backed Valhalla evidence without claiming it i
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
-  await expect(page.getByText('TRAVEL · 25 мин · WALK', { exact: true })).toBeVisible();
-  await expect(page.getByText('TIGHT', { exact: true })).toBeVisible();
-  await expect(page.getByText('EVIDENCE REPLAY · SOURCE-BACKED · NOT LIVE', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
+  await expect(page.getByText('Дорога · 25 мин · WALK', { exact: true })).toBeVisible();
+  await expect(page.getByText('Мало времени', { exact: true })).toBeVisible();
+  await expect(page.getByText('Архивная проверка маршрута — не текущие данные', { exact: true })).toBeVisible();
   await expect(page.getByText(/Valhalla · 2026-10-08T09:41:00.499Z/)).toBeVisible();
 });
 
@@ -413,7 +446,7 @@ test('Day Composer replays real Tretyakov live-city truth with explicit not-curr
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · OPEN · NOT CURRENT', { exact: true })).toBeVisible();
   await expect(page.getByText('OPEN · next 21:00', { exact: true })).toBeVisible();
@@ -454,7 +487,7 @@ test('Day Composer replays real Tretyakov programme status with explicit not-cur
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE EVIDENCE REPLAY · FRESH · SCHEDULED · NOT CURRENT', { exact: true })).toBeVisible();
   await expect(page.getByText('PROGRAMME · SCHEDULED · 29.09.2026 → 06.06.2027', { exact: true })).toBeVisible();
@@ -550,7 +583,7 @@ test('Day Composer consumes current live truth from runtime snapshot endpoint wi
   await ensureRussian(page);
   await page.getByText('Поездка', { exact: true }).last().click();
 
-  await expect(page.getByText('DAY COMPOSER · V2', { exact: true })).toBeVisible();
+  await expect(page.getByText('РАСПИСАНИЕ', { exact: true })).toBeVisible();
   await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('LIVE · FRESH · OPEN', { exact: true })).toBeVisible();
   await expect(page.getByText(/Государственная Третьяковская галерея · 2020-01-01T00:00:00.000Z/)).toBeVisible();
@@ -1015,7 +1048,43 @@ test('source-backed replacement becomes executable after current route verificat
   await expect(page.getByText(/OUT · SAFE · 36 мин/)).toBeVisible();
   await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
 
+  // Admission and user acceptance are distinct from a durable commit.
+  // A failed local journal write MUST leave the original museum, its confirmed
+  // self-declared theatre ticket and all acceptance receipts untouched.
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  const rawBeforeFailure = await page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'));
+  expect(rawBeforeFailure).not.toBeNull();
+  expect(JSON.parse(rawBeforeFailure!).replacementReceipts ?? []).toHaveLength(0);
+  await page.evaluate(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    let injected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!injected && key === 'moscow:v1:personal-trip-transaction') {
+        injected = true;
+        throw new DOMException('Injected replacement journal quota fault', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    };
+  });
   await page.getByText('Принять замену', { exact: true }).click();
+  await expect(page.getByTestId('replacement-durable-save-error')).toBeVisible();
+  await expect(page.getByText('Принять замену', { exact: true })).toBeVisible();
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip')))
+    .toBe(rawBeforeFailure);
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction')))
+    .toBeNull();
+
+  // An explicit second acceptance must write exactly one immutable receipt
+  // before the UI reports the revised route as accepted.
+  await page.getByText('Принять замену', { exact: true }).click();
+  await expect(page.getByText('LIVE DISRUPTION · REPLAN REQUIRED', { exact: true })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
 
   const replacementError = page.getByTestId('replacement-action-error');
   if (await replacementError.count()) {
@@ -1042,4 +1111,1556 @@ test('source-backed replacement becomes executable after current route verificat
   expect(fixed.plannedStartAt).toBe(date + 'T19:00:00+03:00');
   expect(fixed.plannedEndAt).toBe(date + 'T22:00:00+03:00');
   expect(fixed.commitment.reference).toBe('USER-TICKET');
+
+  expect(stored.replacementReceipts).toHaveLength(1);
+  expect(stored.replacementReceipts[0].before.title).toBe('Новая Третьяковка');
+  expect(stored.replacementReceipts[0].after.title).toBe('Алексей Боголюбов. От Невы до Босфора');
+  expect(stored.replacementReceipts[0].fixedCommitmentsPreserved).toBe(true);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('История изменений маршрута', { exact: true })).toBeVisible();
+  await expect(page.getByText('Новая Третьяковка', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Алексей Боголюбов. От Невы до Босфора', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Следующий билет или бронь: 19:00 · Большой театр/)).toBeVisible();
+  const persisted = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(persisted.replacementReceipts).toHaveLength(1);
+  expect(persisted.items.find((item: { id: string }) => item.id === 'fixed-theatre').commitment.reference).toBe('USER-TICKET');
+});
+
+
+test('Moscow Passport 2.0 filters cross-trip diary by category, notes and inclusive dates', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const active = {
+      schemaVersion: 1,
+      id: 'passport-autumn',
+      destinationId: 'moscow',
+      title: 'Осенняя Москва',
+      startDate: '2026-10-13', endDate: '2026-10-13', days: ['2026-10-13'],
+      items: [],
+      visits: [{
+        id: 'autumn-dinner', dayDate: '2026-10-13',
+        visitedAt: '2026-10-13T18:30:00+03:00',
+        title: 'Ужин на Тверской', kind: 'food',
+        evidence: 'user-confirmed', note: 'Интересное меню'
+      }],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T18:35:00.000Z'
+    };
+    const previous = {
+      schemaVersion: 1, id: 'passport-summer', destinationId: 'moscow',
+      title: 'Летняя Москва',
+      startDate: '2026-06-05', endDate: '2026-06-05', days: ['2026-06-05'],
+      items: [],
+      visits: [{
+        id: 'summer-museum', dayDate: '2026-06-05',
+        visitedAt: '2026-06-05T12:10:00+03:00',
+        title: 'Музей на Варварке', kind: 'museum',
+        destinationNodeId: 'romanov-chambers',
+        evidence: 'user-confirmed', note: 'Исторический двор'
+      }],
+      createdAt: '2026-06-05T08:00:00.000Z',
+      updatedAt: '2026-06-05T12:15:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(active));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [previous]
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+
+  await expect(page.getByText('История всех поездок', { exact: true })).toBeVisible();
+  await expect(page.getByText('2', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Показать историю посещений по всем поездкам' }).click();
+  await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ужин на Тверской', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Фильтр категории: Где ел' }).click();
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Фильтр категории: Все' }).click();
+  const search = page.getByLabel('Поиск по истории Москвы');
+  await search.fill('исторический двор');
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('Музей на Варварке', { exact: true })).toBeVisible();
+
+  await search.fill('');
+  await page.getByLabel('Дата посещения с').fill('2026-06-05');
+  await page.getByLabel('Дата посещения по').fill('2026-06-05');
+  await expect(page.getByText('Найдено посещений: 1', { exact: true })).toBeVisible();
+  await page.getByLabel('Дата посещения с').fill('2026-02-30');
+  await expect(page.getByText(/Проверьте даты: формат/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Сбросить фильтры истории' }).click();
+  await expect(page.getByText('Найдено посещений: 2', { exact: true })).toBeVisible();
+});
+
+
+test('Next Discoveries uses past venue IDs, adds source-backed idea to selected day without booking', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const current = {
+      schemaVersion: 1, id: 'discovery-current', destinationId: 'moscow',
+      title: 'Осень в Москве', startDate: '2026-10-13', endDate: '2026-10-14',
+      days: ['2026-10-13', '2026-10-14'],
+      items: [{
+        id: 'already-planned-park', dayDate: '2026-10-13',
+        title: 'Парк Горького', kind: 'park', source: 'manual',
+        catalogPlaceId: 'gorky-park', officialSourceUrl: 'https://parkgorkogo.ru/contacts/',
+        status: 'planned'
+      }],
+      visits: [],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    };
+    const past = {
+      schemaVersion: 1, id: 'discovery-past', destinationId: 'moscow',
+      title: 'Летняя Москва', startDate: '2026-06-05', endDate: '2026-06-05',
+      days: ['2026-06-05'],
+      items: [{
+        id: 'visited-art', dayDate: '2026-06-05',
+        title: 'Третьяковская галерея', kind: 'museum', source: 'manual',
+        catalogPlaceId: 'tretyakov-lavrushinsky',
+        officialSourceUrl: 'https://www.tretyakovgallery.ru/for-visitors/museums/istoricheskoe-zdanie/',
+        status: 'completed'
+      }],
+      visits: [{
+        id: 'visited-art-record', itemId: 'visited-art', dayDate: '2026-06-05',
+        title: 'Третьяковская галерея', kind: 'museum',
+        visitedAt: '2026-06-05T12:00:00+03:00', evidence: 'user-confirmed'
+      }],
+      createdAt: '2026-06-05T08:00:00.000Z',
+      updatedAt: '2026-06-05T12:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(current));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [past]
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+
+  const discoveries = page.getByTestId('moscow-next-discoveries');
+  await expect(discoveries.getByText('Что добавить в поездку?', { exact: true })).toBeVisible();
+  await expect(discoveries.getByText(/Это не подтверждение, что вы никогда здесь не были/)).toBeVisible();
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Третьяковская галерея'
+  })).toHaveCount(0);
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Парк Горького'
+  })).toHaveCount(0);
+
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(discoveries.getByText('Добавление в день: 2026-10-14', { exact: true })).toBeVisible();
+  await discoveries.getByRole('button', { name: 'Идеи: Рестораны' }).click();
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  })).toBeVisible();
+  await discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  }).click();
+
+  await expect(discoveries.getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  })).toHaveCount(0);
+  await expect.poll(async () => await page.evaluate(() => {
+    const raw = window.localStorage.getItem('moscow:v1:personal-trip');
+    const trip = raw ? JSON.parse(raw) : { items: [] };
+    return trip.items.filter((item: { catalogPlaceId?: string }) => item.catalogPlaceId === 'cafe-pushkin-tverskoy').length;
+  })).toBe(1);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const trip = await page.evaluate(() => JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  const added = trip.items.find((item: { catalogPlaceId?: string }) => item.catalogPlaceId === 'cafe-pushkin-tverskoy');
+  expect(added?.dayDate).toBe('2026-10-14');
+  expect(added?.commitment).toBeUndefined();
+  expect(added?.plannedStartAt).toBeUndefined();
+  expect(added?.officialSourceUrl).toBe('https://cafe-pushkin.ru/');
+  await expect(page.getByTestId('moscow-next-discoveries').getByRole('button', {
+    name: 'Добавить место в выбранный день: Кафе Пушкинъ'
+  })).toHaveCount(0);
+});
+
+
+test('unfinished trip archive journal recovers purchased-ticket notes before the trip UI hydrates', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const active = {
+      schemaVersion: 1, id: 'recovery-autumn', destinationId: 'moscow',
+      title: 'Осень и театр', startDate: '2026-10-13', endDate: '2026-10-13',
+      days: ['2026-10-13'],
+      items: [{
+        id: 'recovery-ticket', dayDate: '2026-10-13', kind: 'theatre',
+        source: 'manual', title: 'Большой театр · свой билет', status: 'completed',
+        commitment: {
+          kind: 'ticket', status: 'confirmed', verification: 'user-declared',
+          reference: 'TICKET-SAVED-42'
+        }
+      }],
+      visits: [{
+        id: 'recovery-visit', itemId: 'recovery-ticket',
+        dayDate: '2026-10-13', title: 'Большой театр',
+        kind: 'theatre', evidence: 'user-confirmed',
+        visitedAt: '2026-10-13T20:00:00+03:00',
+        note: 'Особенный вечер'
+      }],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T21:00:00.000Z'
+    };
+    const previous = { schemaVersion: 1, trips: [] };
+    const next = { schemaVersion: 1, trips: [active] };
+    const before = {
+      active: JSON.stringify(active), archive: JSON.stringify(previous)
+    };
+    const after = {
+      active: null, archive: JSON.stringify(next)
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', before.active);
+    // Emulate interruption after the archive was written but before active
+    // cleanup; replay is applied on next hydration, never by the test itself.
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', after.archive);
+    window.localStorage.setItem('moscow:v1:personal-trip-transaction', JSON.stringify({
+      schemaVersion: 1, operation: 'archive', id: 'recovery-browser-case',
+      before, after
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('После прерванной операции локальная история восстановлена и проверена.')).toBeVisible();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  const stored = await page.evaluate(() => ({
+    active: window.localStorage.getItem('moscow:v1:personal-trip'),
+    archive: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(stored.active).toBeNull();
+  expect(stored.journal).toBeNull();
+  expect(stored.archive.trips).toHaveLength(1);
+  expect(stored.archive.trips[0].items[0].commitment.reference).toBe('TICKET-SAVED-42');
+  expect(stored.archive.trips[0].visits[0].note).toBe('Особенный вечер');
+  expect(stored.archive.trips[0].items[0].commitment.verification).toBe('user-declared');
+});
+
+test('conflicting local transaction blocks trip editing without deleting unknown data', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const before = { active: null, archive: JSON.stringify({ schemaVersion: 1, trips: [] }) };
+    const after = { active: null, archive: JSON.stringify({ schemaVersion: 1, trips: [] }) };
+    const foreign = JSON.stringify({ schemaVersion: 1, trips: [{
+      schemaVersion: 1, id: 'foreign-journey', destinationId: 'moscow',
+      title: 'Третья поездка', startDate: '2026-10-13', endDate: '2026-10-13',
+      days: ['2026-10-13'], items: [], visits: [],
+      createdAt: '2026-10-13T09:00:00.000Z', updatedAt: '2026-10-13T09:00:00.000Z'
+    }] });
+    window.localStorage.removeItem('moscow:v1:personal-trip');
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', foreign);
+    window.localStorage.setItem('moscow:v1:personal-trip-transaction', JSON.stringify({
+      schemaVersion: 1, operation: 'archive', id: 'conflict-browser-case',
+      before, after
+    }));
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText(/Локальное сохранение или восстановление не подтверждено/)).toBeVisible();
+  const persisted = await page.evaluate(() => ({
+    archive: window.localStorage.getItem('moscow:v1:personal-trip-archive'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(JSON.parse(persisted.archive || '{}').trips[0].id).toBe('foreign-journey');
+  expect(persisted.journal).not.toBeNull();
+});
+
+
+
+test('day timeline distinguishes cancelled booking from unverified and recorded provider confirmation', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowDateOffset(1);
+  await page.evaluate((dayDate) => {
+    const local = {
+      schemaVersion: 1,
+      id: 'booking-ux-truth',
+      destinationId: 'moscow',
+      title: 'Мои билеты',
+      startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [
+        {
+          id: 'cancelled-ticket', dayDate, source: 'manual', title: 'Отменённый музей',
+          kind: 'museum', status: 'planned',
+          commitment: { kind: 'ticket', status: 'cancelled', verification: 'provider-confirmed',
+            provider: 'Example source', reference: 'CANCELLED-1', receiptEvidenceRef: 'local-cancel-evidence' }
+        },
+        {
+          id: 'user-ticket', dayDate, source: 'manual', title: 'Свой билет',
+          kind: 'theatre', status: 'planned',
+          commitment: { kind: 'ticket', status: 'confirmed', verification: 'user-declared',
+            reference: 'MY-RECEIPT-2' }
+        },
+        {
+          id: 'provider-ticket', dayDate, source: 'manual', title: 'Квитанция поставщика',
+          kind: 'theatre', status: 'planned',
+          commitment: { kind: 'ticket', status: 'confirmed', verification: 'provider-confirmed',
+            provider: 'Example source', reference: 'RECEIPT-3', receiptEvidenceRef: 'local-reference-only' }
+        }
+      ],
+      visits: [],
+      createdAt: '2026-10-13T10:00:00.000Z',
+      updatedAt: '2026-10-13T10:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(local));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const dayOverview = page.getByTestId('travel-day-overview');
+  await expect(dayOverview.getByTestId('trip-stop-cancelled-ticket')
+    .getByText('Отменено — запись сохранена', { exact: true })).toBeVisible();
+  await expect(dayOverview.getByTestId('trip-stop-user-ticket')
+    .getByText('Билет или бронь добавлены вами — поставщик не проверен', { exact: true })).toBeVisible();
+  await expect(dayOverview.getByTestId('trip-stop-provider-ticket')
+    .getByText('В записи указано подтверждение поставщика — здесь не перепроверено', { exact: true })).toBeVisible();
+  await expect(dayOverview.getByText(/2 не отменены в записях этого дня/)).toBeVisible();
+});
+
+
+test('new trip is visible only with durable active state and no pending recovery journal', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('1', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+  const image = await page.evaluate(() => ({
+    active: window.localStorage.getItem('moscow:v1:personal-trip'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  assertNotNull(image.active);
+  expect(image.journal).toBeNull();
+  const saved = JSON.parse(image.active!);
+  expect(saved.destinationId).toBe('moscow');
+  expect(saved.items).toHaveLength(0);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+});
+
+function assertNotNull<T>(value: T | null): asserts value is T {
+  expect(value).not.toBeNull();
+}
+
+
+test('two browser tabs creating different trips cannot silently overwrite a completed first write', async ({ page }) => {
+  const sibling = await page.context().newPage();
+  try {
+    await Promise.all([page.goto('/'), sibling.goto('/')]);
+    await Promise.all([ensureRussian(page), ensureRussian(sibling)]);
+    await Promise.all([
+      page.getByRole('tab', { name: 'Поездка' }).click(),
+      sibling.getByRole('tab', { name: 'Поездка' }).click()
+    ]);
+    await Promise.all([
+      expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible(),
+      expect(sibling.getByText('Соберите Москву по дням', { exact: true })).toBeVisible()
+    ]);
+    const oneDay = moscowDateOffset(1);
+    await Promise.all([
+      page.getByPlaceholder('2026-10-02').fill(oneDay),
+      sibling.getByPlaceholder('2026-10-02').fill(oneDay)
+    ]);
+    await Promise.all([
+      page.getByText('1', { exact: true }).click(),
+      sibling.getByText('1', { exact: true }).click()
+    ]);
+    await Promise.all([
+      page.getByText('Создать поездку', { exact: true }).click(),
+      sibling.getByText('Создать поездку', { exact: true }).click()
+    ]);
+    await expect.poll(async () => page.evaluate(() =>
+      window.localStorage.getItem('moscow:v1:personal-trip') !== null)).toBe(true);
+
+    // A loser may not adopt an unknown remote trip from another tab. It must
+    // fail closed and require an explicit reload while preserving the winner.
+    await expect.poll(async () => {
+      const aVisible = await page.getByText('День 1', { exact: true }).count();
+      const bVisible = await sibling.getByText('День 1', { exact: true }).count();
+      return aVisible + bVisible;
+    }).toBe(1);
+    const activeBefore = await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
+    expect(activeBefore).not.toBeNull();
+    await page.reload();
+    await sibling.reload();
+    const activeAfter = await sibling.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip'));
+    expect(activeAfter).toBe(activeBefore);
+    expect(JSON.parse(activeAfter!).items).toHaveLength(0);
+  } finally {
+    await sibling.close();
+  }
+});
+
+test('cancelled reservation remains in journey history but never appears as next stop or live booking', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowNowParts().date;
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'cancelled-today-guard',
+      destinationId: 'moscow', title: 'Отменённая бронь',
+      startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'cancelled-reservation', dayDate, source: 'manual',
+        title: 'Отменённый ужин', kind: 'food', status: 'planned',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T21:00:00+03:00',
+        commitment: {
+          kind: 'reservation', status: 'cancelled',
+          verification: 'user-declared', reference: 'CANCELLED-USER-REF'
+        }
+      }],
+      visits: [],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Пока нет планов на сегодня', { exact: true })).toBeVisible();
+  await expect(page.getByText('СЛЕДУЮЩИЙ БИЛЕТ / БРОНЬ', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('travel-booking-wallet')).toHaveCount(0);
+  const itinerary = page.getByTestId('travel-day-overview');
+  await expect(itinerary.getByTestId('trip-stop-cancelled-reservation')
+    .getByText('Отменено — запись сохранена', { exact: true })).toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const saved = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items[0].commitment.reference).toBe('CANCELLED-USER-REF');
+  expect(saved.items[0].commitment.status).toBe('cancelled');
+});
+
+
+test('traveler records supplier inquiry without changing ticket, archives it, and recovers both after reload', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowDateOffset(1);
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'booking-inquiry-e2e', destinationId: 'moscow',
+      title: 'Мои билеты', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'fixed-theatre-ticket', dayDate, title: 'Мой билет', kind: 'theatre',
+        source: 'manual', status: 'planned',
+        plannedStartAt: dayDate + 'T19:00:00+03:00',
+        plannedEndAt: dayDate + 'T21:00:00+03:00',
+        commitment: {
+          kind: 'ticket', status: 'confirmed', verification: 'user-declared',
+          provider: 'Моя запись', reference: 'KEEP-BOOKED-DATE'
+        }
+      }, {
+        id: 'cancelled-table', dayDate, title: 'Отменённая бронь', kind: 'food',
+        source: 'manual', status: 'planned',
+        plannedStartAt: dayDate + 'T14:00:00+03:00',
+        plannedEndAt: dayDate + 'T15:00:00+03:00',
+        commitment: {
+          kind: 'reservation', status: 'cancelled', verification: 'user-declared',
+          reference: 'CANCELLED-RECORD'
+        }
+      }],
+      visits: [], createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+
+  const wallet = page.getByTestId('travel-booking-wallet');
+  await expect(wallet.getByText('Мой билет', { exact: true })).toBeVisible();
+  await expect(wallet.getByText('Отменённая бронь', { exact: true })).toHaveCount(0);
+  const immutableBefore = await page.evaluate(() => {
+    const raw = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.items;
+  });
+
+  await wallet.getByRole('button', {
+    name: 'Разобраться с билетом или бронью: Мой билет'
+  }).click();
+  const card = page.getByTestId('booking-resolution-card');
+  const selected = card.getByTestId('booking-resolution-selected-fixed-theatre-ticket');
+  await expect(selected.getByText('Мой билет', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Начать личную запись об обращении' }).click();
+  await expect(card.getByText('Моя история обращения', { exact: false })).toBeVisible();
+  await card.getByRole('button', { name: 'Показать пример запроса поставщику' }).click();
+  await expect(card.getByTestId('booking-resolution-message-template'))
+    .toContainText('KEEP-BOOKED-DATE');
+  await expect(card.getByText('Выделите текст и скопируйте вручную. Сообщение НЕ отправлено.', { exact: true }))
+    .toBeVisible();
+  await card.getByRole('button', { name: 'Я самостоятельно связался с поставщиком' }).click();
+  await card.getByTestId('booking-resolution-reply-input')
+    .fill('По телефону сказали сохранить оригинальный билет.');
+  await card.getByRole('button', { name: 'Сохранить мою заметку об ответе' }).click();
+  await expect(card.getByText('По телефону сказали сохранить оригинальный билет.', { exact: true })).toBeVisible();
+
+  await card.getByRole('button', { name: 'Архивировать моё обращение без изменения брони' }).click();
+  await expect(card.getByText('Архив моих обращений', { exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => {
+    const raw = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.bookingResolutions?.[0]?.events?.length ?? 0;
+  })).toBe(4);
+  const after = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(after.items).toEqual(immutableBefore);
+  expect(after.bookingResolutions[0].events.map((event: { kind: string }) => event.kind))
+    .toEqual(['opened', 'contact-self-reported', 'reply-self-reported', 'archived']);
+
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const recovered = page.getByTestId('booking-resolution-card');
+  await recovered.getByRole('button', { name: 'Открыть помощь с билетами' }).click();
+  await expect(recovered.getByText('Архив моих обращений', { exact: true })).toBeVisible();
+  await expect(recovered.getByText('По телефону сказали сохранить оригинальный билет.', { exact: true })).toBeVisible();
+
+  await recovered.getByRole('button', { name: 'Выбрать обращение: Отменённая бронь' }).click();
+  await expect(recovered.getByTestId('booking-resolution-selected-cancelled-table')
+    .getByText('Отменённая бронь', { exact: true })).toBeVisible();
+  await recovered.getByRole('button', { name: 'Отмена / возврат' }).click();
+  await recovered.getByRole('button', { name: 'Начать личную запись об обращении' }).click();
+  await expect.poll(async () => page.evaluate(() => {
+    const raw = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.bookingResolutions?.length ?? 0;
+  })).toBe(2);
+  const saved = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items).toEqual(immutableBefore);
+  expect(saved.bookingResolutions[1].itemId).toBe('cancelled-table');
+  expect(saved.bookingResolutions[1].topic).toBe('cancel-refund');
+  await expect(page.getByTestId('travel-booking-wallet')
+    .getByText('Отменённая бронь', { exact: true })).toHaveCount(0);
+});
+
+test('explicit full local delete erases active and its prior archive snapshot, but not another journey', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    const build = (id: string) => ({
+      schemaVersion: 1, id, destinationId: 'moscow', title: id,
+      startDate: '2026-10-13', endDate: '2026-10-13', days: ['2026-10-13'],
+      items: [], visits: [],
+      createdAt: '2026-10-13T08:00:00.000Z',
+      updatedAt: '2026-10-13T08:00:00.000Z'
+    });
+    const target = build('erase-target');
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(target));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({
+      schemaVersion: 1, trips: [target, build('keep-journey')]
+    }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  });
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByText('Новая', { exact: true }).click();
+  await page.getByRole('button', { name: 'Удалить все локальные версии текущей поездки' }).click();
+  await expect(page.getByText(/Экспортированные файлы и копии на других устройствах НЕ удаляются/)).toBeVisible();
+  await page.getByRole('button', { name: 'Окончательно удалить все местные копии этой поездки' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'))).toBeNull();
+  const saved = await page.evaluate(() => ({
+    archive: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(saved.archive.trips.map((t: { id: string }) => t.id)).toEqual(['keep-journey']);
+  expect(saved.journal).toBeNull();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  await expect(page.getByText('erase-target', { exact: true })).toHaveCount(0);
+});
+
+test('calendar invite import previews a plan without claiming purchase and rejects duplicates on reload', async ({ page }) => {
+  await page.goto('/');
+  const day = moscowDateOffset(1);
+  await page.evaluate((dayDate) => {
+    const trip = { schemaVersion:1, id:'ics-e2e-trip', destinationId:'moscow',
+      title:'Моя поездка', startDate:dayDate, endDate:dayDate, days:[dayDate],
+      items:[], visits:[], createdAt:'2026-10-15T08:00:00.000Z',
+      updatedAt:'2026-10-15T08:00:00.000Z' };
+    window.localStorage.setItem('moscow:v1:personal-trip',JSON.stringify(trip));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({schemaVersion:1,trips:[]}));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('calendar-invite-import');
+  await card.getByRole('button',{name:'Открыть импорт календарного события'}).click();
+  const stamp=day.replaceAll('-','');
+  const invite=['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT',
+    'UID:browser-ics-1@example.test','SUMMARY:Спектакль из календаря',
+    'DTSTART;TZID=Europe/Moscow:'+stamp+'T190000',
+    'DTEND;TZID=Europe/Moscow:'+stamp+'T210000',
+    'DESCRIPTION:PRIVATE BANK DATA MUST BE DISCARDED',
+    'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invite);
+  await card.getByRole('button',{name:'Проверить приглашение'}).click();
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Спектакль из календаря');
+  await card.getByRole('button',{name:'Подтвердить импорт события'}).click();
+  await expect.poll(async()=>page.evaluate(()=>{
+    const raw=JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return raw.items?.length ?? 0;
+  })).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const stored=await page.evaluate(()=>JSON.parse(
+    window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(stored.items[0].commitment).toBeUndefined();
+  expect(stored.items[0].calendarImportKey).toBe('ics:browser-ics-1@example.test');
+  expect(JSON.stringify(stored)).not.toContain('PRIVATE BANK DATA');
+  const reopened=page.getByTestId('calendar-invite-import');
+  await reopened.getByRole('button',{name:'Открыть импорт календарного события'}).click();
+  await reopened.getByTestId('calendar-invite-input').fill(invite);
+  await reopened.getByRole('button',{name:'Проверить приглашение'}).click();
+  await expect(reopened.getByTestId('calendar-invite-error')).toContainText('already in this journey');
+});
+
+
+test('ICS import retains invitation on quota failure and retries only after durable write', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const value = {
+      schemaVersion: 1, id: 'ics-quota-journey', destinationId: 'moscow',
+      title: 'Private calendar proof', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [], visits: [], createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(value));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const card = page.getByTestId('calendar-invite-import');
+  await card.getByRole('button', { name: 'Открыть импорт календарного события' }).click();
+  const stamp = day.replaceAll('-', '');
+  const invitation = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+    'UID:ics-storage-quota@example.test', 'SUMMARY:Ночной спектакль',
+    'DTSTART;TZID=Europe/Moscow:' + stamp + 'T190000',
+    'DTEND;TZID=Europe/Moscow:' + stamp + 'T210000',
+    'DESCRIPTION:PRIVATE NEVER SAVE', 'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invitation);
+  await card.getByRole('button', { name: 'Проверить приглашение' }).click();
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
+
+  // Block the *actual* localStorage journal write for one attempt, not the
+  // parsing service or component callback. This mirrors a browser quota fault.
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!rejected && key === 'moscow:v1:personal-trip-transaction') {
+        rejected = true;
+        throw new DOMException('Injected storage quota reached', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected storage quota reached');
+  // HTML textarea normalizes CRLF to LF; every other invitation character must remain unchanged.
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation.replaceAll('\r\n', '\n'));
+  await expect(card.getByTestId('calendar-invite-preview')).toContainText('Ночной спектакль');
+  const afterFailure = await page.evaluate(() => ({
+    active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(afterFailure.active.items).toHaveLength(0);
+  expect(afterFailure.journal).toBeNull();
+
+  // A retry is explicit; never assume a rejected commit was saved.
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length ?? 0
+  )).toBe(1);
+  await expect(card.getByTestId('calendar-invite-input')).toHaveCount(0);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const restored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(restored.items).toHaveLength(1);
+  expect(restored.items[0].calendarImportKey).toBe('ics:ics-storage-quota@example.test');
+  expect(JSON.stringify(restored)).not.toContain('PRIVATE NEVER SAVE');
+});
+
+test('ICS interrupted active write recovers exactly once after reload', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const value = {
+      schemaVersion: 1, id: 'ics-interrupt-journey', destinationId: 'moscow',
+      title: 'Calendar crash recovery', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [], visits: [], createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(value));
+    window.localStorage.setItem('moscow:v1:personal-trip-archive',
+      JSON.stringify({ schemaVersion: 1, trips: [] }));
+    window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const card = page.getByTestId('calendar-invite-import');
+  await card.getByRole('button', { name: 'Открыть импорт календарного события' }).click();
+  const stamp = day.replaceAll('-', '');
+  const invitation = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+    'UID:ics-interrupted@example.test', 'SUMMARY:Прогулка после театра',
+    'DTSTART;TZID=Europe/Moscow:' + stamp + 'T170000',
+    'DTEND;TZID=Europe/Moscow:' + stamp + 'T180000',
+    'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  await card.getByTestId('calendar-invite-input').fill(invitation);
+  await card.getByRole('button', { name: 'Проверить приглашение' }).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejected = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!rejected && key === 'moscow:v1:personal-trip') {
+        rejected = true;
+        throw new DOMException('Injected active-key write failure', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await card.getByRole('button', { name: 'Подтвердить импорт события' }).click();
+  await expect(card.getByTestId('calendar-invite-error')).toContainText('Injected active-key write failure');
+  // HTML textarea normalizes CRLF to LF; every other invitation character must remain unchanged.
+  await expect(card.getByTestId('calendar-invite-input')).toHaveValue(invitation.replaceAll('\r\n', '\n'));
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction'))).not.toBeNull();
+
+  // Simulate a terminated tab after a fully validated but interrupted journal.
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length ?? 0
+  )).toBe(1);
+  const state = await page.evaluate(() => ({
+    active: JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(state.journal).toBeNull();
+  expect(state.active.items).toHaveLength(1);
+  expect(state.active.items[0].calendarImportKey).toBe('ics:ics-interrupted@example.test');
+  await page.reload();
+  await ensureRussian(page);
+  const again = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(again.items).toHaveLength(1);
+});
+
+
+test('full journey: saved theatre ticket and visit note survive archive, restart and reopening', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  await expect(page.getByText('День 1', { exact: true })).toBeVisible();
+
+  // A visitor enters an already-purchased ticket. No supplier is contacted.
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Большой театр · билет сохранён');
+  await page.getByText('Театр', { exact: true }).click();
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByPlaceholder('Номер заказа / заметка (необязательно)')
+    .fill('USER-REF-ARCHIVE-REOPEN');
+  await page.getByText('Добавить в день', { exact: true }).click();
+  await expect(page.getByText('Добавлено вами · не проверено провайдером', { exact: true }))
+    .toBeVisible();
+
+  await page.getByText('Я был здесь', { exact: true }).click();
+  await page.getByRole('button', {
+    name: 'Редактировать заметку: Большой театр · билет сохранён'
+  }).click();
+  await page.getByLabel('Текст личной заметки').fill('Личная заметка пережила архив и перезапуск.');
+  await page.getByRole('button', { name: 'Сохранить заметку' }).click();
+  await expect(page.getByText('Личная заметка пережила архив и перезапуск.', { exact: true }))
+    .toBeVisible();
+
+  // Wait for the actual local journal to complete before archiving.
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('moscow:v1:personal-trip');
+    if (!raw || localStorage.getItem('moscow:v1:personal-trip-transaction')) return false;
+    const value = JSON.parse(raw);
+    return value.items?.[0]?.commitment?.reference === 'USER-REF-ARCHIVE-REOPEN'
+      && value.items?.[0]?.commitment?.verification === 'user-declared'
+      && value.visits?.[0]?.note === 'Личная заметка пережила архив и перезапуск.';
+  })).toBe(true);
+
+  const beforeArchive = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  await page.getByText('Новая', { exact: true }).click();
+  await page.getByRole('button', { name: 'Архивировать текущую поездку и начать новую' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+  const afterArchive = await page.evaluate(() => ({
+    active: localStorage.getItem('moscow:v1:personal-trip'),
+    archive: JSON.parse(localStorage.getItem('moscow:v1:personal-trip-archive') || '{}'),
+    journal: localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(afterArchive.active).toBeNull();
+  expect(afterArchive.journal).toBeNull();
+  expect(afterArchive.archive.trips).toHaveLength(1);
+  expect(afterArchive.archive.trips[0]).toEqual(beforeArchive);
+
+  // Archive entries must remain usable after browser restart, not only in
+  // a React component's in-memory state.
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await expect(page.getByText('Прошлые поездки', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Открыть архивную поездку: ' + day }).click();
+  await expect(page.getByText('Большой театр · билет сохранён', { exact: true }).first())
+    .toBeVisible();
+  await expect(page.getByText('Личная заметка пережила архив и перезапуск.', { exact: true }))
+    .toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const reopened = await page.evaluate(() => ({
+    active: JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'),
+    journal: localStorage.getItem('moscow:v1:personal-trip-transaction')
+  }));
+  expect(reopened.active).toEqual(beforeArchive);
+  expect(reopened.journal).toBeNull();
+  expect(reopened.active.items[0].commitment.verification).toBe('user-declared');
+  await expect(page.getByText('Подтверждено провайдером', { exact: true })).toHaveCount(0);
+});
+
+
+test('passport note preserves draft after local journal failure and succeeds on retry', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    const trip = {
+      schemaVersion: 1, id: 'note-write-proof', destinationId: 'moscow',
+      title: 'Заметки', startDate: dayDate, endDate: dayDate, days: [dayDate],
+      items: [{
+        id: 'museum-note', dayDate, source: 'manual', kind: 'museum',
+        title: 'Музей для заметки', status: 'completed'
+      }],
+      visits: [{
+        id: 'visit-note', itemId: 'museum-note', dayDate,
+        visitedAt: dayDate + 'T14:00:00+03:00',
+        title: 'Музей для заметки', kind: 'museum', evidence: 'user-confirmed'
+      }],
+      createdAt: '2026-10-15T08:00:00.000Z',
+      updatedAt: '2026-10-15T08:00:00.000Z'
+    };
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(trip));
+    localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByRole('button', {name:'Редактировать заметку: Музей для заметки'}).click();
+  const note = page.getByLabel('Текст личной заметки');
+  await note.fill('Черновик должен пережить ошибку записи');
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!fault && key === 'moscow:v1:personal-trip-transaction') {
+        fault = true;
+        throw new DOMException('Simulated visit-note quota fault', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole('button', {name:'Сохранить заметку'}).click();
+  await expect(page.getByTestId('passport-note-save-error')).toBeVisible();
+  await expect(note).toHaveValue('Черновик должен пережить ошибку записи');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}').visits[0].note)).toBeUndefined();
+  await page.getByRole('button', {name:'Сохранить заметку'}).click();
+  await expect(page.getByTestId('passport-note-save-error')).toHaveCount(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Черновик должен пережить ошибку записи', {exact:true})).toBeVisible();
+});
+
+
+test('Today confirmation stays open and preserves visit truth when journal write fails', async ({ page }) => {
+  const day = moscowNowParts().date;
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'today-visit-fault',destinationId:'moscow',title:'Visit fault',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'visit-target',dayDate,title:'Музей для отметки',kind:'museum',source:'manual',status:'planned'}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  await page.getByRole('button',{name:'Отметить, что я был здесь'}).click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault=false;
+    Storage.prototype.setItem=function(key:string,value:string) {
+      if (!fault && key==='moscow:v1:personal-trip-transaction') {
+        fault=true;
+        throw new DOMException('Injected visit journal quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await page.getByRole('button',{name:'Подтвердить личное посещение'}).click();
+  await expect(page.getByTestId('today-visit-save-error')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Подтвердить личное посещение'})).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await page.getByRole('button',{name:'Подтвердить личное посещение'}).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits?.length)).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const state=await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(state.visits).toHaveLength(1);
+  expect(state.visits[0].evidence).toBe('user-confirmed');
+});
+
+
+test('day overview requires confirmation and retains retry on local write failure', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip',JSON.stringify({
+      schemaVersion:1,id:'journey-checkin-retry',destinationId:'moscow',title:'Journey check-in',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'journey-stop',dayDate,title:'Музей маршрута',kind:'museum',source:'manual',status:'planned'}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('travel-day-overview');
+  await card.getByRole('button',{name:'Я был здесь'}).click();
+  await expect(card.getByTestId('journey-visit-confirmation')).toBeVisible();
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    let fault=false;
+    Storage.prototype.setItem=function(key:string,value:string){
+      if(!fault&&key==='moscow:v1:personal-trip-transaction'){
+        fault=true;throw new DOMException('Injected journal quota fault','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await card.getByRole('button',{name:'Подтвердить посещение в маршруте'}).click();
+  await expect(card.getByTestId('journey-visit-save-error')).toBeVisible();
+  await expect(card.getByRole('button',{name:'Подтвердить посещение в маршруте'})).toBeVisible();
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits)).toHaveLength(0);
+  await card.getByRole('button',{name:'Подтвердить посещение в маршруте'}).click();
+  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').visits.length)).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(state.visits).toHaveLength(1);
+  expect(state.visits[0].evidence).toBe('user-confirmed');
+});
+
+
+test('booking inquiry reply remains editable on storage fault and persists after retry', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate(dayDate => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'booking-reply-failure',destinationId:'moscow',
+      title:'Ticket support',startDate:dayDate,endDate:dayDate,days:[dayDate],
+      items:[{id:'ticket-support',dayDate,title:'Билет с обращением',
+        kind:'theatre',source:'manual',status:'planned',
+        commitment:{kind:'ticket',status:'confirmed',verification:'user-declared',reference:'REF-UNCHANGED'}}],
+      visits:[],createdAt:'2026-10-15T08:00:00.000Z',updatedAt:'2026-10-15T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  },day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('booking-resolution-card');
+  await card.getByRole('button',{name:'Открыть помощь с билетами'}).click();
+  await card.getByRole('button',{name:'Начать личную запись об обращении'}).click();
+  await expect(card.getByText('Моя история обращения',{exact:false})).toBeVisible();
+  const input=card.getByTestId('booking-resolution-reply-input');
+  await input.fill('Ответ оператора со слов туриста — сохранить при сбое.');
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    let fail=false;
+    Storage.prototype.setItem=function(key:string,value:string){
+      if(!fail&&key==='moscow:v1:personal-trip-transaction'){
+        fail=true;
+        throw new DOMException('Injected inquiry quota failure','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await card.getByRole('button',{name:'Сохранить мою заметку об ответе'}).click();
+  await expect(card.getByTestId('booking-resolution-error')).toBeVisible();
+  await expect(input).toHaveValue('Ответ оператора со слов туриста — сохранить при сбое.');
+  let stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(stored.bookingResolutions[0].events).toHaveLength(1);
+  expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
+  await card.getByRole('button',{name:'Сохранить мою заметку об ответе'}).click();
+  await expect(card.getByTestId('booking-resolution-error')).toHaveCount(0);
+  await expect.poll(()=>page.evaluate(()=>{
+    const t=JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}');
+    return t.bookingResolutions?.[0]?.events?.length ?? 0;
+  })).toBe(2);
+  await page.reload();
+  await ensureRussian(page);
+  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(stored.bookingResolutions[0].events[1].note).toBe('Ответ оператора со слов туриста — сохранить при сбое.');
+  expect(stored.items[0].commitment.reference).toBe('REF-UNCHANGED');
+});
+
+
+test('discovery add survives quota fault without phantom itinerary stop', async ({ page }) => {
+  const day = moscowDateOffset(1);
+  await page.goto('/');
+  await page.evaluate((dayDate) => {
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify({
+      schemaVersion:1,id:'discovery-quota-proof',destinationId:'moscow',title:'Discoveries',
+      startDate:dayDate,endDate:dayDate,days:[dayDate],items:[],visits:[],
+      createdAt:'2026-10-16T08:00:00.000Z',updatedAt:'2026-10-16T08:00:00.000Z'
+    }));
+    localStorage.setItem('moscow:v1:personal-trip-archive',JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, day);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab',{name:'Поездка'}).click();
+  const card=page.getByTestId('moscow-next-discoveries');
+  await card.getByRole('button',{name:'Идеи: Рестораны'}).click();
+  const add=card.getByRole('button',{name:'Добавить место в выбранный день: Кафе Пушкинъ'});
+  await expect(add).toBeVisible();
+  await page.evaluate(() => {
+    const original=Storage.prototype.setItem;
+    let injected=false;
+    Storage.prototype.setItem=function(key:string,value:string) {
+      if(!injected && key==='moscow:v1:personal-trip-transaction') {
+        injected=true;
+        throw new DOMException('Injected discovery write error','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await add.click();
+  await expect(card.getByText(/Место не добавлено/)).toBeVisible();
+  await expect(add).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').items)).toHaveLength(0);
+  await add.click();
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}').items?.length ?? 0
+  )).toBe(1);
+  await page.reload();
+  await ensureRussian(page);
+  const persisted=await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip')||'{}'));
+  expect(persisted.items).toHaveLength(1);
+  expect(persisted.items[0].catalogPlaceId).toBe('cafe-pushkin-tverskoy');
+  expect(persisted.items[0].commitment).toBeUndefined();
+});
+
+
+test('manual Moscow overnight booking remains anchored and is recovered after reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByText('Поездка', { exact: true }).last().click();
+  const arrival = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(arrival);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Ночной спектакль');
+  await page.getByPlaceholder('19:00').fill('23:30');
+  await page.getByPlaceholder('21:00').fill('01:15');
+  await page.getByText('Билет', { exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  await expect.poll(async () => page.evaluate(() => {
+    const saved = JSON.parse(window.localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    const item = saved.items?.find((entry: { title?: string }) => entry.title === 'Ночной спектакль');
+    return item ? {
+      dayDate: item.dayDate,
+      start: item.plannedStartAt,
+      end: item.plannedEndAt,
+      verification: item.commitment?.verification
+    } : null;
+  })).toEqual({
+    dayDate: arrival,
+    start: arrival + 'T23:30:00+03:00',
+    end: moscowDateOffset(2) + 'T01:15:00+03:00',
+    verification: 'user-declared'
+  });
+
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Ночной спектакль', { exact: true }).first()).toBeVisible();
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(page.getByTestId('travel-day-overview')
+    .getByText('Ночной спектакль', { exact: true })).toHaveCount(0);
+  await page.getByText('День 1', { exact: true }).click();
+  await expect(page.getByText('Ночной спектакль', { exact: true }).first()).toBeVisible();
+});
+
+
+test('source-backed restaurant intake: discovery -> local reservation -> wallet -> visit history after reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Кино', exact: true }).click();
+  await expect(page.getByTestId('city-directory-empty-category'))
+    .toContainText('нет проверенных карточек');
+  await page.getByRole('button', { name: 'Рестораны', exact: true }).click();
+  await page.getByRole('button', { name: 'Кафе Пушкинъ', exact: true }).click();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  await expect(page.getByText('Соберите Москву по дням', { exact: true })).toBeVisible();
+
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const intake = page.getByTestId('venue-service-intake');
+  await expect(intake).toBeVisible();
+  await intake.getByRole('button', { name: 'Открыть запись времени или билета' }).click();
+  await intake.getByRole('button', { name: 'Уже есть мой билет или бронь' }).click();
+  await intake.getByTestId('venue-service-time-start').fill('19:00');
+  await intake.getByTestId('venue-service-time-end').fill('21:00');
+  await intake.getByTestId('venue-service-party-size').fill('3');
+  await intake.getByTestId('venue-service-reference').fill('MY-SAVED-ORDER');
+
+  // A local journal failure must never fake a restaurant booking.
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let failed = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!failed && key === 'moscow:v1:personal-trip-transaction') {
+        failed = true;
+        throw new DOMException('Injected local reservation failure', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await intake.getByRole('button', {
+    name: 'Сохранить в мою поездку без подтверждения поставщика'
+  }).click();
+  await expect(intake.getByTestId('venue-service-intake-error')).toBeVisible();
+  await expect(intake.getByTestId('venue-service-reference')).toHaveValue('MY-SAVED-ORDER');
+  expect(await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}').items?.length)).toBe(0);
+  // Explicit retry, never a silent retry or supplier call.
+  await intake.getByRole('button', {
+    name: 'Сохранить в мою поездку без подтверждения поставщика'
+  }).click();
+  await expect(intake).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    const item = saved.items?.find((entry: { catalogPlaceId?: string }) =>
+      entry.catalogPlaceId === 'cafe-pushkin-tverskoy');
+    return item ? {
+      count: saved.items.length,
+      dayDate: item.dayDate,
+      kind: item.kind,
+      guests: item.commitment?.partySize,
+      reference: item.commitment?.reference,
+      verification: item.commitment?.verification,
+      providerReceipt: item.commitment?.receiptEvidenceRef ?? null
+    } : null;
+  })).toEqual({
+    count: 1, dayDate: day, kind: 'food', guests: 3, reference: 'MY-SAVED-ORDER',
+    verification: 'user-declared', providerReceipt: null
+  });
+  const wallet = page.getByTestId('travel-booking-wallet');
+  await expect(wallet.getByText('Кафе Пушкинъ', { exact: true })).toBeVisible();
+  await expect(wallet.getByText('Добавлено вами · поставщик не проверен', { exact: true })).toBeVisible();
+  await expect(wallet.getByRole('link', {
+    name: 'Открыть официальный сайт (не подтверждение): Кафе Пушкинъ'
+  })).toBeVisible();
+  await expect(wallet.getByText('Открыть подтверждение', { exact: true })).toHaveCount(0);
+  await page.getByText('Я был здесь', { exact: true }).click();
+  await expect(page.getByText('МОЯ ИСТОРИЯ МОСКВЫ', { exact: true })).toBeVisible();
+  await page.reload();
+  await ensureRussian(page);
+  const restored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(restored.items).toHaveLength(1);
+  expect(restored.visits).toHaveLength(1);
+  expect(restored.visits[0].evidence).toBe('user-confirmed');
+  expect(restored.items[0].commitment.verification).toBe('user-declared');
+});
+
+test('source-backed museum plan keeps participant count but never creates a ticket', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('button', { name: 'Музеи', exact: true }).click();
+  await page.getByRole('button', { name: 'Третьяковская галерея', exact: true }).click();
+  await page.getByRole('button', { name: 'Добавить место в поездку' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const intake = page.getByTestId('venue-service-intake');
+  await intake.getByRole('button', { name: 'Открыть запись времени или билета' }).click();
+  await intake.getByTestId('venue-service-time-start').fill('10:00');
+  await intake.getByTestId('venue-service-time-end').fill('12:00');
+  await intake.getByTestId('venue-service-party-size').fill('4');
+  await intake.getByRole('button', {
+    name: 'Сохранить в мою поездку без подтверждения поставщика'
+  }).click();
+  await expect(intake).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(
+    localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items).toHaveLength(1);
+  expect(saved.items[0].kind).toBe('museum');
+  expect(saved.items[0].plannedPartySize).toBe(4);
+  expect(saved.items[0].commitment).toBeUndefined();
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByText('Планируемых участников: 4', { exact: true })).toBeVisible();
+  expect(await page.getByTestId('travel-booking-wallet').count()).toBe(0);
+});
+
+
+test('readiness review connects two personal bookings, flags conflict, survives reload and opens booking inquiry', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const day = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(day);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  const readiness = page.getByTestId('trip-readiness');
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('0');
+  for (const [name, start, end] of [
+    ['Вечерний музей · личный билет', '19:00', '21:00'],
+    ['Спектакль · личный билет', '20:00', '22:00']
+  ] as const) {
+    await page.getByText('+ Добавить', { exact: true }).click();
+    await page.getByPlaceholder('Например: Большой театр').fill(name);
+    await page.getByPlaceholder('19:00').fill(start);
+    await page.getByPlaceholder('21:00').fill(end);
+    await page.getByRole('button', { name: 'Билет', exact: true }).last().click();
+    await page.getByText('Добавить в день', { exact: true }).click();
+    await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  }
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+  await expect(readiness.getByTestId('trip-readiness-checks')).toHaveText('2');
+  await expect(readiness.getByText(/Два записанных билета или брони пересекаются/)).toBeVisible();
+  await expect(readiness).toContainText('поставщик');
+  await readiness.getByRole('button', { name: 'Проверить все дни поездки' }).click();
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+  await readiness.getByRole('button', { name: 'Проверить выбранный день' }).click();
+  await expect(readiness.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+
+  await expect.poll(async () => page.evaluate(() => {
+    const trip = JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}');
+    return trip.items?.length ?? 0;
+  })).toBe(2);
+  await page.reload();
+  await ensureRussian(page);
+  const restored = page.getByTestId('trip-readiness');
+  await expect(restored.getByTestId('trip-readiness-conflicts')).toHaveText('1');
+  await expect(restored.getByTestId('trip-readiness-checks')).toHaveText('2');
+  await restored.getByRole('button', { name: /Открыть обращение по брони:/ }).first().click();
+  const bookingHelp = page.getByTestId('booking-resolution-card');
+  await expect(bookingHelp).toHaveCount(1);
+  await expect(bookingHelp.getByText('Если планы изменились', { exact: true })).toBeVisible();
+  const directlyAfterWarning = await page.evaluate(() => {
+    const warning = document.querySelector('[data-testid="trip-readiness"]');
+    return warning?.nextElementSibling?.getAttribute('data-testid') === 'booking-resolution-card';
+  });
+  expect(directlyAfterWarning, 'Warning opens one inline booking form directly below the action').toBe(true);
+  const wallet = page.getByTestId('travel-booking-wallet');
+  await expect(wallet.getByText('Мои билеты и брони', { exact: true })).toBeVisible();
+  await wallet.getByRole('button', { name: /Разобраться с билетом или бронью:/ }).first().click();
+  await expect(bookingHelp).toHaveCount(1);
+  const placedWithWallet = await page.evaluate(() => {
+    const warning = document.querySelector('[data-testid="trip-readiness"]');
+    const wallet = document.querySelector('[data-testid="travel-booking-wallet"]');
+    const helper = document.querySelector('[data-testid="booking-resolution-card"]');
+    return Boolean(warning && wallet && helper
+      && warning.nextElementSibling?.getAttribute('data-testid') !== 'booking-resolution-card'
+      && (wallet.compareDocumentPosition(helper) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  expect(placedWithWallet, 'Wallet action opens the same single booking form below wallet').toBe(true);
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.items).toHaveLength(2);
+  expect(saved.items.every((item: { commitment?: { verification: string } }) =>
+    item.commitment?.verification === 'user-declared')).toBe(true);
+});
+
+
+test('traveler budget, local spending forecast and itinerary link survive a verified reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  const startDay = moscowDateOffset(1);
+  await page.getByPlaceholder('2026-10-02').fill(startDay);
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+
+  await page.getByText('+ Добавить', { exact: true }).click();
+  await page.getByPlaceholder('Например: Большой театр').fill('Театр для бюджета');
+  await page.getByRole('button', { name: 'Театр', exact: true }).click();
+  await page.getByText('Добавить в день', { exact: true }).click();
+
+  const finance = page.getByTestId('trip-finance-card');
+  await expect(finance).toBeVisible();
+  await finance.getByRole('button', { name: 'Настроить бюджет поездки' }).click();
+  await finance.getByTestId('trip-finance-budget-input').fill('6000');
+  await finance.getByRole('button', { name: 'Сохранить бюджет' }).click();
+  await expect(finance.getByTestId('trip-finance-budget')).toContainText(/6\s*000/);
+
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Вечер в театре');
+  await finance.getByRole('button', { name: 'Категория расхода: Билеты' }).click();
+  await finance.getByTestId('trip-finance-estimate-input').fill('2000');
+  await finance.getByTestId('trip-finance-actual-input').fill('1500,50');
+  await finance.getByRole('button', { name: 'Связать расход с: Театр для бюджета' }).click();
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByText('Вечер в театре', { exact: true })).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-actual')).toContainText(/1\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-projected')).toContainText(/1\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/4\s*499,50/);
+
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Ужин после спектакля');
+  await finance.getByRole('button', { name: 'Категория расхода: Еда и напитки' }).click();
+  await finance.getByTestId('trip-finance-estimate-input').fill('3000');
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(finance.getByTestId('trip-finance-remaining')).toContainText(/1\s*499,50/);
+  await expect(finance).toContainText('Расходы связаны с 1 / 1 пунктами плана');
+
+  const serialized = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(serialized.finance?.entries).toHaveLength(2);
+  expect(serialized.finance?.entries[0]?.actualMinor).toBe(150050);
+  expect(serialized.finance?.entries[0]?.itemId).toBe(serialized.items[0]?.id);
+  expect(serialized.items[0]?.commitment).toBeUndefined();
+
+  await page.reload();
+  await ensureRussian(page);
+  const restored = page.getByTestId('trip-finance-card');
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(restored.getByTestId('trip-finance-remaining')).toContainText(/1\s*499,50/);
+  await expect(restored.getByText('Ужин после спектакля', { exact: true })).toBeVisible();
+  await restored.getByRole('button', { name: 'Расходы выбранного дня' }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+  await expect(restored.getByTestId('trip-finance-budget')).toHaveCount(0);
+  await page.getByText('День 2', { exact: true }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toHaveText('—');
+  await restored.getByRole('button', { name: 'Расходы всей поездки' }).click();
+  await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
+});
+
+
+
+test('finance journal quota fault keeps the same draft identity and a single record after retry and reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const finance = page.getByTestId('trip-finance-card');
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Расход, переживший ошибку журнала');
+  await finance.getByTestId('trip-finance-estimate-input').fill('1250,50');
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  const snapshot = await page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'));
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!fault && key === 'moscow:v1:personal-trip-transaction') {
+        fault = true;
+        throw new DOMException('Finance journal quota fault', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-error')).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-title-input'))
+    .toHaveValue('Расход, переживший ошибку журнала');
+  await expect(finance.getByTestId('trip-finance-estimate-input')).toHaveValue('1250,50');
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip')))
+    .toBe(snapshot);
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction')))
+    .toBeNull();
+
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-error')).toHaveCount(0);
+  await expect(finance.getByText('Расход, переживший ошибку журнала', { exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.finance.entries).toHaveLength(1);
+  const stableId = saved.finance.entries[0].id;
+  await page.reload();
+  await ensureRussian(page);
+  const loaded = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(loaded.finance.entries).toHaveLength(1);
+  expect(loaded.finance.entries[0].id).toBe(stableId);
+  await expect(page.getByTestId('trip-finance-projected')).toContainText(/1\s*250,50/);
+});
+
+test('stale expense form can explicitly reload another tab changes without losing the draft', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const finance = page.getByTestId('trip-finance-card');
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Мой отдельный ужин');
+  await finance.getByTestId('trip-finance-estimate-input').fill('500');
+  await expect.poll(() => page.evaluate(() =>
+    localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  await page.evaluate(() => {
+    const key = 'moscow:v1:personal-trip';
+    const original = JSON.parse(localStorage.getItem(key) || '{}');
+    const timestamp = new Date().toISOString();
+    original.finance = {
+      currency: 'RUB', budgetMinor: 400_000, entries: [{
+        id: 'remote-budget-expense', title: 'Соседняя вкладка',
+        dayDate: original.days[0], category: 'tickets',
+        estimateMinor: 100_000, actualMinor: 70_000,
+        source: 'traveler-entered',
+        createdAt: timestamp, updatedAt: timestamp
+      }]
+    };
+    original.updatedAt = timestamp;
+    localStorage.setItem(key, JSON.stringify(original));
+  });
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-error')).toBeVisible();
+  expect((await page.evaluate(() => JSON.parse(
+    localStorage.getItem('moscow:v1:personal-trip') || '{}'
+  ))).finance.entries).toHaveLength(1);
+  await finance.getByRole('button', { name: 'Обновить сохранённую поездку для расходов' }).click();
+  await expect(finance.getByTestId('trip-finance-refresh-notice')).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-title-input')).toHaveValue('Мой отдельный ужин');
+  await expect(finance.getByTestId('trip-finance-budget')).toContainText(/4\s*000/);
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByText('Мой отдельный ужин', { exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.finance.entries).toHaveLength(2);
+  expect(saved.finance.entries.map((entry: { id: string }) => entry.id)).toContain('remote-budget-expense');
+  expect(saved.finance.entries.some((entry: { title: string }) => entry.title === 'Мой отдельный ужин')).toBe(true);
+  expect(saved.finance.budgetMinor).toBe(400_000);
+  expect(saved.visits).toHaveLength(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByTestId('trip-finance-projected')).toContainText(/1\s*200/);
+});
+
+test('Today and all-trip financial history use the same saved accounting truth without inventing attendance', async ({ page }) => {
+  const today = moscowNowParts().date;
+  await page.goto('/');
+  await page.evaluate(day => {
+    const original = {
+      schemaVersion: 1, id: 'finance-today-history', destinationId: 'moscow',
+      title: 'Финансовый дневник', startDate: day, endDate: day,
+      days: [day], items: [], visits: [],
+      finance: {
+        currency: 'RUB', budgetMinor: 300_000, entries: [
+          { id: 'museum-cost', dayDate: day, title: 'Музей · личная запись',
+            category: 'tickets', estimateMinor: 150_000, actualMinor: 125_050,
+            source: 'traveler-entered', createdAt: day + 'T07:00:00.000Z',
+            updatedAt: day + 'T07:00:00.000Z' },
+          { id: 'lunch-cost', dayDate: day, title: 'Обед · план',
+            category: 'food', estimateMinor: 100_000,
+            source: 'traveler-entered', createdAt: day + 'T07:00:00.000Z',
+            updatedAt: day + 'T07:00:00.000Z' }
+        ]
+      },
+      createdAt: day + 'T06:00:00.000Z',
+      updatedAt: day + 'T07:00:00.000Z'
+    };
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(original));
+    localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, today);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+
+  const todayFinance = page.getByTestId('today-finance-summary');
+  await expect(todayFinance).toBeVisible();
+  await expect(todayFinance.getByTestId('today-finance-projected')).toContainText(/2\s*250,50/);
+  await expect(todayFinance.getByTestId('today-finance-recorded')).toContainText(/1\s*250,50/);
+  await expect(todayFinance.getByTestId('today-finance-trip-remaining')).toContainText(/749,50/);
+  const ledger = page.getByTestId('trip-finance-card');
+  await expect(ledger.getByTestId('trip-finance-projected')).toContainText(/2\s*250,50/);
+
+  const history = page.getByTestId('moscow-financial-history');
+  await expect(history.getByTestId('finance-history-actual')).toContainText(/1\s*250,50/);
+  await expect(history.getByTestId('finance-history-projected')).toContainText(/2\s*250,50/);
+  await history.getByRole('button', { name: 'Показать дневник расходов по поездкам' }).click();
+  await expect(history.getByText('Музей · личная запись', { exact: true })).toBeVisible();
+  await expect(history.getByText('Обед · план', { exact: true })).toBeVisible();
+  expect((await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'))).visits).toHaveLength(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByTestId('today-finance-projected')).toContainText(/2\s*250,50/);
+  await expect(page.getByTestId('finance-history-projected')).toContainText(/2\s*250,50/);
 });

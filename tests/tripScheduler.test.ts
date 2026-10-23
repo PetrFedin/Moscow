@@ -5,6 +5,7 @@ import {
   addManualTripItem,
   createPersonalTrip,
   personalTripDayItems,
+  parsePersonalTrip,
   recordTripVisit
 } from '../src/travel/personalTrip.ts';
 import {
@@ -113,22 +114,80 @@ test('free windows also subtract flexible scheduled plan items', () => {
   assert.ok(windows.every((window) => window.routingVerified === false));
 });
 
-test('moving a planned ticket to another day preserves truth class and local clock time', () => {
-  let value = trip();
-  value = addFixed(value, 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
-
-  value = moveTripItem({
+test('fixed booking cannot silently change its booked date, time or evidence', () => {
+  const value = addFixed(trip(), 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
+  const before = JSON.stringify(value);
+  assert.throws(() => moveTripItem({
     trip: value,
     itemId: 'ticket',
     targetDayDate: '2026-10-03',
     updatedAt: '2026-10-02T07:00:00.000Z'
-  });
-
+  }), /cannot move without verified rescheduling/);
+  assert.equal(JSON.stringify(value), before);
   const item = value.items.find((candidate) => candidate.id === 'ticket');
-  assert.equal(item?.dayDate, '2026-10-03');
-  assert.equal(item?.plannedStartAt, '2026-10-03T19:00:00+03:00');
-  assert.equal(item?.plannedEndAt, '2026-10-03T21:00:00+03:00');
+  assert.equal(item?.dayDate, '2026-10-02');
+  assert.equal(item?.plannedStartAt, '2026-10-02T19:00:00+03:00');
+  assert.equal(item?.plannedEndAt, '2026-10-02T21:00:00+03:00');
   assert.equal(item?.commitment?.verification, 'user-declared');
+});
+
+test('unbooked flexible place can be moved without rewriting a fixed ticket', () => {
+  let value = addFixed(trip(), 'ticket', '2026-10-02T19:00:00+03:00', '2026-10-02T21:00:00+03:00');
+  value = addManualTripItem({
+    trip: value, itemId: 'museum', dayDate: '2026-10-02',
+    title: 'Свободная прогулка', kind: 'activity',
+    plannedStartAt: '2026-10-02T11:00:00+03:00',
+    plannedEndAt: '2026-10-02T12:00:00+03:00',
+    updatedAt: createdAt
+  });
+  const beforeTicket = value.items.find(item => item.id === 'ticket');
+  const result = moveTripItem({
+    trip: value, itemId: 'museum', targetDayDate: '2026-10-03',
+    updatedAt: '2026-10-02T07:00:00.000Z'
+  });
+  assert.equal(result.items.find(item => item.id === 'museum')?.dayDate, '2026-10-03');
+  assert.equal(result.items.find(item => item.id === 'museum')?.plannedStartAt, '2026-10-03T11:00:00+03:00');
+  assert.deepEqual(result.items.find(item => item.id === 'ticket'), beforeTicket);
+  assert.equal(value.items.find(item => item.id === 'museum')?.dayDate, '2026-10-02');
+});
+
+test('held, cancelled and completed reservations do not move across days', () => {
+  for (const bookingStatus of ['held', 'cancelled', 'confirmed'] as const) {
+    let value = addManualTripItem({
+      trip: trip(), itemId: bookingStatus,
+      dayDate: '2026-10-02', title: 'Ужин с бронью',
+      kind: 'food', plannedStartAt: '2026-10-02T20:00:00+03:00',
+      plannedEndAt: '2026-10-02T22:00:00+03:00',
+      commitment: { kind: 'reservation', status: bookingStatus, verification: 'user-declared' },
+      updatedAt: createdAt
+    });
+    const before = JSON.stringify(value);
+    assert.throws(() => moveTripItem({
+      trip: value, itemId: bookingStatus,
+      targetDayDate: '2026-10-03', updatedAt: createdAt
+    }), /cannot move without verified rescheduling/);
+    assert.equal(JSON.stringify(value), before);
+  }
+});
+
+test('cancelled commitments do not occupy free windows or create false fixed-ticket conflicts', () => {
+  let value = addFixed(trip(), 'morning', '2026-10-02T10:00:00+03:00', '2026-10-02T11:00:00+03:00');
+  value = addFixed(value, 'overlap', '2026-10-02T10:30:00+03:00', '2026-10-02T11:30:00+03:00');
+  assert.equal(detectTripScheduleConflicts(value).length, 1);
+  value = {
+    ...value,
+    items: value.items.map(item => item.id === 'overlap'
+      ? { ...item, commitment: { ...item.commitment!, status: 'cancelled' as const } }
+      : item)
+  };
+  assert.equal(detectTripScheduleConflicts(value).length, 0);
+  const windows = deriveTripFreeWindows({
+    trip: value, dayDate: '2026-10-02',
+    dayStartsAt: '2026-10-02T09:00:00+03:00',
+    dayEndsAt: '2026-10-02T12:00:00+03:00'
+  });
+  assert.deepEqual(windows.map(window => window.minutes), [60, 60]);
+  assert.ok(windows.every(window => window.routingVerified === false));
 });
 
 test('historical visited item cannot be moved to rewrite where the visit happened', () => {
@@ -254,4 +313,97 @@ test('invalid reserved preference window is rejected', () => {
     }),
     /Reserved window end must be after start/
   );
+});
+
+test('late fixed ticket overlaps an early booking on the following calendar day', () => {
+  let value = addFixed(trip(), 'late-show', '2026-10-02T23:30:00+03:00', '2026-10-03T01:30:00+03:00');
+  value = addManualTripItem({
+    trip: value, itemId: 'early-booking', dayDate: '2026-10-03',
+    title: 'Early booking', kind: 'food',
+    plannedStartAt: '2026-10-03T00:30:00+03:00',
+    plannedEndAt: '2026-10-03T02:00:00+03:00', updatedAt: createdAt,
+    commitment: { kind: 'reservation', status: 'confirmed', verification: 'user-declared' }
+  });
+  const conflicts = detectTripScheduleConflicts(value);
+  assert.equal(conflicts.length, 1);
+  assert.equal(conflicts[0]?.dayDate, '2026-10-03');
+  assert.deepEqual(conflicts[0]?.itemIds, ['late-show', 'early-booking']);
+  assert.equal(conflicts[0]?.overlapStartAt, '2026-10-02T21:30:00.000Z');
+  const windows = deriveTripFreeWindows({
+    trip: value, dayDate: '2026-10-03',
+    dayStartsAt: '2026-10-03T00:00:00+03:00',
+    dayEndsAt: '2026-10-03T03:00:00+03:00'
+  });
+  assert.deepEqual(windows.map(x => x.minutes), [60]);
+});
+
+test('cancelled overnight commitment does not block a following-day slot', () => {
+  let value = addFixed(trip(), 'overnight', '2026-10-02T23:30:00+03:00', '2026-10-03T01:30:00+03:00');
+  value = {...value, items: value.items.map(item => ({...item,
+    commitment: item.commitment ? {...item.commitment, status:'cancelled' as const} : undefined}))};
+  const windows = deriveTripFreeWindows({
+    trip: value, dayDate: '2026-10-03',
+    dayStartsAt: '2026-10-03T00:00:00+03:00',
+    dayEndsAt: '2026-10-03T03:00:00+03:00'
+  });
+  assert.deepEqual(windows.map(x => x.minutes), [180]);
+});
+
+
+test('moving a flexible overnight venue keeps its next-day ending and original wall clock', () => {
+  const original = addManualTripItem({
+    trip: trip(), itemId: 'night-dining', dayDate: '2026-10-02',
+    title: 'Ужин и ночная прогулка', kind: 'food',
+    plannedStartAt: '2026-10-02T23:30:00+03:00',
+    plannedEndAt: '2026-10-03T01:15:00+03:00',
+    updatedAt: createdAt
+  });
+  const before = JSON.stringify(original);
+  const shifted = moveTripItem({
+    trip: original, itemId: 'night-dining',
+    targetDayDate: '2026-10-03',
+    updatedAt: '2026-10-02T07:00:00.000Z'
+  });
+  const stop = shifted.items[0]!;
+  assert.equal(stop.dayDate, '2026-10-03');
+  assert.equal(stop.plannedStartAt, '2026-10-03T23:30:00+03:00');
+  assert.equal(stop.plannedEndAt, '2026-10-04T01:15:00+03:00');
+  assert.equal(Date.parse(stop.plannedEndAt!) - Date.parse(stop.plannedStartAt!), 105 * 60_000);
+  assert.deepEqual(parsePersonalTrip(JSON.stringify(shifted)), shifted);
+  assert.equal(JSON.stringify(original), before);
+});
+
+test('moving a flexible overnight stop backward across a month boundary preserves interval', () => {
+  const base = createPersonalTrip({
+    id: 'month-boundary', destinationId: 'moscow', title: 'Москва',
+    startDate: '2026-10-30', endDate: '2026-11-02', createdAt
+  });
+  const original = addManualTripItem({
+    trip: base, itemId: 'concert-after-midnight',
+    dayDate: '2026-11-01', title: 'Ночной концерт',
+    kind: 'concert', plannedStartAt: '2026-11-01T23:45:00+03:00',
+    plannedEndAt: '2026-11-02T01:10:00+03:00',
+    updatedAt: createdAt
+  });
+  const changed = moveTripItem({
+    trip: original, itemId: 'concert-after-midnight',
+    targetDayDate: '2026-10-31',
+    updatedAt: '2026-10-20T07:00:00.000Z'
+  });
+  assert.equal(changed.items[0]?.plannedStartAt, '2026-10-31T23:45:00+03:00');
+  assert.equal(changed.items[0]?.plannedEndAt, '2026-11-01T01:10:00+03:00');
+  assert.equal(Date.parse(changed.items[0]!.plannedEndAt!) - Date.parse(changed.items[0]!.plannedStartAt!), 85 * 60_000);
+  assert.equal(changed.items[0]?.commitment, undefined);
+  assert.deepEqual(parsePersonalTrip(JSON.stringify(changed)), changed);
+});
+
+test('an overnight fixed ticket still never moves with personal itinerary day controls', () => {
+  const booked = addFixed(trip(), 'night-ticket',
+    '2026-10-02T23:20:00+03:00', '2026-10-03T01:30:00+03:00');
+  const snapshot = JSON.stringify(booked);
+  assert.throws(() => moveTripItem({
+    trip: booked, itemId: 'night-ticket', targetDayDate: '2026-10-03',
+    updatedAt: '2026-10-02T07:00:00.000Z'
+  }), /cannot move without verified rescheduling/);
+  assert.equal(JSON.stringify(booked), snapshot);
 });

@@ -6,6 +6,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  useWindowDimensions,
   StyleSheet,
   Text,
   View
@@ -16,6 +17,10 @@ import { localizePlaces } from './data/places.en';
 import { pilotRoute, places, type Place } from './data/places';
 import PilotAnalyticsReportControl from './features/analytics/PilotAnalyticsReportControl';
 import CitywideDiscoveryCard from './features/destination/CitywideDiscoveryCard';
+import MoscowDiscoverLanding from './features/destination/MoscowDiscoverLanding';
+import CuratedMoscowDirectory from './features/destination/CuratedMoscowDirectory';
+import { curatedMoscowPlace, type CuratedMoscowPlace } from './travel/curatedMoscowPlaces';
+import MoscowMomentFinder from './features/destination/MoscowMomentFinder';
 import MoscowMap from './features/map/MoscowMap';
 import NearbyNow from './features/nearby/NearbyNow';
 import OfflineRoutePackControl from './features/offline/OfflineRoutePackControl';
@@ -29,7 +34,9 @@ import WalkCompanion from './features/walk/WalkCompanion';
 import { detectLanguage, nextLanguage, tr, type AppLanguage } from './i18n';
 import { loadCurrentLiveCityProjection } from './travel/currentLiveCityClient';
 import { projectLiveDestinationFeed } from './travel/liveDestinationAuthority';
-import { EXPERIENCE_STORAGE_KEY, normalizeExperienceSnapshot, type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { commitWalkStopCompletion } from './travel/walkStopCompletion';
+import { type PersistedExperienceState, type PersistedTab } from './persistence/experiencePersistence';
+import { createExperienceStorageCoordinator } from './persistence/experienceStorageCoordinator';
 import {
   canOpenArchiveLens,
   canOpenModel3d,
@@ -140,8 +147,13 @@ const evidenceLabel = {
 } as const;
 
 export default function MoscowExperienceApp() {
+  const { width: viewportWidth } = useWindowDimensions();
+  const wideDiscover = viewportWidth >= 1180;
   const [language, setLanguage] = useState<AppLanguage>(() => detectLanguage());
   const [tab, setTab] = useState<Tab>('discover');
+  const [exploreToolsOpen, setExploreToolsOpen] = useState(false);
+  const [chosenDirectoryPlace, setChosenDirectoryPlace] = useState<CuratedMoscowPlace | null>(null);
+  const [heritageStoryOpen, setHeritageStoryOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('romanov-chambers');
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
@@ -154,6 +166,13 @@ export default function MoscowExperienceApp() {
   const [missionDoneIds, setMissionDoneIds] = useState<string[]>([]);
   const [walkAutoAudio, setWalkAutoAudio] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [experienceStorageError, setExperienceStorageError] = useState(false);
+  const [experienceHydrationError, setExperienceHydrationError] = useState(false);
+  const [experienceHydrationBusy, setExperienceHydrationBusy] = useState(true);
+  const [walkStopSaving, setWalkStopSaving] = useState(false);
+  const [walkStopSaveError, setWalkStopSaveError] = useState(false);
+  const walkStopInFlightRef = useRef(false);
+  const experienceStorage = useRef(createExperienceStorageCoordinator(AsyncStorage));
   const [timeValue, setTimeValue] = useState(0);
   const [era, setEra] = useState<RomanovEra>('1857');
   const [trustMode, setTrustMode] = useState<TrustMode>('public');
@@ -174,6 +193,7 @@ export default function MoscowExperienceApp() {
   const recapTrackedRef = useRef(new Set<string>());
 
   const ui = copy[language];
+  const tabIcons: Record<Tab, string> = { discover: '✦', map: '⌖', walk: '↝', trip: '▦', saved: '♡' };
   const tabLabels: Record<Tab, string> = {
     discover: ui.discover,
     map: ui.map,
@@ -214,11 +234,13 @@ export default function MoscowExperienceApp() {
     [routeBudgetMinutes, routeInterest, routeStopIds]
   );
 
-  useEffect(() => {
-    AsyncStorage.getItem(EXPERIENCE_STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const parsed = normalizeExperienceSnapshot(JSON.parse(raw));
+  // If initial hydration fails, no editor may operate on fallback defaults.
+  // Otherwise an old, malformed or temporarily unreadable user history could
+  // be silently replaced by an apparently empty journey.
+  const hydrateExperience = () => {
+    setExperienceHydrationBusy(true);
+    void experienceStorage.current.hydrate()
+      .then((parsed) => {
         setSavedIds(parsed.savedIds);
         setVisitedIds(parsed.visitedIds);
         setRouteStep(parsed.routeStep);
@@ -226,6 +248,7 @@ export default function MoscowExperienceApp() {
         setLensOpacity(parsed.lensOpacity);
         setLensVisible(parsed.lensVisible);
         setSelectedId(parsed.selectedId);
+        setHeritageStoryOpen(parsed.heritageStoryOpen === true);
         setTab(parsed.tab);
         setTimeValue(parsed.timeValue);
         setEra(parsed.era);
@@ -237,9 +260,19 @@ export default function MoscowExperienceApp() {
         setRouteFinished(parsed.routeFinished);
         setMissionDoneIds(parsed.missionDoneIds);
         setWalkAutoAudio(parsed.walkAutoAudio);
+        setExperienceStorageError(false);
+        setExperienceHydrationError(false);
+        setHydrated(true);
       })
-      .catch(() => undefined)
-      .finally(() => setHydrated(true));
+      .catch(() => {
+        setExperienceStorageError(true);
+        setExperienceHydrationError(true);
+        setHydrated(false);
+      })
+      .finally(() => setExperienceHydrationBusy(false));
+  };
+  useEffect(() => {
+    hydrateExperience();
   }, []);
 
   useEffect(() => {
@@ -309,30 +342,36 @@ export default function MoscowExperienceApp() {
     });
   }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routePlace, routeStep, tab]);
 
+  const currentExperienceSnapshot = (): PersistedExperienceState => ({
+    savedIds,
+    visitedIds,
+    routeStep,
+    language,
+    lensOpacity,
+    lensVisible,
+    selectedId,
+    tab,
+    timeValue,
+    era,
+    trustMode,
+    routeBudgetMinutes,
+    routeInterest,
+    routeStopIds,
+    routeCompletedStopIds,
+    routeFinished,
+    missionDoneIds,
+    walkAutoAudio,
+    heritageStoryOpen
+  });
+
   useEffect(() => {
-    if (!hydrated) return;
-    const payload: PersistedExperienceState = {
-      savedIds,
-      visitedIds,
-      routeStep,
-      language,
-      lensOpacity,
-      lensVisible,
-      selectedId,
-      tab,
-      timeValue,
-      era,
-      trustMode,
-      routeBudgetMinutes,
-      routeInterest,
-      routeStopIds,
-      routeCompletedStopIds,
-      routeFinished,
-      missionDoneIds,
-      walkAutoAudio
-    };
-    AsyncStorage.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
-  }, [era, hydrated, language, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
+    // While a stop is being committed, ordinary reactive autosaves must not
+    // queue a stale pre-completion snapshot that could erase the confirmed
+    // stop. Re-run once after the commit with the complete latest React state.
+    if (!hydrated || experienceStorageError || walkStopInFlightRef.current) return;
+    void experienceStorage.current.persist(currentExperienceSnapshot())
+      .catch(() => setExperienceStorageError(true));
+  }, [era, hydrated, experienceStorageError, walkStopSaving, language, heritageStoryOpen, lensOpacity, lensVisible, missionDoneIds, routeBudgetMinutes, routeCompletedStopIds, routeFinished, routeInterest, routeStep, routeStopIds, savedIds, selectedId, tab, timeValue, trustMode, visitedIds, walkAutoAudio]);
 
   const selectPlace = (id: string) => {
     if (id !== selectedId) {
@@ -341,6 +380,7 @@ export default function MoscowExperienceApp() {
       if (nextEra) setEra(nextEra);
     }
     setSelectedId(id);
+    setHeritageStoryOpen(true);
     setMapSheetState('preview');
   };
 
@@ -410,6 +450,7 @@ export default function MoscowExperienceApp() {
   }, [activeRoutePlan.stopIds.length, analyticsRouteKey, hydrated, language, routeFinished, routeMissionCount, routeSavedCount, tab]);
 
   const startTouristPlan = (plan: TouristRoutePlan, origin: TouristAnalyticsRouteOrigin) => {
+    if (walkStopInFlightRef.current || experienceStorageError) return;
     stopPresentedTrackedRef.current.clear();
     stopCompletionTrackedRef.current.clear();
     arrivalTrackedRef.current.clear();
@@ -472,38 +513,57 @@ export default function MoscowExperienceApp() {
     setTab('walk');
   };
 
-  const completeRouteStop = (placeId: string, completionMode: TouristAnalyticsCompletionMode) => {
-    const completionKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
-    if (!stopCompletionTrackedRef.current.has(completionKey)) {
-      stopCompletionTrackedRef.current.add(completionKey);
-      void trackTouristEvent({
-        event: 'stop_complete',
-        routeId: pilotRoute.id,
+  const completeRouteStop = async (placeId: string, completionMode: TouristAnalyticsCompletionMode): Promise<void> => {
+    if (walkStopInFlightRef.current || experienceStorageError || !hydrated) return;
+    // A delayed audio callback may refer to a previous route or stop.
+    if (tab !== 'walk' || routePlace?.id !== placeId || routeFinished) return;
+    walkStopInFlightRef.current = true;
+    setWalkStopSaving(true);
+    setWalkStopSaveError(false);
+    try {
+      const accepted = await commitWalkStopCompletion({
+        state: currentExperienceSnapshot(),
         placeId,
-        completionMode,
-        language
+        persist: (next) => experienceStorage.current.persist(next)
       });
-    }
 
-    const finalStep = routeStep >= activeRoutePlan.stopIds.length - 1;
-    if (finalStep && !routeCompleteTrackedRef.current.has(analyticsRouteKey)) {
-      routeCompleteTrackedRef.current.add(analyticsRouteKey);
-      void trackTouristEvent({
-        event: 'route_complete',
-        routeId: pilotRoute.id,
-        budgetMinutes: routeBudgetMinutes,
-        interest: routeInterest,
-        stopCount: activeRoutePlan.stopIds.length,
-        language
-      });
-    }
+      // The persisted revision is authoritative. Do not advance the UI or
+      // emit completion analytics before the read-back verified write.
+      setVisitedIds(accepted.next.visitedIds);
+      setRouteCompletedStopIds(accepted.next.routeCompletedStopIds);
+      setRouteStep(accepted.next.routeStep);
+      setRouteFinished(accepted.next.routeFinished);
 
-    setVisitedIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    setRouteCompletedStopIds((current) => current.includes(placeId) ? current : [...current, placeId]);
-    if (finalStep) {
-      setRouteFinished(true);
-    } else {
-      setRouteStep((current) => current + 1);
+      const completionKey = `${analyticsRouteKey}:${routeStep}:${placeId}`;
+      if (!stopCompletionTrackedRef.current.has(completionKey)) {
+        stopCompletionTrackedRef.current.add(completionKey);
+        void trackTouristEvent({
+          event: 'stop_complete',
+          routeId: pilotRoute.id,
+          placeId,
+          completionMode,
+          language
+        });
+      }
+      if (accepted.finalStep && !routeCompleteTrackedRef.current.has(analyticsRouteKey)) {
+        routeCompleteTrackedRef.current.add(analyticsRouteKey);
+        void trackTouristEvent({
+          event: 'route_complete',
+          routeId: pilotRoute.id,
+          budgetMinutes: routeBudgetMinutes,
+          interest: routeInterest,
+          stopCount: activeRoutePlan.stopIds.length,
+          language
+        });
+      }
+    } catch {
+      // The original stop and its analytics remain unconfirmed. Recovery must
+      // go through the storage warning before the action can be repeated.
+      setWalkStopSaveError(true);
+      setExperienceStorageError(true);
+    } finally {
+      walkStopInFlightRef.current = false;
+      setWalkStopSaving(false);
     }
   };
 
@@ -567,12 +627,63 @@ export default function MoscowExperienceApp() {
     setMissionDoneIds((current) => current.includes(missionId) ? current : [...current, missionId]);
   };
 
+  if (!hydrated) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar style="light" />
+        <View testID={experienceHydrationError ? 'experience-hydration-blocked' : 'experience-hydration-loading'}
+          style={styles.hydrationGate}>
+          <Text style={styles.hydrationGateTitle}>{tr(language,
+            experienceHydrationError ? 'Не удалось безопасно открыть «Мою Москву»' : 'Открываем «Мою Москву»',
+            experienceHydrationError ? 'My Moscow could not be opened safely' : 'Opening My Moscow',
+            experienceHydrationError ? '无法安全打开“我的莫斯科”' : '正在打开“我的莫斯科”')}</Text>
+          <Text style={styles.hydrationGateBody}>{tr(language,
+            experienceHydrationError
+              ? 'Сохранённые данные не изменены. Не очищайте хранилище и не создавайте новую поездку, пока загрузка не восстановится.'
+              : 'Проверяем сохранённые данные, прежде чем открыть маршрут и дневник.',
+            experienceHydrationError
+              ? 'Existing data is untouched. Do not clear app storage or start a new trip before recovery.'
+              : 'Checking stored data before opening your itinerary and journal.',
+            experienceHydrationError
+              ? '已保存的数据未被更改。恢复读取前，请勿清除存储或创建新行程。'
+              : '正在检查已保存的数据，然后开放行程和日记。')}</Text>
+          {experienceHydrationError ? (
+            <PhysicalPressable accessibilityRole="button"
+              accessibilityLabel={tr(language, 'Повторить безопасную загрузку', 'Retry safe loading', '重试安全加载')}
+              disabled={experienceHydrationBusy}
+              style={styles.hydrationRetry} contentStyle={styles.center}
+              onPress={hydrateExperience}>
+              <Text style={styles.hydrationRetryText}>{tr(language,
+                'Повторить загрузку', 'Retry loading', '重试加载')}</Text>
+            </PhysicalPressable>
+          ) : null}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="light" />
+      {experienceStorageError ? (
+        <View testID="experience-storage-error" style={styles.storageWarning}>
+          <Text style={styles.storageWarningText}>{tr(language,
+            'Прогресс «Моей Москвы» не сохранён. Не удаляйте данные приложения. Проверьте память устройства и повторите запись.',
+            'My Moscow progress was not saved. Do not clear app data. Check storage and retry.',
+            '我的莫斯科进度尚未保存，请勿清除应用数据，检查存储后重试。')}</Text>
+          <PhysicalPressable style={styles.storageRetry} contentStyle={styles.center}
+            accessibilityLabel={tr(language, 'Повторить сохранение прогресса', 'Retry saving progress', '重试保存进度')}
+            onPress={() => {
+              const payload: PersistedExperienceState = {savedIds,visitedIds,routeStep,language,lensOpacity,lensVisible,selectedId,tab,timeValue,era,trustMode,routeBudgetMinutes,routeInterest,routeStopIds,routeCompletedStopIds,routeFinished,missionDoneIds,walkAutoAudio,heritageStoryOpen};
+              void experienceStorage.current.persist(payload, true).then(() => setExperienceStorageError(false)).catch(() => setExperienceStorageError(true));
+            }}>
+            <Text style={styles.storageWarningText}>{tr(language, 'Повторить', 'Retry', '重试')}</Text>
+          </PhysicalPressable>
+        </View>
+      ) : null}
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.brand}>MOSCOW · CITY OS</Text>
+          <Text style={styles.brand}>{tr(language, 'МОСКВА · ВАШ ПУТЕВОДИТЕЛЬ', 'MOSCOW · YOUR CITY GUIDE', '莫斯科 · 城市指南')}</Text>
           <Text style={styles.headerTitle}>{tabLabels[tab]}</Text>
         </View>
         <PhysicalPressable
@@ -587,7 +698,7 @@ export default function MoscowExperienceApp() {
 
       {tab === 'map' ? (
         <View style={styles.mapPage}>
-          <View style={styles.mapStage}>
+          <View testID="tourist-map-stage" style={styles.mapStage}>
             <MoscowMap selectedId={selectedId} onSelect={selectPlace} />
             {selected && (
               <PhysicalSheet
@@ -622,97 +733,32 @@ export default function MoscowExperienceApp() {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView testID="tourist-main-scroll" style={styles.mainScroll}
+          contentContainerStyle={[styles.content, wideDiscover && styles.wideContent]}
+          showsVerticalScrollIndicator={false}>
           {tab === 'discover' && (
             <>
-              <View style={styles.hero}>
-                <Text style={styles.kicker}>{ui.cityTime}</Text>
-                <Text style={styles.heroTitle}>{ui.hero}</Text>
-                <Text style={styles.heroBody}>{ui.heroBody}</Text>
-                <PhysicalPressable style={styles.primary} contentStyle={styles.center} strong onPress={() => setTab('trip')}>
-                  <Text style={styles.primaryText}>{ui.start}</Text>
-                </PhysicalPressable>
+              <View style={wideDiscover ? styles.desktopDiscoverLead : undefined}>
+                <View style={wideDiscover ? styles.desktopDiscoverPrimary : undefined}>
+              <MoscowDiscoverLanding
+                language={language}
+                savedCount={savedIds.length}
+                visitedCount={visitedIds.length}
+                featuredPlaces={pilotPlaces.map(({ id, title, district }) => ({ id, title, district }))}
+                onStartTrip={() => setTab('trip')}
+                onOpenMap={() => setTab('map')}
+                onOpenWalk={openWalkFromHero}
+                onOpenPlace={(id) => { selectPlace(id); setHeritageStoryOpen(true); }}
+                onShowPlanningTools={() => setExploreToolsOpen((value) => !value)}
+                planningToolsOpen={exploreToolsOpen}
+              />
+                </View>
+                <View style={wideDiscover ? styles.desktopDiscoverSecondary : undefined}>
+                  <MoscowMomentFinder language={language} savedIds={savedIds} onStartWalk={(plan) => startTouristPlan(plan, 'planner')} />
+                </View>
               </View>
-
-              <CitywideDiscoveryCard
-                language={language}
-                onPlan={() => setTab('trip')}
-              />
-
-              <View style={styles.citywideBoundary}>
-                <Text style={styles.kicker}>
-                  {tr(language, 'ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', 'SEPARATE HERITAGE LAYER', '独立历史体验层')}
-                </Text>
-                <Text style={styles.citywideBoundaryTitle}>
-                  {tr(language, 'Исторические маршруты — часть Москвы, а не весь продукт', 'Historic routes are one part of Moscow, not the whole product', '历史路线只是莫斯科体验的一部分')}
-                </Text>
-                <Text style={styles.citywideBoundaryBody}>
-                  {tr(
-                    language,
-                    'Полевые 3D/AR-проверки продолжают жить как отдельный evidence-контур. Они больше не являются входом в городской planner и не блокируют рестораны, театры, музеи, выставки, события и многодневные поездки.',
-                    'Field 3D/AR verification remains a separate evidence lane. It no longer defines the city planner or blocks restaurants, theatres, museums, exhibitions, events and multi-day trips.',
-                    '现场3D/AR验证继续作为独立证据层存在，不再定义整个城市规划体验。'
-                  )}
-                </Text>
-                <PhysicalPressable
-                  style={styles.secondary}
-                  contentStyle={styles.center}
-                  onPress={openWalkFromHero}
-                >
-                  <Text style={styles.secondaryText}>
-                    {tr(language, 'Открыть историческую прогулку', 'Open historic walk', '打开历史路线')}
-                  </Text>
-                </PhysicalPressable>
-              </View>
-
-              <PhysicalPressable
-                style={styles.secondary}
-                contentStyle={styles.center}
-                onPress={() => setTab('trip')}
-                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
-              >
-                <Text style={styles.secondaryText}>
-                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
-                </Text>
-              </PhysicalPressable>
-
-              <NearbyNow
-                language={language}
-                visitedIds={visitedIds}
-                onOpenPlace={(id) => {
-                  void trackTouristEvent({ event: 'nearby_open', placeId: id, language });
-                  selectPlace(id);
-                  setTab('discover');
-                }}
-                onStartFreeWalk={(plan) => startTouristPlan(plan, 'nearby')}
-              />
-
-              <TouristRoutePlanner
-                language={language}
-                mustSeeIds={savedIds}
-                onPreview={previewTouristPlan}
-                onStart={(plan) => startTouristPlan(plan, 'planner')}
-              />
-
-              <Text style={styles.sectionTitle}>{ui.places}</Text>
-              {pilotPlaces.map((place, index) => (
-                <PhysicalPressable
-                  key={place.id}
-                  style={[styles.placeCard, place.id === selectedId && styles.placeCardActive]}
-                  contentStyle={styles.placeCardContent}
-                  onPress={() => selectPlace(place.id)}
-                  accessibilityLabel={place.title}
-                >
-                  <View style={styles.placeNumber}><Text style={styles.placeNumberText}>{String(index + 1).padStart(2, '0')}</Text></View>
-                  <View style={styles.placeCopy}>
-                    <Text style={styles.placeTitle}>{place.title}</Text>
-                    <Text style={styles.placeSubtitle}>{place.subtitle}</Text>
-                    <Text style={styles.placeMeta}>{place.district} · {place.experienceMinutes} min</Text>
-                  </View>
-                </PhysicalPressable>
-              ))}
-
-              {selected && (
+              <CuratedMoscowDirectory language={language} savedIds={savedIds} onToggleSaved={toggleSaved} onRequestAdd={(place)=>{setChosenDirectoryPlace(place);setTab('trip');}} />
+              {heritageStoryOpen && selected && (
                 <View style={styles.storyCard}>
                   <View style={styles.storyHeader}>
                     <View style={styles.storyHeaderCopy}>
@@ -724,6 +770,31 @@ export default function MoscowExperienceApp() {
                     </PhysicalPressable>
                   </View>
                   <Text style={styles.storyBody}>{selected.shortStory}</Text>
+
+                  <Text style={styles.relatedHeading}>
+                    {tr(language, 'Продолжить по Варварке', 'Continue along Varvarka', '继续探索瓦尔瓦尔卡')}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.relatedScroll}
+                    contentContainerStyle={styles.relatedList}
+                    accessibilityLabel={tr(language, 'Другие исторические места', 'Other historic places', '其他历史景点')}
+                  >
+                    {pilotPlaces.filter((place) => place.id !== selected.id).map((place) => (
+                      <PhysicalPressable
+                        key={place.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={place.title}
+                        style={styles.relatedPlace}
+                        contentStyle={styles.relatedPlaceContent}
+                        onPress={() => selectPlace(place.id)}
+                      >
+                        <Text numberOfLines={2} style={styles.relatedName}>{place.title}</Text>
+                        <Text style={styles.relatedArrow}>↗</Text>
+                      </PhysicalPressable>
+                    ))}
+                  </ScrollView>
 
                   {selected.periods.length > 0 && selectedExperience.timeMachine === 'ready' && (
                     <View style={styles.timeCard}>
@@ -806,6 +877,93 @@ export default function MoscowExperienceApp() {
                     </PhysicalPressable>
                   ))}
                 </View>
+              )}
+              {exploreToolsOpen && (
+                <>
+                  <View style={styles.planningToolsHeading}>
+                    <Text style={styles.planningToolsEyebrow}>{tr(language, 'ДОПОЛНИТЕЛЬНО', 'MORE TO EXPLORE', '更多功能')}</Text>
+                    <Text style={styles.planningToolsTitle}>{tr(language, 'Планирование и маршруты', 'Planning and routes', '行程和路线')}</Text>
+                  </View>
+              <CitywideDiscoveryCard
+                language={language}
+                onPlan={() => setTab('trip')}
+              />
+
+              <View style={styles.citywideBoundary}>
+                <Text style={styles.kicker}>
+                  {tr(language, 'ОТДЕЛЬНЫЙ HERITAGE-СЛОЙ', 'SEPARATE HERITAGE LAYER', '独立历史体验层')}
+                </Text>
+                <Text style={styles.citywideBoundaryTitle}>
+                  {tr(language, 'Исторические маршруты — часть Москвы, а не весь продукт', 'Historic routes are one part of Moscow, not the whole product', '历史路线只是莫斯科体验的一部分')}
+                </Text>
+                <Text style={styles.citywideBoundaryBody}>
+                  {tr(
+                    language,
+                    'Полевые 3D/AR-проверки продолжают жить как отдельный evidence-контур. Они больше не являются входом в городской planner и не блокируют рестораны, театры, музеи, выставки, события и многодневные поездки.',
+                    'Field 3D/AR verification remains a separate evidence lane. It no longer defines the city planner or blocks restaurants, theatres, museums, exhibitions, events and multi-day trips.',
+                    '现场3D/AR验证继续作为独立证据层存在，不再定义整个城市规划体验。'
+                  )}
+                </Text>
+                <PhysicalPressable
+                  style={styles.secondary}
+                  contentStyle={styles.center}
+                  onPress={openWalkFromHero}
+                >
+                  <Text style={styles.secondaryText}>
+                    {tr(language, 'Открыть историческую прогулку', 'Open historic walk', '打开历史路线')}
+                  </Text>
+                </PhysicalPressable>
+              </View>
+
+              <PhysicalPressable
+                style={styles.secondary}
+                contentStyle={styles.center}
+                onPress={() => setTab('trip')}
+                accessibilityLabel={tr(language, 'Открыть мою поездку', 'Open my trip', '打开我的行程')}
+              >
+                <Text style={styles.secondaryText}>
+                  {tr(language, 'Открыть «Мою поездку» · дни, билеты и брони', 'Open My Trip · days, tickets and reservations', '打开“我的行程” · 日期、门票和预订')}
+                </Text>
+              </PhysicalPressable>
+
+              <NearbyNow
+                language={language}
+                visitedIds={visitedIds}
+                onOpenPlace={(id) => {
+                  void trackTouristEvent({ event: 'nearby_open', placeId: id, language });
+                  selectPlace(id);
+                  setTab('discover');
+                }}
+                onStartFreeWalk={(plan) => startTouristPlan(plan, 'nearby')}
+              />
+
+              <TouristRoutePlanner
+                language={language}
+                mustSeeIds={savedIds}
+                onPreview={previewTouristPlan}
+                onStart={(plan) => startTouristPlan(plan, 'planner')}
+              />
+
+              <Text style={styles.sectionTitle}>{ui.places}</Text>
+              {pilotPlaces.map((place, index) => (
+                <PhysicalPressable
+                  key={place.id}
+                  style={[styles.placeCard, place.id === selectedId && styles.placeCardActive]}
+                  contentStyle={styles.placeCardContent}
+                  onPress={() => selectPlace(place.id)}
+                  accessibilityLabel={place.title}
+                >
+                  <View style={styles.placeNumber}><Text style={styles.placeNumberText}>{String(index + 1).padStart(2, '0')}</Text></View>
+                  <View style={styles.placeCopy}>
+                    <Text style={styles.placeTitle}>{place.title}</Text>
+                    <Text style={styles.placeSubtitle}>{place.subtitle}</Text>
+                    <Text style={styles.placeMeta}>{place.district} · {place.experienceMinutes} min</Text>
+                  </View>
+                </PhysicalPressable>
+              ))}
+
+
+                </>
               )}
             </>
           )}
@@ -903,17 +1061,24 @@ export default function MoscowExperienceApp() {
                     autoEnabled={walkAutoAudio}
                     onAutoEnabledChange={setWalkAutoAudio}
                     onMissionComplete={completeMission}
-                    onAutoStopCompleted={(placeId) => completeRouteStop(placeId, 'audio-auto')}
+                    onAutoStopCompleted={(placeId) => { void completeRouteStop(placeId, 'audio-auto'); }}
                     onProximityArrive={recordProximityArrival}
                     onAudioStart={recordAudioStart}
                     onAudioComplete={recordAudioComplete}
                     onTranscriptOpen={recordTranscriptOpen}
                   />
+                  {walkStopSaveError ? (
+                    <Text testID="walk-stop-save-error" style={styles.walkStopSaveError}>{tr(language,
+                      'Остановка не сохранена. Прогресс и статистика не обновлены. Повторите сохранение через предупреждение.',
+                      'Stop was not saved. Progress and analytics were not updated. Use the storage retry first.',
+                      '此站未保存。进度与统计未更新，请先使用存储重试。')}</Text>
+                  ) : null}
                   <PhysicalPressable
                     style={styles.primary}
                     contentStyle={styles.center}
                     strong
-                    onPress={() => completeRouteStop(routePlace.id, 'manual')}
+                    disabled={walkStopSaving || experienceStorageError}
+                    onPress={() => { void completeRouteStop(routePlace.id, 'manual'); }}
                   >
                     <Text style={styles.primaryText}>{routeStep === activeRoutePlan.stopIds.length - 1 ? ui.finish : ui.next}</Text>
                   </PhysicalPressable>
@@ -928,6 +1093,9 @@ export default function MoscowExperienceApp() {
           {tab === 'trip' && (
             <PersonalTripPlanner
               language={language}
+              selectedDirectoryPlace={chosenDirectoryPlace}
+              onDirectoryPlaceHandled={() => setChosenDirectoryPlace(null)}
+              onDiscover={() => setTab('discover')}
               savedIds={savedIds}
               visitedIds={visitedIds}
               currentLiveDestinationProjection={currentLiveResult?.projection}
@@ -955,7 +1123,25 @@ export default function MoscowExperienceApp() {
                 <View style={styles.empty}><Text style={styles.emptyText}>{ui.noSaved}</Text></View>
               ) : savedIds.map((id) => {
                 const place = localizedPlaces.find((item) => item.id === id);
-                if (!place) return null;
+                if (!place) {
+                  const curated = curatedMoscowPlace(id);
+                  if (!curated) return null;
+                  return (
+                    <View key={id} style={styles.placeCard}>
+                      <View style={styles.savedCatalogContent}>
+                        <Text style={styles.placeTitle}>{language === 'ru' ? curated.titleRu : curated.titleEn}</Text>
+                        <Text style={styles.placeSubtitle}>{curated.addressRu}</Text>
+                        <Text style={styles.placeSubtitle}>{tr(language,'Сохранено вами · наличие билетов и бронирований не проверено','Saved by you · tickets and bookings unverified','您已收藏 · 门票与预订未验证')}</Text>
+                        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Добавить сохранённое место в поездку','Add saved place to trip','将收藏地点添加到行程')} style={styles.savedCatalogAction} contentStyle={styles.center} onPress={() => { setChosenDirectoryPlace(curated); setTab('trip'); }}>
+                          <Text style={styles.savedCatalogActionText}>{tr(language,'Добавить в поездку','Add to trip','添加到行程')} →</Text>
+                        </PhysicalPressable>
+                        <PhysicalPressable accessibilityRole="button" accessibilityLabel={tr(language,'Убрать сохранённое место','Remove saved place','移除收藏')} style={styles.savedCatalogRemove} contentStyle={styles.center} onPress={() => toggleSaved(id)}>
+                          <Text style={styles.savedCatalogRemoveText}>{tr(language,'Убрать из избранного','Remove from favorites','取消收藏')}</Text>
+                        </PhysicalPressable>
+                      </View>
+                    </View>
+                  );
+                }
                 return (
                   <PhysicalPressable key={id} style={styles.placeCard} contentStyle={styles.placeCardContent} onPress={() => { selectPlace(id); setTab('discover'); }}>
                     <View style={styles.placeCopy}><Text style={styles.placeTitle}>{place.title}</Text><Text style={styles.placeSubtitle}>{place.district}</Text></View>
@@ -967,9 +1153,11 @@ export default function MoscowExperienceApp() {
         </ScrollView>
       )}
 
-      <View style={styles.nav}>
+      <View testID="tourist-bottom-navigation"
+        style={[styles.nav, { width: Math.min(700, Math.max(280, viewportWidth - 24)) }]}>
         {(['discover', 'map', 'walk', 'trip', 'saved'] as Tab[]).map((item) => (
-          <PhysicalPressable key={item} style={styles.navItem} contentStyle={styles.center} hapticEvent="none" onPress={() => setTab(item)}>
+          <PhysicalPressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} accessibilityLabel={tabLabels[item]} style={[styles.navItem, tab === item && styles.navItemActive]} contentStyle={styles.navContent} hapticEvent="none" onPress={() => setTab(item)}>
+            <Text style={[styles.navIcon, tab === item && styles.navIconActive]}>{tabIcons[item]}</Text>
             <Text style={[styles.navText, tab === item && styles.navTextActive]}>{tabLabels[item]}</Text>
           </PhysicalPressable>
         ))}
@@ -1016,15 +1204,31 @@ export default function MoscowExperienceApp() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#090b0d' },
+  root: { flex: 1, backgroundColor: '#101716' },
+  hydrationGate: { flex: 1, padding: 26, justifyContent: 'center', gap: 14 },
+  hydrationGateTitle: { color: '#f7f3eb', fontSize: 22, fontWeight: '700' },
+  hydrationGateBody: { color: '#dbd0ba', fontSize: 15, lineHeight: 23 },
+  hydrationRetry: { minHeight: 46, borderRadius: 13, backgroundColor: '#d7bb84' },
+  hydrationRetryText: { color: '#17130d', fontSize: 14, fontWeight: '700' },
+  storageWarning: {padding: 10, backgroundColor: '#563326', gap: 8},
+  walkStopSaveError: { color: '#f2c4b1', fontSize: 13, lineHeight: 20, marginVertical: 8 },
+  storageWarningText: {color: '#fff0df', fontSize: 12, lineHeight: 18},
+  storageRetry: {minHeight: 38, borderRadius: 9, borderWidth: 1, borderColor: '#e5c898'},
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  header: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#292d33' },
+  header: { paddingHorizontal: 22, paddingTop: 11, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#273330' },
   headerCopy: { flex: 1 },
-  brand: { color: '#979aa2', fontSize: 9, letterSpacing: 2, fontWeight: '900' },
-  headerTitle: { color: '#f7f3eb', fontSize: 27, fontWeight: '900', marginTop: 2 },
+  brand: { color: '#b9a487', fontSize: 9, letterSpacing: 1.5, fontWeight: '700' },
+  headerTitle: { color: '#f7f3eb', fontSize: 25, fontWeight: '700', marginTop: 3 },
   language: { width: 48, height: 44, borderRadius: 22, backgroundColor: '#20242a' },
   languageText: { color: '#e7c98f', fontSize: 11, fontWeight: '900' },
-  content: { padding: 18, paddingBottom: 120 },
+  mainScroll: { flex: 1, minHeight: 0 },
+  // The bottom navigation occupies its own flex row, not an overlay.
+  // Scrolling and focus must never position itinerary actions underneath it.
+  content: { padding: 18, paddingBottom: 28, alignSelf: 'center', width: '100%', maxWidth: 900 },
+  wideContent: { maxWidth: 1260, paddingHorizontal: 27 },
+  desktopDiscoverLead: { flexDirection: 'row', alignItems: 'flex-start', gap: 24 },
+  desktopDiscoverPrimary: { flex: 1.18, minWidth: 0 },
+  desktopDiscoverSecondary: { flex: 0.82, minWidth: 0, paddingTop: 8 },
   hero: { borderRadius: 27, padding: 22, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#31353b', marginBottom: 22 },
   kicker: { color: '#b99b69', fontSize: 9, letterSpacing: 1.4, fontWeight: '900', marginBottom: 7 },
   heroTitle: { color: '#fff8ea', fontSize: 29, lineHeight: 35, fontWeight: '900' },
@@ -1036,6 +1240,11 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.42 },
   sectionTitle: { color: '#f4efe6', fontSize: 21, fontWeight: '900', marginBottom: 12 },
   placeCard: { minHeight: 82, borderRadius: 20, borderWidth: 1, borderColor: '#292e34', backgroundColor: '#14171b', marginBottom: 10 },
+  savedCatalogContent: { padding: 16, gap: 8 },
+  savedCatalogAction: { minHeight: 48, backgroundColor: '#e7d7b8', borderRadius: 12, marginTop: 7 },
+  savedCatalogActionText: { color: '#23372c', fontSize: 13, fontWeight: '700' },
+  savedCatalogRemove: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#57675e' },
+  savedCatalogRemoveText: { color: '#d7dfd4', fontSize: 12, fontWeight: '600' },
   placeCardActive: { borderColor: '#9f855a', backgroundColor: '#181713' },
   placeCardContent: { flexDirection: 'row', alignItems: 'center', padding: 14 },
   placeNumber: { width: 39, height: 39, borderRadius: 20, backgroundColor: '#24282e', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
@@ -1049,6 +1258,13 @@ const styles = StyleSheet.create({
   storyHeaderCopy: { flex: 1 },
   storyTitle: { color: '#fff8ea', fontSize: 24, lineHeight: 29, fontWeight: '900' },
   storyBody: { color: '#b1b4ba', fontSize: 14, lineHeight: 21, marginTop: 9, marginBottom: 16 },
+  relatedHeading: { color: '#e4d5ba', fontSize: 12, fontWeight: '700', marginBottom: 9 },
+  relatedScroll: { marginBottom: 17 },
+  relatedList: { gap: 8, paddingRight: 10 },
+  relatedPlace: { minWidth: 152, maxWidth: 188, minHeight: 57, borderRadius: 13, backgroundColor: '#242d2b', borderWidth: 1, borderColor: '#46534b' },
+  relatedPlaceContent: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  relatedName: { flex: 1, color: '#f5ead6', fontSize: 11, lineHeight: 15, fontWeight: '700' },
+  relatedArrow: { color: '#d9c18f', fontSize: 17 },
   saveIcon: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: '#484e56' },
   saveIconText: { color: '#e3c17d', fontSize: 25 },
   timeCard: { borderRadius: 19, backgroundColor: '#101318', borderWidth: 1, borderColor: '#333840', padding: 14, marginBottom: 18 },
@@ -1070,8 +1286,8 @@ const styles = StyleSheet.create({
   sourceContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   sourceText: { color: '#c8cbd0', fontSize: 11, flex: 1 },
   sourceArrow: { color: '#d7bb84', fontSize: 16 },
-  mapPage: { flex: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 86 },
-  mapStage: { flex: 1, minHeight: 520, borderRadius: 25, overflow: 'hidden', position: 'relative', backgroundColor: '#111418' },
+  mapPage: { flex: 1, minHeight: 0, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
+  mapStage: { flex: 1, minHeight: 0, borderRadius: 25, overflow: 'hidden', position: 'relative', backgroundColor: '#111418' },
   mapSheet: { top: 0, zIndex: 20 },
   sheetSurface: { minHeight: 250, borderTopLeftRadius: 25, borderTopRightRadius: 25, backgroundColor: '#15191e', borderWidth: 1, borderColor: '#3b4149', padding: 16, shadowColor: '#000', shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },
   sheetHandle: { width: 42, height: 4, borderRadius: 2, backgroundColor: '#697079', alignSelf: 'center', marginBottom: 9 },
@@ -1088,6 +1304,9 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: '#d7bb84' },
   pauseWalk: { minHeight: 38, borderRadius: 12, borderWidth: 1, borderColor: '#444a51', marginTop: 12 },
   pauseWalkText: { color: '#a7abb1', fontSize: 9, fontWeight: '900' },
+  planningToolsHeading: { marginTop: 18, marginBottom: 14, paddingHorizontal: 3 },
+  planningToolsEyebrow: { color: '#bba77e', fontSize: 10, letterSpacing: 1.4, fontWeight: '700' },
+  planningToolsTitle: { color: '#f5efe5', fontSize: 23, fontWeight: '700', marginTop: 5 },
   citywideBoundary: {
     marginTop: 14,
     marginBottom: 18,
@@ -1116,10 +1335,14 @@ const styles = StyleSheet.create({
   statLabel: { color: '#858b93', fontSize: 8, lineHeight: 11, marginTop: 2 },
   empty: { borderRadius: 20, borderWidth: 1, borderColor: '#30353b', backgroundColor: '#14171b', padding: 20 },
   emptyText: { color: '#999ea6', textAlign: 'center' },
-  nav: { position: 'absolute', left: 10, right: 10, bottom: 8, minHeight: 67, borderRadius: 23, backgroundColor: 'rgba(18,21,25,0.97)', borderWidth: 1, borderColor: '#343941', flexDirection: 'row', padding: 6 },
-  navItem: { flex: 1, borderRadius: 17 },
-  navText: { color: '#7d828a', fontSize: 9, fontWeight: '900', textAlign: 'center' },
-  navTextActive: { color: '#e9cb91' },
+  nav: { alignSelf: 'center', flexShrink: 0, marginBottom: 8, minHeight: 76, borderRadius: 25, backgroundColor: 'rgba(24,33,31,0.98)', borderWidth: 1, borderColor: '#3a4842', flexDirection: 'row', padding: 7, maxWidth: 700 },
+  navItem: { flex: 1, borderRadius: 18, minHeight: 58 },
+  navItemActive: { backgroundColor: '#33473d' },
+  navContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, gap: 3 },
+  navIcon: { color: '#a2a9a3', fontSize: 22, fontWeight: '500', lineHeight: 25 },
+  navIconActive: { color: '#f0d4a0' },
+  navText: { color: '#b1bab1', fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  navTextActive: { color: '#f7e9d1', fontWeight: '700' },
   spatialRoot: { flex: 1, backgroundColor: '#000' },
   back3d: { position: 'absolute', left: 16, bottom: 24, minHeight: 44, borderRadius: 14, backgroundColor: 'rgba(8,10,12,0.88)', borderWidth: 1, borderColor: '#5b5140', paddingHorizontal: 14 },
   back3dText: { color: '#e5c78d', fontSize: 10, fontWeight: '900' }

@@ -4,23 +4,19 @@ import { Linking, StyleSheet, Text, View } from 'react-native';
 import type { AppLanguage } from '../../i18n';
 import { tr } from '../../i18n';
 import type { PersonalTrip } from '../../travel/personalTrip';
+import { displayedUpcomingCommitments } from '../../travel/tripDayPresentation';
+import { formatDestinationTime } from '../../product/travelProductIdentity';
 import PhysicalPressable from '../../ui/PhysicalPressable';
 
 type Props = {
   trip: PersonalTrip;
   language: AppLanguage;
+  onManageBooking?: (itemId: string) => void;
 };
 
-function timeLabel(value?: string) {
-  if (!value) return null;
-  const match = /T(\d{2}:\d{2})/.exec(value);
-  return match?.[1] ?? null;
-}
-
-export default function BookingWalletCard({ trip, language }: Props) {
+export default function BookingWalletCard({ trip, language, onManageBooking }: Props) {
   const items = useMemo(
-    () => trip.items
-      .filter((item) => item.commitment && item.commitment.status !== 'cancelled')
+    () => displayedUpcomingCommitments(trip.items)
       .sort((a, b) =>
         a.dayDate.localeCompare(b.dayDate)
         || (a.plannedStartAt ?? '').localeCompare(b.plannedStartAt ?? '')
@@ -32,7 +28,7 @@ export default function BookingWalletCard({ trip, language }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <View style={styles.root}>
+    <View testID="travel-booking-wallet" style={styles.root}>
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
           <Text style={styles.kicker}>{tr(language, 'ПОЕЗДКА', 'TRIP', '行程')}</Text>
@@ -40,9 +36,9 @@ export default function BookingWalletCard({ trip, language }: Props) {
           <Text style={styles.subtitle}>
             {tr(
               language,
-              'Все фиксированные подтверждения поездки в одном месте.',
-              'Your fixed trip confirmations in one place.',
-              '集中查看行程中的固定门票与预订。'
+              'Сведения о билетах и бронях, внесённые в поездку. Статус каждой записи указан отдельно.',
+              'Tickets and reservations saved in your trip. Each record has its own status.',
+              '行程中保存的门票与预订，每条记录单独显示状态。'
             )}
           </Text>
         </View>
@@ -55,12 +51,22 @@ export default function BookingWalletCard({ trip, language }: Props) {
       <View style={styles.list}>
         {items.slice(0, 8).map((item) => {
           const commitment = item.commitment!;
+          const venueWebsiteOnly = Boolean(item.catalogPlaceId
+            && item.officialSourceUrl === commitment.externalUrl);
+          const linkTitle = venueWebsiteOnly
+            ? tr(language, 'Открыть официальный сайт (не подтверждение)',
+              'Open official website (not a confirmation)', '打开官方网站（非预订确认）')
+            : commitment.verification === 'provider-confirmed'
+              ? tr(language, 'Открыть сохранённое подтверждение',
+                'Open saved provider confirmation', '打开已保存的供应商确认')
+              : tr(language, 'Открыть сохранённую ссылку (не проверена)',
+                'Open saved link (unverified)', '打开已保存链接（未核验）');
           return (
             <View key={item.id} style={styles.item}>
               <View style={styles.itemTop}>
                 <View style={styles.itemCopy}>
                   <Text style={styles.itemDate}>
-                    {item.dayDate}{item.plannedStartAt ? ' · ' + timeLabel(item.plannedStartAt) : ''}
+                    {item.dayDate}{item.plannedStartAt ? ' · ' + formatDestinationTime(item.plannedStartAt, trip.destinationId) : ''}
                   </Text>
                   <Text style={styles.itemTitle}>{item.title}</Text>
                 </View>
@@ -104,19 +110,45 @@ export default function BookingWalletCard({ trip, language }: Props) {
               ) : null}
 
               <Text style={styles.truth}>
-                {commitment.verification === 'provider-confirmed'
-                  ? tr(language, 'Подтверждено провайдером', 'Provider confirmed', '供应商已确认')
-                  : tr(language, 'Добавлено вами · провайдер не проверен', 'Added by you · provider not verified', '由你添加 · 供应商未核验')}
+                {commitment.status === 'held'
+                  ? tr(language,
+                      'Предварительная бронь · окончательное подтверждение не проверено',
+                      'Provisional hold · final confirmation is not verified',
+                      '临时预留，最终确认未核验')
+                  : commitment.verification === 'provider-confirmed'
+                    ? tr(language,
+                        'В записи указано подтверждение поставщика · проверьте оригинал',
+                        'Provider confirmation recorded · check original receipt',
+                        '记录中注明供应商已确认，请核对原始凭证')
+                    : tr(language,
+                        'Добавлено вами · поставщик не проверен',
+                        'Added by you · provider not verified',
+                        '由您添加，供应商未验证')}
               </Text>
+
+              {onManageBooking ? (
+                <PhysicalPressable
+                  accessibilityRole="button"
+                  accessibilityLabel={tr(language, 'Разобраться с билетом или бронью: ', 'Manage booking inquiry for: ', '处理预订咨询：') + item.title}
+                  style={styles.inquiryButton} contentStyle={styles.center}
+                  onPress={() => onManageBooking(item.id)}
+                >
+                  <Text style={styles.inquiryText}>
+                    {tr(language, 'Вопрос по билету или броне', 'Question about this booking', '咨询此预订')} →
+                  </Text>
+                </PhysicalPressable>
+              ) : null}
 
               {commitment.externalUrl ? (
                 <PhysicalPressable
+                  accessibilityRole="link"
+                  accessibilityLabel={linkTitle + ': ' + item.title}
                   style={styles.openButton}
                   contentStyle={styles.center}
-                  onPress={() => { void Linking.openURL(commitment.externalUrl!); }}
+                  onPress={() => { void Linking.openURL(commitment.externalUrl!).catch(() => undefined); }}
                 >
                   <Text style={styles.openText}>
-                    {tr(language, 'Открыть подтверждение', 'Open confirmation', '打开确认信息')}
+                    {linkTitle}
                   </Text>
                 </PhysicalPressable>
               ) : null}
@@ -138,31 +170,33 @@ export default function BookingWalletCard({ trip, language }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { borderRadius: 22, borderWidth: 1, borderColor: '#393544', backgroundColor: '#14131a', padding: 14, marginBottom: 16 },
-  center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  root: { borderRadius: 23, borderWidth: 1, borderColor: '#536E61', backgroundColor: '#1B362D', padding: 17, marginBottom: 18 },
+  center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13 },
+  heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
   headingCopy: { flex: 1, minWidth: 0 },
-  kicker: { color: '#aa9bc6', fontSize: 8, letterSpacing: 1.1, fontWeight: '900' },
-  title: { color: '#f0ebf7', fontSize: 17, lineHeight: 22, fontWeight: '900', marginTop: 4 },
-  subtitle: { color: '#86818e', fontSize: 9, lineHeight: 13, marginTop: 3 },
-  count: { minWidth: 52, borderRadius: 14, backgroundColor: '#201d28', alignItems: 'center', padding: 8 },
-  countValue: { color: '#c7b4e5', fontSize: 18, fontWeight: '900' },
-  countLabel: { color: '#746e7b', fontSize: 7, marginTop: 1 },
-  list: { gap: 8, marginTop: 12 },
-  item: { borderRadius: 16, borderWidth: 1, borderColor: '#302d38', backgroundColor: '#19171f', padding: 11 },
-  itemTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  kicker: { color: '#EACD98', fontSize: 12, letterSpacing: 0.7, fontWeight: '800' },
+  title: { color: '#FFF7EA', fontSize: 21, lineHeight: 28, fontWeight: '700', marginTop: 5 },
+  subtitle: { color: '#D0DDCE', fontSize: 13, lineHeight: 20, marginTop: 7 },
+  count: { minWidth: 60, borderRadius: 14, backgroundColor: '#365449', alignItems: 'center', padding: 9 },
+  countValue: { color: '#FFF3D8', fontSize: 22, fontWeight: '800' },
+  countLabel: { color: '#D7E0D8', fontSize: 12, marginTop: 2 },
+  list: { gap: 12, marginTop: 16 },
+  item: { borderRadius: 17, borderWidth: 1, borderColor: '#E6DECD', backgroundColor: '#FFF9ED', padding: 15 },
+  itemTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   itemCopy: { flex: 1, minWidth: 0 },
-  itemDate: { color: '#8d829f', fontSize: 8, fontWeight: '800' },
-  itemTitle: { color: '#e7e1ed', fontSize: 12, fontWeight: '900', marginTop: 3 },
-  kindBadge: { borderRadius: 999, borderWidth: 1, borderColor: '#574967', paddingVertical: 4, paddingHorizontal: 7 },
-  kindText: { color: '#bda7d5', fontSize: 7, fontWeight: '900', letterSpacing: 0.7 },
-  meta: { color: '#97919e', fontSize: 8.5, lineHeight: 12, marginTop: 6 },
-  detailWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
-  detailPill: { borderRadius: 999, backgroundColor: '#24202c', paddingVertical: 4, paddingHorizontal: 7 },
-  detailText: { color: '#aaa1b5', fontSize: 8 },
-  address: { color: '#85808b', fontSize: 8.5, lineHeight: 12, marginTop: 7 },
-  truth: { color: '#a58cbd', fontSize: 8, lineHeight: 12, marginTop: 6 },
-  openButton: { minHeight: 36, borderRadius: 11, borderWidth: 1, borderColor: '#584b66', marginTop: 8 },
-  openText: { color: '#cbb3df', fontSize: 8.5, fontWeight: '900' },
-  privacy: { color: '#69646e', fontSize: 7.5, lineHeight: 11, marginTop: 10 }
+  itemDate: { color: '#425E50', fontSize: 13, fontWeight: '700' },
+  itemTitle: { color: '#1B332A', fontSize: 18, lineHeight: 24, fontWeight: '700', marginTop: 6 },
+  kindBadge: { borderRadius: 999, borderWidth: 1, borderColor: '#B5A479', backgroundColor: '#EDE4CB', paddingVertical: 6, paddingHorizontal: 9 },
+  kindText: { color: '#243B30', fontSize: 12, fontWeight: '800' },
+  meta: { color: '#4D6258', fontSize: 13, lineHeight: 19, marginTop: 8 },
+  detailWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
+  detailPill: { borderRadius: 999, backgroundColor: '#EDE8DB', paddingVertical: 7, paddingHorizontal: 10 },
+  detailText: { color: '#334B3F', fontSize: 12 },
+  address: { color: '#435A4D', fontSize: 13, lineHeight: 19, marginTop: 9 },
+  truth: { color: '#4A5E50', fontSize: 13, lineHeight: 19, marginTop: 10 },
+  inquiryButton: { minHeight: 52, borderRadius: 12, backgroundColor: '#2F5A4A', marginTop: 12 },
+  inquiryText: { color: '#FFF9E8', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  openButton: { minHeight: 52, borderRadius: 12, backgroundColor: '#204338', marginTop: 12 },
+  openText: { color: '#FFF7E8', fontSize: 14, fontWeight: '700' },
+  privacy: { color: '#D5DECF', fontSize: 12, lineHeight: 18, marginTop: 14 }
 });
