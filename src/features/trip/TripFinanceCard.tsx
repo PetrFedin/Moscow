@@ -23,6 +23,8 @@ type Props = {
   dayDate: string;
   language: AppLanguage;
   onUpdate: (trip: PersonalTrip) => Promise<void>;
+  /** Explicit conflict recovery, never automatically merges another tab's writes. */
+  onRefreshStoredTrip: () => Promise<void>;
 };
 
 function categoryName(language: AppLanguage, category: TripFinanceCategory): string {
@@ -53,12 +55,17 @@ function safeError(language: AppLanguage, error: unknown) {
     '保存失败，已保留输入以便重试。');
 }
 
-export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: Props) {
+export default function TripFinanceCard({ trip, dayDate, language, onUpdate, onRefreshStoredTrip }: Props) {
   const [scope, setScope] = useState<'day' | 'trip'>('trip');
   const [showEditor, setShowEditor] = useState(false);
   const [budgetEditor, setBudgetEditor] = useState(false);
   const [budgetText, setBudgetText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftIdentity, setDraftIdentity] = useState<{ id: string; createdAt: string; dayDate: string } | null>(null);
+  const [editingBaseline, setEditingBaseline] = useState<string | null>(null);
+  const [budgetBaseline, setBudgetBaseline] = useState<number | undefined>(undefined);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<TripFinanceCategory>('other');
   const [estimateText, setEstimateText] = useState('');
@@ -104,6 +111,16 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
   };
 
   const openNew = () => {
+    const at = new Date().toISOString();
+    // Stable across journal faults and retry: a second tap must NOT invent a new expense.
+    setDraftIdentity({
+      id: 'expense:' + at + ':' + Math.random().toString(36).slice(2, 11),
+      createdAt: at,
+      dayDate
+    });
+    setEditingBaseline(null);
+    setRefreshing(false);
+    setRefreshNotice('');
     setEditingId(null);
     setPendingDeleteId(null);
     setTitle('');
@@ -116,6 +133,9 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
   };
 
   const edit = (entry: TripFinanceEntry) => {
+    setDraftIdentity({ id: entry.id, createdAt: entry.createdAt, dayDate: entry.dayDate });
+    setEditingBaseline(entry.updatedAt);
+    setRefreshNotice('');
     setEditingId(entry.id);
     setPendingDeleteId(null);
     setTitle(entry.title);
@@ -129,10 +149,15 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
 
   const saveBudget = () => {
     void submit(
-      () => setTripFinanceBudget({
+      () => {
+        if (trip.finance?.budgetMinor !== budgetBaseline) {
+          throw new Error('Trip budget changed since editing; reload before replacing it');
+        }
+        return setTripFinanceBudget({
         trip, budgetMinor: parseTripMoneyInput(budgetText),
         updatedAt: new Date().toISOString()
-      }),
+        });
+      },
       () => setBudgetEditor(false)
     );
   };
@@ -143,26 +168,33 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
       return;
     }
     void submit(() => {
+      if (!draftIdentity) throw new Error('Missing stable expense draft identity');
       const at = new Date().toISOString();
-      const original = (trip.finance?.entries ?? []).find(entry => entry.id === editingId);
+      const original = (trip.finance?.entries ?? []).find(entry => entry.id === draftIdentity.id);
+      // A refreshed external revision must not be overwritten by a stale form.
+      if (editingId && (!original || original.updatedAt !== editingBaseline)) {
+        throw new Error('Expense changed in another revision; reopen before editing');
+      }
       const estimateMinor = parseTripMoneyInput(estimateText);
       const actualMinor = parseTripMoneyInput(actualText);
       const entry: TripFinanceEntry = {
-        id: original?.id ?? 'expense:' + at + ':' + Math.random().toString(36).slice(2, 11),
-        dayDate: original?.dayDate ?? dayDate,
+        id: draftIdentity.id,
+        dayDate: draftIdentity.dayDate,
         title: title.trim(),
         category,
         source: 'traveler-entered',
         ...(estimateMinor !== undefined ? { estimateMinor } : {}),
         ...(actualMinor !== undefined ? { actualMinor } : {}),
         ...(linkId ? { itemId: linkId } : {}),
-        createdAt: original?.createdAt ?? at,
+        createdAt: draftIdentity.createdAt,
         updatedAt: at
       };
       return upsertTripFinanceEntry({ trip, entry, updatedAt: at });
     }, () => {
       setShowEditor(false);
       setEditingId(null);
+      setDraftIdentity(null);
+      setEditingBaseline(null);
     });
   };
 
@@ -253,6 +285,7 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
             style={styles.outlineButton} contentStyle={styles.center}
             onPress={() => {
               setBudgetText(tripMoneyInputValue(trip.finance?.budgetMinor));
+              setBudgetBaseline(trip.finance?.budgetMinor);
               setBudgetEditor(value => !value);
               setError('');
             }}>
@@ -371,7 +404,39 @@ export default function TripFinanceCard({ trip, dayDate, language, onUpdate }: P
           </View>
         </View>
       )}
-      {error ? <Text testID="trip-finance-error" style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.refreshPanel}>
+          <Text testID="trip-finance-error" style={styles.error}>{error}</Text>
+          <Text style={styles.hint}>{tr(language,
+            'Если поездка изменена в другой вкладке, загрузите сохранённую версию. Текст открытого расхода останется в форме. Не объединяйте разные версии автоматически.',
+            'If another tab changed this trip, reload stored data. The open expense draft remains in the form; versions are never silently merged.',
+            '如果其他标签修改了行程，可刷新已保存数据。当前费用草稿会保留，版本不会自动合并。')}</Text>
+          <PhysicalPressable accessibilityRole="button"
+            accessibilityLabel={tr(language, 'Обновить сохранённую поездку для расходов', 'Reload saved trip for expenses', '重新加载已保存行程')}
+            style={styles.outlineButton} contentStyle={styles.center}
+            disabled={busy || refreshing}
+            onPress={() => {
+              setRefreshing(true);
+              void onRefreshStoredTrip()
+                .then(() => {
+                  setError('');
+                  setRefreshNotice(tr(language,
+                    'Сохранённая копия загружена. Проверьте суммы и повторите сохранение своего черновика.',
+                    'Saved copy loaded. Review figures before retrying your draft.',
+                    '已加载保存的版本，请确认金额后重试。'));
+                })
+                .catch(() => setError(tr(language,
+                  'Не удалось проверить сохранённую копию. Не очищайте данные приложения.',
+                  'Saved copy could not be verified. Do not clear app data.',
+                  '无法核实已保存版本，请勿清除数据。')))
+                .finally(() => setRefreshing(false));
+            }}>
+            <Text style={styles.outlineText}>{tr(language,
+              'Проверить сохранённую копию', 'Reload saved copy', '重新加载保存内容')}</Text>
+          </PhysicalPressable>
+        </View>
+      ) : null}
+      {refreshNotice ? <Text testID="trip-finance-refresh-notice" style={styles.hint}>{refreshNotice}</Text> : null}
 
       <View style={styles.ledger}>
         <Text style={styles.ledgerHeading}>{tr(language, 'Записи', 'Entries', '记录')} · {entries.length}</Text>
@@ -515,5 +580,6 @@ const styles = StyleSheet.create({
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
   breakdownLabel: { color: '#c5d0c4', fontSize: 12, flex: 1 },
   breakdownAmount: { color: '#e8d6b7', fontWeight: '700', fontSize: 12 },
-  error: { color: '#f2b1a5', fontSize: 12, lineHeight: 18 }
+  error: { color: '#f2b1a5', fontSize: 12, lineHeight: 18 },
+  refreshPanel: { borderWidth: 1, borderColor: '#745a4d', borderRadius: 12, padding: 11, gap: 9 }
 });
