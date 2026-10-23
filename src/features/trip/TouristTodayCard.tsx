@@ -65,6 +65,9 @@ function TodayFinanceSummary({ trip, dayDate, language }: {
 }) {
   if (!trip.days.includes(dayDate)) return null;
   const day = assessTripFinances(trip, dayDate);
+  const actualRows = (trip.finance?.entries ?? []).filter(
+    entry => entry.dayDate === dayDate && entry.actualMinor !== undefined
+  ).length;
   const total = assessTripFinances(trip);
   if (day.entriesCount === 0 && total.budgetMinor === undefined) return null;
   const money = (minor: number) => formatTripMoneyMinor(minor, language);
@@ -81,7 +84,7 @@ function TodayFinanceSummary({ trip, dayDate, language }: {
         <View style={styles.financeMetric}>
           <Text style={styles.financeLabel}>{tr(language, 'Записано вами', 'You recorded', '您已记录')}</Text>
           <Text testID="today-finance-recorded" style={styles.financeAmount}>
-            {day.entriesCount ? money(day.actualMinor) : '—'}
+            {actualRows ? money(day.actualMinor) : '—'}
           </Text>
         </View>
       </View>
