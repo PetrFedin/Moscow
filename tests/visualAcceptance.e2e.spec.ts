@@ -393,3 +393,76 @@ for (const viewport of [
       await expect(restored.getByTestId('trip-finance-remaining')).toContainText(/1\s*749,50/);
     });
 }
+
+
+for (const viewport of [
+  { name: 'phone-375', width: 375, height: 812 },
+  { name: 'tablet-768', width: 768, height: 1024 },
+  { name: 'desktop-1440', width: 1440, height: 900 }
+]) {
+  test('Today finance and cross-trip private expense history remain legible / ' + viewport.name,
+    async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.clock.install({ time: new Date('2026-10-13T08:00:00.000Z') });
+      await page.goto('/');
+      await page.evaluate(() => {
+        const day = '2026-10-13';
+        const time = '2026-10-13T07:00:00.000Z';
+        const base = (id: string, title: string) => ({
+          schemaVersion: 1, id, title, destinationId: 'moscow',
+          startDate: day, endDate: day, days: [day],
+          items: [], visits: [], createdAt: time, updatedAt: time
+        });
+        const active = {
+          ...base('today-costs', 'Моя Москва'),
+          finance: { currency: 'RUB', budgetMinor: 300_000, entries: [
+            { id: 'ticket-cost', title: 'Музей · личная запись', dayDate: day,
+              category: 'tickets', estimateMinor: 150_000, actualMinor: 125_050,
+              source: 'traveler-entered', createdAt: time, updatedAt: time },
+            { id: 'lunch-cost', title: 'Обед · план', dayDate: day,
+              category: 'food', estimateMinor: 100_000,
+              source: 'traveler-entered', createdAt: time, updatedAt: time }
+          ]}
+        };
+        const archived = {
+          ...base('yesterday-revisited', 'История предыдущей поездки'),
+          finance: { currency: 'RUB', entries: [
+            { id: 'history-cost', title: 'Кино · другая поездка', dayDate: day,
+              category: 'tickets', estimateMinor: 200_000, actualMinor: 180_000,
+              source: 'traveler-entered', createdAt: time, updatedAt: time }
+          ]}
+        };
+        window.localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(active));
+        window.localStorage.setItem('moscow:v1:personal-trip-archive',
+          JSON.stringify({ schemaVersion: 1, trips: [archived] }));
+        window.localStorage.removeItem('moscow:v1:personal-trip-transaction');
+      });
+      await page.reload();
+      await page.getByRole('tab', { name: 'Поездка' }).click();
+      const today = page.getByTestId('today-finance-summary');
+      await expect(today.getByTestId('today-finance-projected')).toContainText(/2\s*250,50/);
+      await expect(today.getByTestId('today-finance-recorded')).toContainText(/1\s*250,50/);
+      await today.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(viewport.name + '-today-finance-summary-viewport.png')
+      });
+      const history = page.getByTestId('moscow-financial-history');
+      await expect(history.getByTestId('finance-history-actual')).toContainText(/3\s*050,50/);
+      await expect(history.getByTestId('finance-history-projected')).toContainText(/4\s*050,50/);
+      await history.getByRole('button', { name: 'Показать дневник расходов по поездкам' }).click();
+      await expect(history.getByText('Музей · личная запись')).toBeVisible();
+      await expect(history.getByText('Кино · другая поездка')).toBeVisible();
+      await history.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(viewport.name + '-finance-history-viewport.png')
+      });
+      expect(await page.evaluate(() =>
+        document.documentElement.scrollWidth > window.innerWidth + 2
+      ), 'Today & multi-trip finance history never overflow the viewport').toBe(false);
+      const trip = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+      expect(trip.visits).toHaveLength(0);
+      expect(trip.items).toHaveLength(0);
+      expect(trip.finance.entries).toHaveLength(2);
+    });
+}
