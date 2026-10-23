@@ -2506,3 +2506,161 @@ test('traveler budget, local spending forecast and itinerary link survive a veri
   await restored.getByRole('button', { name: 'Расходы всей поездки' }).click();
   await expect(restored.getByTestId('trip-finance-projected')).toContainText(/4\s*500,50/);
 });
+
+
+
+test('finance journal quota fault keeps the same draft identity and a single record after retry and reload', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const finance = page.getByTestId('trip-finance-card');
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Расход, переживший ошибку журнала');
+  await finance.getByTestId('trip-finance-estimate-input').fill('1250,50');
+  await expect.poll(() => page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  const snapshot = await page.evaluate(() =>
+    window.localStorage.getItem('moscow:v1:personal-trip'));
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let fault = false;
+    Storage.prototype.setItem = function(key: string, value: string) {
+      if (!fault && key === 'moscow:v1:personal-trip-transaction') {
+        fault = true;
+        throw new DOMException('Finance journal quota fault', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-error')).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-title-input'))
+    .toHaveValue('Расход, переживший ошибку журнала');
+  await expect(finance.getByTestId('trip-finance-estimate-input')).toHaveValue('1250,50');
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip')))
+    .toBe(snapshot);
+  expect(await page.evaluate(() => window.localStorage.getItem('moscow:v1:personal-trip-transaction')))
+    .toBeNull();
+
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-error')).toHaveCount(0);
+  await expect(finance.getByText('Расход, переживший ошибку журнала', { exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.finance.entries).toHaveLength(1);
+  const stableId = saved.finance.entries[0].id;
+  await page.reload();
+  await ensureRussian(page);
+  const loaded = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(loaded.finance.entries).toHaveLength(1);
+  expect(loaded.finance.entries[0].id).toBe(stableId);
+  await expect(page.getByTestId('trip-finance-projected')).toContainText(/1\s*250,50/);
+});
+
+test('stale expense form can explicitly reload another tab changes without losing the draft', async ({ page }) => {
+  await page.goto('/');
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+  await page.getByPlaceholder('2026-10-02').fill(moscowDateOffset(1));
+  await page.getByText('2', { exact: true }).click();
+  await page.getByText('Создать поездку', { exact: true }).click();
+  const finance = page.getByTestId('trip-finance-card');
+  await finance.getByRole('button', { name: 'Добавить расход' }).click();
+  await finance.getByTestId('trip-finance-title-input').fill('Мой отдельный ужин');
+  await finance.getByTestId('trip-finance-estimate-input').fill('500');
+  await expect.poll(() => page.evaluate(() =>
+    localStorage.getItem('moscow:v1:personal-trip-transaction')
+  )).toBeNull();
+  await page.evaluate(() => {
+    const key = 'moscow:v1:personal-trip';
+    const original = JSON.parse(localStorage.getItem(key) || '{}');
+    const timestamp = new Date().toISOString();
+    original.finance = {
+      currency: 'RUB', budgetMinor: 400_000, entries: [{
+        id: 'remote-budget-expense', title: 'Соседняя вкладка',
+        dayDate: original.days[0], category: 'tickets',
+        estimateMinor: 100_000, actualMinor: 70_000,
+        source: 'traveler-entered',
+        createdAt: timestamp, updatedAt: timestamp
+      }]
+    };
+    original.updatedAt = timestamp;
+    localStorage.setItem(key, JSON.stringify(original));
+  });
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByTestId('trip-finance-error')).toBeVisible();
+  expect((await page.evaluate(() => JSON.parse(
+    localStorage.getItem('moscow:v1:personal-trip') || '{}'
+  ))).finance.entries).toHaveLength(1);
+  await finance.getByRole('button', { name: 'Обновить сохранённую поездку для расходов' }).click();
+  await expect(finance.getByTestId('trip-finance-refresh-notice')).toBeVisible();
+  await expect(finance.getByTestId('trip-finance-title-input')).toHaveValue('Мой отдельный ужин');
+  await expect(finance.getByTestId('trip-finance-budget')).toContainText(/4\s*000/);
+  await finance.getByRole('button', { name: 'Сохранить расход' }).click();
+  await expect(finance.getByText('Мой отдельный ужин', { exact: true })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'));
+  expect(saved.finance.entries).toHaveLength(2);
+  expect(saved.finance.entries.map((entry: { id: string }) => entry.id)).toContain('remote-budget-expense');
+  expect(saved.finance.entries.some((entry: { title: string }) => entry.title === 'Мой отдельный ужин')).toBe(true);
+  expect(saved.finance.budgetMinor).toBe(400_000);
+  expect(saved.visits).toHaveLength(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByTestId('trip-finance-projected')).toContainText(/1\s*200/);
+});
+
+test('Today and all-trip financial history use the same saved accounting truth without inventing attendance', async ({ page }) => {
+  const today = moscowNowParts().date;
+  await page.goto('/');
+  await page.evaluate(day => {
+    const original = {
+      schemaVersion: 1, id: 'finance-today-history', destinationId: 'moscow',
+      title: 'Финансовый дневник', startDate: day, endDate: day,
+      days: [day], items: [], visits: [],
+      finance: {
+        currency: 'RUB', budgetMinor: 300_000, entries: [
+          { id: 'museum-cost', dayDate: day, title: 'Музей · личная запись',
+            category: 'tickets', estimateMinor: 150_000, actualMinor: 125_050,
+            source: 'traveler-entered', createdAt: day + 'T07:00:00.000Z',
+            updatedAt: day + 'T07:00:00.000Z' },
+          { id: 'lunch-cost', dayDate: day, title: 'Обед · план',
+            category: 'food', estimateMinor: 100_000,
+            source: 'traveler-entered', createdAt: day + 'T07:00:00.000Z',
+            updatedAt: day + 'T07:00:00.000Z' }
+        ]
+      },
+      createdAt: day + 'T06:00:00.000Z',
+      updatedAt: day + 'T07:00:00.000Z'
+    };
+    localStorage.setItem('moscow:v1:personal-trip', JSON.stringify(original));
+    localStorage.setItem('moscow:v1:personal-trip-archive', JSON.stringify({schemaVersion:1,trips:[]}));
+    localStorage.removeItem('moscow:v1:personal-trip-transaction');
+  }, today);
+  await page.reload();
+  await ensureRussian(page);
+  await page.getByRole('tab', { name: 'Поездка' }).click();
+
+  const todayFinance = page.getByTestId('today-finance-summary');
+  await expect(todayFinance).toBeVisible();
+  await expect(todayFinance.getByTestId('today-finance-projected')).toContainText(/2\s*250,50/);
+  await expect(todayFinance.getByTestId('today-finance-recorded')).toContainText(/1\s*250,50/);
+  await expect(todayFinance.getByTestId('today-finance-trip-remaining')).toContainText(/749,50/);
+  const ledger = page.getByTestId('trip-finance-card');
+  await expect(ledger.getByTestId('trip-finance-projected')).toContainText(/2\s*250,50/);
+
+  const history = page.getByTestId('moscow-financial-history');
+  await expect(history.getByTestId('finance-history-actual')).toContainText(/1\s*250,50/);
+  await expect(history.getByTestId('finance-history-projected')).toContainText(/2\s*250,50/);
+  await history.getByRole('button', { name: 'Показать дневник расходов по поездкам' }).click();
+  await expect(history.getByText('Музей · личная запись', { exact: true })).toBeVisible();
+  await expect(history.getByText('Обед · план', { exact: true })).toBeVisible();
+  expect((await page.evaluate(() => JSON.parse(localStorage.getItem('moscow:v1:personal-trip') || '{}'))).visits).toHaveLength(0);
+  await page.reload();
+  await ensureRussian(page);
+  await expect(page.getByTestId('today-finance-projected')).toContainText(/2\s*250,50/);
+  await expect(page.getByTestId('finance-history-projected')).toContainText(/2\s*250,50/);
+});
