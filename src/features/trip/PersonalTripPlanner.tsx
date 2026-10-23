@@ -1063,6 +1063,39 @@ export default function PersonalTripPlanner({
   };
 
   /**
+   * A finance draft survives in the mounted child component while the traveler
+   * explicitly reloads the authoritative persisted trip after a stale-tab
+   * conflict. NEVER resolve such a conflict by overwriting the other tab's
+   * stored snapshot with a stale local trip.
+   */
+  const refreshStoredTripForFinance = async (): Promise<void> => {
+    if (!trip || !beginStorageOperation()) {
+      throw new Error('Financial recovery is unavailable while storage is blocked');
+    }
+    try {
+      // An earlier queued autosave can reject after a CAS conflict; that
+      // rejection must not stop an explicit validated read of stored data.
+      await activeWritesRef.current.catch(() => undefined);
+      const recovered = await readRecoveredTripStorage(AsyncStorage);
+      if (!recovered.activeTrip || recovered.activeTrip.id !== trip.id) {
+        throw new Error('Active journey changed; cannot silently import another journey');
+      }
+      persistedTripRef.current = recovered.activeTrip;
+      activeWritesRef.current = Promise.resolve();
+      setArchive(recovered.archive);
+      setTrip(recovered.activeTrip);
+      setSelectedDay(day => recovered.activeTrip!.days.includes(day)
+        ? day : recovered.activeTrip!.days[0] ?? recovered.activeTrip!.startDate);
+      setRecoveryNotice(recovered.recovered);
+      setHistoryError('');
+      setFormError('');
+      // Financial draft fields stay mounted; the user decides whether to retry.
+    } finally {
+      endStorageOperation();
+    }
+  };
+
+  /**
    * Critical visitor actions are shown as completed only after the active
    * trip and its archive journal have been durably written and read back.
    * Ordinary optimistic edits still use the queued autosave effect; tickets,
@@ -1375,6 +1408,7 @@ export default function PersonalTripPlanner({
         dayDate={selectedDay}
         language={language}
         onUpdate={(next) => persistVisitorAction(next, 'finance')}
+        onRefreshStoredTrip={refreshStoredTripForFinance}
       />
 
       {walkVisitCandidates.length > 0 ? (
